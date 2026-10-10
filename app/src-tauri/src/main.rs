@@ -1,0 +1,42 @@
+// Kura's desktop shell: one window for the UI, with the engine running beside it.
+// See docs/stack/tauri.md.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod engine;
+mod process;
+mod updater;
+
+use tauri::{Manager, RunEvent};
+
+fn main() {
+    let app = tauri::Builder::default()
+        // Opening Kura again focuses the window that's already open:
+        // two copies would share one database.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(engine::Engine::default())
+        .manage(updater::PendingUpdate::default())
+        .invoke_handler(tauri::generate_handler![
+            engine::engine_status,
+            engine::restart_engine,
+            updater::prepare_update,
+            updater::install_update,
+        ])
+        .setup(|app| {
+            engine::start(app.handle().clone());
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("Kura's window couldn't be created");
+
+    app.run(|app, event| {
+        if let RunEvent::Exit = event {
+            app.state::<engine::Engine>().stop();
+        }
+    });
+}

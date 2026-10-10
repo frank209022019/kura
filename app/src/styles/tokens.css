@@ -1,0 +1,218 @@
+/*
+ * Cinema: Kura's design tokens.
+ *
+ * Every value comes from the Kura Workflows canvas (see docs/design/). The look
+ * is the owner's choice, so never change a value unasked. Tailwind turns each
+ * token into utilities: --color-accent gives bg-accent, text-accent, border-accent
+ * and so on. docs/design.md says when to use which.
+ */
+
+@theme {
+  /* Only Cinema values exist: Tailwind's own palette and scales are switched off. */
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --breakpoint-*: initial;
+  --animate-*: initial;
+
+  /* Colour. Dark is the default; artwork brings the colour, the interface stays near-black. */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Surfaces */
+  --color-window: #0b0c0f; /* the window, behind everything */
+  --color-glass: rgb(255 255 255 / 0.04); /* panels */
+  --color-edge: rgb(255 255 255 / 0.08); /* panel borders and dividers */
+  --color-surface: #16181d; /* solid glass: placeholders, cut-out rings */
+  --color-raised: #13161c; /* alert and choice cards */
+  --color-dialog: #121419; /* dialogs */
+  --color-inset: #08090c; /* logs and code */
+
+  /* Text */
+  --color-fg: #f4f5f7; /* main text */
+  --color-fg-soft: #d7dae0; /* labels and inactive controls */
+  --color-fg-muted: #a3a8b3; /* secondary text */
+  --color-fg-faint: #7c818c; /* footnotes and steps not reached */
+
+  /* The one accent: warm amber */
+  --color-accent: #f2b33d;
+  --color-on-accent: #1d1300; /* text and icons on amber */
+  --color-accent-fg: #ffd27a; /* amber text on dark */
+  --color-accent-fg-hover: #ffe1a6;
+
+  /* Status. Shape and label carry the meaning; colour only reinforces it. */
+  --color-ready: #f2b33d; /* at your standard: solid amber */
+  --color-converting: #ffe1a6; /* converting now: pulsing */
+  --color-convert: #4f73b3; /* to convert: solid blue */
+  --color-convert-fg: #bdd0f4; /* blue text on a blue tint */
+  --color-broken: #ff6b6b; /* broken: hatched, see the status-broken utility */
+  --color-broken-hatch: #3a1a1c;
+  --color-broken-fg: #ffb4b4;
+  --color-missing: #8b919c; /* missing: a hollow ring */
+  --color-danger: #ff8a8a; /* destructive buttons */
+  --color-on-danger: #2a0b0b;
+
+  /* Featured: the big "continue" panel */
+  --color-featured: #13254f;
+  --color-featured-orb: #f08a24;
+  --color-featured-sun: #ffcf6b;
+
+  /* Lines, tracks and charts */
+  --color-track: #262a33; /* progress tracks */
+  --color-line: #2a2e38; /* step connectors and scrollbars */
+  --color-line-strong: #3a3f4b; /* rings of steps not reached yet */
+  --color-control: #5b6170; /* unchecked radio and checkbox rings */
+  --color-chart: #6b7385; /* chart bars that aren't the accent */
+
+  /* Toast: the one light surface in dark mode */
+  --color-toast: #f4f5f7;
+  --color-on-toast: #101217;
+
+  /* Type. Manrope for words; Geist Mono for paths, sizes and times. */
+  --font-sans: "Manrope Variable", Manrope, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+
+  /* Sizes are named by their pixel size: text-13 is 13px. */
+  --text-10: 10px;
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px; /* body */
+  --text-15: 15px;
+  --text-16: 16px;
+  --text-17: 17px;
+  --text-18: 18px;
+  --text-20: 20px;
+  --text-22: 22px;
+  --text-24: 24px;
+  --text-26: 26px;
+  --text-32: 32px;
+  --text-36: 36px;
+  --text-44: 44px;
+  --text-50: 50px;
+
+  /* Shape. Panels use 16 to 24, dialogs 28; buttons and chips are pills (rounded-full). */
+  --radius-2: 2px;
+  --radius-3: 3px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-14: 14px;
+  --radius-16: 16px;
+  --radius-18: 18px;
+  --radius-20: 20px;
+  --radius-22: 22px;
+  --radius-24: 24px;
+  --radius-26: 26px;
+  --radius-28: 28px;
+
+  /* Depth */
+  --shadow-dialog: 0 40px 80px -40px rgb(0 0 0 / 0.8);
+  --shadow-toast: 0 20px 40px -24px rgb(0 0 0 / 0.9);
+  --shadow-float: 0 24px 48px -24px rgb(0 0 0 / 0.7);
+
+  /* Layout: compact below 900px, standard from 900, wide from 1440. */
+  --breakpoint-standard: 900px;
+  --breakpoint-wide: 1440px;
+
+  /*
+   * Motion explains what changed. One curve everywhere: a quick start and a soft landing.
+   * Durations: hover and press 120ms, toggles and chips 200ms, panels and pages 320ms,
+   * charts on first view 600-900ms.
+   */
+  --ease-cinema: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --animate-fade-up: fade-up 0.5s var(--ease-cinema) both;
+  --animate-pop: pop 0.45s var(--ease-cinema) both;
+  --animate-grow-x: grow-x 1s var(--ease-cinema) both;
+  --animate-grow-y: grow-y 0.9s var(--ease-cinema) both;
+  --animate-ring: ring 1.3s var(--ease-cinema) both;
+  --animate-pulse: pulse 1.6s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.8s linear infinite;
+  --animate-float: float 4s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes grow-y {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+  @keyframes ring {
+    from {
+      stroke-dashoffset: 100;
+    }
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+}
+
+/*
+ * Light mode: the base colours from the canvas (window, card #ffffff, text,
+ * secondary text, accent text, to convert). The rest of light mode gets designed
+ * when light mode is built; until then Kura always runs dark.
+ */
+:root[data-theme="light"] {
+  --color-window: #f2f3f6;
+  --color-fg: #101217;
+  --color-fg-muted: #545a66;
+  --color-accent-fg: #8a5a00;
+  --color-convert: #6f8fd0;
+}

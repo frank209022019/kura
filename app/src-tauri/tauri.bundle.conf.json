@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "build": {
+    "beforeBuildCommand": "pnpm build:engine && pnpm build"
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true,
+    "resources": {
+      "../../engine/dist/kura-engine/": "engine/"
+    }
+  }
+}
