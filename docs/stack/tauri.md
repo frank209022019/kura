@@ -70,7 +70,8 @@ the person, so write it as a sentence.
 In development the shell runs `uv run --project engine kura serve --watch-stdin` and points
 `KURA_DATA_DIR` at `engine/.dev-data`. Installed, it runs `engine\kura-engine.exe` from the
 resource folder. Either way it hides the console window, reads the ready line, keeps the last 40
-error lines for the failure screen, and closes the engine's stdin on exit. See
+error lines for the failure screen, notices if the engine stops on its own, and closes its
+stdin on exit. See
 [../architecture.md](../architecture.md#start-run-stop).
 
 ## Installer

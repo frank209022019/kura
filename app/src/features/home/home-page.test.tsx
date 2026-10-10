@@ -52,15 +52,24 @@ describe("HomePage", () => {
     expect(screen.getByText("Ready · schema version 1")).toBeInTheDocument();
   });
 
-  it("says when the engine didn't start, and offers to try again", async () => {
-    renderHome({ state: "failed", message: "It stopped at once.", details: "Traceback…" });
+  it("says when the engine isn't running, and offers to try again", async () => {
+    renderHome({ state: "failed", message: "It stopped unexpectedly.", details: "Traceback…" });
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Kura's engine didn't start. It stopped at once.");
+    expect(alert).toHaveTextContent("Kura's engine isn't running. It stopped unexpectedly.");
     expect(alert).toHaveTextContent("Nothing in your folders was touched.");
+    expect(screen.getByText("Not running")).toBeInTheDocument();
 
     screen.getByRole("button", { name: "Try again" }).click();
 
     expect(shell.invoke).toHaveBeenCalledWith("restart_engine");
+  });
+
+  it("offers the engine's error lines only when there are some", async () => {
+    renderHome({ state: "failed", message: "It stopped unexpectedly.", details: "" });
+
+    await screen.findByRole("alert");
+
+    expect(screen.queryByRole("button", { name: "Copy details" })).not.toBeInTheDocument();
   });
 });

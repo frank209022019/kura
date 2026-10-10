@@ -36,7 +36,7 @@ export function HomePage() {
   );
 }
 
-/** The engine couldn't start: say so, say what Kura did, offer the next step. */
+/** The engine isn't running: say so, say what Kura did, offer the next step. */
 function EngineFailed({ message, details }: { message: string; details: string }) {
   const [retrying, setRetrying] = useState(false);
 
@@ -46,7 +46,7 @@ function EngineFailed({ message, details }: { message: string; details: string }
       className="flex animate-fade-up flex-col gap-3 rounded-18 border border-broken/26 bg-broken/7 px-4.5 py-4"
     >
       <p>
-        <strong>Kura's engine didn't start.</strong> {message} Nothing in your folders was touched.
+        <strong>Kura's engine isn't running.</strong> {message} Nothing in your folders was touched.
       </p>
       {details && (
         <pre className="max-h-40 overflow-auto rounded-12 bg-inset px-3 py-2.5 font-mono text-11 text-fg-muted leading-[1.7]">
@@ -65,9 +65,11 @@ function EngineFailed({ message, details }: { message: string; details: string }
         >
           Try again
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(details)}>
-          Copy details
-        </Button>
+        {details && (
+          <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(details)}>
+            Copy details
+          </Button>
+        )}
       </div>
     </section>
   );
@@ -82,7 +84,7 @@ function ThisCopy() {
   const engineText = {
     starting: "Starting…",
     ready: health.data ? `Running · version ${health.data.version}` : "Running",
-    failed: "Didn't start",
+    failed: "Not running",
   }[engine.state];
 
   let updateText = "Checked in installed copies of Kura";

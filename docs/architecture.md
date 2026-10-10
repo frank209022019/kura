@@ -41,9 +41,10 @@ engine, where it is easy to test.
 5. On exit the shell closes the engine's stdin and the engine shuts down. If Kura crashes, Windows
    closes the pipe anyway, so the engine never outlives the window.
 
-If no ready line arrives within a minute, or the engine exits first, the status becomes `failed`
-with the engine's last error lines, and the UI says so with "Try again" and "Copy details".
-Both sides of this handshake are tested: `engine/tests/test_cli.py` and `app/src-tauri/src/engine.rs`.
+If no ready line arrives within a minute, the engine exits first, or it stops on its own later,
+the status becomes `failed` with the engine's last error lines, and the UI says so with "Try again"
+and "Copy details". Both sides of this handshake are tested: `engine/tests/test_cli.py` and
+`app/src-tauri/src/engine.rs`.
 
 ## Contracts
 

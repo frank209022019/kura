@@ -98,7 +98,7 @@ folder. Set the user variable `RC` to rc.exe, then open a new terminal:
 [Environment]::SetEnvironmentVariable('RC', 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\rc.exe', 'User')
 ```
 
-**The window says "Kura's engine didn't start".** "Copy details" has the engine's last error lines.
+**The window says "Kura's engine isn't running".** "Copy details" (when shown) has the engine's last error lines.
 In development, run `uv sync` in `engine/`; the engine's own log is `engine/.dev-data/logs/engine.log`.
 
 **Port 1420 is busy.** A previous `pnpm tauri dev` left Vite running; close it or end the `node`
