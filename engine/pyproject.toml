@@ -1,0 +1,67 @@
+[project]
+name = "kura"
+version = "0.1.0"
+description = "Kura's engine: scans, identifies, plans and converts one anime library."
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.143.0",
+    "typer>=0.27.3",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+kura = "kura.cli:app"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pyinstaller>=6.22.3",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.13.0"
+python-preference = "only-managed"  # the same uv-managed Python on every machine
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import order
+    "N",       # naming
+    "UP",      # modern syntax
+    "B",       # likely bugs
+    "A",       # shadowed builtins
+    "C4",      # comprehensions
+    "SIM",     # simpler code
+    "PTH",     # pathlib over os.path
+    "RET",     # returns
+    "S",       # security
+    "PT",      # pytest style
+    "RUF",     # ruff's own rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S603"]  # asserts, test tokens, starting the engine
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest]
+testpaths = ["tests"]
+strict = true
+addopts = ["-ra"]
