@@ -14,7 +14,7 @@ Start with [../AGENTS.md](../AGENTS.md) and [../CLAUDE.md](../CLAUDE.md).
 | Shared API pieces | `src/kura/api/common.py` (`ApiModel`, `Paths`, `Database`) |
 | The schema | `src/kura/migrations.py`, append-only |
 | Commands | `src/kura/cli.py` |
-| Tests | `tests/test_<module>.py`, sharing the fixtures in `tests/conftest.py` |
+| Tests | `tests/test_<module>.py`, and `tests/core/test_<module>.py` for the core; fixtures in `tests/conftest.py` |
 
 ## Building a feature
 
