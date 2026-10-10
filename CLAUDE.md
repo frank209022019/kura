@@ -7,8 +7,8 @@ own tool: one user, one PC, never commercial, no sign-in. The code is shared und
 licence: anyone may fork it, but the repo takes no contributions.
 
 **Where it stands (2026-10-10):** design language chosen, repo, CI, installer and updater pipeline
-set up, and the engine's pure core (names, Plex naming, standards, estimates, gap reports, tidy
-plans) built test first. No library features in the app yet: the engine serves `/health` and
+set up, the engine's pure core (names, Plex naming, standards, estimates, gap reports, tidy
+plans) and the tidy-up journal (apply, undo, crash recovery) built test first. No library features in the app yet: the engine serves `/health` and
 exports, the app shows its shell. The repo is about to go public; it stays private until the owner
 decides how to clean old commits (they hold a personal email address). Next is the first build
 step in [What's next](#whats-next).
@@ -151,7 +151,7 @@ Everything decided so far. Don't ask again; change only with the owner.
 - Next to the files: `Kura - Gap analysis.md` and `Kura - History.md` per anime (Plex ignores .md),
   a tag inside every converted MKV, and optional Plex poster and fanart.
 - Export: one zip (SQLite, JSON, CSV, the .md reports, settings). Today it holds the database,
-  settings and a manifest; it grows with the schema.
+  settings, every file change (`changes.csv`) and a manifest; it grows with the schema.
 - Uninstall: offer the export first, keep the data folder unless the owner ticks "Delete the
   application data", never touch anime files.
 

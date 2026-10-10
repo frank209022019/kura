@@ -1,8 +1,14 @@
+from contextlib import closing
+from datetime import UTC, datetime
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
-from kura import __version__
+from kura import __version__, db
 from kura.api import create_app
+from kura.changes import ChangeState, changes_of, save_plan
 from kura.config import DataPaths
+from kura.core.plan import Change, ChangeKind, Plan
 from kura.migrations import MIGRATIONS
 from tests.conftest import TOKEN
 
@@ -17,6 +23,23 @@ def test_health_reports_version_data_folder_and_schema(client: TestClient, paths
         "dataDir": str(paths.root),
         "schemaVersion": len(MIGRATIONS),
     }
+
+
+def test_starting_settles_file_moves_a_crash_interrupted(paths: DataPaths, tmp_path: Path):
+    source = tmp_path / "a.mkv"
+    source.write_text("video", encoding="utf-8")
+    change = Change(ChangeKind.MOVE, source, tmp_path / "Anime" / "a.mkv", "A", "Named for Plex")
+    with closing(db.connect(paths.database)) as conn:
+        db.migrate(conn)
+        plan_id = save_plan(conn, Plan((change,)), "Tidy up", now=datetime.now(UTC))
+        with conn:  # the engine stopped mid-move, before the file had moved
+            conn.execute("UPDATE changes SET state = 'moving'")
+
+    with TestClient(create_app(TOKEN, paths), base_url="http://127.0.0.1"):
+        pass
+
+    with closing(db.connect(paths.database)) as conn:
+        assert [c.state for c in changes_of(conn, plan_id)] == [ChangeState.PLANNED]
 
 
 def test_requests_without_the_token_are_refused(client: TestClient):

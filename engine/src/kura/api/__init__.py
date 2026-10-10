@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from kura import __version__, db
+from kura import __version__, changes, db
 from kura.api import health
 from kura.config import DataPaths
 
@@ -45,6 +45,7 @@ def create_app(token: str, paths: DataPaths) -> FastAPI:
     async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
+            changes.recover(conn)  # settle file moves that a crash interrupted
         yield
 
     app = FastAPI(

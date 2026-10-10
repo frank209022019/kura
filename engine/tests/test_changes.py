@@ -1,0 +1,379 @@
+"""Applying, undoing and recovering tidy-up plans, on real files in a temporary folder."""
+
+import json
+import shutil
+import sqlite3
+from collections.abc import Iterator
+from contextlib import closing
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+from kura import changes, db
+from kura.changes import (
+    PARTIAL,
+    ChangeState,
+    Outcome,
+    apply_plan,
+    changes_of,
+    recover,
+    save_plan,
+    undo_plan,
+)
+from kura.core.plan import Change, ChangeKind, Plan
+
+NOW = datetime(2026, 10, 10, 20, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
+    with closing(db.connect(tmp_path / "Kura" / "kura.db")) as connection:
+        db.migrate(connection)
+        yield connection
+
+
+@pytest.fixture
+def downloads(tmp_path: Path) -> Path:
+    (tmp_path / "Downloads").mkdir()
+    return tmp_path / "Downloads"
+
+
+@pytest.fixture
+def library(tmp_path: Path) -> Path:
+    (tmp_path / "Anime").mkdir()
+    return tmp_path / "Anime"
+
+
+def video(path: Path, content: str = "video") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def move(source: Path, target: Path) -> Change:
+    return Change(ChangeKind.MOVE, source, target, "Death Note · S01E07", "Named for Plex")
+
+
+def saved(conn: sqlite3.Connection, *planned: Change) -> int:
+    return save_plan(conn, Plan(planned), "Tidy up", now=NOW)
+
+
+def states(conn: sqlite3.Connection, plan_id: int) -> list[ChangeState]:
+    return [change.state for change in changes_of(conn, plan_id)]
+
+
+def on_other_drives(file: Path, folder: Path) -> bool:
+    return False
+
+
+def crash_while(conn: sqlite3.Connection, state: ChangeState, created_dirs: list[Path]) -> None:
+    """Leave every change the way a crash would: mid-way, with the folders it had made."""
+    folders = json.dumps([str(folder) for folder in created_dirs])
+    with conn:
+        conn.execute("UPDATE changes SET state = ?, created_dirs = ?", (state.value, folders))
+
+
+def test_a_saved_plan_waits_for_review(conn: sqlite3.Connection, downloads: Path, library: Path):
+    source = video(downloads / "[DB] Death_Note_07 (720p).mkv")
+    target = library / "Death Note (2006)" / "Season 01" / "Death Note (2006) - S01E07.mkv"
+
+    plan_id = saved(conn, move(source, target))
+
+    [change] = changes_of(conn, plan_id)
+    assert (change.position, change.kind, change.state) == (1, ChangeKind.MOVE, ChangeState.PLANNED)
+    assert (change.source, change.target, change.created_dirs) == (source, target, ())
+    assert source.exists()
+    assert not (library / "Death Note (2006)").exists()
+
+
+def test_applying_moves_each_file_and_makes_its_folders(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "[DB] Death_Note_07 (720p).mkv")
+    show = library / "Death Note (2006)"
+    target = show / "Season 01" / "Death Note (2006) - S01E07.mkv"
+    plan_id = saved(conn, move(source, target))
+
+    outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert outcome == Outcome(1, ())
+    assert target.read_text(encoding="utf-8") == "video"
+    assert not source.exists()
+    [change] = changes_of(conn, plan_id)
+    assert change.state is ChangeState.DONE
+    assert change.created_dirs == (show, show / "Season 01")
+    applied = conn.execute("SELECT applied_at FROM plans WHERE id = ?", (plan_id,)).fetchone()
+    assert applied["applied_at"] == "2026-10-10T20:00:00+00:00"
+
+
+def test_a_taken_name_is_never_overwritten_and_the_rest_go_ahead(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    first = video(downloads / "a.mkv", "first")
+    taken = video(library / "Show" / "a.mkv", "already there")
+    second = video(downloads / "b.mkv", "second")
+    plan_id = saved(conn, move(first, taken), move(second, library / "Show" / "b.mkv"))
+
+    outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert outcome.count == 1
+    [failed] = outcome.problems
+    assert failed.state is ChangeState.FAILED
+    assert failed.problem == (
+        f"a.mkv is already in {library / 'Show'}, and Kura never overwrites a file."
+    )
+    assert first.read_text(encoding="utf-8") == "first"
+    assert taken.read_text(encoding="utf-8") == "already there"
+    assert (library / "Show" / "b.mkv").read_text(encoding="utf-8") == "second"
+
+
+def test_a_file_that_has_gone_is_reported(conn: sqlite3.Connection, downloads: Path, library: Path):
+    gone = downloads / "gone.mkv"
+    plan_id = saved(conn, move(gone, library / "Show" / "gone.mkv"))
+
+    outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert [change.problem for change in outcome.problems] == [f"It isn't at {gone} any more."]
+    assert not (library / "Show").exists()
+
+
+def test_a_change_of_case_alone_renames_the_file(conn: sqlite3.Connection, library: Path):
+    source = video(library / "Show" / "show - s01e01.mkv")
+    target = library / "Show" / "Show - S01E01.mkv"
+    plan_id = saved(conn, move(source, target))
+
+    apply_plan(conn, plan_id, now=NOW)
+
+    assert [path.name for path in (library / "Show").iterdir()] == ["Show - S01E01.mkv"]
+    assert states(conn, plan_id) == [ChangeState.DONE]
+
+
+def test_applying_again_changes_nothing_more(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv")
+    plan_id = saved(conn, move(source, library / "a.mkv"))
+    apply_plan(conn, plan_id, now=NOW)
+
+    assert apply_plan(conn, plan_id, now=NOW) == Outcome(0, ())
+
+
+def test_a_duplicate_goes_to_quarantine_and_comes_back(
+    conn: sqlite3.Connection, downloads: Path, tmp_path: Path
+):
+    duplicate = video(downloads / "Death Note 07.avi")
+    place = tmp_path / "Kura quarantine" / "2026-10-10" / "Death Note 07.avi"
+    reason = "Kept [DB] Death_Note_07 (720p).mkv instead: higher resolution"
+    quarantine = Change(ChangeKind.QUARANTINE, duplicate, place, "Death Note · duplicate", reason)
+    plan_id = saved(conn, quarantine)
+
+    apply_plan(conn, plan_id, now=NOW)
+    assert place.exists()
+    assert not duplicate.exists()
+
+    undo_plan(conn, plan_id, now=NOW)
+    assert duplicate.exists()
+    assert not (tmp_path / "Kura quarantine").exists()
+
+
+def test_undo_puts_everything_back_and_removes_only_the_folders_kura_made(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    already = video(library / "Other show" / "x.mkv")
+    first, second = video(downloads / "07.mkv"), video(downloads / "08.mkv")
+    season = library / "Death Note (2006)" / "Season 01"
+    plan_id = saved(conn, move(first, season / "07.mkv"), move(second, season / "08.mkv"))
+    apply_plan(conn, plan_id, now=NOW)
+
+    outcome = undo_plan(conn, plan_id, now=NOW)
+
+    assert outcome == Outcome(2, ())
+    assert first.exists()
+    assert second.exists()
+    assert not (library / "Death Note (2006)").exists()
+    assert already.exists()
+    assert states(conn, plan_id) == [ChangeState.UNDONE, ChangeState.UNDONE]
+    undone = conn.execute("SELECT undone_at FROM plans WHERE id = ?", (plan_id,)).fetchone()
+    assert undone["undone_at"] == "2026-10-10T20:00:00+00:00"
+
+
+def test_undo_leaves_a_file_where_it_is_when_its_old_name_is_taken(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv", "the first")
+    target = library / "Show" / "a.mkv"
+    plan_id = saved(conn, move(source, target))
+    apply_plan(conn, plan_id, now=NOW)
+    video(source, "a new file with the old name")
+
+    outcome = undo_plan(conn, plan_id, now=NOW)
+
+    [kept] = outcome.problems
+    assert kept.state is ChangeState.DONE
+    assert kept.problem == (
+        f"Kura couldn't put it back. a.mkv is already in {downloads}, and Kura never overwrites"
+        " a file."
+    )
+    assert target.read_text(encoding="utf-8") == "the first"
+    assert source.read_text(encoding="utf-8") == "a new file with the old name"
+
+
+def test_undo_says_so_when_a_file_was_moved_away(
+    conn: sqlite3.Connection, downloads: Path, library: Path, tmp_path: Path
+):
+    target = library / "a.mkv"
+    plan_id = saved(conn, move(video(downloads / "a.mkv"), target))
+    apply_plan(conn, plan_id, now=NOW)
+    target.rename(tmp_path / "elsewhere.mkv")
+
+    outcome = undo_plan(conn, plan_id, now=NOW)
+
+    assert [change.problem for change in outcome.problems] == [
+        f"Kura couldn't put it back. It isn't at {target} any more."
+    ]
+
+
+def test_a_move_to_another_drive_copies_then_removes_the_original(
+    conn: sqlite3.Connection, downloads: Path, library: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(changes, "_same_drive", on_other_drives)
+    source = video(downloads / "a.mkv")
+    target = library / "Show" / "a.mkv"
+    plan_id = saved(conn, move(source, target))
+
+    assert apply_plan(conn, plan_id, now=NOW) == Outcome(1, ())
+
+    assert target.read_text(encoding="utf-8") == "video"
+    assert not source.exists()
+    assert sorted(path.name for path in target.parent.iterdir()) == ["a.mkv"]
+
+
+def test_a_copy_that_fails_leaves_the_original_and_no_trace(
+    conn: sqlite3.Connection, downloads: Path, library: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def disk_full(source: Path, destination: Path) -> None:
+        destination.write_text("half a file", encoding="utf-8")
+        raise OSError(28, "There is not enough space on the disk")
+
+    monkeypatch.setattr(changes, "_same_drive", on_other_drives)
+    monkeypatch.setattr(changes.shutil, "copy2", disk_full)
+    source = video(downloads / "a.mkv")
+    plan_id = saved(conn, move(source, library / "Show" / "a.mkv"))
+
+    outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert [change.problem for change in outcome.problems] == [
+        "There is not enough space on the disk."
+    ]
+    assert source.read_text(encoding="utf-8") == "video"
+    assert not (library / "Show").exists()
+
+
+def test_recover_finds_a_move_that_happened(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv")
+    target = library / "a.mkv"
+    plan_id = saved(conn, move(source, target))
+    source.rename(target)
+    crash_while(conn, ChangeState.MOVING, [])
+
+    assert recover(conn) == 1
+
+    assert states(conn, plan_id) == [ChangeState.DONE]
+
+
+def test_recover_plans_again_a_move_that_had_not_started(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv")
+    season = library / "Show" / "Season 01"
+    plan_id = saved(conn, move(source, season / "a.mkv"))
+    season.mkdir(parents=True)
+    crash_while(conn, ChangeState.MOVING, [library / "Show", season])
+
+    recover(conn)
+
+    [change] = changes_of(conn, plan_id)
+    assert (change.state, change.created_dirs) == (ChangeState.PLANNED, ())
+    assert not (library / "Show").exists()
+    assert apply_plan(conn, plan_id, now=NOW) == Outcome(1, ())  # and applying carries on
+
+
+def test_recover_removes_an_unfinished_copy(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv")
+    target = library / "a.mkv"
+    plan_id = saved(conn, move(source, target))
+    partial = video(library / f"a.mkv{PARTIAL}", "half a file")
+    crash_while(conn, ChangeState.MOVING, [])
+
+    recover(conn)
+
+    assert not partial.exists()
+    assert source.exists()
+    assert states(conn, plan_id) == [ChangeState.PLANNED]
+
+
+def test_recover_finishes_a_copy_that_was_already_in_place(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv")
+    target = library / "a.mkv"
+    plan_id = saved(conn, move(source, target))
+    shutil.copy2(source, target)  # the copy was in place; the original wasn't removed yet
+    crash_while(conn, ChangeState.MOVING, [])
+
+    recover(conn)
+
+    assert not source.exists()
+    assert target.exists()
+    assert states(conn, plan_id) == [ChangeState.DONE]
+
+
+def test_recover_keeps_both_files_when_they_differ(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv", "the original")
+    target = video(library / "a.mkv", "a different file that appeared meanwhile")
+    plan_id = saved(conn, move(source, target))
+    crash_while(conn, ChangeState.MOVING, [])
+
+    recover(conn)
+
+    [change] = changes_of(conn, plan_id)
+    assert change.state is ChangeState.FAILED
+    assert change.problem == (
+        f"Kura stopped while moving it, and both places hold a file: {source} and {target}."
+    )
+    assert source.exists()
+    assert target.exists()
+
+
+@pytest.mark.parametrize(("moved_back", "state"), [(True, "undone"), (False, "done")])
+def test_recover_settles_an_interrupted_undo(
+    conn: sqlite3.Connection, downloads: Path, library: Path, moved_back: bool, state: str
+):
+    source = video(downloads / "a.mkv")
+    target = library / "Show" / "a.mkv"
+    plan_id = saved(conn, move(source, target))
+    apply_plan(conn, plan_id, now=NOW)
+    if moved_back:
+        target.rename(source)
+    crash_while(conn, ChangeState.UNDOING, [library / "Show"])
+
+    recover(conn)
+
+    assert states(conn, plan_id) == [ChangeState(state)]
+    assert (library / "Show").exists() is not moved_back
+
+
+def test_there_is_nothing_to_recover_after_a_clean_stop(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    plan_id = saved(conn, move(video(downloads / "a.mkv"), library / "a.mkv"))
+    apply_plan(conn, plan_id, now=NOW)
+
+    assert recover(conn) == 0

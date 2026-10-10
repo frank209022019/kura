@@ -84,7 +84,11 @@ The pipeline the core will grow into, step by step:
 | Check | the library, finished conversions | gaps, broken files, verified outputs |
 | Estimate | a plan, measured speeds | GPU time and disk space |
 
-A plan is applied only after review, with an undo journal.
+A plan is applied only after review, by `kura/changes.py`: each change is written to the
+database before and after its file moves, so it can be undone (newest first) and so the engine,
+when it starts, can settle any move a crash interrupted. Nothing is overwritten: a taken name
+fails that change, and the rest go ahead. A move to another drive copies, checks the copy, and
+only then removes the original.
 
 ## Data
 

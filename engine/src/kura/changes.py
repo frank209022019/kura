@@ -1,0 +1,315 @@
+"""Carrying out tidy-up plans on disk, journaled so every change can be undone.
+
+A plan from kura.core.plan is saved first (`save_plan`) and shown for review; nothing moves until
+it is applied (`apply_plan`). Each change is written to the database before and after its file
+moves, so after a crash `recover` can tell where every file is. `undo_plan` puts files back,
+newest first.
+
+Nothing here overwrites a file or deletes one outright. A move onto a name that is taken fails and
+says so. A move to another drive copies the file beside its new place, checks the copy, renames it
+into place, and only then removes the original.
+"""
+
+import json
+import logging
+import shutil
+import sqlite3
+from collections.abc import Iterable
+from contextlib import suppress
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
+from itertools import takewhile
+from pathlib import Path
+
+from kura.core.plan import ChangeKind, Plan
+
+PARTIAL = ".kura-partial"  # added to a copy's name until the copy is complete
+
+_log = logging.getLogger(__name__)
+
+
+class ChangeState(StrEnum):
+    PLANNED = "planned"
+    MOVING = "moving"  # the file may be on its way; after a crash, `recover` settles it
+    DONE = "done"
+    FAILED = "failed"  # it couldn't be made, `problem` says why, and the file is where it was
+    UNDOING = "undoing"
+    UNDONE = "undone"
+
+
+@dataclass(frozen=True)
+class SavedChange:
+    id: int
+    plan_id: int
+    position: int
+    kind: ChangeKind
+    source: Path
+    target: Path
+    label: str
+    reason: str
+    state: ChangeState
+    problem: str | None  # why it failed, or why it couldn't be undone
+    created_dirs: tuple[Path, ...]  # folders this change created, outermost first
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """What applying or undoing a plan did."""
+
+    count: int  # changes made, or put back
+    problems: tuple[SavedChange, ...]  # changes that couldn't be, each with its problem
+
+
+def save_plan(conn: sqlite3.Connection, plan: Plan, title: str, *, now: datetime) -> int:
+    """Store a plan for review and return its id. Nothing on disk changes."""
+    with conn:
+        row = conn.execute(
+            "INSERT INTO plans (title, created_at) VALUES (?, ?) RETURNING id",
+            (title, _stamp(now)),
+        ).fetchone()
+        plan_id: int = row["id"]
+        conn.executemany(
+            "INSERT INTO changes (plan_id, position, kind, source, target, label, reason)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (plan_id, position, c.kind.value, str(c.source), str(c.target), c.label, c.reason)
+                for position, c in enumerate(plan.changes, start=1)
+            ],
+        )
+    return plan_id
+
+
+def changes_of(conn: sqlite3.Connection, plan_id: int) -> list[SavedChange]:
+    rows = conn.execute("SELECT * FROM changes WHERE plan_id = ? ORDER BY position", (plan_id,))
+    return [_saved(row) for row in rows]
+
+
+def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outcome:
+    """Make every planned change, in order.
+
+    A change that can't be made is marked failed with the reason, and the rest go ahead. After a
+    crash, `recover` and then this again carry on where it stopped.
+    """
+    made = 0
+    for change in changes_of(conn, plan_id):
+        if change.state is not ChangeState.PLANNED:
+            continue
+        _record(conn, change, ChangeState.MOVING)
+        problem = _why_not(change.source, change.target)
+        created: list[Path] = []
+        if problem is None:
+            try:
+                created = _make_folders(change.target.parent)
+                _record(conn, change, ChangeState.MOVING, created_dirs=created)
+                problem = _move(change.source, change.target)
+            except OSError as error:
+                _remove_empty(created)
+                created = []
+                problem = _could_not(error)
+            else:
+                made += 1
+                _record(conn, change, ChangeState.DONE, problem=problem, created_dirs=created)
+                continue
+        _log.warning("Couldn't move %s to %s: %s", change.source, change.target, problem)
+        _record(conn, change, ChangeState.FAILED, problem=problem, created_dirs=created)
+    with conn:
+        conn.execute("UPDATE plans SET applied_at = ? WHERE id = ?", (_stamp(now), plan_id))
+    failed = tuple(c for c in changes_of(conn, plan_id) if c.state is ChangeState.FAILED)
+    return Outcome(made, failed)
+
+
+def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outcome:
+    """Put back every change that was made, newest first.
+
+    A file that can't go back (it has gone, or its old name is taken now) stays where it is, and
+    its change says why.
+    """
+    undone = 0
+    for change in reversed(changes_of(conn, plan_id)):
+        if change.state is not ChangeState.DONE:
+            continue
+        _record(conn, change, ChangeState.UNDOING)
+        problem = _why_not(change.target, change.source)
+        if problem is None:
+            try:
+                change.source.parent.mkdir(parents=True, exist_ok=True)
+                problem = _move(change.target, change.source)
+            except OSError as error:
+                problem = _could_not(error)
+            else:
+                undone += 1
+                _remove_empty(change.created_dirs)
+                _record(conn, change, ChangeState.UNDONE, problem=problem)
+                continue
+        _log.warning("Couldn't put %s back to %s: %s", change.target, change.source, problem)
+        _record(conn, change, ChangeState.DONE, problem=f"Kura couldn't put it back. {problem}")
+    with conn:
+        conn.execute("UPDATE plans SET undone_at = ? WHERE id = ?", (_stamp(now), plan_id))
+    kept = tuple(c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE)
+    return Outcome(undone, kept)
+
+
+def recover(conn: sqlite3.Connection) -> int:
+    """Settle the changes a crash interrupted, and return how many there were.
+
+    Run it at start, before anything else uses the plans. A move that happened is done, one that
+    didn't is planned again (or done again, for an undo), and anything else is marked with what
+    Kura found.
+    """
+    rows = conn.execute("SELECT * FROM changes WHERE state IN ('moving', 'undoing')").fetchall()
+    for change in map(_saved, rows):
+        if change.state is ChangeState.MOVING:
+            _settle(conn, change, change.source, change.target, forward=True)
+        else:
+            _settle(conn, change, change.target, change.source, forward=False)
+    if rows:
+        _log.warning("Settled %d file changes that Kura stopped in the middle of", len(rows))
+    return len(rows)
+
+
+def _settle(
+    conn: sqlite3.Connection, change: SavedChange, old: Path, new: Path, *, forward: bool
+) -> None:
+    """Find out whether an interrupted move from `old` to `new` happened, and record it."""
+    _partial(new).unlink(missing_ok=True)  # an unfinished copy to another drive
+    at_old, at_new = _is_there(old), _is_there(new)
+    if at_old and at_new and _copy_of(new, old):
+        old.unlink()  # a copy to another drive was in place; only the original was left to remove
+        at_old = False
+    if at_new and not at_old:
+        state = ChangeState.DONE if forward else ChangeState.UNDONE
+        if not forward:
+            _remove_empty(change.created_dirs)
+        _record(conn, change, state)
+    elif at_old and not at_new:
+        if forward:
+            _remove_empty(change.created_dirs)
+            _record(conn, change, ChangeState.PLANNED, created_dirs=[])
+        else:
+            _record(conn, change, ChangeState.DONE)
+    else:
+        where = "both places hold a file" if at_old else "it is in neither place"
+        problem = f"Kura stopped while moving it, and {where}: {old} and {new}."
+        state = ChangeState.FAILED if forward else ChangeState.DONE
+        _record(conn, change, state, problem=problem)
+
+
+def _why_not(source: Path, target: Path) -> str | None:
+    """Why a file can't move from `source` to `target`, or None if it can."""
+    if not source.is_file():
+        return f"It isn't at {source} any more."
+    if target.exists() and not _same_file(source, target):  # not just a change of case
+        return f"{target.name} is already in {target.parent}, and Kura never overwrites a file."
+    return None
+
+
+def _move(source: Path, target: Path) -> str | None:
+    """Move a file without replacing another. Returns a note if the move needed one."""
+    if _same_drive(source, target.parent):
+        source.rename(target)  # on Windows this fails rather than replace a file
+        return None
+    partial = _partial(target)
+    try:
+        shutil.copy2(source, partial)
+        if partial.stat().st_size != source.stat().st_size:
+            raise OSError(f"The copy of {source.name} came out the wrong size")
+        partial.rename(target)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    try:
+        source.unlink()
+    except OSError as error:
+        return f"It was copied, but the original is still at {source}: {_could_not(error)}"
+    return None
+
+
+def _same_drive(file: Path, folder: Path) -> bool:
+    return file.stat().st_dev == folder.stat().st_dev
+
+
+def _make_folders(folder: Path) -> list[Path]:
+    """Create `folder` and its missing parents; return those created, outermost first."""
+    missing = list(takewhile(lambda path: not path.exists(), (folder, *folder.parents)))
+    folder.mkdir(parents=True, exist_ok=True)
+    return missing[::-1]
+
+
+def _remove_empty(folders: Iterable[Path]) -> None:
+    """Remove folders Kura created, deepest first, if nothing else is in them now."""
+    for folder in sorted(folders, key=lambda path: len(path.parts), reverse=True):
+        with suppress(OSError):  # not empty, or already gone
+            folder.rmdir()
+
+
+def _is_there(path: Path) -> bool:
+    """Whether a file has exactly this name. Windows ignores case, but a rename may change only
+    the case, so this compares names as they are written in the folder."""
+    try:
+        return any(entry.name == path.name for entry in path.parent.iterdir())
+    except OSError:
+        return False
+
+
+def _copy_of(copy: Path, original: Path) -> bool:
+    """Whether `copy` is a finished copy of `original`: same size and modification time."""
+    if _same_file(copy, original):
+        return False
+    a, b = copy.stat(), original.stat()
+    return a.st_size == b.st_size and abs(a.st_mtime - b.st_mtime) < 2
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    try:
+        return a.samefile(b)
+    except OSError:
+        return False
+
+
+def _partial(target: Path) -> Path:
+    return target.with_name(target.name + PARTIAL)
+
+
+def _could_not(error: OSError) -> str:
+    return f"{error.strerror or error}."
+
+
+def _record(
+    conn: sqlite3.Connection,
+    change: SavedChange,
+    state: ChangeState,
+    *,
+    problem: str | None = None,
+    created_dirs: Iterable[Path] | None = None,
+) -> None:
+    with conn:
+        conn.execute(
+            "UPDATE changes SET state = ?, problem = ? WHERE id = ?",
+            (state.value, problem, change.id),
+        )
+        if created_dirs is not None:
+            conn.execute(
+                "UPDATE changes SET created_dirs = ? WHERE id = ?",
+                (json.dumps([str(path) for path in created_dirs]), change.id),
+            )
+
+
+def _saved(row: sqlite3.Row) -> SavedChange:
+    return SavedChange(
+        id=row["id"],
+        plan_id=row["plan_id"],
+        position=row["position"],
+        kind=ChangeKind(row["kind"]),
+        source=Path(row["source"]),
+        target=Path(row["target"]),
+        label=row["label"],
+        reason=row["reason"],
+        state=ChangeState(row["state"]),
+        problem=row["problem"],
+        created_dirs=tuple(Path(path) for path in json.loads(row["created_dirs"])),
+    )
+
+
+def _stamp(moment: datetime) -> str:
+    return moment.isoformat(timespec="seconds")

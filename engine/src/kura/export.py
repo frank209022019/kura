@@ -1,5 +1,7 @@
 """Export: everything Kura knows, in one zip you can open without Kura."""
 
+import csv
+import io
 import json
 import sqlite3
 import tempfile
@@ -33,6 +35,7 @@ def export_data(paths: DataPaths, folder: Path, now: datetime | None = None) -> 
             source.backup(copy)
             copy.execute("PRAGMA journal_mode = DELETE")  # one self-contained file
             settings = _settings(source)
+            changes = _changes_csv(source)
             schema_version = db.schema_version(source)
 
         manifest = {
@@ -44,18 +47,56 @@ def export_data(paths: DataPaths, folder: Path, now: datetime | None = None) -> 
         with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.write(snapshot, "kura.db")
             archive.writestr("settings.json", json.dumps(settings, indent=2))
+            if changes is not None:
+                # With a byte order mark, so Excel shows Japanese titles and accents.
+                archive.writestr("changes.csv", changes.encode("utf-8-sig"))
             archive.writestr("manifest.json", json.dumps(manifest, indent=2))
     return target
 
 
 def _settings(conn: sqlite3.Connection) -> dict[str, object]:
-    exists = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'settings'"
-    ).fetchone()
-    if not exists:
+    if not _has_table(conn, "settings"):
         return {}
     rows = conn.execute("SELECT key, value FROM settings ORDER BY key")
     return {row["key"]: json.loads(row["value"]) for row in rows}
+
+
+_CHANGE_COLUMNS = (
+    "plan",
+    "plan_title",
+    "planned_at",
+    "applied_at",
+    "undone_at",
+    "position",
+    "kind",
+    "state",
+    "source",
+    "target",
+    "label",
+    "reason",
+    "problem",
+)
+
+
+def _changes_csv(conn: sqlite3.Connection) -> str | None:
+    """Every change Kura planned, made or undone, one row each, or None before plans existed."""
+    if not _has_table(conn, "changes"):
+        return None
+    rows = conn.execute(
+        "SELECT p.id, p.title, p.created_at, p.applied_at, p.undone_at, c.position, c.kind,"
+        " c.state, c.source, c.target, c.label, c.reason, c.problem"
+        " FROM changes AS c JOIN plans AS p ON p.id = c.plan_id ORDER BY p.id, c.position"
+    )
+    text = io.StringIO()
+    writer = csv.writer(text)
+    writer.writerow(_CHANGE_COLUMNS)
+    writer.writerows(tuple(row) for row in rows)
+    return text.getvalue()
+
+
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    query = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?"
+    return conn.execute(query, (name,)).fetchone() is not None
 
 
 def _unused_name(path: Path) -> Path:

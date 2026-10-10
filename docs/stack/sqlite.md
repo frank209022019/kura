@@ -44,9 +44,10 @@ tables, give every table a primary key, and add the new data to the export.
 | Table | Since | Holds |
 | --- | --- | --- |
 | `settings` | 1 | Kura's preferences: one JSON value per key |
+| `plans` | 2 | Tidy-up plans: a title, and when each was made, applied and undone |
+| `changes` | 2 | The undo journal: each plan's moves and quarantines in order, with their state (`planned`, `moving`, `done`, `failed`, `undoing`, `undone`), any problem, and the folders each one created |
 
-The library, files, matches, plans, the undo journal, the queue and history come with the features
-that need them.
+The library, files, matches, the queue and history come with the features that need them.
 
 ## Backups and export
 
