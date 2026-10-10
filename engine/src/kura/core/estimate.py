@@ -30,6 +30,9 @@ class Estimate:
     output_bytes: int
 
 
+NOTHING = Estimate(0.0, 0)
+
+
 def estimate(
     media: MediaInfo, decision: Decision, standard: Standard, speeds: Speeds | None = None
 ) -> Estimate:
@@ -37,7 +40,7 @@ def estimate(
     seconds = media.duration or 0.0
     match decision.method:
         case Method.SKIP:
-            return Estimate(0.0, 0)
+            return NOTHING
         case Method.RENAME | Method.REMUX:
             return Estimate(0.0, media.size or 0)  # streams are copied, not encoded
         case Method.BEST:
