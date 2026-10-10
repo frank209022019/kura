@@ -3,6 +3,7 @@ name = "kura"
 version = "0.1.0"
 description = "Kura's engine: scans, identifies, plans and converts one anime library."
 requires-python = ">=3.14"
+license = "MIT"
 dependencies = [
     "anitopy>=2.1.1",
     "fastapi>=0.143.0",
@@ -54,9 +55,11 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S603"]  # asserts, test tokens, starting the engine
+"tools/**" = ["S603"]  # build tools run cargo and rustc
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "tools"]
+extraPaths = ["src", "tools"]  # src is the default; tools so tests can import them
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
 venvPath = "."
@@ -64,5 +67,6 @@ venv = ".venv"
 
 [tool.pytest]
 testpaths = ["tests"]
+pythonpath = ["tools"]
 strict = true
 addopts = ["-ra"]

@@ -28,6 +28,8 @@ app/
 
 - `pnpm dev` starts Vite on port 1420; `pnpm tauri dev` does that and opens it in Kura's window.
 - `pnpm build` type-checks with `tsc`, then bundles into `app/dist/`, which the shell embeds.
+  Vite also writes `dist/.vite/licenses.json`: every bundled package with its licence, for the
+  third-party notices (`build.license` in `vite.config.ts`).
 - `resolve.tsconfigPaths` lets Vite follow the `@/*` alias from `tsconfig.json`.
 
 ## Data from the engine

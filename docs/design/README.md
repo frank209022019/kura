@@ -1,7 +1,8 @@
 # Kura's screens
 
 Snapshots of the design canvases, as plain pages: open [index.html](index.html) in a browser and
-click through. The canvases themselves are the source of truth:
+click through. The canvases themselves are the source of truth (they are the owner's, and
+private; these snapshots are the shared copy):
 
 - [Kura Workflows](https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb): every screen in Cinema.
 - [Design Language Options](https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za): the three

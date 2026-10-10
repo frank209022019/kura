@@ -27,40 +27,60 @@ version for features and the patch for fixes.
 2. Builds the engine with PyInstaller, the UI with Vite, and the shell with Cargo.
 3. Bundles them into `Kura_<version>_x64-setup.exe` (NSIS) and signs it for the updater, which
    writes `Kura_<version>_x64-setup.exe.sig`.
-4. Creates a **draft** release with the installer and signature, writes `latest.json` (the update
-   manifest: version, date, signature, and the installer's API address), uploads it, then
-   publishes the release. Installed copies only ever see a complete release.
+4. Creates a **draft** release with the installer, its signature and `THIRD-PARTY-NOTICES.txt`,
+   writes `latest.json` (the update manifest: version, date, signature, and the installer's
+   download address), uploads it, then publishes the release. Installed copies only ever see a
+   complete release.
 
 Starting the workflow by hand (Actions › Release › Run workflow) is a dry run: it builds and signs
-the installer and keeps it as a downloadable workflow artifact, without releasing anything.
+the installer and keeps it, with the notices, as a downloadable workflow artifact, without
+releasing anything.
 
-## How updates reach the PC
+## How updates reach a PC
 
-The repo is private, so its releases need a GitHub login to download. Kura borrows the GitHub CLI's
-login on this PC instead of keeping one of its own (the owner's choice; the alternative was a
-public releases-only repo).
+The releases are public, so updates need no login.
 
-1. Once a day, and at start, the shell runs `gh auth token` and
-   `gh api repos/frankgrobbelaar/kura/releases/latest` to find the newest `latest.json`.
-2. Tauri's updater reads the manifest with that token. If the version is newer, it downloads the
-   installer in the background and checks its signature against the public key built into Kura.
+1. At start and once a day, Tauri's updater reads
+   `https://github.com/frankgrobbelaar/kura/releases/latest/download/latest.json`
+   (`plugins.updater.endpoints` in `tauri.conf.json`): the manifest of the newest published
+   release. Until the first release exists GitHub answers 404, which Kura takes as up to date.
+2. If the version is newer, it downloads the installer in the background and checks its signature
+   against the public key built into Kura.
 3. The UI shows "Kura 0.2.0 is ready". "Restart and update" stops the engine, runs the installer
    in passive mode (a progress bar, no questions), and the installer opens Kura again.
 
-If `gh` is missing or signed out, the Home page's "This copy of Kura" panel says so
-("Can't check right now: …"); fix it with `gh auth login`. The code is
+If a check fails (no internet, say), the Home page's "This copy of Kura" panel says so ("Can't
+check right now: …") and Kura tries again the next day. The code is
 [app/src-tauri/src/updater.rs](../app/src-tauri/src/updater.rs).
 
 ## Installing for the first time
 
-```powershell
-gh release download v0.1.0 --repo frankgrobbelaar/kura --pattern "*.exe"
-```
+Download `Kura_<version>_x64-setup.exe` from the
+[releases page](https://github.com/frankgrobbelaar/kura/releases) and run it. Kura isn't
+code-signed, so Windows SmartScreen warns once: choose More info › Run anyway. (Updates don't warn:
+the updater downloads them, not a browser.) Kura installs for this user only, without admin rights,
+into `%LOCALAPPDATA%\Programs\Kura`; its data stays apart in `%LOCALAPPDATA%\Kura`.
 
-Run the installer. Kura isn't code-signed, so Windows SmartScreen warns once: choose More info ›
-Run anyway. (Updates don't warn: the updater downloads them, not a browser.) Kura installs for this
-user only, without admin rights, into `%LOCALAPPDATA%\Programs\Kura`; its data stays apart in
-`%LOCALAPPDATA%\Kura`.
+## Third-party notices
+
+Kura is MIT-licensed and ships other people's open-source software, whose licences ask for their
+notices to travel with it. `pnpm build:installer` runs `pnpm build:notices`
+([engine/tools/third_party_notices.py](../engine/tools/third_party_notices.py)) after building the
+engine and the UI. It writes `app/src-tauri/target/THIRD-PARTY-NOTICES.txt` from what was actually
+bundled:
+
+- the engine: every file in PyInstaller's records (`engine/build/kura-engine/*.toc`), traced to its
+  Python package, and Python's own licence;
+- the shell: the crates Cargo links into `kura.exe` for Windows (normal dependencies only), and
+  Rust's standard library;
+- the UI: Vite's licence report (`app/dist/.vite/licenses.json`), Tailwind's styles, the fonts, and
+  the shadcn/ui notice;
+- the installer: NSIS and Tauri's NSIS plugin.
+
+The installer puts it next to Kura with `LICENSE.txt`, and the release workflow attaches it to the
+release. If a part's licence isn't on the allowed list (permissive licences, MPL-2.0, and
+PyInstaller's bootloader exception), the build stops and names it: read the licence, then add it to
+`ALLOWED`, or the package to `PYTHON_LICENCES` when its metadata has no SPDX expression.
 
 ## The installer
 

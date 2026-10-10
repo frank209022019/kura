@@ -1,21 +1,17 @@
-//! Updates from Kura's private GitHub releases.
+//! Updates from Kura's GitHub releases.
 //!
-//! The repo is private, so this PC's GitHub CLI login opens the door: `gh` finds
-//! the update manifest (latest.json) of the newest release, and the updater
-//! downloads the installer with the same login. Before anything runs, the
-//! installer's signature is checked against the public key in tauri.conf.json.
-//! See docs/releasing.md.
+//! Every release carries latest.json, the update manifest. The updater reads the newest
+//! one from the address in tauri.conf.json (`plugins.updater.endpoints`), downloads the
+//! installer it names, and checks the installer's signature against the public key in the
+//! same file before anything runs. See docs/releasing.md.
 
 use std::sync::Mutex;
 
 use serde::Serialize;
-use tauri::{AppHandle, State, Url};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri::{AppHandle, State};
+use tauri_plugin_updater::{Error, Update, UpdaterExt};
 
 use crate::engine::{self, Engine};
-use crate::process;
-
-const REPO: &str = "frankgrobbelaar/kura";
 
 /// Mirrors `ReadyUpdate` in app/src/lib/updates.ts.
 #[derive(Serialize)]
@@ -33,26 +29,11 @@ pub async fn prepare_update(
     app: AppHandle,
     pending: State<'_, PendingUpdate>,
 ) -> Result<Option<ReadyUpdate>, String> {
-    let token = gh(&["auth", "token"])?;
-    let Some(manifest) = latest_manifest()? else {
-        return Ok(None);
-    };
-
-    let update = app
-        .updater_builder()
-        .endpoints(vec![manifest])
-        .map_err(text)?
-        .header("Authorization", format!("Bearer {token}"))
-        .map_err(text)?
-        .header("Accept", "application/octet-stream")
-        .map_err(text)?
-        .build()
-        .map_err(text)?
-        .check()
-        .await
-        .map_err(text)?;
-    let Some(update) = update else {
-        return Ok(None);
+    let update = match app.updater().map_err(text)?.check().await {
+        Ok(Some(update)) => update,
+        // GitHub answers 404 until the first release is published: nothing to update to.
+        Ok(None) | Err(Error::ReleaseNotFound) => return Ok(None),
+        Err(error) => return Err(text(error)),
     };
 
     let bytes = update.download(|_, _| {}, || {}).await.map_err(text)?;
@@ -82,30 +63,6 @@ pub fn install_update(
         engine::start(app);
         text(error)
     })
-}
-
-/// The API address of the newest release's latest.json, or `None` if there is no release yet.
-fn latest_manifest() -> Result<Option<Url>, String> {
-    let release = format!("repos/{REPO}/releases/latest");
-    let query = r#".assets[] | select(.name == "latest.json") | .url"#;
-    match gh(&["api", &release, "--jq", query]) {
-        Ok(url) if url.is_empty() => Ok(None),
-        Ok(url) => Url::parse(&url).map(Some).map_err(text),
-        Err(message) if message.contains("HTTP 404") => Ok(None),
-        Err(message) => Err(message),
-    }
-}
-
-/// Runs the GitHub CLI and returns what it printed.
-fn gh(args: &[&str]) -> Result<String, String> {
-    let output = process::hidden("gh").args(args).output().map_err(|_| {
-        "Updates use the GitHub CLI. Install it and sign in with `gh auth login`.".to_string()
-    })?;
-    if !output.status.success() {
-        let said = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("The GitHub CLI said: {}", said.trim()));
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
 fn text(error: impl std::fmt::Display) -> String {

@@ -1,13 +1,17 @@
 # Kura
 
-Kura (蔵, "storehouse") is a private Windows app for one person's anime library. It maps folders
+Kura (蔵, "storehouse") is a personal Windows app for one person's anime library. It maps folders
 in any layout, identifies every file, reports what is missing or broken, renames for Plex, and
 converts the whole library to one standard, with AI upscaling for SD sources. It is the owner's
-own tool: one user, one PC, never commercial, no sign-in.
+own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
+licence: anyone may fork it, but the repo takes no contributions.
 
 **Where it stands (2026-10-10):** design language chosen, repo, CI, installer and updater pipeline
-set up. No library features yet: the engine serves `/health` and exports, the app shows its shell.
-Next is the first build step in [What's next](#whats-next).
+set up, and the engine's pure core (names, Plex naming, standards, estimates, gap reports, tidy
+plans) built test first. No library features in the app yet: the engine serves `/health` and
+exports, the app shows its shell. The repo is about to go public; it stays private until the owner
+decides how to clean old commits (they hold a personal email address). Next is the first build
+step in [What's next](#whats-next).
 
 ## Ground rules
 
@@ -23,6 +27,11 @@ Next is the first build step in [What's next](#whats-next).
   by uninstalling.
 - **Kura is personal.** No company names anywhere: publisher, docs, accounts, signing.
   The publisher name is "Kura".
+- **Only ship what Kura may share.** Kura is MIT. A dependency's licence must be on the allowed
+  list in [engine/tools/third_party_notices.py](engine/tools/third_party_notices.py) (the
+  installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:
+  `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
+  installer, and titles appear only as file-name examples.
 - **Latest versions.** Use the newest stable release of every tool and library, and keep them
   current (see "Updating dependencies" in [docs/development.md](docs/development.md)).
 - **Fix what you find.** A real fault found while working is fixed in the same piece of work, test
@@ -37,10 +46,12 @@ Next is the first build step in [What's next](#whats-next).
 
 ```
 AGENTS.md       the guide for coding agents; each area below has its own AGENTS.md
+LICENSE         MIT
 app/            the desktop app
   src/            React UI (TypeScript): components/, features/, lib/, styles/
   src-tauri/      Tauri shell (Rust): window, engine process, updates, installer config
-engine/         the engine (Python): src/kura/, tests/, kura-engine.spec, openapi.json
+engine/         the engine (Python): src/kura/, tests/, tools/ (build tools), kura-engine.spec,
+                openapi.json
 docs/           how it all works; docs/design/ holds the screens
 scripts/        set-version.mjs, design-snapshot.mjs
 .github/        CI and release workflows
@@ -154,14 +165,21 @@ Everything decided so far. Don't ask again; change only with the owner.
   [docs/development.md](docs/development.md).
 
 **Delivery**
-- GitHub repo `frankgrobbelaar/kura`, private. CI on every push to `main` (Windows runners).
-- A `v*` tag builds the NSIS installer, signs it for the updater, and publishes a release in the
-  same private repo. Installed copies check daily using this PC's GitHub CLI login (`gh`), because
-  private releases need a login; the owner chose that over a public releases repo.
+- GitHub repo `frankgrobbelaar/kura`, public under the MIT licence (the owner's call on
+  2026-10-10, replacing private releases through the `gh` login). Anyone may fork; only
+  collaborators can open pull requests (a repo setting) and issues are off: no contributions.
+  CI on every push to `main` (Windows runners).
+- A `v*` tag builds the NSIS installer, signs it for the updater, and publishes a public release
+  with `latest.json` and `THIRD-PARTY-NOTICES.txt`. Installed copies check daily at
+  `releases/latest/download/latest.json`, no login needed.
+- `THIRD-PARTY-NOTICES.txt` lists everything that ships, with its licence, and goes next to Kura
+  with `LICENSE.txt`. `engine/tools/third_party_notices.py` writes it from what was actually
+  bundled (PyInstaller's records, Cargo's graph, Vite's licence report) and stops the build on
+  a licence that isn't allowed.
 - Per-user install (no admin) into `%LOCALAPPDATA%\Programs\Kura`, apart from the data.
 - The update-signing key is `%USERPROFILE%\.tauri\kura-updater.key` (no password) and the
   `TAURI_SIGNING_PRIVATE_KEY` repo secret. Lose it and installed copies can't update.
-- Not code-signed (Windows SmartScreen warns once on first install); fine for a private tool.
+- Not code-signed (Windows SmartScreen warns once on first install); fine for a personal tool.
 
 **The owner's PC**
 - GTX 1660 Super 6 GB (Turing NVENC, no AV1 encode), i5-9600K (6 cores), 24 GB RAM, about 1.7 TB
@@ -175,6 +193,10 @@ Everything decided so far. Don't ask again; change only with the owner.
    CUDA, Real-ESRGAN anime model vs Anime4K) to settle the conversion pipeline and the estimates.
 2. Scanning: add folders, find files, read them with ffprobe, the first-scan screen.
 3. Identification and the library home, then tidy-up plans, then conversion.
+
+Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), each AI
+model's licence, manami's offline database (ODbL: downloaded rather than shipped, and credited),
+and the attribution TMDB's terms require inside the app.
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.

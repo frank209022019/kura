@@ -42,7 +42,10 @@ and [../CLAUDE.md](../CLAUDE.md).
 
 - Reuse what exists (`Button`, `EmptyState`) before adding anything.
 - New primitives start from shadcn/ui (`pnpm dlx shadcn@latest add <name>`) and are restyled to
-  Cinema with the mapping in [docs/stack/tailwind.md](../docs/stack/tailwind.md).
+  Cinema with the mapping in [docs/stack/tailwind.md](../docs/stack/tailwind.md). They live in
+  `src/components/ui/` and open with a comment naming shadcn/ui and `LICENSE-shadcn.txt`.
+- A new npm package needs a licence on the allowed list in
+  `engine/tools/third_party_notices.py`; `pnpm build:installer` stops otherwise.
 - Merge classes with `cn()`. New font sizes or radii also go in `fontSizes` and `radii` in
   `src/lib/utils.ts` (a test checks).
 - Icons from `lucide-react`; decorative ones get `aria-hidden="true"`.

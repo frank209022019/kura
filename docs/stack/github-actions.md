@@ -5,8 +5,8 @@ a Windows app and the checks should see what the owner's PC sees.
 
 | Workflow | Runs on | Does |
 | --- | --- | --- |
-| [ci.yml](../../.github/workflows/ci.yml) | every push to `main`, pull requests, by hand | Engine: Ruff, Pyright, pytest. App: Biome, TypeScript, Vitest, the UI build, rustfmt, Clippy, cargo test |
-| [release.yml](../../.github/workflows/release.yml) | a `v*` tag, or by hand for a dry run | Builds, smoke-tests and signs the installer; publishes the release with `latest.json` |
+| [ci.yml](../../.github/workflows/ci.yml) | every push to `main`, pull requests (only collaborators can open them), by hand | Engine: Ruff, Pyright, pytest. App: Biome, TypeScript, Vitest, the UI build, rustfmt, Clippy, cargo test |
+| [release.yml](../../.github/workflows/release.yml) | a `v*` tag, or by hand for a dry run | Builds, smoke-tests and signs the installer; publishes the release with `latest.json` and the third-party notices |
 
 The jobs run the same commands as [../development.md](../development.md), so a green local run
 means a green CI run.
@@ -43,5 +43,6 @@ gh workflow run release.yml        # a dry-run installer build; download it with
 
 ## Cost
 
-The repo is private, so runs use the account's Actions minutes, and Windows minutes count double.
-A CI run takes a few minutes once caches are warm; a release about fifteen.
+The repo is public, so runs on GitHub's standard runners are free. A CI run takes a few minutes
+once caches are warm; a release about fifteen. Forks don't get the signing key: secrets never
+reach workflows that others start.

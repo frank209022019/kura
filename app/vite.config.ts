@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { tsconfigPaths: true }, // "@/…" imports, from tsconfig.json
   clearScreen: false, // keep the shell's Rust output visible during `tauri dev`
+  // Lists every package bundled into the UI, with its licence, for the third-party notices
+  // (engine/tools/third_party_notices.py).
+  build: { license: { fileName: ".vite/licenses.json" } },
   server: {
     port: 1420, // must match devUrl in src-tauri/tauri.conf.json
     strictPort: true,

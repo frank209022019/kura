@@ -10,7 +10,7 @@ Coding agents start at [AGENTS.md](../AGENTS.md); each area (`engine/`, `app/`, 
 | [development.md](development.md) | Setting up this PC, running Kura, checks, updating dependencies |
 | [conventions.md](conventions.md) | How we write code: Python, TypeScript, Rust, tests, commits |
 | [design.md](design.md) | UI and UX rules, the Cinema language and its tokens, patterns |
-| [releasing.md](releasing.md) | Versions, the installer, private updates, the signing key |
+| [releasing.md](releasing.md) | Versions, the installer, updates, third-party notices, the signing key |
 | [design/](design/) | Every screen from the design canvas, as pages you can open |
 
 ## The stack

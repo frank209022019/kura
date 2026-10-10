@@ -11,7 +11,7 @@ How to set up a Windows PC for Kura, run it, check it and keep it current.
 | Node.js LTS | The UI's tooling | `winget install OpenJS.NodeJS.LTS` |
 | pnpm 12 | UI packages | `npm install -g pnpm@latest` |
 | uv | Python and the engine's packages | `winget install astral-sh.uv` (uv installs Python 3.14 itself) |
-| GitHub CLI, signed in | Pushing, releases, and updates of installed Kura | `winget install GitHub.cli`, then `gh auth login` |
+| GitHub CLI, signed in | Pushing, releases and watching CI | `winget install GitHub.cli`, then `gh auth login` |
 
 Then, from the repo:
 

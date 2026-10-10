@@ -1,7 +1,8 @@
 # Kura: guide for coding agents
 
-Kura is a private, single-user Windows app for one anime library: a Tauri shell, a React UI and a
-Python engine. This file and the `AGENTS.md` in each area tell any coding agent how to work here.
+Kura is a personal, single-user Windows app for one anime library: a Tauri shell, a React UI and
+a Python engine. The code is public under the MIT licence; the repo takes no contributions. This
+file and the `AGENTS.md` in each area tell any coding agent how to work here.
 
 **Read [CLAUDE.md](CLAUDE.md) first.** It holds the ground rules and every decision made so far,
 and it is written for every agent, not only Claude.
@@ -36,6 +37,8 @@ copy, and what "done" means.
 8. **Latest stable versions** of every tool and library; a page in `docs/stack/` for every tool.
 9. **Docs move with code**, in the same commit. Decisions go in CLAUDE.md.
 10. **No company names.** Kura is a personal project; the publisher is "Kura".
+11. **Only ship what Kura may share.** A new dependency's licence must be on the allowed list in
+    `engine/tools/third_party_notices.py`; adapted code keeps its notice; no media in the repo.
 
 When the owner is scoping ("is it possible…"), answer in the conversation; don't build.
 

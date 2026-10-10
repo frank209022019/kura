@@ -10,9 +10,9 @@ Rust stable (edition 2024).
 | --- | --- |
 | `app/src-tauri/src/main.rs` | The app: plugins, state, commands, start and exit |
 | `app/src-tauri/src/engine.rs` | Starting, watching and stopping the engine |
-| `app/src-tauri/src/updater.rs` | Private updates through the GitHub CLI |
+| `app/src-tauri/src/updater.rs` | Updates from the GitHub releases |
 | `app/src-tauri/src/process.rs` | Running console programs without a console window |
-| `app/src-tauri/tauri.conf.json` | Name, version source, window, security policy, bundle, updater key |
+| `app/src-tauri/tauri.conf.json` | Name, version source, window, security policy, bundle, updater address and key |
 | `app/src-tauri/tauri.bundle.conf.json` | Extra settings for building the installer (see below) |
 | `app/src-tauri/capabilities/default.json` | What the window may ask of the shell |
 | `app/src-tauri/windows/hooks.nsh` | Kura's additions to the installer |
@@ -60,10 +60,10 @@ the person, so write it as a sentence.
 
 - **single-instance**: opening Kura again focuses the open window, because two copies would share
   one database.
-- **updater**: downloads and verifies updates. Kura drives it from Rust (`updater.rs`) rather than
-  from JavaScript, because the private repo needs a login header and an address only known at check
-  time. Configured under `plugins.updater` (public key, passive install mode). See
-  [../releasing.md](../releasing.md).
+- **updater**: downloads and verifies updates. Configured under `plugins.updater`: the address of
+  the newest release's `latest.json`, the public key, and passive install mode. Kura drives it
+  from Rust (`updater.rs`), so the window needs no updater permission and the downloaded
+  installer waits in the shell until "Restart and update". See [../releasing.md](../releasing.md).
 
 ## The engine process
 
@@ -80,8 +80,9 @@ stdin on exit. See
 rights (`installMode: currentUser`). Publisher: Kura. WebView2 is downloaded by the installer if a
 PC lacks it (Windows 11 always has it).
 
-`tauri.bundle.conf.json` is merged in only by `pnpm build:installer`. It builds the engine first,
-adds `engine/dist/kura-engine/` as the `engine/` resource folder, and turns on
+`tauri.bundle.conf.json` is merged in only by `pnpm build:installer`. It builds the engine, the UI
+and the third-party notices first; adds `engine/dist/kura-engine/` as the `engine/` resource
+folder, with `LICENSE.txt` and `THIRD-PARTY-NOTICES.txt` beside Kura; and turns on
 `createUpdaterArtifacts` (the `.sig` file). Keeping these out of the main config means
 `pnpm tauri dev` and `cargo clippy` work without a PyInstaller build or the signing key.
 

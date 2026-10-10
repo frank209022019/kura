@@ -11,7 +11,7 @@ process or updating belongs in the engine. Start with [../../AGENTS.md](../../AG
 | --- | --- |
 | App setup: plugins, state, commands, exit | `src/main.rs` |
 | Starting, watching and stopping the engine | `src/engine.rs` |
-| Private updates through the GitHub CLI | `src/updater.rs` |
+| Updates from the GitHub releases | `src/updater.rs` |
 | Running console programs without a window | `src/process.rs` |
 | Window, security policy, bundle, updater key | `tauri.conf.json` (installer-only extras: `tauri.bundle.conf.json`) |
 | What the window may call | `capabilities/default.json` |
@@ -28,9 +28,8 @@ process or updating belongs in the engine. Start with [../../AGENTS.md](../../AG
 - **Start programs with `process::hidden()`** so no console window flashes.
 - **The engine handshake is a contract**: the ready line, `KURA_TOKEN`, stdin closing. Change
   `engine.rs` and `engine/tests/test_cli.py` together.
-- **No secrets in the binary.** Updates authenticate with the PC's `gh` login at run time; the
-  signing key never leaves `%USERPROFILE%\.tauri` and the GitHub secret; only the public key is in
-  the config.
+- **No secrets in the binary.** Updates need no login (the releases are public); the signing key
+  never leaves `%USERPROFILE%\.tauri` and the GitHub secret; only the public key is in the config.
 - **Installer changes** (`hooks.nsh`, bundle settings): build an installer, then test a fresh
   install, an update over it, and an uninstall, keeping the owner's real data folder out of it
   (launch the test install with `KURA_DATA_DIR` set).

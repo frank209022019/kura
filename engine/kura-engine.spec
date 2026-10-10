@@ -10,7 +10,13 @@ a = Analysis(
     ["src/kura/__main__.py"],
     pathex=["src"],
     datas=copy_metadata("kura"),  # kura.__version__ reads the package's metadata
+    # Never used at run time, though optional imports would pull them in: setuptools (through
+    # distutils) and pytest (anyio's test runner).
+    excludes=["setuptools", "_distutils_hack", "distutils", "pkg_resources", "_pytest", "pytest"],
 )
+# Windows 10 and 11 have the Universal C Runtime built in. Without this, PyInstaller copies it from
+# whichever folder on PATH happens to hold it (a JDK's, say), so builds would differ between PCs.
+a.binaries = [b for b in a.binaries if not b[0].lower().startswith(("api-ms-win-", "ucrtbase"))]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

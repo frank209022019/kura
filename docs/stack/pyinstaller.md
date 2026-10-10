@@ -2,7 +2,7 @@
 
 The installed Kura can't assume Python is on the PC, so [PyInstaller](https://pyinstaller.org)
 bundles the engine with its own Python into a folder: `kura-engine.exe` plus `_internal/` (the
-interpreter, the packages, about 40 MB, 100 files). The installer copies that folder next to
+interpreter, the packages, about 35 MB, 60 files). The installer copies that folder next to
 Kura's window as `engine\`.
 
 A folder ("onedir") rather than a single exe because a single exe unpacks itself into a temporary
@@ -34,6 +34,12 @@ dist\kura-engine\kura-engine.exe version
 - `console=True`: the engine is a console program (the uninstaller and the CLI read its output);
   the shell starts it with no console window.
 - UPX compression is off: it saves little and causes antivirus false alarms.
+- `excludes` drops packages that only optional imports reach: setuptools (through `distutils`)
+  and pytest (anyio's test runner). The filter after `Analysis` drops the Universal C Runtime
+  DLLs, which Windows 10 and 11 have built in; otherwise PyInstaller copies whichever ones it
+  finds on PATH (a JDK's, on the owner's PC), and builds would differ between PCs.
+- PyInstaller's records of what it bundled (`build/kura-engine/*.toc`) feed the third-party
+  notices (see [../releasing.md](../releasing.md#third-party-notices)).
 
 ## When something is missing
 

@@ -1,5 +1,6 @@
 # Builds Kura's signed installer.
-# - A version tag (v1.2.3) publishes it as a GitHub release; installed copies update from there.
+# - A version tag (v1.2.3) publishes it as a GitHub release, with the third-party notices;
+#   installed copies update from there.
 # - Starting it by hand is a dry run: the installer is kept as a workflow artifact instead.
 # See docs/releasing.md.
 name: Release
@@ -79,7 +80,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kura-${{ env.VERSION }}-installer
-          path: app/src-tauri/target/release/bundle/nsis/
+          path: |
+            app/src-tauri/target/release/bundle/nsis/
+            app/src-tauri/target/THIRD-PARTY-NOTICES.txt
 
       # The release starts as a draft, so installed copies only see it once
       # latest.json (the update manifest) is in place.
@@ -89,11 +92,13 @@ jobs:
           tag="v$VERSION"
           name="Kura_${VERSION}_x64-setup.exe"
           installer="app/src-tauri/target/release/bundle/nsis/$name"
+          notices=app/src-tauri/target/THIRD-PARTY-NOTICES.txt
 
-          gh release create "$tag" "$installer" "$installer.sig" \
+          gh release create "$tag" "$installer" "$installer.sig" "$notices" \
             --draft --title "Kura $VERSION" --generate-notes
-          url=$(gh release view "$tag" --json assets \
-            --jq ".assets[] | select(.name == \"$name\") | .apiUrl")
+          # Where the installer will be once the release is published (a draft's
+          # download addresses are temporary).
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag/$name"
           jq -n \
             --arg version "$VERSION" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

@@ -12,13 +12,13 @@ flowchart LR
     engine["kura-engine.exe · Python<br/>local API and CLI"]
     data[("%LOCALAPPDATA%\Kura<br/>kura.db · logs")]
     anime[["Anime folders"]]
-    releases[("Private GitHub releases")]
+    releases[("GitHub releases")]
 
     shell -- "starts with a token, stops on exit" --> engine
     ui -- "HTTP on 127.0.0.1 + token" --> engine
     engine --> data
     engine -- "reads; changes only after review" --> anime
-    shell -- "gh login, signed installer" --> releases
+    shell -- "latest.json, signed installer" --> releases
 ```
 
 | Part | Where | Does |

@@ -1,12 +1,14 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "build": {
-    "beforeBuildCommand": "pnpm build:engine && pnpm build"
+    "beforeBuildCommand": "pnpm build:engine && pnpm build && pnpm build:notices"
   },
   "bundle": {
     "createUpdaterArtifacts": true,
     "resources": {
-      "../../engine/dist/kura-engine/": "engine/"
+      "../../engine/dist/kura-engine/": "engine/",
+      "../../LICENSE": "LICENSE.txt",
+      "target/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
     }
   }
 }

@@ -14,6 +14,7 @@ Start with [../AGENTS.md](../AGENTS.md) and [../CLAUDE.md](../CLAUDE.md).
 | Shared API pieces | `src/kura/api/common.py` (`ApiModel`, `Paths`, `Database`) |
 | The schema | `src/kura/migrations.py`, append-only |
 | Commands | `src/kura/cli.py` |
+| Build tools that run on the engine's Python (the third-party notices) | `tools/`, tested in `tests/` |
 | Tests | `tests/test_<module>.py`, and `tests/core/test_<module>.py` for the core; fixtures in `tests/conftest.py` |
 
 ## Building a feature
@@ -41,8 +42,9 @@ Start with [../AGENTS.md](../AGENTS.md) and [../CLAUDE.md](../CLAUDE.md).
   up where they stopped after a restart or a crash.
 - Every new package must survive PyInstaller: after adding one, build the engine and run the
   handshake test against the bundle (see [docs/stack/pyinstaller.md](../docs/stack/pyinstaller.md)).
-- Add a dependency only for a clear need, at its latest stable version (`uv add`), and give it a
-  page or a section in `docs/stack/`.
+- Add a dependency only for a clear need, at its latest stable version (`uv add`), with a licence
+  on the allowed list in `tools/third_party_notices.py`, and give it a page or a section in
+  `docs/stack/`.
 
 ## Commands
 

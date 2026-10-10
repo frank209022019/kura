@@ -3,6 +3,7 @@ import { Slot } from "radix-ui";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
+// Adapted from shadcn/ui's button (MIT, see LICENSE-shadcn.txt).
 // Cinema buttons are pills. One primary (amber) action per view; the rest are secondary or ghost.
 const buttonVariants = cva(
   "press inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full font-bold disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",

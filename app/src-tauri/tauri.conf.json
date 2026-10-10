@@ -44,7 +44,8 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwNkFGQjI2Q0Y4QTM2NkIKUldSck5vclBKdnRxRUt6V05IckU3OVd5bis5KzJrR1F4U1hvRXhVVXcwNXllVHlVaHN0RU1EY3cK",
+      "endpoints": ["https://github.com/frankgrobbelaar/kura/releases/latest/download/latest.json"],
+      "pubkey":"dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwNkFGQjI2Q0Y4QTM2NkIKUldSck5vclBKdnRxRUt6V05IckU3OVd5bis5KzJrR1F4U1hvRXhVVXcwNXllVHlVaHN0RU1EY3cK",
       "windows": { "installMode": "passive" }
     }
   }
