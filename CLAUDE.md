@@ -124,9 +124,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   with PyInstaller as a folder (fast start; ships its own Python). Local API with a per-launch token,
   plus a CLI. SQLite for data.
 - A pure core behind small interfaces: parse → match → plan → check → estimate.
-- Identification: anitopy or guessit parse names, the manami offline database matches titles,
-  results map to TMDB IDs, low confidence goes to a review screen, and manual fixes are pinned so a
-  rescan never undoes them.
+- Identification: anitopy parses names (chosen over guessit and aniparse after testing them on
+  real names, see docs/stack/anitopy.md), the manami offline database matches titles, results map
+  to TMDB IDs, low confidence goes to a review screen, and manual fixes are pinned so a rescan
+  never undoes them.
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs
   the AI model with ONNX Runtime (DirectML or CUDA), ffmpeg resizes and encodes NVENC HEVC 10-bit.
   The fast tier is ffmpeg with libplacebo and Anime4K. Kura's own final mux handles the audio

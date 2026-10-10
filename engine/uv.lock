@@ -12,6 +12,12 @@ wheels = [
 ]
 
 [[package]]
+name = "anitopy"
+version = "2.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/8b/3da3f8ba73b8e4e5325a9ecbd6780f4dc9f41c98cc1c6a897800c4f85979/anitopy-2.1.1.tar.gz", hash = "sha256:515b97cd78917ee406313f4eb53bdc75e8a573e6ad5252ffd355c96a06988e26", size = 20890, upload-time = "2022-07-24T10:24:27.23Z" }
+
+[[package]]
 name = "annotated-doc"
 version = "0.0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -147,6 +153,7 @@ name = "kura"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anitopy" },
     { name = "fastapi" },
     { name = "typer" },
     { name = "uvicorn" },
@@ -163,6 +170,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anitopy", specifier = ">=2.1.1" },
     { name = "fastapi", specifier = ">=0.143.0" },
     { name = "typer", specifier = ">=0.27.3" },
     { name = "uvicorn", specifier = ">=0.54.0" },

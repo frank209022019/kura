@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Kura's engine: scans, identifies, plans and converts one anime library."
 requires-python = ">=3.14"
 dependencies = [
+    "anitopy>=2.1.1",
     "fastapi>=0.143.0",
     "typer>=0.27.3",
     "uvicorn>=0.54.0",
