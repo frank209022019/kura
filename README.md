@@ -31,8 +31,8 @@ Components adapted from shadcn/ui keep their notice in
 ## Fork it; contributions aren't taken
 
 Kura is one person's tool, shared as it is. You're welcome to download it, fork it and make your
-fork your own. This repository doesn't take contributions: only the owner can open pull requests
-or issues, and there's no support.
+fork your own. This repository doesn't take contributions: only the owner can open pull requests,
+issues are turned off, and there's no support.
 
 ## No media, no affiliation
 
