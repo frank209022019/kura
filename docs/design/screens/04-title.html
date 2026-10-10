@@ -1,0 +1,898 @@
+<!doctype html>
+<!-- Kura design snapshot of "2.2 A title: gaps, report and history" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2.2 A title: gaps, report and history · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes kslide{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes kgrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes kring{from{stroke-dashoffset:100}}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.press{transition:transform .12s ease-out,filter .15s ease-out,background-color .2s ease-out}
+.press:hover{filter:brightness(1.12)}
+.press:active{transform:scale(.97)}
+.press:focus-visible{outline:2px solid #ffd27a;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; line-height: 1.5">
+
+<div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding-left: 20px">
+<div style="flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#f2b33d"></rect><rect x="6.4" y="6.5" width="2.8" height="11" rx="1.4" fill="#1d1300"></rect><rect x="10.6" y="8.5" width="2.8" height="9" rx="1.4" fill="#1d1300"></rect><rect x="14.6" y="6.2" width="2.8" height="11.2" rx="1.4" fill="#1d1300" transform="rotate(14 16 11.8)"></rect></svg>
+<span style="font-size: 14px; font-weight: 800">Kura</span>
+</div>
+<label style="flex: 0 1 460px; min-width: 0; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 14px; box-sizing: border-box; border-radius: 19px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #a3a8b3">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><line x1="16" y1="16" x2="20.5" y2="20.5"></line></svg>
+<input type="search" placeholder="Search anime, episodes or files" aria-label="Search anime, episodes or files" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; font-size: 13px; color: #f4f5f7" />
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 0 8px; line-height: 20px; white-space: nowrap">Ctrl K</span>
+</label>
+<div style="flex: 1 1 160px; display: flex; justify-content: flex-end">
+<button type="button" aria-label="Minimize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line></svg></button>
+<button type="button" aria-label="Maximize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg></button>
+<button type="button" aria-label="Close" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg></button>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Main" style="flex: 1 1 96px; display: flex; flex-direction: column; padding: 8px 10px 20px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<a href="03-home.html" aria-current="page" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; background: rgba(242,179,61,0.12); color: #ffd27a; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path></svg>Home</a>
+<a href="05-tidy.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><polyline points="3 6 4.5 7.5 7 5"></polyline><polyline points="3 12 4.5 13.5 7 11"></polyline><polyline points="3 18 4.5 19.5 7 17"></polyline></svg>Tidy up<span style="position: absolute; top: 6px; right: 10px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #f2b33d; color: #1d1300; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center">56</span></a>
+<a href="07-convert.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 21 7.5 12 12 3 7.5"></polygon><polyline points="3 12 12 16.5 21 12"></polyline><polyline points="3 16.5 12 21 21 16.5"></polyline></svg>Convert<span style="position: absolute; top: 6px; right: 6px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: rgba(242,179,61,0.18); color: #ffd27a; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center">63%</span></a>
+<a href="09-history.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>History</a>
+<a href="10-settings.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="7" y2="7"></line><line x1="11" y1="7" x2="20" y2="7"></line><circle cx="9" cy="7" r="2"></circle><line x1="4" y1="17" x2="13" y2="17"></line><line x1="17" y1="17" x2="20" y2="17"></line><circle cx="15" cy="17" r="2"></circle></svg>Settings</a>
+</div>
+</nav>
+
+<main id="main" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 24px; padding: 6px 32px 56px 14px; box-sizing: border-box">
+
+<nav aria-label="Breadcrumb" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #a3a8b3">
+<a href="03-home.html" style="text-decoration: none; font-weight: 700">Library</a><span aria-hidden="true">›</span><a href="03-home.html" style="text-decoration: none; font-weight: 700">Dragon Ball</a><span aria-hidden="true">›</span><span aria-current="page" style="color: #f4f5f7; font-weight: 700">Dragon Ball Z</span>
+</nav>
+
+<section aria-label="Dragon Ball Z" style="position: relative; overflow: hidden; border-radius: 26px; background: #13254f; color: #ffffff; display: flex; flex-wrap: wrap; align-items: stretch; animation: kfade .6s cubic-bezier(.2,.8,.2,1) both">
+<div style="flex: 1 1 520px; min-width: 0; padding: 30px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end">
+<div aria-hidden="true" style="position: relative; flex: 0 0 132px; height: 198px; border-radius: 16px; overflow: hidden; background: #2449b8; box-shadow: 0 24px 48px -24px rgba(0,0,0,0.7)">
+<span style="position: absolute; right: -34px; top: -26px; width: 104px; height: 104px; border-radius: 50%; background: #f08a24"></span>
+<span style="position: absolute; right: 20px; top: 22px; width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.6)"></span>
+<span style="position: absolute; left: 14px; bottom: 14px; font-size: 64px; line-height: 1; font-weight: 800">Z</span>
+</div>
+<div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; background: rgba(255,255,255,0.12); font-size: 12px; font-weight: 700">TV series</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; background: rgba(242,179,61,0.22); color: #ffe1a6; font-size: 12px; font-weight: 700"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg>Matched on TMDB · 98%</span>
+</div>
+<h1 style="margin: 0; font-size: 46px; line-height: 1; font-weight: 800; letter-spacing: -0.035em">Dragon Ball Z</h1>
+<span style="font-size: 14px; color: rgba(255,255,255,0.8)">1989 · 9 seasons · 291 episodes · part of Dragon Ball</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.82); overflow-wrap: anywhere">D:\Anime\TV\Dragon Ball Z (1989)</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.86)"><span style="width: 8px; height: 8px; border-radius: 4px; background: #f2b33d; animation: kpulse 1.6s ease-in-out infinite"></span>Last changed today 14:20 · S01E04 converted</span>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px">
+<a href="07-convert.html" class="press" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: #f2b33d; color: #1d1300; text-decoration: none; font-weight: 800">Convert what's left</a>
+<button type="button" class="press" style="min-height: 44px; padding: 0 18px; border: 0; border-radius: 22px; background: rgba(255,255,255,0.12); color: #ffffff; font: inherit; font-weight: 700; cursor: pointer">Open folder</button>
+<a href="06-match.html" class="press" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; background: rgba(255,255,255,0.12); color: #ffffff; text-decoration: none; font-weight: 700">Change match</a>
+</div>
+</div>
+</div>
+<div style="position: relative; flex: 1 1 280px; min-width: 0; min-height: 260px; display: flex; align-items: center; justify-content: center; overflow: hidden">
+<span aria-hidden="true" style="position: absolute; right: -80px; top: -110px; width: 360px; height: 360px; border-radius: 50%; background: #f08a24"></span>
+<span aria-hidden="true" style="position: absolute; right: 60px; top: 30px; width: 54px; height: 54px; border-radius: 50%; background: #ffcf6b"></span>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 26px; border-radius: 22px; background: rgba(6,10,28,0.66); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(8px)">
+<div style="position: relative; width: 120px; height: 120px">
+<svg width="120" height="120" viewBox="0 0 100 100" role="img" aria-label="99 percent of episodes present"><circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="8"></circle><circle cx="50" cy="50" r="42" fill="none" stroke="#f2b33d" stroke-width="8" pathLength="100" stroke-dasharray="100" stroke-dashoffset="1.4" transform="rotate(-90 50 50)" style="animation: kring 1.3s cubic-bezier(.2,.8,.2,1) both"></circle></svg>
+<div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 28px; line-height: 1; font-weight: 800">99%</span><span style="font-size: 11px; color: rgba(255,255,255,0.8)">present</span></div>
+</div>
+<span style="font-size: 13px; font-weight: 700">287 of 291 episodes</span>
+</div>
+</div>
+</section>
+
+<div role="group" aria-label="Title sections" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 24px; background: rgba(255,255,255,0.04); align-self: flex-start">
+<button type="button" aria-pressed="true" class="press" style="min-height: 40px; padding: 0 18px; border: 0; border-radius: 20px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Overview</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 40px; padding: 0 18px; border: 0; border-radius: 20px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer">Episodes</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 40px; padding: 0 18px; border: 0; border-radius: 20px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer">Files</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 40px; padding: 0 18px; border: 0; border-radius: 20px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer">History</button>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<section aria-labelledby="seasons-title" style="display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 80ms">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap"><h2 id="seasons-title" style="margin: 0; font-size: 16px; font-weight: 800">Seasons</h2><span style="font-size: 12px; color: #a3a8b3">Plex folders Season 01 to 09 · TMDB order</span></div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 1</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 160ms">
+<span style="width: 10.26%; background: #f2b33d"></span>
+<span style="width: 2.56%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 87.18%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">39/39</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">4 ready</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 2</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 210ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 100.00%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">35/35</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">complete</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 3</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 260ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 100.00%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">33/33</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">complete</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 4</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 310ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 93.75%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">30/32</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">2 missing</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 5</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 360ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 96.15%; background: #4f73b3"></span>
+<span style="width: 3.85%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">26/26</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">1 broken</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 6</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 410ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 100.00%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">29/29</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">complete</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 7</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 460ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 96.00%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">24/25</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">1 missing</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 8</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 510ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 100.00%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">34/34</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">complete</span>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; font-size: 12px">
+<span style="flex: 0 0 72px; color: #d7dae0; font-weight: 700">Season 9</span>
+<div style="flex: 1; display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262a33; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: 560ms">
+<span style="width: 0.00%; background: #f2b33d"></span>
+<span style="width: 0.00%; background: #ffe1a6; animation: kpulse 1.6s ease-in-out infinite"></span>
+<span style="width: 97.37%; background: #4f73b3"></span>
+<span style="width: 0.00%; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>
+</div>
+<span style="flex: 0 0 48px; text-align: right; font-family: 'Geist Mono', monospace">37/38</span>
+<span style="flex: 0 0 76px; color: #a3a8b3">1 missing</span>
+</div>
+
+</div>
+</section>
+
+<section aria-labelledby="map-title" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 140ms">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap"><h2 id="map-title" style="margin: 0; font-size: 16px; font-weight: 800">Episode map</h2><span style="font-size: 12px; color: #a3a8b3">Hover any square for the episode</span></div>
+<div role="img" aria-label="Episode map: 4 ready, 1 converting, 281 to convert, 1 broken, 4 missing" style="display: flex; flex-wrap: wrap; gap: 3px">
+
+<span title="Episode 1, ready" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; box-shadow: none; animation: none"></span>
+
+<span title="Episode 2, ready" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; box-shadow: none; animation: none"></span>
+
+<span title="Episode 3, ready" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; box-shadow: none; animation: none"></span>
+
+<span title="Episode 4, ready" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; box-shadow: none; animation: none"></span>
+
+<span title="Episode 5, converting now" style="width: 12px; height: 12px; border-radius: 3px; background: #ffe1a6; box-shadow: none; animation: kpulse 1.6s ease-in-out infinite"></span>
+
+<span title="Episode 6, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 7, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 8, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 9, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 10, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 11, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 12, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 13, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 14, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 15, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 16, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 17, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 18, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 19, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 20, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 21, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 22, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 23, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 24, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 25, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 26, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 27, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 28, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 29, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 30, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 31, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 32, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 33, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 34, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 35, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 36, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 37, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 38, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 39, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 40, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 41, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 42, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 43, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 44, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 45, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 46, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 47, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 48, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 49, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 50, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 51, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 52, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 53, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 54, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 55, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 56, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 57, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 58, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 59, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 60, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 61, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 62, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 63, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 64, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 65, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 66, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 67, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 68, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 69, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 70, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 71, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 72, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 73, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 74, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 75, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 76, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 77, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 78, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 79, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 80, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 81, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 82, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 83, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 84, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 85, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 86, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 87, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 88, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 89, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 90, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 91, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 92, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 93, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 94, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 95, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 96, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 97, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 98, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 99, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 100, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 101, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 102, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 103, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 104, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 105, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 106, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 107, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 108, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 109, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 110, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 111, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 112, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 113, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 114, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 115, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 116, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 117, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 118, missing" style="width: 12px; height: 12px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1.5px #8b919c; animation: none"></span>
+
+<span title="Episode 119, missing" style="width: 12px; height: 12px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1.5px #8b919c; animation: none"></span>
+
+<span title="Episode 120, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 121, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 122, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 123, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 124, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 125, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 126, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 127, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 128, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 129, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 130, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 131, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 132, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 133, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 134, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 135, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 136, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 137, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 138, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 139, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 140, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 141, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 142, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 143, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 144, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 145, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 146, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 147, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 148, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 149, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 150, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 151, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 152, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 153, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 154, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 155, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 156, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 157, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 158, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 159, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 160, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 161, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 162, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 163, broken file" style="width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px); box-shadow: none; animation: none"></span>
+
+<span title="Episode 164, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 165, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 166, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 167, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 168, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 169, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 170, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 171, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 172, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 173, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 174, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 175, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 176, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 177, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 178, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 179, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 180, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 181, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 182, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 183, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 184, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 185, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 186, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 187, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 188, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 189, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 190, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 191, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 192, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 193, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 194, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 195, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 196, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 197, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 198, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 199, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 200, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 201, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 202, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 203, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 204, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 205, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 206, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 207, missing" style="width: 12px; height: 12px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1.5px #8b919c; animation: none"></span>
+
+<span title="Episode 208, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 209, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 210, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 211, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 212, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 213, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 214, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 215, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 216, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 217, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 218, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 219, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 220, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 221, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 222, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 223, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 224, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 225, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 226, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 227, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 228, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 229, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 230, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 231, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 232, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 233, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 234, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 235, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 236, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 237, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 238, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 239, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 240, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 241, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 242, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 243, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 244, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 245, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 246, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 247, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 248, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 249, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 250, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 251, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 252, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 253, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 254, missing" style="width: 12px; height: 12px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1.5px #8b919c; animation: none"></span>
+
+<span title="Episode 255, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 256, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 257, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 258, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 259, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 260, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 261, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 262, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 263, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 264, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 265, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 266, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 267, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 268, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 269, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 270, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 271, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 272, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 273, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 274, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 275, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 276, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 277, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 278, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 279, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 280, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 281, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 282, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 283, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 284, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 285, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 286, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 287, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 288, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 289, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 290, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+<span title="Episode 291, to convert" style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3; box-shadow: none; animation: none"></span>
+
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: #a3a8b3">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #f2b33d"></span>Ready</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #ffe1a6"></span>Converting</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #4f73b3"></span>To convert</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span>Broken</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span>Missing</span>
+</div>
+</section>
+
+<section aria-labelledby="gaps-title" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 200ms">
+<h2 id="gaps-title" style="margin: 0; font-size: 16px; font-weight: 800">Missing and broken</h2>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; flex: 0 0 64px">S04E11</span><span style="flex: 1 1 160px; color: #a3a8b3">Episode 118 · missing</span><span style="font-size: 12px; color: #7c818c">Season 04</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; flex: 0 0 64px">S04E12</span><span style="flex: 1 1 160px; color: #a3a8b3">Episode 119 · missing</span><span style="font-size: 12px; color: #7c818c">Season 04</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; flex: 0 0 64px">S07E13</span><span style="flex: 1 1 160px; color: #a3a8b3">Episode 207 · missing</span><span style="font-size: 12px; color: #7c818c">Season 07</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; flex: 0 0 64px">S09E01</span><span style="flex: 1 1 160px; color: #a3a8b3">Episode 254 · missing</span><span style="font-size: 12px; color: #7c818c">Season 09</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 52px"><span style="width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, #ff6b6b 0 2px, #3a1a1c 2px 4px)"></span><span style="font-family: 'Geist Mono', monospace; font-size: 13px; flex: 0 0 64px">S05E24</span><span style="flex: 1 1 160px; color: #a3a8b3">Episode 163 · stops playing at 12:41</span><button type="button" class="press" style="min-height: 36px; padding: 0 14px; border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Replace file</button></div>
+</div>
+</section>
+
+</div>
+
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 20px; animation: kslide .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms">
+
+<section aria-labelledby="report-title" style="display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08)">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<span style="width: 36px; height: 36px; border-radius: 12px; background: rgba(242,179,61,0.14); color: #ffd27a; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><polyline points="14 3 14 8 19 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg></span>
+<span style="display: flex; flex-direction: column; min-width: 0"><h2 id="report-title" style="margin: 0; font-size: 16px; font-weight: 800">Gap analysis.md</h2><span style="font-size: 12px; color: #a3a8b3">Rewritten after every scan and conversion · 14:20</span></span>
+</div>
+<div role="group" aria-label="View" style="display: inline-flex; gap: 2px; padding: 3px; border-radius: 16px; background: rgba(255,255,255,0.05)">
+<button type="button" aria-pressed="false" class="press" style="min-height: 30px; padding: 0 12px; border: 0; border-radius: 13px; background: transparent; color: #d7dae0; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer">Preview</button>
+<button type="button" aria-pressed="true" class="press" style="min-height: 30px; padding: 0 12px; border: 0; border-radius: 13px; background: rgba(255,255,255,0.12); color: #ffffff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer">Source</button>
+</div>
+</div>
+<div style="padding: 14px 16px; border-radius: 14px; background: #08090c; border: 1px solid rgba(255,255,255,0.06); font-family: 'Geist Mono', monospace; font-size: 12px; line-height: 1.7; color: #d7dae0; overflow-x: auto">
+<div style="white-space: pre; color: #ffd27a">#&#32;Dragon Ball Z (1989) — gap analysis</div>
+<div style="white-space: pre; color: #7c818c">_Updated 10 Oct 2026, 14:20 · library D:\Anime_</div>
+<div style="white-space: pre"> </div>
+<div style="white-space: pre; color: #ffd27a">## Summary</div>
+<div style="white-space: pre">- Present: <span style="color: #ffffff; font-weight: 500">**287 of 291**</span> episodes (99%)</div>
+<div style="white-space: pre">- Missing: <span style="color: #ffffff; font-weight: 500">**4**</span> · Broken: <span style="color: #ffffff; font-weight: 500">**1**</span> · At standard: <span style="color: #ffffff; font-weight: 500">**4**</span></div>
+<div style="white-space: pre"> </div>
+<div style="white-space: pre; color: #ffd27a">## Missing</div>
+<div style="white-space: pre; color: #a3a8b3">| Episode | Absolute | Folder    |</div>
+<div style="white-space: pre; color: #7c818c">|---------|----------|-----------|</div>
+<div style="white-space: pre">| S04E11  | 118      | Season 04 |</div>
+<div style="white-space: pre">| S04E12  | 119      | Season 04 |</div>
+<div style="white-space: pre">| S07E13  | 207      | Season 07 |</div>
+<div style="white-space: pre">| S09E01  | 254      | Season 09 |</div>
+<div style="white-space: pre"> </div>
+<div style="white-space: pre; color: #ffd27a">## Broken</div>
+<div style="white-space: pre">- S05E24 (163): stops decoding at 12:41, replace it</div>
+<div style="white-space: pre"> </div>
+<div style="white-space: pre; color: #ffd27a">## To convert</div>
+<div style="white-space: pre">- 281 episodes · SD 480p → 1080p HEVC 10-bit</div>
+<div style="white-space: pre">- About 11.7 GPU days and 130 GB</div>
+</div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">D:\Anime\TV\Dragon Ball Z (1989)\Kura - Gap analysis.md</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 20px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Open file</button>
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Show in folder</button>
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Copy</button>
+</div>
+<span style="font-size: 12px; color: #7c818c">Saved next to the show so it travels with your files. Plex ignores .md files.</span>
+</section>
+
+<section aria-labelledby="hist-title" style="display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08)">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap"><h2 id="hist-title" style="margin: 0; font-size: 16px; font-weight: 800">History</h2><a href="09-history.html" style="font-size: 13px; font-weight: 700; text-decoration: none">All history</a></div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<li style="display: flex; gap: 14px"><div style="display: flex; flex-direction: column; align-items: center; flex: 0 0 14px"><span style="width: 12px; height: 12px; border-radius: 6px; background: #f2b33d; margin-top: 4px"></span><span style="flex: 1; width: 2px; background: #262a33; margin-top: 4px"></span></div><div style="flex: 1; min-width: 0; padding-bottom: 14px; display: flex; flex-direction: column; gap: 2px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 800">Converted S01E04</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">14:20</span></div><span style="font-size: 12px; color: #a3a8b3">480p AVC 233 MB → 1080p HEVC 412 MB · 58 min · verified</span></div></li>
+<li style="display: flex; gap: 14px"><div style="display: flex; flex-direction: column; align-items: center; flex: 0 0 14px"><span style="width: 12px; height: 12px; border-radius: 6px; background: #f2b33d; margin-top: 4px"></span><span style="flex: 1; width: 2px; background: #262a33; margin-top: 4px"></span></div><div style="flex: 1; min-width: 0; padding-bottom: 14px; display: flex; flex-direction: column; gap: 2px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 800">Converted S01E03</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">13:16</span></div><span style="font-size: 12px; color: #a3a8b3">231 → 405 MB · 1 h 02 min · verified</span></div></li>
+<li style="display: flex; gap: 14px"><div style="display: flex; flex-direction: column; align-items: center; flex: 0 0 14px"><span style="width: 12px; height: 12px; border-radius: 6px; background: #f2b33d; margin-top: 4px"></span><span style="flex: 1; width: 2px; background: #262a33; margin-top: 4px"></span></div><div style="flex: 1; min-width: 0; padding-bottom: 14px; display: flex; flex-direction: column; gap: 2px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 800">Converted S01E01 and S01E02</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">12:11</span></div><span style="font-size: 12px; color: #a3a8b3">2 files · 465 → 819 MB · verified</span></div></li>
+<li style="display: flex; gap: 14px"><div style="display: flex; flex-direction: column; align-items: center; flex: 0 0 14px"><span style="width: 12px; height: 12px; border-radius: 6px; box-shadow: inset 0 0 0 2px #4f73b3; margin-top: 4px"></span><span style="flex: 1; width: 2px; background: #262a33; margin-top: 4px"></span></div><div style="flex: 1; min-width: 0; padding-bottom: 14px; display: flex; flex-direction: column; gap: 2px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 800">Renamed 287 files for Plex</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">10:58</span></div><span style="font-size: 12px; color: #a3a8b3">Plan 12 · <a href="05-tidy.html" style="font-weight: 700; text-decoration: none">Undo</a></span></div></li>
+<li style="display: flex; gap: 14px"><div style="display: flex; flex-direction: column; align-items: center; flex: 0 0 14px"><span style="width: 12px; height: 12px; border-radius: 6px; box-shadow: inset 0 0 0 2px #8b919c; margin-top: 4px"></span></div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 800">Scanned</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">10:51</span></div><span style="font-size: 12px; color: #a3a8b3">4 missing and 1 broken found · report written</span></div></li>
+</ol>
+<span style="font-size: 12px; color: #7c818c">Also kept as Kura - History.md next to the show.</span>
+</section>
+
+</div>
+</div>
+
+</main>
+</div>
+</div>
+</body>
+</html>

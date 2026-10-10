@@ -1,0 +1,98 @@
+<!doctype html>
+<!-- Kura design snapshot of "5.2 Update and uninstall" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.2 Update and uninstall · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kpop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes kgrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.press{transition:transform .12s ease-out,filter .15s ease-out,background-color .2s ease-out}
+.press:hover{filter:brightness(1.12)}
+.press:active{transform:scale(.97)}
+.press:focus-visible{outline:2px solid #ffd27a;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; background: #07080a; color: #f4f5f7; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; line-height: 1.5; padding: 56px 24px">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 28px">
+
+<section role="dialog" aria-labelledby="upd-title" style="flex: 1 1 420px; max-width: 520px; display: flex; flex-direction: column; gap: 18px; padding: 28px; border-radius: 28px; background: #121419; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 40px 80px -40px rgba(0,0,0,0.8); animation: kpop .5s cubic-bezier(.2,.8,.2,1) both">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="width: 48px; height: 48px; border-radius: 24px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="4" x2="12" y2="16"></line><polyline points="6 10 12 16 18 10"></polyline><line x1="5" y1="20" x2="19" y2="20"></line></svg></span>
+<div style="display: flex; flex-direction: column">
+<h2 id="upd-title" style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Kura 0.4 is ready</h2>
+<span style="font-size: 13px; color: #a3a8b3">Downloaded in the background · 34 MB</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 800; color: #d7dae0">What's new</span>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+<li style="display: flex; gap: 10px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d; margin-top: 8px; flex-shrink: 0"></span>Faster rescans of very large folders</li>
+<li style="display: flex; gap: 10px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d; margin-top: 8px; flex-shrink: 0"></span>Season posters written for Plex</li>
+<li style="display: flex; gap: 10px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d; margin-top: 8px; flex-shrink: 0"></span>Fixes a stall when a drive goes to sleep mid-conversion</li>
+</ul>
+</div>
+<div style="display: flex; gap: 10px; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.04); font-size: 13px; color: #d7dae0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 1px"><polygon points="12 3 21 7.5 12 12 3 7.5"></polygon><polyline points="3 12 12 16.5 21 12"></polyline><polyline points="3 16.5 12 21 21 16.5"></polyline></svg><span>The queue pauses, Kura restarts, and conversion carries on from the file it was on. Your settings and library stay as they are.</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" class="press" style="min-height: 46px; padding: 0 22px; border: 0; border-radius: 23px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Restart and update</button>
+<button type="button" class="press" style="min-height: 46px; padding: 0 20px; border: 1px solid rgba(255,255,255,0.12); border-radius: 23px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">When the queue is idle</button>
+<button type="button" class="press" style="min-height: 46px; padding: 0 14px; border: 0; border-radius: 23px; background: transparent; color: #a3a8b3; font: inherit; font-weight: 700; cursor: pointer">Later</button>
+</div>
+<span style="font-size: 12px; color: #7c818c">Kura checks once a day. Last checked 09:12. Change this in Settings › Updates.</span>
+</section>
+
+<section role="dialog" aria-labelledby="un-title" style="flex: 1 1 460px; max-width: 580px; display: flex; flex-direction: column; gap: 18px; padding: 28px; border-radius: 28px; background: #121419; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 40px 80px -40px rgba(0,0,0,0.8); animation: kpop .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<h2 id="un-title" style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Uninstall Kura</h2>
+<ol aria-label="Uninstall steps" style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700">
+<li style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 20px; height: 20px; border-radius: 10px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span>Export</li>
+<li aria-hidden="true" style="width: 12px; height: 2px; background: #f2b33d"></li>
+<li aria-current="step" style="display: inline-flex; align-items: center; gap: 6px; color: #ffd27a"><span style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #f2b33d; display: inline-flex; align-items: center; justify-content: center">2</span>Choose</li>
+<li aria-hidden="true" style="width: 12px; height: 2px; background: #2a2e38"></li>
+<li style="display: inline-flex; align-items: center; gap: 6px; color: #7c818c"><span style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #3a3f4b; display: inline-flex; align-items: center; justify-content: center">3</span>Remove</li>
+</ol>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; background: rgba(242,179,61,0.07); border: 1px solid rgba(242,179,61,0.3)">
+<div style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg><span style="font-weight: 800">Your data is exported</span></div>
+<div style="height: 6px; border-radius: 3px; background: #262a33; overflow: hidden"><div style="width: 100%; height: 100%; border-radius: 3px; background: #f2b33d; transform-origin: left; animation: kgrow 1.4s cubic-bezier(.2,.8,.2,1) both; animation-delay: 300ms"></div></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0; overflow-wrap: anywhere">D:\Backups\Kura export 2026-10-10.zip · 912 MB</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" class="press" style="min-height: 36px; padding: 0 14px; border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; background: transparent; color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Open folder</button><button type="button" class="press" style="min-height: 36px; padding: 0 14px; border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; background: transparent; color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Export again elsewhere</button></div>
+</div>
+
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="margin-bottom: 8px; font-size: 13px; font-weight: 800; color: #d7dae0">Kura's data folder</legend>
+<button type="button" role="radio" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 16px; background: rgba(242,179,61,0.08); border: 2px solid #f2b33d; color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 10px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #1d1300"></span></span><span style="display: flex; flex-direction: column"><span style="font-weight: 800">Keep it</span><span style="font-size: 13px; color: #a3a8b3">Reinstall later and pick up exactly where you left off.</span></span></button>
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08); color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #5b6170; flex-shrink: 0; margin-top: 1px"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 800">Delete it</span><span style="font-size: 13px; color: #a3a8b3">Removes the database, artwork, backups and logs from this PC. Your export stays.</span></span></button>
+</fieldset>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 800">Quarantine on D:, 3.4 GB</span><span style="font-size: 12px; color: #a3a8b3">Replaced originals and duplicates</span></span>
+<div role="group" aria-label="Quarantine" style="display: inline-flex; gap: 4px; padding: 4px; border-radius: 22px; background: rgba(255,255,255,0.05)">
+<button type="button" aria-pressed="true" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,0.14); color: #ffffff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer">Keep</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Put back</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Empty</button>
+</div>
+</div>
+
+<button type="button" role="checkbox" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 4px; border: 0; background: transparent; color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 7px; box-shadow: inset 0 0 0 2px #5b6170; flex-shrink: 0"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Also remove the .md reports from my anime folders</span><span style="font-size: 12px; color: #a3a8b3">Off by default: they are useful even without Kura</span></span></button>
+
+<div style="display: flex; gap: 10px; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.04); font-size: 13px; color: #d7dae0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 1px"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path><polyline points="9 12 11 14 15 10"></polyline></svg><span>Your anime files are never touched. Converted files stay converted and keep their names.</span></div>
+
+<div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px">
+<button type="button" class="press" style="min-height: 46px; padding: 0 20px; border: 1px solid rgba(255,255,255,0.12); border-radius: 23px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Cancel</button>
+<button type="button" class="press" style="min-height: 46px; padding: 0 22px; border: 0; border-radius: 23px; background: #ff8a8a; color: #2a0b0b; font: inherit; font-weight: 800; cursor: pointer">Uninstall</button>
+</div>
+</section>
+
+</div>
+</div>
+</body>
+</html>

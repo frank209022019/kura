@@ -1,0 +1,159 @@
+<!doctype html>
+<!-- Kura design snapshot of "5.1 Settings: your data" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.1 Settings: your data · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes kgrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.press{transition:transform .12s ease-out,filter .15s ease-out,background-color .2s ease-out}
+.press:hover{filter:brightness(1.12)}
+.press:active{transform:scale(.97)}
+.press:focus-visible{outline:2px solid #ffd27a;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; line-height: 1.5">
+
+<div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding-left: 20px">
+<div style="flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#f2b33d"></rect><rect x="6.4" y="6.5" width="2.8" height="11" rx="1.4" fill="#1d1300"></rect><rect x="10.6" y="8.5" width="2.8" height="9" rx="1.4" fill="#1d1300"></rect><rect x="14.6" y="6.2" width="2.8" height="11.2" rx="1.4" fill="#1d1300" transform="rotate(14 16 11.8)"></rect></svg>
+<span style="font-size: 14px; font-weight: 800">Kura</span>
+</div>
+<label style="flex: 0 1 460px; min-width: 0; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 14px; box-sizing: border-box; border-radius: 19px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #a3a8b3">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><line x1="16" y1="16" x2="20.5" y2="20.5"></line></svg>
+<input type="search" placeholder="Search settings, anime or files" aria-label="Search" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; font-size: 13px; color: #f4f5f7" />
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 0 8px; line-height: 20px; white-space: nowrap">Ctrl K</span>
+</label>
+<div style="flex: 1 1 160px; display: flex; justify-content: flex-end">
+<button type="button" aria-label="Minimize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line></svg></button>
+<button type="button" aria-label="Maximize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg></button>
+<button type="button" aria-label="Close" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg></button>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Main" style="flex: 1 1 96px; display: flex; flex-direction: column; padding: 8px 10px 20px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<a href="03-home.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path></svg>Home</a>
+<a href="05-tidy.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><polyline points="3 6 4.5 7.5 7 5"></polyline><polyline points="3 12 4.5 13.5 7 11"></polyline><polyline points="3 18 4.5 19.5 7 17"></polyline></svg>Tidy up<span style="position: absolute; top: 6px; right: 10px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #f2b33d; color: #1d1300; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center">56</span></a>
+<a href="07-convert.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 21 7.5 12 12 3 7.5"></polygon><polyline points="3 12 12 16.5 21 12"></polyline><polyline points="3 16.5 12 21 21 16.5"></polyline></svg>Convert<span style="position: absolute; top: 6px; right: 6px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: rgba(242,179,61,0.18); color: #ffd27a; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center">63%</span></a>
+<a href="09-history.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>History</a>
+<a href="10-settings.html" aria-current="page" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; background: rgba(242,179,61,0.12); color: #ffd27a; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="7" y2="7"></line><line x1="11" y1="7" x2="20" y2="7"></line><circle cx="9" cy="7" r="2"></circle><line x1="4" y1="17" x2="13" y2="17"></line><line x1="17" y1="17" x2="20" y2="17"></line><circle cx="15" cy="17" r="2"></circle></svg>Settings</a>
+</div>
+</nav>
+
+<main id="main" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 22px; padding: 6px 32px 56px 14px; box-sizing: border-box">
+
+<h1 style="margin: 0; font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; animation: kfade .5s cubic-bezier(.2,.8,.2,1) both">Settings</h1>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<nav aria-label="Settings sections" style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px; animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 40ms">
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">General</a>
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">Libraries<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">1</span></a>
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">Standard</a>
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">Naming</a>
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">Titles and artwork</a>
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">Performance</a>
+<a href="10-settings.html" aria-current="page" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; background: rgba(242,179,61,0.12); color: #ffd27a; text-decoration: none; font-weight: 800">Your data</a>
+<a href="11-uninstall.html" class="press" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">Updates<span style="width: 8px; height: 8px; border-radius: 4px; background: #f2b33d"></span></a>
+<a href="10-settings.html" class="press" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #d7dae0; text-decoration: none; font-weight: 700">About</a>
+</nav>
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+
+<section aria-labelledby="where-title" style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 60ms">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h2 id="where-title" style="margin: 0; font-size: 18px; font-weight: 800">Where your data lives</h2>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0; overflow-wrap: anywhere">%LOCALAPPDATA%\Kura</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Open folder</button>
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Move to another drive</button>
+</div>
+</div>
+<div role="img" aria-label="910 MB in total: database 48 MB, artwork 610 MB, backups 240 MB, logs 12 MB" style="display: flex; gap: 3px; height: 14px; transform-origin: left; animation: kgrow .9s cubic-bezier(.2,.8,.2,1) both; animation-delay: 160ms">
+<span style="flex: 0 0 5.3%; min-width: 10px; border-radius: 7px 0 0 7px; background: #f2b33d"></span>
+<span style="flex: 1 1 67%; background: #4f73b3"></span>
+<span style="flex: 0 0 26.4%; background: #6b7385"></span>
+<span style="flex: 0 0 1.3%; min-width: 6px; border-radius: 0 7px 7px 0; background: #3a3f4b"></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a3a8b3"><span style="width: 9px; height: 9px; border-radius: 3px; background: #f2b33d"></span>Database</span><span style="font-weight: 800">48 MB</span><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c">kura.db, one SQLite file</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a3a8b3"><span style="width: 9px; height: 9px; border-radius: 3px; background: #4f73b3"></span>Artwork</span><span style="font-weight: 800">610 MB</span><span style="font-size: 11px; color: #7c818c">can be downloaded again</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a3a8b3"><span style="width: 9px; height: 9px; border-radius: 3px; background: #6b7385"></span>Backups</span><span style="font-weight: 800">240 MB</span><span style="font-size: 11px; color: #7c818c">last 7 nights</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a3a8b3"><span style="width: 9px; height: 9px; border-radius: 3px; background: #3a3f4b; box-shadow: inset 0 0 0 1px #6b7385"></span>Logs</span><span style="font-weight: 800">12 MB</span><span style="font-size: 11px; color: #7c818c">kept 30 days</span></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #a3a8b3">The library, your matches, plans, the undo journal, the queue and history all live in one database file. There is no server to install, nothing listens on the network, and it is never uploaded.</p>
+</section>
+
+<section aria-labelledby="with-title" style="display: flex; flex-direction: column; gap: 6px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms">
+<h2 id="with-title" style="margin: 0 0 6px; font-size: 18px; font-weight: 800">Kept with your files too</h2>
+<button type="button" role="switch" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 4px; border: 0; background: transparent; color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="position: relative; width: 44px; height: 24px; border-radius: 12px; background: #f2b33d; flex-shrink: 0"><span style="position: absolute; top: 4px; left: 24px; width: 16px; height: 16px; border-radius: 8px; background: #1d1300"></span></span><span style="display: flex; flex-direction: column"><span style="font-weight: 800">A gap report and a history file in each anime's folder</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">Kura - Gap analysis.md · Kura - History.md</span></span></button>
+<div style="display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 4px"><span aria-hidden="true" style="position: relative; width: 44px; height: 24px; border-radius: 12px; background: rgba(242,179,61,0.45); flex-shrink: 0"><span style="position: absolute; top: 4px; left: 24px; width: 16px; height: 16px; border-radius: 8px; background: #1d1300"></span></span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 800">A small tag inside every converted file</span><span style="font-size: 12px; color: #a3a8b3">Standard, date and source. Kura can rebuild its library from these if the database is ever lost.</span></span><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #a3a8b3"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>Always on</span></div>
+<button type="button" role="switch" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 4px; border: 0; background: transparent; color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="position: relative; width: 44px; height: 24px; border-radius: 12px; background: #f2b33d; flex-shrink: 0"><span style="position: absolute; top: 4px; left: 24px; width: 16px; height: 16px; border-radius: 8px; background: #1d1300"></span></span><span style="display: flex; flex-direction: column"><span style="font-weight: 800">Poster and background images for Plex</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">poster.jpg · fanart.jpg · season01.jpg</span></span></button>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch">
+
+<section aria-labelledby="backup-title" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 180ms">
+<h2 id="backup-title" style="margin: 0; font-size: 18px; font-weight: 800">Backups</h2>
+<span style="font-size: 13px; color: #a3a8b3">Every night at 03:00, keeping the last 7.</span>
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.04)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg><span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 800">Last backup today 03:00</span><span style="font-size: 12px; color: #a3a8b3">47 MB · checked</span></span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto">
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Back up now</button>
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Restore a backup</button>
+</div>
+</section>
+
+<section aria-labelledby="export-title" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 24px; background: rgba(242,179,61,0.06); border: 1px solid rgba(242,179,61,0.3); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 220ms">
+<h2 id="export-title" style="margin: 0; font-size: 18px; font-weight: 800">Export and import</h2>
+<span style="font-size: 13px; color: #a3a8b3">One zip with everything, in files you can open without Kura.</span>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+<li style="display: flex; align-items: center; gap: 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d"></span>The database, as SQLite and as JSON</li>
+<li style="display: flex; align-items: center; gap: 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d"></span>History and the file list as CSV</li>
+<li style="display: flex; align-items: center; gap: 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d"></span>Every gap report and history .md</li>
+<li style="display: flex; align-items: center; gap: 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #f2b33d"></span>Your settings and matches</li>
+</ul>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto">
+<button type="button" class="press" style="min-height: 42px; padding: 0 18px; border: 0; border-radius: 21px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Export everything</button>
+<button type="button" class="press" style="min-height: 42px; padding: 0 18px; border: 1px solid rgba(255,255,255,0.12); border-radius: 21px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Import an export</button>
+</div>
+</section>
+
+</div>
+
+<section aria-labelledby="q-title" style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 260ms">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<h2 id="q-title" style="margin: 0; font-size: 18px; font-weight: 800">Quarantine</h2>
+<span style="font-size: 13px; color: #a3a8b3"><strong style="color: #f4f5f7">3.4 GB</strong> of replaced originals and duplicates, on the same drive as the files.</span>
+</div>
+<div role="group" aria-label="Empty quarantine after" style="display: inline-flex; gap: 4px; padding: 4px; border-radius: 22px; background: rgba(255,255,255,0.05)">
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">7 days</button>
+<button type="button" aria-pressed="true" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: #f2b33d; color: #1d1300; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer">30 days</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">90 days</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Never</button>
+</div>
+<button type="button" class="press" style="min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Review</button>
+</section>
+
+<a href="11-uninstall.html" class="press" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 22px; border-radius: 22px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.14); color: #d7dae0; text-decoration: none; animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 300ms"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg><span style="flex: 1 1 300px">Uninstalling asks you to export first, and keeps this folder unless you choose to delete it. Your anime files are never touched.</span><span style="font-weight: 800; color: #ffd27a">See how</span></a>
+
+</div>
+</div>
+
+</main>
+</div>
+</div>
+</body>
+</html>

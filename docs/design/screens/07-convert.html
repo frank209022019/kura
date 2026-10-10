@@ -1,0 +1,191 @@
+<!doctype html>
+<!-- Kura design snapshot of "4.1 Convert: choose and preview" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4.1 Convert: choose and preview · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes kgrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes kwipe{0%{left:30%}50%{left:70%}100%{left:30%}}
+@keyframes kclipL{0%{clip-path:inset(0 70% 0 0)}50%{clip-path:inset(0 30% 0 0)}100%{clip-path:inset(0 70% 0 0)}}
+.press{transition:transform .12s ease-out,filter .15s ease-out,background-color .2s ease-out}
+.press:hover{filter:brightness(1.12)}
+.press:active{transform:scale(.97)}
+.press:focus-visible{outline:2px solid #ffd27a;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; line-height: 1.5">
+
+<div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding-left: 20px">
+<div style="flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#f2b33d"></rect><rect x="6.4" y="6.5" width="2.8" height="11" rx="1.4" fill="#1d1300"></rect><rect x="10.6" y="8.5" width="2.8" height="9" rx="1.4" fill="#1d1300"></rect><rect x="14.6" y="6.2" width="2.8" height="11.2" rx="1.4" fill="#1d1300" transform="rotate(14 16 11.8)"></rect></svg>
+<span style="font-size: 14px; font-weight: 800">Kura</span>
+</div>
+<label style="flex: 0 1 460px; min-width: 0; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 14px; box-sizing: border-box; border-radius: 19px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #a3a8b3">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><line x1="16" y1="16" x2="20.5" y2="20.5"></line></svg>
+<input type="search" placeholder="Search anime, episodes or files" aria-label="Search anime, episodes or files" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; font-size: 13px; color: #f4f5f7" />
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 0 8px; line-height: 20px; white-space: nowrap">Ctrl K</span>
+</label>
+<div style="flex: 1 1 160px; display: flex; justify-content: flex-end">
+<button type="button" aria-label="Minimize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line></svg></button>
+<button type="button" aria-label="Maximize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg></button>
+<button type="button" aria-label="Close" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg></button>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Main" style="flex: 1 1 96px; display: flex; flex-direction: column; padding: 8px 10px 20px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<a href="03-home.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path></svg>Home</a>
+<a href="05-tidy.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><polyline points="3 6 4.5 7.5 7 5"></polyline><polyline points="3 12 4.5 13.5 7 11"></polyline><polyline points="3 18 4.5 19.5 7 17"></polyline></svg>Tidy up<span style="position: absolute; top: 6px; right: 10px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #f2b33d; color: #1d1300; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center">56</span></a>
+<a href="07-convert.html" aria-current="page" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; background: rgba(242,179,61,0.12); color: #ffd27a; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 21 7.5 12 12 3 7.5"></polygon><polyline points="3 12 12 16.5 21 12"></polyline><polyline points="3 16.5 12 21 21 16.5"></polyline></svg>Convert<span style="position: absolute; top: 6px; right: 6px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: rgba(242,179,61,0.18); color: #ffd27a; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center">63%</span></a>
+<a href="09-history.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>History</a>
+<a href="10-settings.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="7" y2="7"></line><line x1="11" y1="7" x2="20" y2="7"></line><circle cx="9" cy="7" r="2"></circle><line x1="4" y1="17" x2="13" y2="17"></line><line x1="17" y1="17" x2="20" y2="17"></line><circle cx="15" cy="17" r="2"></circle></svg>Settings</a>
+</div>
+</nav>
+
+<main id="main" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 22px; padding: 6px 32px 56px 14px; box-sizing: border-box">
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; animation: kfade .5s cubic-bezier(.2,.8,.2,1) both">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h1 style="margin: 0; font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em">Convert</h1>
+<span style="font-size: 14px; color: #a3a8b3">Pick what to convert, see the result first, then queue it.</span>
+</div>
+<div role="group" aria-label="Convert sections" style="display: inline-flex; gap: 4px; padding: 4px; border-radius: 24px; background: rgba(255,255,255,0.05)">
+<a href="07-convert.html" aria-current="page" class="press" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 18px; border-radius: 20px; background: #f2b33d; color: #1d1300; text-decoration: none; font-weight: 800">Choose</a>
+<a href="08-queue.html" class="press" style="display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 18px; border-radius: 20px; color: #d7dae0; text-decoration: none; font-weight: 700">Queue<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3">283</span></a>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+
+<section aria-labelledby="what-title" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 60ms">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 26px; height: 26px; border-radius: 13px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">1</span><h2 id="what-title" style="margin: 0; font-size: 18px; font-weight: 800">What</h2></div>
+<div style="display: flex; flex-direction: column; font-size: 14px">
+<button type="button" role="checkbox" aria-checked="mixed" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 12px; background: transparent; color: #f4f5f7; font: inherit; font-weight: 800; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: rgba(242,179,61,0.25); box-shadow: inset 0 0 0 2px #f2b33d; display: inline-flex; align-items: center; justify-content: center"><span style="width: 10px; height: 2px; background: #ffd27a"></span></span>Dragon Ball<span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #a3a8b3">franchise</span></button>
+<button type="button" role="checkbox" aria-checked="mixed" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px 0 36px; border: 0; border-radius: 12px; background: transparent; color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: rgba(242,179,61,0.25); box-shadow: inset 0 0 0 2px #f2b33d; display: inline-flex; align-items: center; justify-content: center"><span style="width: 10px; height: 2px; background: #ffd27a"></span></span>Dragon Ball Z<span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #a3a8b3">283 left</span></button>
+<button type="button" role="checkbox" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px 0 64px; border: 0; border-radius: 12px; background: rgba(242,179,61,0.08); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span>Season 1<span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #ffd27a">35 episodes</span></button>
+<button type="button" role="checkbox" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px 0 64px; border: 0; border-radius: 12px; background: transparent; color: #d7dae0; font: inherit; font-weight: 600; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; box-shadow: inset 0 0 0 2px #5b6170"></span>Season 2<span style="margin-left: auto; font-size: 12px; color: #a3a8b3">35 episodes</span></button>
+<button type="button" role="checkbox" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px 0 64px; border: 0; border-radius: 12px; background: transparent; color: #d7dae0; font: inherit; font-weight: 600; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; box-shadow: inset 0 0 0 2px #5b6170"></span>Seasons 3 to 9<span style="margin-left: auto; font-size: 12px; color: #a3a8b3">213 episodes</span></button>
+<button type="button" role="checkbox" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px 0 36px; border: 0; border-radius: 12px; background: transparent; color: #d7dae0; font: inherit; font-weight: 600; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; box-shadow: inset 0 0 0 2px #5b6170"></span>Dragon Ball GT<span style="margin-left: auto; font-size: 12px; color: #a3a8b3">62, 2 broken skipped</span></button>
+<button type="button" role="checkbox" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 12px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; box-shadow: inset 0 0 0 2px #5b6170"></span>Naruto<span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #a3a8b3">franchise</span></button>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto">
+<span style="display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(255,255,255,0.06); font-size: 12px; font-weight: 700">35 episodes</span>
+<span style="display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(255,255,255,0.06); font-size: 12px; font-weight: 700">13 h 40 min of video</span>
+<span style="display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(255,255,255,0.06); font-size: 12px; font-weight: 700">SD 480p · 4:3</span>
+</div>
+</section>
+
+<section aria-labelledby="how-title" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 26px; height: 26px; border-radius: 13px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">2</span><h2 id="how-title" style="margin: 0; font-size: 18px; font-weight: 800">How</h2><span style="margin-left: auto; font-size: 12px; color: #a3a8b3">To your standard: Cinema 1080p</span></div>
+<fieldset style="margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Quality</legend>
+<button type="button" role="radio" aria-checked="true" class="press" style="text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: rgba(242,179,61,0.1); border: 2px solid #f2b33d; color: #f4f5f7; font: inherit; cursor: pointer">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%"><span style="font-size: 16px; font-weight: 800">Best quality</span><span style="width: 20px; height: 20px; border-radius: 10px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: #1d1300"></span></span></span>
+<span style="font-size: 13px; color: #a3a8b3">Crispest lines, cleans blur and blocky compression.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #ffd27a">≈ 1 h per episode</span>
+<span style="font-size: 12px; color: #7c818c">Real-ESRGAN anime model</span>
+</button>
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08); color: #f4f5f7; font: inherit; cursor: pointer">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%"><span style="font-size: 16px; font-weight: 800">Fast</span><span style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #5b6170"></span></span>
+<span style="font-size: 13px; color: #a3a8b3">Sharper lines, lighter clean-up. Good for 720p.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">≈ 12 min per episode</span>
+<span style="font-size: 12px; color: #7c818c">Anime4K shaders</span>
+</button>
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08); color: #f4f5f7; font: inherit; cursor: pointer">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%"><span style="font-size: 16px; font-weight: 800">Re-encode only</span><span style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #5b6170"></span></span>
+<span style="font-size: 13px; color: #a3a8b3">No AI. Brings the format to your standard.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">≈ 3 min per episode</span>
+<span style="font-size: 12px; color: #7c818c">Graphics card encoder</span>
+</button>
+</fieldset>
+<span style="font-size: 12px; color: #7c818c">4:3 shows stay 4:3 at 1440 × 1080. Nothing is stretched or cropped.</span>
+</section>
+
+</div>
+
+<section aria-labelledby="preview-title" style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 180ms">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px"><span style="width: 26px; height: 26px; border-radius: 13px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">3</span><h2 id="preview-title" style="margin: 0; font-size: 18px; font-weight: 800">See it first</h2><span style="font-size: 13px; color: #a3a8b3">Dragon Ball Z · S01E06 · drag the handle</span>
+<div style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" aria-pressed="false" class="press" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 17px; background: rgba(255,255,255,0.06); color: #d7dae0; font-family: 'Geist Mono', monospace; font-size: 12px; cursor: pointer">03:12</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 17px; background: rgba(255,255,255,0.06); color: #d7dae0; font-family: 'Geist Mono', monospace; font-size: 12px; cursor: pointer">11:40</button>
+<button type="button" aria-pressed="true" class="press" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 17px; background: rgba(242,179,61,0.2); color: #ffd27a; font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 500; cursor: pointer">18:05</button>
+</div>
+</div>
+<div role="img" aria-label="Before and after comparison of one frame: the original 480p on the left, the best quality 1080p on the right" style="position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #000000">
+<div style="position: absolute; top: 0; bottom: 0; left: 12.5%; right: 12.5%; overflow: hidden">
+<div aria-hidden="true" style="position: absolute; inset: 0; z-index: 1; filter: blur(2.4px) saturate(.75) contrast(.88); clip-path: inset(0 50% 0 0); animation: kclipL 9s cubic-bezier(.45,0,.55,1) infinite">
+<span style="position: absolute; inset: 0; background: #6fa8dc"></span>
+<span style="position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #6b8f3a"></span>
+<span style="position: absolute; left: -5%; bottom: 26%; width: 55%; height: 38%; background: #4a6fa5; clip-path: polygon(0 100%, 45% 0, 100% 100%)"></span>
+<span style="position: absolute; right: -8%; bottom: 26%; width: 60%; height: 46%; background: #3d5d8f; clip-path: polygon(0 100%, 55% 0, 100% 100%)"></span>
+<span style="position: absolute; left: 40%; top: 22%; width: 22%; aspect-ratio: 1 / 1; border-radius: 50%; background: #f08a24; box-shadow: 0 0 0 4px #1b1b1b"></span>
+<span style="position: absolute; left: 46%; top: 30%; width: 6%; aspect-ratio: 1 / 1; border-radius: 50%; background: #c2410c"></span>
+<span style="position: absolute; left: 10%; top: 14%; width: 18%; height: 8%; border-radius: 40px; background: #ffffff"></span>
+<span style="position: absolute; right: 12%; top: 10%; width: 14%; height: 6%; border-radius: 40px; background: #ffffff"></span>
+</div>
+<div aria-hidden="true" style="position: absolute; inset: 0">
+<span style="position: absolute; inset: 0; background: #6fa8dc"></span>
+<span style="position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #6b8f3a"></span>
+<span style="position: absolute; left: -5%; bottom: 26%; width: 55%; height: 38%; background: #4a6fa5; clip-path: polygon(0 100%, 45% 0, 100% 100%)"></span>
+<span style="position: absolute; right: -8%; bottom: 26%; width: 60%; height: 46%; background: #3d5d8f; clip-path: polygon(0 100%, 55% 0, 100% 100%)"></span>
+<span style="position: absolute; left: 40%; top: 22%; width: 22%; aspect-ratio: 1 / 1; border-radius: 50%; background: #f08a24; box-shadow: 0 0 0 4px #1b1b1b"></span>
+<span style="position: absolute; left: 46%; top: 30%; width: 6%; aspect-ratio: 1 / 1; border-radius: 50%; background: #c2410c"></span>
+<span style="position: absolute; left: 10%; top: 14%; width: 18%; height: 8%; border-radius: 40px; background: #ffffff"></span>
+<span style="position: absolute; right: 12%; top: 10%; width: 14%; height: 6%; border-radius: 40px; background: #ffffff"></span>
+</div>
+<span aria-hidden="true" style="position: absolute; z-index: 2; top: 0; bottom: 0; left: 50%; width: 3px; margin-left: -1.5px; background: #ffffff; animation: kwipe 9s cubic-bezier(.45,0,.55,1) infinite"></span>
+</div>
+<span style="position: absolute; left: 14px; top: 14px; display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(0,0,0,0.6); color: #ffffff; font-size: 12px; font-weight: 700">Before · original 480p</span>
+<span style="position: absolute; right: 14px; top: 14px; display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(242,179,61,0.92); color: #1d1300; font-size: 12px; font-weight: 800">After · best quality 1080p</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div role="group" aria-label="Zoom" style="display: inline-flex; gap: 4px; padding: 4px; border-radius: 20px; background: rgba(255,255,255,0.05)">
+<button type="button" aria-pressed="true" class="press" style="min-height: 34px; padding: 0 14px; border: 0; border-radius: 17px; background: rgba(255,255,255,0.12); color: #ffffff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer">Fit</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 34px; padding: 0 14px; border: 0; border-radius: 17px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Zoom 2×</button>
+</div>
+<button type="button" class="press" style="display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 18px; border: 1px solid rgba(255,255,255,0.12); border-radius: 21px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="7 4 20 12 7 20"></polygon></svg>Render a 10-second clip · about 1 min</button>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+
+<section aria-labelledby="est-title" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 240ms">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 26px; height: 26px; border-radius: 13px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">4</span><h2 id="est-title" style="margin: 0; font-size: 18px; font-weight: 800">Estimate</h2><span style="margin-left: auto; font-size: 12px; color: #a3a8b3">Measured on your GTX 1660 SUPER</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px">
+<div style="padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #a3a8b3">GPU time</span><span style="font-size: 24px; font-weight: 800; line-height: 1.1">≈ 35 h</span><span style="font-size: 12px; color: #a3a8b3">about 5 nights</span></div>
+<div style="padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #a3a8b3">Size</span><span style="font-size: 24px; font-weight: 800; line-height: 1.1">8.2 → 16 GB</span><span style="font-size: 12px; color: #a3a8b3">≈ 450 MB per episode</span></div>
+<div style="padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #a3a8b3">Space on D:</span><span style="display: flex; align-items: center; gap: 8px; font-size: 24px; font-weight: 800; line-height: 1.1">931 GB<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span><span style="font-size: 12px; color: #a3a8b3">free, plenty for this</span></div>
+<div style="padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #a3a8b3">Originals</span><span style="font-size: 24px; font-weight: 800; line-height: 1.1">Kept 30 days</span><span style="font-size: 12px; color: #a3a8b3">in quarantine, after each check</span></div>
+</div>
+</section>
+
+<section aria-labelledby="when-title" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 300ms">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 26px; height: 26px; border-radius: 13px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">5</span><h2 id="when-title" style="margin: 0; font-size: 18px; font-weight: 800">When</h2></div>
+<div role="radiogroup" aria-label="When to convert" style="display: flex; flex-direction: column; gap: 6px">
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #5b6170"></span>Start now</button>
+<button type="button" role="radio" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 14px; background: rgba(242,179,61,0.1); color: #f4f5f7; font: inherit; font-weight: 800; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 10px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: #1d1300"></span></span>Nights only<span style="margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 12px; font-weight: 500; color: #ffd27a">23:00–07:00</span></button>
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 10px; box-shadow: inset 0 0 0 2px #5b6170"></span>After the current queue</button>
+</div>
+<button type="button" role="switch" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="position: relative; width: 40px; height: 22px; border-radius: 11px; background: #f2b33d; flex-shrink: 0"><span style="position: absolute; top: 4px; left: 22px; width: 14px; height: 14px; border-radius: 7px; background: #1d1300"></span></span>Tell me when it's done</button>
+<a href="08-queue.html" class="press" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; margin-top: auto; padding: 0 22px; border-radius: 24px; background: #f2b33d; color: #1d1300; text-decoration: none; font-weight: 800">Add 35 episodes to the queue</a>
+</section>
+
+</div>
+
+</main>
+</div>
+</div>
+</body>
+</html>

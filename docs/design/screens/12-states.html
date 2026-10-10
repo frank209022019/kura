@@ -1,0 +1,154 @@
+<!doctype html>
+<!-- Kura design snapshot of "5.3 The small things" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5.3 The small things · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kpop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes kshrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes kfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.press{transition:transform .12s ease-out,filter .15s ease-out,background-color .2s ease-out}
+.press:hover{filter:brightness(1.12)}
+.press:active{transform:scale(.97)}
+.press:focus-visible{outline:2px solid #ffd27a;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; line-height: 1.5; padding: 48px 24px 64px">
+<div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 760px">
+<h1 style="margin: 0; font-size: 36px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em">The small things</h1>
+<p style="margin: 0; font-size: 16px; color: #a3a8b3">What Kura says when something gets in the way. Every message names the problem, says what Kura already did about it, and offers the next step.</p>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px">
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">A drive is unplugged</span>
+<div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 18px; background: rgba(242,179,61,0.1); border: 1px solid rgba(242,179,61,0.32)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><line x1="7" y1="12" x2="7.01" y2="12"></line><line x1="4" y1="4" x2="20" y2="20"></line></svg>
+<span style="flex: 1 1 200px"><strong>D: isn't connected.</strong> The queue is paused and starts again by itself when the drive is back.</span>
+<button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: rgba(255,255,255,0.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Check now</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 50ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">Not enough space</span>
+<div role="alertdialog" aria-label="Not enough space" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: #13161c; border: 1px solid rgba(255,255,255,0.1)">
+<span style="font-weight: 800">Season 2 needs about 16 GB. D: has 9 GB free.</span>
+<button type="button" class="press" style="text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: rgba(242,179,61,0.12); color: #ffd27a; font: inherit; font-weight: 800; cursor: pointer">Empty quarantine first<span style="font-family: 'Geist Mono', monospace; font-size: 12px">+3.4 GB</span></button>
+<button type="button" class="press" style="text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Convert the 18 that fit now<span style="font-size: 12px; color: #a3a8b3">rest later</span></button>
+<button type="button" class="press" style="text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Write to another drive<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">F: 791 GB</span></button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 100ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">A file is open somewhere else</span>
+<div role="status" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border-radius: 18px; background: #13161c; border: 1px solid rgba(255,255,255,0.1)">
+<div style="display: flex; gap: 12px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#bdd0f4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg><span><strong>Dragon Ball Z S02E03 is open in another app,</strong> maybe your player or Plex. Kura will try again in 5 minutes.</span></div>
+<div style="display: flex; gap: 8px"><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: rgba(255,255,255,0.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Try now</button><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: transparent; color: #a3a8b3; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Skip this file</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 150ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">After a crash or power cut</span>
+<div role="status" style="display: flex; gap: 12px; padding: 16px 18px; border-radius: 18px; background: #13161c; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px -24px rgba(0,0,0,0.8)">
+<span style="width: 36px; height: 36px; border-radius: 18px; background: rgba(242,179,61,0.14); color: #ffd27a; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 6px"><span><strong>Kura closed unexpectedly last night.</strong> One file was restarted from the beginning; the original was never touched and nothing was lost.</span><a href="09-history.html" style="font-size: 13px; font-weight: 800; text-decoration: none">See what happened</a></span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 200ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">A conversion fails</span>
+<div role="alert" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border-radius: 18px; background: rgba(255,107,107,0.07); border: 1px solid rgba(255,107,107,0.26)">
+<span><strong>Trigun S01E09 failed while reading the source.</strong> The original is untouched and still plays up to 04:12.</span>
+<div style="padding: 10px 12px; border-radius: 12px; background: #08090c; font-family: 'Geist Mono', monospace; font-size: 11px; line-height: 1.7; color: #a3a8b3; overflow-x: auto"><div style="white-space: pre">04:12.384  decode error: corrupt data at 152.3 MB</div><div style="white-space: pre">04:12.391  stopped at frame 6,045 of 34,512</div></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: #f2b33d; color: #1d1300; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer">Mark as broken</button><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: rgba(255,255,255,0.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Try again</button><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: transparent; color: #a3a8b3; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Copy full log</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 250ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">The new name is already taken</span>
+<div role="alertdialog" aria-label="Name already taken" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: #13161c; border: 1px solid rgba(255,255,255,0.1)">
+<span style="font-weight: 800">A file with this name is already there</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3; overflow-wrap: anywhere">Season 01\Dragon Ball Z (1989) - S01E05.mkv</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: #f2b33d; color: #1d1300; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer">Compare the two</button><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: rgba(255,255,255,0.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Keep both</button><button type="button" class="press" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: transparent; color: #a3a8b3; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Skip</button></div>
+<span style="font-size: 12px; color: #7c818c">Kura never overwrites a file. Keep both adds (2) to the new one.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 300ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">Right after applying changes</span>
+<div role="status" style="position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; padding: 14px 16px 18px; border-radius: 18px; background: #f4f5f7; color: #101217; box-shadow: 0 20px 40px -24px rgba(0,0,0,0.9)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#101217" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg>
+<span style="flex: 1; font-weight: 700">287 files renamed for Plex</span>
+<button type="button" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: #101217; color: #ffd27a; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer">Undo</button>
+<span aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #f2b33d; transform-origin: left; animation: kshrink 8s linear infinite"></span>
+</div>
+<span style="font-size: 12px; color: #7c818c">Undo stays in History after this disappears.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 350ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">A batch finishes</span>
+<div role="status" style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; background: #13254f; color: #ffffff; box-shadow: 0 20px 40px -24px rgba(0,0,0,0.9)">
+<span aria-hidden="true" style="position: relative; width: 44px; height: 44px; border-radius: 12px; overflow: hidden; background: #2449b8; flex-shrink: 0"><span style="position: absolute; right: -10px; top: -10px; width: 32px; height: 32px; border-radius: 50%; background: #f08a24"></span></span>
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 800">Dragon Ball Z, season 1 is done</span><span style="font-size: 12px; color: rgba(255,255,255,0.8)">39 episodes · all checked · 9.1 → 17.5 GB</span></span>
+<a href="04-title.html" class="press" style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 18px; background: #f2b33d; color: #1d1300; text-decoration: none; font-size: 13px; font-weight: 800">View</a>
+</div>
+<span style="font-size: 12px; color: #7c818c">Also sent as a Windows notification if Kura is in the tray.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 400ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">No anime yet</span>
+<div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 26px 20px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.14)">
+<div aria-hidden="true" style="position: relative; width: 120px; height: 84px">
+<span style="position: absolute; left: 14px; bottom: 10px; width: 24px; height: 60px; border-radius: 6px; background: #2449b8; animation: kfloat 4s ease-in-out infinite"></span>
+<span style="position: absolute; left: 44px; bottom: 10px; width: 24px; height: 50px; border-radius: 6px; background: #c4561d; animation: kfloat 4s ease-in-out infinite; animation-delay: 300ms"></span>
+<span style="position: absolute; left: 74px; bottom: 10px; width: 24px; height: 66px; border-radius: 6px; background: #5b2a86; transform: rotate(10deg); animation: kfloat 4s ease-in-out infinite; animation-delay: 600ms"></span>
+<span style="position: absolute; left: 0; right: 0; bottom: 4px; height: 6px; border-radius: 3px; background: #2a2e38"></span>
+</div>
+<span style="font-size: 17px; font-weight: 800">Your shelf is empty</span>
+<span style="font-size: 13px; color: #a3a8b3">Add a folder with anime in it. Any layout, even everything in one folder.</span>
+<a href="01-setup.html" class="press" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 22px; background: #f2b33d; color: #1d1300; text-decoration: none; font-weight: 800">Add a folder</a>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 450ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">No internet</span>
+<div role="status" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d7dae0" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0"></path><path d="M8.5 16a5 5 0 0 1 7 0"></path><line x1="12" y1="19.5" x2="12.01" y2="19.5"></line><line x1="3" y1="3" x2="21" y2="21"></line></svg>
+<span style="flex: 1">You're offline. New titles and artwork fill in when you're back; everything else keeps working.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 500ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">A name Windows can't use</span>
+<div role="status" style="display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 18px; background: #13161c; border: 1px solid rgba(255,255,255,0.1)">
+<span><strong>Two names were adjusted for Windows.</strong> Colons and question marks became dashes, and one title was shortened to keep the path under 260 characters.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Broly: The Legendary Super Saiyan → Broly - The Legendary Super Saiyan</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 550ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">While the queue runs overnight</span>
+<div role="status" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1)">
+<span style="width: 10px; height: 10px; border-radius: 5px; background: #f2b33d; animation: kpulse 1.6s ease-in-out infinite; flex-shrink: 0"></span>
+<span style="flex: 1">Keeping the PC awake until 07:00 while it converts. Normal sleep comes back after.</span>
+<button type="button" class="press" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,0.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer">Stop at 03:00</button>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</body>
+</html>

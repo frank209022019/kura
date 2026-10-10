@@ -1,0 +1,171 @@
+<!doctype html>
+<!-- Kura design snapshot of "3.2 Fix a match" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3.2 Fix a match · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes kslide{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes kgrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.press{transition:transform .12s ease-out,filter .15s ease-out,background-color .2s ease-out}
+.press:hover{filter:brightness(1.12)}
+.press:active{transform:scale(.97)}
+.press:focus-visible{outline:2px solid #ffd27a;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', system-ui, sans-serif; font-size: 14px; line-height: 1.5">
+
+<div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding-left: 20px">
+<div style="flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#f2b33d"></rect><rect x="6.4" y="6.5" width="2.8" height="11" rx="1.4" fill="#1d1300"></rect><rect x="10.6" y="8.5" width="2.8" height="9" rx="1.4" fill="#1d1300"></rect><rect x="14.6" y="6.2" width="2.8" height="11.2" rx="1.4" fill="#1d1300" transform="rotate(14 16 11.8)"></rect></svg>
+<span style="font-size: 14px; font-weight: 800">Kura</span>
+</div>
+<label style="flex: 0 1 460px; min-width: 0; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 14px; box-sizing: border-box; border-radius: 19px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #a3a8b3">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><line x1="16" y1="16" x2="20.5" y2="20.5"></line></svg>
+<input type="search" placeholder="Search anime, episodes or files" aria-label="Search anime, episodes or files" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; font-size: 13px; color: #f4f5f7" />
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 0 8px; line-height: 20px; white-space: nowrap">Ctrl K</span>
+</label>
+<div style="flex: 1 1 160px; display: flex; justify-content: flex-end">
+<button type="button" aria-label="Minimize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line></svg></button>
+<button type="button" aria-label="Maximize" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg></button>
+<button type="button" aria-label="Close" class="press" style="width: 46px; height: 52px; border: 0; background: transparent; color: #f4f5f7; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg></button>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Main" style="flex: 1 1 96px; display: flex; flex-direction: column; padding: 8px 10px 20px; box-sizing: border-box">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<a href="03-home.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path></svg>Home</a>
+<a href="05-tidy.html" aria-current="page" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; background: rgba(242,179,61,0.12); color: #ffd27a; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><polyline points="3 6 4.5 7.5 7 5"></polyline><polyline points="3 12 4.5 13.5 7 11"></polyline><polyline points="3 18 4.5 19.5 7 17"></polyline></svg>Tidy up<span style="position: absolute; top: 6px; right: 10px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #f2b33d; color: #1d1300; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center">56</span></a>
+<a href="07-convert.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 21 7.5 12 12 3 7.5"></polygon><polyline points="3 12 12 16.5 21 12"></polyline><polyline points="3 16.5 12 21 21 16.5"></polyline></svg>Convert<span style="position: absolute; top: 6px; right: 6px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: rgba(242,179,61,0.18); color: #ffd27a; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center">63%</span></a>
+<a href="09-history.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>History</a>
+<a href="10-settings.html" class="press" style="flex: 1 1 72px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; box-sizing: border-box; border-radius: 16px; color: #a3a8b3; text-decoration: none; font-size: 11px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="7" y2="7"></line><line x1="11" y1="7" x2="20" y2="7"></line><circle cx="9" cy="7" r="2"></circle><line x1="4" y1="17" x2="13" y2="17"></line><line x1="17" y1="17" x2="20" y2="17"></line><circle cx="15" cy="17" r="2"></circle></svg>Settings</a>
+</div>
+</nav>
+
+<main id="main" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 22px; padding: 6px 32px 56px 14px; box-sizing: border-box">
+
+<nav aria-label="Breadcrumb" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #a3a8b3">
+<a href="05-tidy.html" style="text-decoration: none; font-weight: 700">Tidy up</a><span aria-hidden="true">›</span><span aria-current="page" style="color: #f4f5f7; font-weight: 700">Need a match</span>
+</nav>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; animation: kfade .5s cubic-bezier(.2,.8,.2,1) both">
+<div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h1 style="margin: 0; font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em">Which anime is this?</h1>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 14px; color: #a3a8b3"><span>File 1 of 12</span><span style="width: 140px; height: 6px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 8%; height: 100%; border-radius: 3px; background: #f2b33d"></span></span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<button type="button" class="press" style="min-height: 44px; padding: 0 18px; border: 1px solid rgba(255,255,255,0.12); border-radius: 22px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Skip for now</button>
+<button type="button" class="press" style="min-height: 44px; padding: 0 18px; border: 1px solid rgba(255,255,255,0.12); border-radius: 22px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer">Not anime, ignore it</button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<section aria-labelledby="file-title" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 60ms">
+<h2 id="file-title" style="margin: 0; font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 500; overflow-wrap: anywhere">[subs] ep03 final.mkv</h2>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3; margin-top: -10px">D:\Anime\Downloads</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="display: flex; flex-direction: column; gap: 4px"><div aria-hidden="true" style="position: relative; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: #e8a15d"><span style="position: absolute; left: 0; right: 0; bottom: 0; height: 38%; background: #c46a2b"></span><span style="position: absolute; right: 18%; top: 18%; width: 22%; aspect-ratio: 1 / 1; border-radius: 50%; background: #fff1c9"></span><span style="position: absolute; left: 30%; bottom: 30%; width: 6%; height: 26%; border-radius: 3px; background: #8f1f1f"></span></div><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3">03:12</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><div aria-hidden="true" style="position: relative; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: #1b2440"><span style="position: absolute; left: 20%; top: 22%; width: 3px; height: 3px; border-radius: 2px; background: #ffffff"></span><span style="position: absolute; left: 62%; top: 14%; width: 3px; height: 3px; border-radius: 2px; background: #ffffff"></span><span style="position: absolute; left: 78%; top: 40%; width: 2px; height: 2px; border-radius: 1px; background: #ffffff"></span><span style="position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #2b2233"></span></div><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3">11:40</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><div aria-hidden="true" style="position: relative; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: #7a4a2a"><span style="position: absolute; left: 10%; bottom: 0; width: 26%; height: 54%; background: #5a3320"></span><span style="position: absolute; left: 42%; bottom: 0; width: 20%; height: 70%; background: #4a2a1a"></span><span style="position: absolute; right: 8%; bottom: 0; width: 24%; height: 44%; background: #5a3320"></span></div><span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #a3a8b3">18:05</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; font-size: 13px">
+<span style="color: #a3a8b3">Length</span><span style="font-weight: 700">24:10</span>
+<span style="color: #a3a8b3">Picture</span><span style="font-weight: 700">480p · H.264</span>
+<span style="color: #a3a8b3">Audio</span><span style="font-weight: 700">Japanese, English</span>
+<span style="color: #a3a8b3">Subtitles</span><span style="font-weight: 700">English, styled</span>
+<span style="color: #a3a8b3">Size</span><span style="font-weight: 700">233 MB</span>
+<span style="color: #a3a8b3">Group tag</span><span style="font-family: 'Geist Mono', monospace; font-weight: 500">[subs]</span>
+</div>
+<button type="button" class="press" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; background: rgba(255,255,255,0.05); color: #f4f5f7; font: inherit; font-weight: 700; cursor: pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="7 4 20 12 7 20"></polygon></svg>Play 10 seconds</button>
+</section>
+
+<section aria-labelledby="guess-title" style="flex: 999 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kslide .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap"><h2 id="guess-title" style="margin: 0; font-size: 18px; font-weight: 800">Best guesses</h2><span style="font-size: 12px; color: #a3a8b3">Press 1, 2 or 3</span></div>
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Pick the anime</legend>
+
+<button type="button" role="radio" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 18px; background: rgba(242,179,61,0.1); border: 2px solid #f2b33d; color: #f4f5f7; font: inherit; cursor: pointer">
+<span style="flex: 0 0 22px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">1</span>
+<span aria-hidden="true" style="position: relative; flex: 0 0 44px; height: 66px; border-radius: 9px; overflow: hidden; background: #a8481c"><span style="position: absolute; right: -12px; top: -10px; width: 36px; height: 36px; border-radius: 50%; background: #2b2d42"></span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-weight: 800">Trigun (1998)</span>
+<span style="font-size: 12px; color: #a3a8b3">Episode 3 · Peace Maker · 24 min</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 120px; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 41%; height: 100%; border-radius: 3px; background: #f2b33d; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="font-weight: 700">41%</span></span>
+<span style="font-size: 12px; color: #7c818c">The 6 Trigun files in this folder share the [subs] tag</span>
+</span>
+<span aria-hidden="true" style="flex: 0 0 22px; height: 22px; border-radius: 11px; box-shadow: none; background: #f2b33d"></span>
+</button>
+
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.06); color: #f4f5f7; font: inherit; cursor: pointer">
+<span style="flex: 0 0 22px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">2</span>
+<span aria-hidden="true" style="position: relative; flex: 0 0 44px; height: 66px; border-radius: 9px; overflow: hidden; background: #1e3a5f"><span style="position: absolute; right: -12px; top: -10px; width: 36px; height: 36px; border-radius: 50%; background: #f2b33d"></span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-weight: 800">Cowboy Bebop (1998)</span>
+<span style="font-size: 12px; color: #a3a8b3">Episode 3 · Honky Tonk Women · 24 min</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 120px; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 38%; height: 100%; border-radius: 3px; background: #6b7385; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="font-weight: 700">38%</span></span>
+<span style="font-size: 12px; color: #7c818c">Runtime fits; 9 Bebop files sit in the same folder</span>
+</span>
+<span aria-hidden="true" style="flex: 0 0 22px; height: 22px; border-radius: 11px; box-shadow: inset 0 0 0 2px #5b6170; background: transparent"></span>
+</button>
+
+<button type="button" role="radio" aria-checked="false" class="press" style="text-align: left; display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.06); color: #f4f5f7; font: inherit; cursor: pointer">
+<span style="flex: 0 0 22px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">3</span>
+<span aria-hidden="true" style="position: relative; flex: 0 0 44px; height: 66px; border-radius: 9px; overflow: hidden; background: #3d2a6b"><span style="position: absolute; right: -12px; top: -10px; width: 36px; height: 36px; border-radius: 50%; background: #f08a24"></span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-weight: 800">Outlaw Star (1998)</span>
+<span style="font-size: 12px; color: #a3a8b3">Episode 3 · 24 min</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 120px; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 12%; height: 100%; border-radius: 3px; background: #6b7385; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="font-weight: 700">12%</span></span>
+<span style="font-size: 12px; color: #7c818c">Same year and length, nothing else matches</span>
+</span>
+<span aria-hidden="true" style="flex: 0 0 22px; height: 22px; border-radius: 11px; box-shadow: inset 0 0 0 2px #5b6170; background: transparent"></span>
+</button>
+
+</fieldset>
+<label style="display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; box-sizing: border-box; border-radius: 23px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #a3a8b3">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><line x1="16" y1="16" x2="20.5" y2="20.5"></line></svg>
+<input type="search" placeholder="None of these? Search TMDB and AniList" aria-label="Search for the right anime" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; color: #f4f5f7" />
+</label>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-size: 13px; font-weight: 700">It is a</span>
+<div role="group" aria-label="Kind of file" style="display: inline-flex; gap: 4px; padding: 4px; border-radius: 22px; background: rgba(255,255,255,0.05)">
+<button type="button" aria-pressed="true" class="press" style="min-height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Episode</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer">Movie</button>
+<button type="button" aria-pressed="false" class="press" style="min-height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: transparent; color: #d7dae0; font: inherit; font-weight: 700; cursor: pointer">Special or extra</button>
+</div>
+</div>
+<button type="button" role="checkbox" aria-checked="true" class="press" style="text-align: left; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #f4f5f7; font: inherit; cursor: pointer"><span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span><span style="display: flex; flex-direction: column"><span style="font-weight: 800">Use this for the 3 other [subs] files here</span><span style="font-size: 12px; color: #a3a8b3">Episodes 04, 05 and 06, numbered from their names</span></span></button>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-size: 12px; color: #7c818c">Your choice is remembered, so a rescan never undoes it.</span>
+<button type="button" class="press" style="min-height: 46px; padding: 0 22px; border: 0; border-radius: 23px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Confirm Trigun, episode 3</button>
+</div>
+</section>
+
+</div>
+
+<section aria-labelledby="next-title" style="display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; border-radius: 22px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 180ms">
+<h2 id="next-title" style="margin: 0; font-size: 15px; font-weight: 800">Up next</h2>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; flex: 1 1 260px; overflow-wrap: anywhere">[subs] ep04 final.mkv</span><span style="font-size: 12px; color: #a3a8b3">follows this choice</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; flex: 1 1 260px; overflow-wrap: anywhere">VTS_02_1.VOB</span><span style="font-size: 12px; color: #a3a8b3">D:\Anime\Old DVDs · DVD file, 1 h 32 min</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid rgba(255,255,255,0.06)"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; flex: 1 1 260px; overflow-wrap: anywhere">movie_final_v2.mp4</span><span style="font-size: 12px; color: #a3a8b3">D:\Anime\Misc · 1 h 48 min, probably a film</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 44px"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; flex: 1 1 260px; overflow-wrap: anywhere">NCOP01.mkv</span><span style="font-size: 12px; color: #a3a8b3">D:\Anime\Shonen\Extras · opening credits, 1 min 30</span></div>
+</div>
+</section>
+
+</main>
+</div>
+</div>
+</body>
+</html>
