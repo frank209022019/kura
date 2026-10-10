@@ -1,6 +1,8 @@
 # Kura docs
 
 Short pages, one subject each. Start with the architecture, then the page for what you're touching.
+Coding agents start at [AGENTS.md](../AGENTS.md); each area (`engine/`, `app/`, `app/src-tauri/`,
+`docs/`) has its own `AGENTS.md` with the direction for working there.
 
 | Page | What it covers |
 | --- | --- |

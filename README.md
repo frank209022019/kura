@@ -10,6 +10,7 @@ review it, and everything stays on your PC: no accounts, no cloud.
 ## Start here
 
 - [CLAUDE.md](CLAUDE.md): the decisions so far and the ground rules.
+- [AGENTS.md](AGENTS.md): how coding agents work here, with a guide in each area.
 - [docs/](docs/README.md): architecture, development, conventions, design, releasing, and a page
   for every tool in the stack.
 - [docs/design/](docs/design/README.md): every screen, as pages you can open.

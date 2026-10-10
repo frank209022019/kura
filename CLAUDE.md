@@ -36,6 +36,7 @@ Next is the first build step in [What's next](#whats-next).
 ## Layout
 
 ```
+AGENTS.md       the guide for coding agents; each area below has its own AGENTS.md
 app/            the desktop app
   src/            React UI (TypeScript): components/, features/, lib/, styles/
   src-tauri/      Tauri shell (Rust): window, engine process, updates, installer config
@@ -177,8 +178,13 @@ Everything decided so far. Don't ask again; change only with the owner.
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.
 
-## Docs
+## Guides and docs
 
-[docs/README.md](docs/README.md) is the map: architecture, development, conventions, design, releasing,
-and one page per tool in [docs/stack/](docs/stack/). Read the stack page before changing how a
-tool is used, and update docs in the same commit as the code they describe.
+- **Area guides.** [AGENTS.md](AGENTS.md) is the entry for any coding agent, and each area has its
+  own: [engine/AGENTS.md](engine/AGENTS.md), [app/AGENTS.md](app/AGENTS.md) (the UI),
+  [app/src-tauri/AGENTS.md](app/src-tauri/AGENTS.md) (the shell) and [docs/AGENTS.md](docs/AGENTS.md).
+  Read the guide for an area before changing it: it says what belongs there, the patterns to copy,
+  and what "done" means.
+- **Docs.** [docs/README.md](docs/README.md) is the map: architecture, development, conventions,
+  design, releasing, and one page per tool in [docs/stack/](docs/stack/). Read the stack page before
+  changing how a tool is used, and update docs in the same commit as the code they describe.
