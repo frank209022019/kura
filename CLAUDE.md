@@ -53,7 +53,7 @@ Run the app (Vite, the Rust shell, and the engine from source):
 cd app; pnpm tauri dev
 ```
 
-Check everything CI checks:
+Check everything CI checks (each line from the repo root):
 
 ```powershell
 cd engine; uv run ruff format --check; uv run ruff check; uv run pyright; uv run pytest
@@ -64,7 +64,8 @@ cd app/src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; 
 Fix formatting: `uv run ruff format` (engine), `pnpm fix` (app), `cargo fmt` (shell).
 Build the installer locally: `cd app; pnpm build:installer` (needs the signing key, see
 [docs/releasing.md](docs/releasing.md)). Release: `node scripts/set-version.mjs 1.2.3`, commit,
-then `git tag v1.2.3; git push origin main v1.2.3`.
+then `git tag v1.2.3; git push origin main v1.2.3`. A tag reaches every installed copy, so
+releasing is the owner's call.
 
 ## How it fits together
 
