@@ -305,15 +305,20 @@ def shell_parts() -> list[Part]:
 
 
 def _rust_std() -> Part:
+    # The toolchain ships the licences only as blank templates, so this says it in words.
+    notice = (
+        "Rust's standard library is compiled into kura.exe. Its copyright stays with the Rust\n"
+        "project's contributors, and it is dual-licensed under the MIT licence and the Apache\n"
+        "License 2.0, whose texts appear in this file for other parts. Its full notices are at\n"
+        "https://github.com/rust-lang/rust/blob/master/COPYRIGHT."
+    )
     version = _run("rustc", "--version").split()[1]
-    licences = Path(_run("rustc", "--print", "sysroot").strip()) / "share/doc/rust/licenses"
-    files = [licences / "MIT.txt", licences / "Apache-2.0.txt"]
     return Part(
         "Rust standard library",
         version,
         "MIT OR Apache-2.0",
         "https://github.com/rust-lang/rust",
-        _read(file for file in files if file.exists()),
+        (notice,),
     )
 
 
