@@ -187,6 +187,33 @@ describe("ConvertPage", () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ start: false });
   });
 
+  it("shows a frame before and after, at three points of the file", async () => {
+    const problem = "The graphics card couldn't run the AI model (DirectML needs DirectX 12).";
+    const fetch = fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/convert/1/preview/after": () => Response.json({ detail: problem }, { status: 422 }),
+    });
+    renderConvert();
+
+    const panel = await screen.findByRole("region", { name: "See it first" });
+    expect(panel).toHaveTextContent("Dragon Ball Z · S01E01 · drag the handle");
+    expect(panel).toHaveTextContent("After · best quality 1080p");
+    expect(screen.getByRole("button", { name: "12:00" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText(problem)).toBeInTheDocument();
+
+    screen.getByRole("button", { name: "3:36" }).click();
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([input]) =>
+          String(input).endsWith("/convert/1/preview/after?way=best&point=0"),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("says when everything is at the standard", async () => {
     fakeEngine({
       "/convert": { ...OPTIONS, files: [] },

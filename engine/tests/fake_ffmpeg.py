@@ -8,7 +8,7 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - one whole conversion: writes the file, telling its progress the way -progress does;
 - a test play: says nothing, as ffmpeg does when a file plays.
 
-KURA_FAKE_FAIL names a step that fails instead: "encode" or "play". KURA_FAKE_SLOW is the
+KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame". KURA_FAKE_SLOW is the
 seconds the decoder takes over each frame (none), so a test can stop a conversion mid-way.
 """
 
@@ -37,6 +37,8 @@ def main() -> None:
     ):
         width, height = (int(n) for n in os.environ.get("KURA_FAKE_SIZE", "4x2").split("x"))
         frames = int(os.environ.get("KURA_FAKE_FRAMES", "5"))
+        if "-frames:v" in args:  # one frame, for a comparison
+            frames = min(frames, int(args[args.index("-frames:v") + 1]))
         frame = bytes(width * height * 3 * 4)
         slow = float(os.environ.get("KURA_FAKE_SLOW", "0"))
         for _ in range(frames):
@@ -60,6 +62,12 @@ def main() -> None:
             print(f"frame={frame}\nfps=24.0\nprogress=continue", flush=True)
         Path(args[-1]).write_bytes(b"converted " + source.read_bytes())
         print("frame=30\nprogress=end", flush=True)
+        return
+    if "-frames:v" in args and args[-1].endswith(".png"):  # a frame to compare
+        if fail == "frame":
+            print("Invalid data found when processing input", file=sys.stderr)
+            sys.exit(1)
+        Path(args[-1]).write_bytes(b"png of " + " ".join(args).encode())
         return
     if "null" in args:  # a test play
         if fail == "play":

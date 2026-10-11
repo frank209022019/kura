@@ -81,6 +81,7 @@ kura/
   convert.py      converting one file, checked, then in its original's place
   upscale.py      the AI model on the graphics card, between two ffmpegs
   queue.py        the conversion queue: files in the owner's order, converted one at a time
+  preview.py      See it first: one frame before converting and after
   gpu.py          how busy and how warm the graphics card is (nvidia-smi)
   history.py      what Kura did, newest first: tidy-ups, conversions and scans
   web.py          asking web services for JSON: timeouts, rate limits, errors in words
@@ -183,6 +184,8 @@ original as it was (a paused file starts over), and Windows doesn't sleep while 
 After a crash, a file that was converting waits in line again, and one whose result was taking
 its original's place is finished, or its original put back. A file being converted stays out of
 tidy-ups. History lists each conversion with what it made, and puts the original back on asking.
+Before queueing, the Convert screen shows one frame of a file before and after
+(`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the cache.
 
 ## Data
 

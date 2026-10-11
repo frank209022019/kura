@@ -159,3 +159,24 @@ def test_history_lists_a_conversion_and_undoing_it_puts_the_original_back(
     assert episode.read_bytes() == original
     [plan] = client.get("/history").json()["plans"]
     assert plan["conversion"]["restored"] is True
+
+
+def test_a_frame_is_shown_before_and_after_converting(
+    client: TestClient, shelf: Path, monkeypatch: pytest.MonkeyPatch
+):
+    app = cast("FastAPI", client.app)
+    app.state.programs = lambda: programs({})
+
+    before = client.get("/convert/1/preview/before", params={"point": 0})
+    after = client.get("/convert/1/preview/after", params={"way": "best", "point": 0})
+
+    assert (before.status_code, before.headers["content-type"]) == (200, "image/png")
+    assert after.content.startswith(b"converted ")  # the AI model's frame, as a picture
+    assert client.get("/convert/99/preview/before").status_code == 404
+
+
+def test_without_ffmpeg_there_is_nothing_to_compare(client: TestClient, shelf: Path):
+    answer = client.get("/convert/1/preview/before")
+
+    assert answer.status_code == 503
+    assert answer.json()["detail"].startswith("Kura needs ffmpeg")

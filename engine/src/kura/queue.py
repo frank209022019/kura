@@ -65,7 +65,7 @@ _SPEED_WINDOW = 600.0  # seconds of frames the speed is measured over, as the qu
 _PAUSED = "queue_paused"  # the settings rows that keep the queue's state across restarts
 _SCHEDULE = "queue_schedule"
 NIGHT = (clock_time(23, 0), clock_time(7, 0))  # when the nights-only schedule converts
-_NO_FFMPEG = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step."
+NO_FFMPEG = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step."
 
 
 @dataclass(frozen=True)
@@ -349,7 +349,7 @@ class Queue:
             if row is None:
                 return False
             programs = self._programs()
-            self._problem = None if programs else _NO_FFMPEG
+            self._problem = None if programs else NO_FFMPEG
             if programs is None:
                 return False
             self._work(conn, row["id"], programs)

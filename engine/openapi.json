@@ -1272,6 +1272,85 @@
         ]
       }
     },
+    "/convert/{file_id}/preview/{side}": {
+      "get": {
+        "summary": "See It First",
+        "description": "One side of the comparison: a frame of the file as it is (`before`), or as `way` makes\nit (`after`), taken at one of three points (0, 1 or 2: 15%, 50% and 80% of the way in).",
+        "operationId": "see_it_first_convert__file_id__preview__side__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          },
+          {
+            "name": "side",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "before",
+                "after"
+              ],
+              "type": "string",
+              "title": "Side"
+            }
+          },
+          {
+            "name": "way",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "best",
+                "fast",
+                "reencode"
+              ],
+              "type": "string",
+              "default": "best",
+              "title": "Way"
+            }
+          },
+          {
+            "name": "point",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Point"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/queue": {
       "get": {
         "summary": "Queue Status",

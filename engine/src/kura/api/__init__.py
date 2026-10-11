@@ -111,9 +111,9 @@ def create_app(
         paths, app.state.tools, transport=transport, anilist=app.state.anilist
     )
     app.state.watcher = None  # set while it runs
-    app.state.queue = Queue(
-        paths, app.state.scanner, lambda: programs_from(app.state.tools), now=_now
-    )
+    # What converting runs: Kura's ffmpeg, the AI model and Anime4K's shader (tests stand in).
+    app.state.programs = lambda: programs_from(app.state.tools)
+    app.state.queue = Queue(paths, app.state.scanner, lambda: app.state.programs(), now=_now)
     app.state.gpu = Gpu()
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.

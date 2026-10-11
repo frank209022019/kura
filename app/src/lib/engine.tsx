@@ -561,6 +561,50 @@ export function useEngineImage(path: string | null): string | null {
   return shown !== null && shown.path === path ? shown.address : null;
 }
 
+/**
+ * A picture the engine makes on asking (a frame to compare), with why it couldn't when it
+ * couldn't: `address` while it's there, `problem` in the engine's words.
+ */
+export function useEnginePicture(path: string | null): {
+  address: string | null;
+  problem: string | null;
+} {
+  const engine = useEngine();
+  const [shown, setShown] = useState<{
+    path: string;
+    address: string | null;
+    problem: string | null;
+  } | null>(null);
+  useEffect(() => {
+    if (path === null || engine.state !== "ready") return;
+    let address: string | null = null;
+    let cancelled = false;
+    const headers = { Authorization: `Bearer ${engine.token}` };
+    fetch(new URL(path, engine.url), { headers })
+      .then(async (response) => {
+        if (cancelled) return;
+        if (!response.ok) {
+          const problem = (await problemIn(response)) ?? "Kura couldn't make the picture.";
+          if (!cancelled) setShown({ path, address: null, problem });
+          return;
+        }
+        const blob = await response.blob();
+        if (cancelled) return;
+        address = URL.createObjectURL(blob);
+        setShown({ path, address, problem: null });
+      })
+      .catch(() => {
+        if (!cancelled) setShown({ path, address: null, problem: "Kura's engine didn't answer." });
+      });
+    return () => {
+      cancelled = true;
+      if (address) URL.revokeObjectURL(address);
+    };
+  }, [engine, path]);
+  if (shown === null || shown.path !== path) return { address: null, problem: null };
+  return { address: shown.address, problem: shown.problem };
+}
+
 /** A title's poster, when it has one. */
 export const usePoster = (titleId: number, has: boolean) =>
   useEngineImage(has ? `/titles/${titleId}/poster` : null);

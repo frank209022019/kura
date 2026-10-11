@@ -6,15 +6,17 @@ import shutil
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import replace
-from pathlib import PureWindowsPath
+from pathlib import Path, PureWindowsPath
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from pydantic import Field
 
+from kura import preview
 from kura import queue as conversions
-from kura.api.common import ApiModel, Database
-from kura.convert import CONVERTED, ConvertError, label_of, lighter
+from kura.api.common import ApiModel, Database, Paths
+from kura.convert import CONVERTED, ConvertError, Programs, label_of, lighter
 from kura.core.estimate import estimate
 from kura.core.media import media_from_ffprobe
 from kura.core.standard import Method, decide
@@ -193,6 +195,47 @@ def what_to_convert(conn: Database) -> ConvertOptions:
     return ConvertOptions(
         standard=standard.name, files=found, free=_free({file.drive for file in found})
     )
+
+
+@router.get(
+    "/convert/{file_id}/preview/{side}",
+    response_class=FileResponse,
+    responses={200: {"content": {"image/png": {}}}},
+)
+def see_it_first(
+    file_id: int,
+    side: Literal["before", "after"],
+    conn: Database,
+    paths: Paths,
+    request: Request,
+    way: Chosen = "best",
+    point: int = 1,
+) -> FileResponse:
+    """One side of the comparison: a frame of the file as it is (`before`), or as `way` makes
+    it (`after`), taken at one of three points (0, 1 or 2: 15%, 50% and 80% of the way in)."""
+    kit: Programs | None = request.app.state.programs()
+    if kit is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, conversions.NO_FFMPEG)
+    row = conn.execute(
+        "SELECT path, probe FROM files WHERE id = ? AND gone_at IS NULL", (file_id,)
+    ).fetchone()
+    if row is None or row["probe"] is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That file isn't in the library any more.")
+    media = media_from_ffprobe(json.loads(row["probe"]))
+    try:
+        picture = preview.frame(
+            paths,
+            kit,
+            Path(row["path"]),
+            media,
+            library_standard(conn),
+            side=side,
+            way=Method(way),
+            point=point,
+        )
+    except preview.PreviewError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
+    return FileResponse(picture, media_type="image/png")
 
 
 @router.get("/queue")

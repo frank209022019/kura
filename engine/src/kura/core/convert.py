@@ -102,25 +102,7 @@ def one_command(
 ) -> list[str]:
     """The whole conversion in one ffmpeg command, for every method but the AI model's. FAST
     needs Anime4K's shader; progress goes to standard output, as ffmpeg's key=value lines."""
-    devices: list[str] = []
-    filters: list[str] = [DEINTERLACE] if made.deinterlace else []
-    match made.method:
-        case Method.FAST:
-            if shader is None:
-                raise ValueError("The fast upscale needs Anime4K's shader.")
-            devices = ["-init_hw_device", "vulkan=vk", "-filter_hw_device", "vk"]
-            filters += [
-                "hwupload",
-                f"libplacebo=w={made.width}:h={made.height}:format=p010le:"
-                f"custom_shader_path={_filter_path(shader)}",
-                "hwdownload",
-                "format=p010le",
-                "setsar=1",
-            ]
-        case Method.REENCODE:
-            filters += [_scale(made), "setsar=1", "format=p010le"]
-        case _:
-            pass  # REMUX copies the picture
+    devices, filters = _picture(made, shader, depth="p010le")
     picture = ["-c:v", "copy"] if made.method is Method.REMUX else [*NVENC]
     return [
         *ffmpeg,
@@ -141,6 +123,140 @@ def one_command(
         "-f",
         "matroska",
         str(work),
+    ]
+
+
+def _picture(made: Recipe, shader: PurePath | None, *, depth: str) -> tuple[list[str], list[str]]:
+    """The devices and filters that make the picture, for every method but the AI model's, in
+    `depth` (p010le for the encoder, yuv420p for a picture to look at)."""
+    devices: list[str] = []
+    filters: list[str] = [DEINTERLACE] if made.deinterlace else []
+    match made.method:
+        case Method.FAST:
+            if shader is None:
+                raise ValueError("The fast upscale needs Anime4K's shader.")
+            devices = ["-init_hw_device", "vulkan=vk", "-filter_hw_device", "vk"]
+            filters += [
+                "hwupload",
+                f"libplacebo=w={made.width}:h={made.height}:format={depth}:"
+                f"custom_shader_path={_filter_path(shader)}",
+                "hwdownload",
+                f"format={depth}",
+                "setsar=1",
+            ]
+        case Method.REENCODE:
+            filters += [_scale(made), "setsar=1", f"format={depth}"]
+        case _:
+            pass  # REMUX copies the picture
+    return devices, filters
+
+
+def still_command(
+    ffmpeg: Sequence[str], source: PurePath, out: PurePath, *, at: float, deinterlace: bool
+) -> list[str]:
+    """One frame of the original as it is, `at` seconds in: the comparison's before. `out`
+    names the picture's file (PNG, so nothing is lost on the way)."""
+    return [
+        *ffmpeg,
+        *QUIET_INPUT,
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        f"{at:.2f}",
+        "-i",
+        str(source),
+        "-map",
+        "0:V:0",
+        *(["-vf", DEINTERLACE] if deinterlace else []),
+        "-frames:v",
+        "1",
+        str(out),
+    ]
+
+
+def preview_command(
+    ffmpeg: Sequence[str],
+    source: PurePath,
+    out: PurePath,
+    made: Recipe,
+    *,
+    at: float,
+    shader: PurePath | None,
+) -> list[str]:
+    """One frame made the way `made` says, `at` seconds in: the comparison's after, for every
+    method but the AI model's (see frame_command)."""
+    devices, filters = _picture(made, shader, depth="yuv420p")
+    return [
+        *ffmpeg,
+        *QUIET_INPUT,
+        "-v",
+        "error",
+        "-y",
+        *devices,
+        "-ss",
+        f"{at:.2f}",
+        "-i",
+        str(source),
+        "-map",
+        "0:V:0",
+        *(["-vf", ",".join(filters)] if filters else []),
+        "-frames:v",
+        "1",
+        str(out),
+    ]
+
+
+def frame_command(ffmpeg: Sequence[str], source: PurePath, made: Recipe, *, at: float) -> list[str]:
+    """For the AI model's after: one frame, `at` seconds in, as raw planar float RGB on
+    standard output."""
+    return [
+        *ffmpeg,
+        *QUIET_INPUT,
+        "-v",
+        "error",
+        "-ss",
+        f"{at:.2f}",
+        "-i",
+        str(source),
+        "-map",
+        "0:V:0",
+        *(["-vf", DEINTERLACE] if made.deinterlace else []),
+        "-frames:v",
+        "1",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "gbrpf32le",
+        "-",
+    ]
+
+
+def from_frame_command(
+    ffmpeg: Sequence[str], out: PurePath, made: Recipe, *, upscaled: tuple[int, int]
+) -> list[str]:
+    """The AI model's frame, on standard input (`upscaled` big), at the standard's size: the
+    comparison's after."""
+    width, height = upscaled
+    return [
+        *ffmpeg,
+        *QUIET_INPUT,
+        "-v",
+        "error",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "gbrpf32le",
+        "-s",
+        f"{width}x{height}",
+        "-i",
+        "-",
+        "-vf",
+        f"{_scale(made)},setsar=1",
+        "-frames:v",
+        "1",
+        str(out),
     ]
 
 

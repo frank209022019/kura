@@ -30,6 +30,7 @@ import {
 import { size } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ConvertTabs, Step } from "./convert-tabs";
+import { SeeItFirst } from "./see-it-first";
 
 type When = "now" | "nights" | "after";
 
@@ -143,6 +144,12 @@ export function ConvertPage() {
           onWay={setWay}
         />
       </div>
+      <SeeItFirst
+        n={3}
+        file={chosen[0] ?? open(files)[0] ?? null}
+        way={way}
+        height={standardHeight(options.data.standard)}
+      />
       <div className="flex flex-wrap items-stretch gap-5">
         <Estimate chosen={chosen} way={way} free={options.data.free} />
         <WhenPanel
@@ -348,7 +355,7 @@ function How(props: {
   way: Way;
   onWay: (way: Way) => void;
 }) {
-  const tall = Number(/(\d+)p/.exec(props.standard)?.[1] ?? 1080);
+  const tall = standardHeight(props.standard);
   const square = props.basis.some((file) => file.aspect === "4:3");
   const lighter = props.chosen.filter((file) => file.ways[props.way]?.method !== props.way);
   return (
@@ -432,7 +439,7 @@ function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string,
   const card = system.data?.graphicsCard ?? "";
   return (
     <Step
-      n={3}
+      n={4}
       id="estimate-title"
       title="Estimate"
       note={/1660/.test(card) ? `Measured on your ${card}` : "Speeds measured on a GTX 1660 Super"}
@@ -504,7 +511,7 @@ function WhenPanel(props: {
   ];
   const what = props.episodes ? "episode" : "file";
   return (
-    <Step n={4} id="when-title" title="When" className="flex-[1_1_380px]">
+    <Step n={5} id="when-title" title="When" className="flex-[1_1_380px]">
       <RadioGroup.Root
         aria-label="When to convert"
         value={props.when}
@@ -574,6 +581,11 @@ function Chip({ children }: { children: React.ReactNode }) {
       {children}
     </span>
   );
+}
+
+/** The standard's height, from its name: "Cinema 1080p" is 1080. */
+function standardHeight(standard: string): number {
+  return Number(/(\d+)p/.exec(standard)?.[1] ?? 1080);
 }
 
 function count(n: number, one: string): string {

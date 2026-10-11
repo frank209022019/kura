@@ -9,10 +9,14 @@ from kura.core.convert import (
     check,
     decoder_command,
     encoder_command,
+    frame_command,
+    from_frame_command,
     interlace_command,
     interlaced,
     one_command,
+    preview_command,
     recipe,
+    still_command,
 )
 from kura.core.media import Audio, MediaInfo, Subtitle, Video
 from kura.core.standard import CINEMA_1080, Decision, Method, decide
@@ -239,3 +243,51 @@ def test_no_ffmpeg_kura_starts_reads_keys_from_its_standard_input():
     ]
 
     assert all(command[1] == "-nostdin" for command in commands)
+
+
+PNG = PureWindowsPath(r"C:\Kura\cache\previews\after.png")
+
+
+def test_the_comparison_shows_one_frame_before_and_after():
+    media = replace(
+        sd(), video=Video("h264", 1280, 720, Fraction(16, 9), Fraction(24000, 1001), 8, False)
+    )
+    made = recipe(SOURCE, media, decide(media, CINEMA_1080), tag=TAG)
+
+    before = still_command(FF, SOURCE, PNG, at=192.0, deinterlace=False)
+    after = preview_command(FF, SOURCE, PNG, made, at=192.0, shader=PureWindowsPath(r"C:\a.glsl"))
+
+    assert before == [
+        FFMPEG,
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        "192.00",
+        "-i",
+        str(SOURCE),
+        "-map",
+        "0:V:0",
+        "-frames:v",
+        "1",
+        str(PNG),
+    ]
+    assert after[after.index("-vf") + 1] == (
+        "hwupload,libplacebo=w=1920:h=1080:format=yuv420p:custom_shader_path='C\\:/a.glsl',"
+        "hwdownload,format=yuv420p,setsar=1"
+    )
+    assert after[-3:] == ["-frames:v", "1", str(PNG)]
+
+
+def test_the_ai_models_frame_is_taken_raw_and_written_as_a_picture():
+    made = recipe(SOURCE, sd(), Decision(Method.BEST, 1440, 1080, deinterlace=True), tag=TAG)
+
+    frame = frame_command(FF, SOURCE, made, at=60.0)
+    picture = from_frame_command(FF, PNG, made, upscaled=(2880, 1920))
+
+    assert frame[frame.index("-vf") + 1] == "bwdif=mode=send_frame"
+    assert frame[-5:] == ["-f", "rawvideo", "-pix_fmt", "gbrpf32le", "-"]
+    assert picture[picture.index("-s") + 1] == "2880x1920"
+    assert picture[picture.index("-vf") + 1] == "scale=1440:1080:flags=lanczos,setsar=1"
+    assert picture[-1] == str(PNG)
