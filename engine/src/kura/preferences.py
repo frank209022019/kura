@@ -31,3 +31,11 @@ def library_standard(conn: sqlite3.Connection) -> Standard:
         ai_for_sd=stored.get("upscale_sd", True) is not False,
         fast_for_hd=stored.get("upscale_720", True) is not False,
     )
+
+
+def quarantine_days(conn: sqlite3.Connection) -> int | None:
+    """How many days what's set aside is kept before it's cleared out (Settings > Your data), or
+    None: for good."""
+    row = conn.execute("SELECT value FROM settings WHERE key = 'quarantine_days'").fetchone()
+    days = json.loads(row["value"]) if row else 30
+    return days if days is None or days in (7, 30, 90) else 30

@@ -1772,6 +1772,89 @@
           }
         ]
       }
+    },
+    "/backups": {
+      "get": {
+        "summary": "List Backups",
+        "operationId": "list_backups_backups_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backups"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Back Up Now",
+        "description": "Makes a backup now, checked like the nightly ones.",
+        "operationId": "back_up_now_backups_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Backup"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/backups/{name}/restore": {
+      "post": {
+        "summary": "Restore Backup",
+        "description": "Restores a backup as the engine starts again: the app starts it again right after.",
+        "operationId": "restore_backup_backups__name__restore_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1824,6 +1907,61 @@
           "added"
         ],
         "title": "Added"
+      },
+      "Backup": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "made": {
+            "type": "string",
+            "title": "Made"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "beforeRestoring": {
+            "type": "boolean",
+            "title": "Beforerestoring"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "made",
+          "size",
+          "beforeRestoring"
+        ],
+        "title": "Backup"
+      },
+      "Backups": {
+        "properties": {
+          "backups": {
+            "items": {
+              "$ref": "#/components/schemas/Backup"
+            },
+            "type": "array",
+            "title": "Backups"
+          },
+          "restored": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Restored"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "backups",
+          "restored"
+        ],
+        "title": "Backups"
       },
       "ChangeProblem": {
         "properties": {
@@ -3389,6 +3527,36 @@
           "text"
         ],
         "title": "Report"
+      },
+      "Restored": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "at",
+          "problem"
+        ],
+        "title": "Restored"
       },
       "ReviewedChange": {
         "properties": {

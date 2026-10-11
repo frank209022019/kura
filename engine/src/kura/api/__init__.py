@@ -20,6 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from kura import __version__, changes, db
 from kura.anilist import AniList
 from kura.api import (
+    backups,
     convert,
     data,
     health,
@@ -33,7 +34,9 @@ from kura.api import (
     tmdb,
     tools,
 )
+from kura.backups import restore_asked
 from kura.cache import Cache
+from kura.care import Care
 from kura.config import DataPaths
 from kura.gpu import Gpu
 from kura.queue import Queue, programs_from
@@ -78,6 +81,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(running: FastAPI) -> AsyncGenerator[None]:
+        restore_asked(paths, _now())  # a backup the owner chose, before anything opens the database
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
             changes.recover(conn)  # settle file moves that a crash interrupted
@@ -93,10 +97,13 @@ def create_app(
         running.state.watcher = watcher
         if watcher is not None:
             watcher.start()
+        care: Care = running.state.care
         if work:
             worker.start()  # converts what waits
+            care.start()  # tonight's backup, and the quarantine cleared out daily
         yield
         if work:
+            care.stop()
             worker.stop()  # the file converting now is first in line next time
         if watcher is not None:
             watcher.stop()
@@ -120,6 +127,7 @@ def create_app(
     app.state.programs = lambda: programs_from(app.state.tools)
     app.state.queue = Queue(paths, app.state.scanner, lambda: app.state.programs(), now=_now)
     app.state.gpu = Gpu()
+    app.state.care = Care(paths, app.state.scanner.hold, now=_now)
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)
@@ -141,6 +149,7 @@ def create_app(
     app.include_router(tidy.router)
     app.include_router(convert.router)
     app.include_router(data.router)
+    app.include_router(backups.router)
     return app
 
 

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type DataSizes, EngineProvider, type LibraryFolder } from "@/lib/engine";
+import { type Backup, type DataSizes, EngineProvider, type LibraryFolder } from "@/lib/engine";
 import { fakeEngine, READY, SETTINGS } from "@/test/engine";
 import { SettingsPage } from "./settings-page";
 
@@ -42,6 +42,25 @@ const DATA: DataSizes = {
   tools: 180_000_000,
   quarantine: [{ folder: "D:\\Kura quarantine", bytes: 3_400_000_000, files: 14 }],
 };
+
+/** A local time `daysAgo` days back, as the engine writes a backup's: "2026-10-11T03:00". */
+function stamp(daysAgo: number, time: string): string {
+  const day = new Date();
+  day.setDate(day.getDate() - daysAgo);
+  const date = [day.getFullYear(), day.getMonth() + 1, day.getDate()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join("-");
+  return `${date}T${time}`;
+}
+
+function backup(made: string): Backup {
+  const [date, time] = made.split("T");
+  const name = `kura ${date} ${time?.replace(":", "")}.db`;
+  return { name, made, size: 47_000_000, beforeRestoring: false };
+}
+
+const TONIGHT = backup(stamp(0, "03:00"));
+const LAST_NIGHT = backup(stamp(1, "03:00"));
 
 function renderSettings(section = "libraries") {
   shell.invoke.mockImplementation(async (command: string) => {
@@ -152,6 +171,62 @@ describe("SettingsPage", () => {
       await screen.findByText("D:\\Backups\\Kura export 2026-10-11.zip · 912 MB"),
     ).toBeInTheDocument();
     expect(body(fetch, "POST", "/export")).toEqual({ folder: "D:\\Backups" });
+  });
+
+  it("shows last night's backup, and makes one now", async () => {
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "/backups": { backups: [TONIGHT, LAST_NIGHT], restored: null },
+      "POST /backups": backup(stamp(0, "14:12")),
+    });
+    renderSettings("data");
+
+    expect(await screen.findByText("Last backup today 03:00")).toBeInTheDocument();
+    expect(screen.getByText("47 MB · checked")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Back up now" }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/backups")).toHaveLength(1));
+  });
+
+  it("restores the backup the owner picks, as the engine starts again", async () => {
+    const restore = `/backups/${encodeURIComponent(LAST_NIGHT.name)}/restore`;
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "/backups": { backups: [TONIGHT, LAST_NIGHT], restored: null },
+      [`POST ${restore}`]: null,
+    });
+    renderSettings("data");
+
+    await screen.findByText("Last backup today 03:00");
+    screen.getByRole("button", { name: "Restore a backup" }).click();
+    (await screen.findByRole("radio", { name: /Yesterday 03:00/ })).click();
+    const go = screen.getByRole("button", { name: "Restore it" });
+    await waitFor(() => expect(go).toBeEnabled());
+    go.click();
+
+    await waitFor(() => expect(sent(fetch, "POST", restore)).toHaveLength(1));
+    await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
+  });
+
+  it("says how today's restore went", async () => {
+    fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "/backups": {
+        backups: [TONIGHT, LAST_NIGHT],
+        restored: { name: LAST_NIGHT.name, at: new Date().toISOString(), problem: null },
+      },
+    });
+    renderSettings("data");
+
+    expect(
+      await screen.findByText("Restored the backup from yesterday 03:00."),
+    ).toBeInTheDocument();
   });
 
   it("takes an unknown section to the first", async () => {

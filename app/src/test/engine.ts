@@ -67,9 +67,10 @@ export function fakeEngine(answers: Record<string, Answer>) {
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = init?.method ?? "GET";
-    const answer =
-      answers[`${method} ${url.pathname}`] ??
-      (method === "GET" ? answers[url.pathname] : undefined);
+    // An answer of null is a 204, so it's looked for by its key: `??` would pass it over.
+    const asked = `${method} ${url.pathname}`;
+    const key = asked in answers ? asked : method === "GET" ? url.pathname : null;
+    const answer = key !== null && key in answers ? answers[key] : undefined;
     if (answer === undefined) return Response.json({ detail: "Not found" }, { status: 404 });
     const body =
       typeof answer === "function" ? (answer as (init?: RequestInit) => unknown)(init) : answer;

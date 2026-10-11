@@ -9,6 +9,13 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Backups: every night at 03:00 (or the first chance after), Kura backs up its records, keeping
+  the last 7, each checked as it's made. Settings shows the last one, makes one now, and restores
+  one: Kura's records go back to then, your files stay as they are, and what Kura knew till then
+  is backed up first.
+- What waited in quarantine longer than you keep it (30 days unless you choose otherwise) is
+  cleared out once a day while Kura is open. A converted file's original goes only once its
+  converted copy is in place.
 - Settings: your anime folders, the standard and how files are named (changed at once), the
   TMDB key, where Kura's data lives and how big each part is, the export to a folder you pick,
   whether a gap report goes next to each anime, how long copies set aside are kept, updates, and

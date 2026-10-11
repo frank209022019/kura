@@ -58,7 +58,10 @@ The queue and history come with the features that need them.
 ## Backups and export
 
 - Consistent copies use SQLite's backup API (`source.backup(copy)`), never a file copy of a database
-  in use. The export does this; nightly backups (keep 7) will too.
+  in use. The export does this, and so do the nightly backups (`backups/kura 2026-10-11 0300.db`,
+  the last 7 kept), each checked with `PRAGMA integrity_check` before it's kept.
+- Restoring a backup copies it into `kura.db` the same way, as the engine starts and before
+  anything else opens the database, then migrates it if an older Kura made it.
 - The exported `kura.db` is switched to `journal_mode = DELETE`, so it is one self-contained file.
 
 ## Looking inside

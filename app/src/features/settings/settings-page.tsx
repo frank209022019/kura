@@ -24,6 +24,8 @@ import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
 import { cn } from "@/lib/utils";
+import { BackupsPanel } from "./backups-panel";
+import { Panel } from "./panel";
 
 const SECTIONS = [
   { key: "libraries", label: "Libraries" },
@@ -88,36 +90,6 @@ function Content({ section }: { section: Section }) {
     case "about":
       return <About />;
   }
-}
-
-function Panel(props: {
-  title: string;
-  note?: React.ReactNode;
-  action?: React.ReactNode;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const id = useId();
-  return (
-    <section
-      aria-labelledby={id}
-      className={cn(
-        "flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5.5",
-        props.className,
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 id={id} className="font-extrabold text-18">
-            {props.title}
-          </h2>
-          {props.note && <span className="text-13 text-fg-muted">{props.note}</span>}
-        </div>
-        {props.action}
-      </div>
-      {props.children}
-    </section>
-  );
 }
 
 function Libraries() {
@@ -228,7 +200,8 @@ function Titles() {
 const PARTS: { key: keyof DataSizes; label: string; note: string; color: string }[] = [
   { key: "database", label: "Database", note: "kura.db, one SQLite file", color: "bg-accent" },
   { key: "artwork", label: "Artwork", note: "can be downloaded again", color: "bg-convert" },
-  { key: "cache", label: "Cache", note: "can be asked for again", color: "bg-chart" },
+  { key: "backups", label: "Backups", note: "last 7 nights", color: "bg-chart" },
+  { key: "cache", label: "Cache", note: "can be asked for again", color: "bg-missing" },
   { key: "tools", label: "Tools", note: "ffmpeg", color: "bg-line-strong" },
   { key: "logs", label: "Logs", note: "kept 30 days", color: "bg-control" },
 ];
@@ -291,6 +264,7 @@ function YourData() {
         </Panel>
       )}
       <div className="flex flex-wrap items-stretch gap-5">
+        <BackupsPanel className="flex-[1_1_300px]" />
         <ExportPanel />
         {found && settings && <Quarantine sizes={found} settings={settings} />}
       </div>
@@ -379,7 +353,7 @@ function ExportPanel() {
     <Panel
       title="Export"
       note="One zip with everything, in files you can open without Kura."
-      className="flex-[1_1_380px] border-accent/35 bg-accent/5"
+      className="flex-[1_1_300px] border-accent/35 bg-accent/5"
     >
       <ul className="flex flex-col gap-1.5 text-13">
         {[
@@ -446,7 +420,7 @@ function Quarantine({ sizes, settings }: { sizes: DataSizes; settings: Settings 
           ? "Nothing set aside now."
           : `${size(bytes)} in ${files} ${files === 1 ? "file" : "files"}: copies set aside and converted files' originals, each on its own drive.`
       }
-      className="flex-[1_1_380px]"
+      className="flex-[1_1_300px]"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="font-bold text-14">Keep them</span>

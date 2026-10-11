@@ -90,9 +90,12 @@ kura/
   anilist.py      AniList: which anime a file is
   tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
   credentials.py  the TMDB key, encrypted for the Windows user, outside the database
-  system.py       the graphics card
+  system.py       the graphics card, and ending the programs the engine starts with it
   export.py       the export zip
   data.py         how big each part of the data folder and each drive's quarantine is
+  backups.py      the nightly backups of the database, and restoring one as the engine starts
+  quarantine.py   clearing out what has waited in quarantine longer than the owner keeps it
+  care.py         looking after Kura while it's open: tonight's backup, the daily clear-out
 ```
 
 The core is the heart and stays pure: it takes plain values (file facts, titles, settings) and
@@ -197,7 +200,11 @@ Before queueing, the Convert screen shows one frame of a file before and after
 - **The data folder**, `%LOCALAPPDATA%\Kura`: `kura.db` (everything Kura knows), `logs/`
   (`engine.log`, kept 30 days), `tools/` (ffmpeg), `credentials.json` (the TMDB key, encrypted by
   Windows for this user and never exported), `cache/` (answers from TMDB and AniList, safe to
-  delete), `artwork/` (posters), later `backups/` (7 nights).
+  delete), `artwork/` (posters), `backups/` (the last 7 nights, each checked as it's made).
+  `kura/care.py` makes tonight's backup from 03:00 (or the first chance after) and clears out of
+  the quarantine, once a day, what has waited longer than the owner keeps it. A backup chosen in
+  Settings is restored as the engine starts again, before anything opens the database, and what
+  Kura knew till then is backed up first.
   Development uses `engine/.dev-data`, so it never touches the real folder.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
   A database written by a newer Kura is refused, not damaged.

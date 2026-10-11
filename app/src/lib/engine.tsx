@@ -341,6 +341,33 @@ export const useDataSizes = () => useEngineQuery<DataSizes>("/data");
 /** Writes the export zip: `exporting.mutate({ path: "/export", body: { folder } })`. */
 export const useExport = () => useEngineAction<{ path: string; size: number }>(["/data"]);
 
+/** A backup of Kura's records, made each night (Settings > Your data). */
+export interface Backup {
+  /** "kura 2026-10-11 0300.db" */
+  name: string;
+  /** Local time, to the minute: "2026-10-11T03:00". */
+  made: string;
+  size: number;
+  /** Made just before another backup was restored. */
+  beforeRestoring: boolean;
+}
+
+export interface Backups {
+  /** Newest first. */
+  backups: Backup[];
+  /** How the last restore went. */
+  restored: { name: string; at: string; problem: string | null } | null;
+}
+
+export const useBackups = () => useEngineQuery<Backups>("/backups");
+/** Makes a backup now: `backUp.mutate({ path: "/backups" })`. */
+export const useBackUp = () => useEngineAction<Backup>(["/backups", "/data"]);
+/**
+ * Asks for a backup to be restored as the engine starts again, which the caller asks the shell
+ * for next: `restore.mutate({ path: "/backups/<name>/restore" })`.
+ */
+export const useRestoreBackup = () => useEngineAction<void>([]);
+
 /** Whether Kura has a TMDB key, for episode lists, episode titles and artwork. */
 export interface TmdbStatus {
   connected: boolean;

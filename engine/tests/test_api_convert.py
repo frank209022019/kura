@@ -2,7 +2,8 @@
 
 import json
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
 
@@ -221,6 +222,10 @@ def test_at_start_a_conversion_a_crash_stopped_is_settled_before_any_scan(
 
         def recover(self) -> None:
             order.append("scan")
+
+        @contextmanager
+        def hold(self) -> Generator[None]:
+            yield
 
     def settled(_queue: Queue) -> None:
         order.append("queue")
