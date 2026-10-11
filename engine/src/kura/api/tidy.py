@@ -114,6 +114,7 @@ class PlanDone(ApiModel):
     quarantined: int
     failed: int
     undone: int
+    deleted: bool  # the owner deleted these videos: they went to quarantine
     conversion: Conversion | None  # for a conversion: what the file became
 
 
@@ -190,6 +191,26 @@ def apply_tidy(body: TidyRequest, conn: Database, scans: Scans) -> TidyResult:
             status.HTTP_409_CONFLICT,
             "Kura's proposal changed since you looked at it. Look it over again before applying.",
         ) from None
+    return _result(done)
+
+
+class DeleteRequest(ApiModel):
+    files: list[int]  # the videos to delete, each with the subtitles named after it
+
+
+@router.post("/files/delete")
+def delete_files(body: DeleteRequest, conn: Database, scans: Scans) -> TidyResult:
+    """Deletes videos the way Kura deletes: into the quarantine on their own drive, with their
+    subtitles, journaled so History can put them back till the quarantine is cleared out."""
+    try:
+        with scans.hold():
+            done = tidy.delete(conn, body.files, now=_now())
+    except ScanBusyError as busy:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"{busy} Delete it once that's done."
+        ) from None
+    except tidy.ConvertingError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from None
     return _result(done)
 
 

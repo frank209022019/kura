@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type EpisodeState, type TitleDetail } from "@/lib/engine";
-import { fakeEngine, READY } from "@/test/engine";
+import { fakeEngine, READY, SETTINGS } from "@/test/engine";
 import { TitlePage } from "./title-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -64,6 +64,7 @@ const DBZ: TitleDetail = {
     {
       id: 1,
       path: "D:\\Anime\\TV\\Dragon Ball Z (1989)\\Season 01\\Dragon Ball Z - S01E01.mkv",
+      size: 233_000_000,
       season: 1,
       episode: 1,
       episodeEnd: null,
@@ -75,8 +76,18 @@ const DBZ: TitleDetail = {
   ],
 };
 
-function renderTitle(title: TitleDetail, report: unknown = undefined, state: unknown = null) {
-  fakeEngine({ [`/titles/${title.id}`]: title, [`/titles/${title.id}/report`]: report });
+function renderTitle(
+  title: TitleDetail,
+  report: unknown = undefined,
+  state: unknown = null,
+  more: Record<string, unknown> = {},
+) {
+  const fetch = fakeEngine({
+    [`/titles/${title.id}`]: title,
+    [`/titles/${title.id}/report`]: report,
+    "/settings": SETTINGS,
+    ...more,
+  });
   shell.invoke.mockImplementation(async (command: string) =>
     command === "engine_status" ? READY : undefined,
   );
@@ -93,7 +104,17 @@ function renderTitle(title: TitleDetail, report: unknown = undefined, state: unk
       </EngineProvider>
     </QueryClientProvider>,
   );
+  return fetch;
 }
+
+function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string) {
+  return fetch.mock.calls.filter(
+    ([input, init]) =>
+      (init?.method ?? "GET") === method && new URL(String(input)).pathname === path,
+  );
+}
+
+const DELETED = { planId: 12, moved: 0, quarantined: 1, problems: [] };
 
 function MatchSearch() {
   return <p>Match {useLocation().search}</p>;
@@ -217,6 +238,53 @@ describe("TitlePage", () => {
     expect(screen.getByText(/Episode 5 · missing/)).toBeInTheDocument();
     expect(screen.queryByText(/Episode 100 · missing/)).not.toBeInTheDocument();
     expect(screen.getByText("3%")).toBeInTheDocument();
+  });
+
+  it("deletes a video once asked, says where it went, and puts it back", async () => {
+    let gone = false; // once deleted, the title comes back without the video and its row
+    const fetch = renderTitle(DBZ, undefined, null, {
+      "/titles/1": () => (gone ? { ...DBZ, videos: [] } : DBZ),
+      "POST /files/delete": () => {
+        gone = true;
+        return DELETED;
+      },
+      "POST /plans/12/undo": DELETED,
+    });
+
+    (await screen.findByRole("button", { name: "Delete S01E01" })).click();
+    const asking = await screen.findByRole("group", { name: "Delete S01E01?" });
+    await waitFor(() =>
+      expect(asking).toHaveTextContent(
+        "1 video (233 MB) goes to the quarantine on D:, with any subtitles named after it. " +
+          "They're deleted for good after 30 days; till then History puts them back.",
+      ),
+    );
+    within(asking).getByRole("button", { name: "Delete 1 video" }).click();
+
+    expect(await screen.findByText("Deleted 1 video.")).toBeInTheDocument();
+    const [[, init]] = sent(fetch, "POST", "/files/delete") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ files: [1] });
+    screen.getByRole("button", { name: "Put back" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/plans/12/undo")).toHaveLength(1));
+  });
+
+  it("deletes a whole title or season only once asked, and can be talked out of it", async () => {
+    const fetch = renderTitle(DBZ, undefined, null, { "POST /files/delete": DELETED });
+
+    (await screen.findByRole("button", { name: "Delete" })).click();
+    expect(await screen.findByRole("group", { name: "Delete Dragon Ball Z?" })).toBeInTheDocument();
+    screen.getByRole("button", { name: "Cancel" }).click();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("group", { name: "Delete Dragon Ball Z?" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    screen.getByRole("button", { name: "Delete season 1" }).click();
+    (await screen.findByRole("button", { name: "Delete 1 video" })).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/files/delete")).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: "Delete season 4" })).not.toBeInTheDocument();
   });
 
   it("keeps the specials and OVAs apart", async () => {

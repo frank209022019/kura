@@ -17,6 +17,7 @@ from kura.core.library import QUARANTINE_FOLDER, skipped_folder
 from kura.core.naming import MAX_PATH, PathTooLongError, episode_path, movie_path, unique_path
 
 _TOO_LONG = "The new name would be too long for Windows"
+DELETED = "Deleted"  # the reason of a change that set a video aside because the owner deleted it
 
 
 @dataclass(frozen=True)
@@ -137,7 +138,15 @@ def plan_tidy(
                 )
                 theirs = _claim(dropped.sidecars, claimed)
                 quarantines.extend(
-                    _with_it(dropped, theirs, place, used, ChangeKind.QUARANTINE, reason)
+                    _with_it(
+                        dropped.copy.path,
+                        _label(dropped.identity),
+                        theirs,
+                        place,
+                        used,
+                        ChangeKind.QUARANTINE,
+                        reason,
+                    )
                 )
         root = kept.root or library
         try:
@@ -152,7 +161,15 @@ def plan_tidy(
             continue
         move = _move(kept, target, used)
         place = move.target if move else kept.copy.path
-        followers = _with_it(kept, own, place, used, ChangeKind.MOVE, "Follows its video")
+        followers = _with_it(
+            kept.copy.path,
+            _label(kept.identity),
+            own,
+            place,
+            used,
+            ChangeKind.MOVE,
+            "Follows its video",
+        )
         going = [change for change in (move, *followers) if change is not None]
         if any(len(str(change.target)) > MAX_PATH for change in going):
             skipped.append((kept.copy.path, _TOO_LONG))
@@ -194,18 +211,38 @@ def _claim(sidecars: Iterable[PurePath], claimed: set[str]) -> list[PurePath]:
     return mine
 
 
+def plan_set_aside(
+    files: Sequence[tuple[PurePath, str, Sequence[PurePath]]],
+    *,
+    day: date,
+    taken: Iterable[str] = (),
+) -> Plan:
+    """The changes that delete videos the way Kura deletes: each video (its path, its label and
+    the subtitles named after it) to the quarantine folder on its own drive, under a name nothing
+    there has (`taken` holds what's there already), until the quarantine is cleared out."""
+    used = {path.casefold() for path in taken}
+    changes: list[Change] = []
+    for video, label, sidecars in files:
+        place = unique_path(quarantine_place(video, day), used)
+        used.add(str(place).casefold())
+        changes.append(Change(ChangeKind.QUARANTINE, video, place, label, DELETED))
+        changes += _with_it(video, label, sidecars, place, used, ChangeKind.QUARANTINE, DELETED)
+    return Plan(tuple(changes))
+
+
 def _with_it(
-    placed: PlacedFile,
+    video: PurePath,
+    label: str,
     sidecars: Iterable[PurePath],
     place: PurePath,
     used: set[str],
     kind: ChangeKind,
     reason: str,
 ) -> list[Change]:
-    """Moves for a file's subtitles, renamed to match where the file itself goes."""
+    """Moves for a video's subtitles, renamed to match where the video itself goes."""
     changes: list[Change] = []
     for sidecar in sidecars:
-        tail = sidecar.name[len(placed.copy.path.stem) :]  # ".en.srt"
+        tail = sidecar.name[len(video.stem) :]  # ".en.srt"
         target = place.with_name(place.stem + tail)
         if str(sidecar) == str(target):
             continue  # already right
@@ -214,8 +251,7 @@ def _with_it(
         else:
             spot = unique_path(target, used)
             used.add(str(spot).casefold())
-        label = f"{_label(placed.identity)} · subtitles"
-        changes.append(Change(kind, sidecar, spot, label, reason))
+        changes.append(Change(kind, sidecar, spot, f"{label} · subtitles", reason))
     return changes
 
 

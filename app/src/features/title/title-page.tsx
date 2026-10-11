@@ -10,13 +10,16 @@ import { Button } from "@/components/ui/button";
 import {
   type EpisodeState,
   type SeasonCount,
+  type TidyResult,
   type TitleDetail,
+  type TitleFile,
   useReport,
   useTitle,
 } from "@/lib/engine";
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
+import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "./delete";
 
 /** One anime or film: how much of it is there, its seasons and episode map, what's missing, its
  * specials and OVAs apart, its videos, and the gap analysis next to it. */
@@ -26,6 +29,28 @@ export function TitlePage() {
   const title = useTitle(titleId);
   // Files that didn't fit the match the owner just gave it.
   const unfit = (useLocation().state as { waiting?: number } | null)?.waiting ?? 0;
+  // Deleting asks first, beside what goes; right after, the page says so and offers it back.
+  const [asking, setAsking] = useState<Asking | null>(null);
+  const [deleted, setDeleted] = useState<TidyResult | null>(null);
+  const deleting = useDeleting((result) => {
+    setAsking(null);
+    setDeleted(result);
+  });
+  const ask = (next: Asking) => {
+    deleting.reset();
+    setDeleted(null);
+    setAsking(next);
+  };
+  const confirm = (where: string) =>
+    asking?.where === where ? (
+      <ConfirmDelete
+        asking={asking}
+        busy={deleting.busy}
+        problem={deleting.problem}
+        onConfirm={() => deleting.delete(asking.files)}
+        onCancel={() => setAsking(null)}
+      />
+    ) : null;
 
   if (!title.data) {
     return (
@@ -49,13 +74,21 @@ export function TitlePage() {
         }
         current={found.name}
       />
-      <Header title={found} />
+      <Header title={found} onAsk={ask} />
+      {confirm("title")}
+      {deleted && <Deleted result={deleted} onPutBack={() => setDeleted(null)} />}
       {unfit > 0 && <Unfit count={unfit} />}
       <EngineProblem queries={[title]} />
       {found.seasons.length > 0 && (
         <div className="flex flex-wrap items-start gap-5">
           <div className="flex min-w-0 flex-[1.4_1_460px] flex-col gap-5">
-            <Seasons seasons={found.seasons} episodes={numbered} />
+            <Seasons
+              seasons={found.seasons}
+              episodes={numbered}
+              videos={found.videos}
+              onAsk={ask}
+              confirm={asking?.where.startsWith("season-") ? confirm(asking.where) : null}
+            />
             <EpisodeMap episodes={numbered} />
             <MissingAndBroken title={found} episodes={numbered} />
           </div>
@@ -65,7 +98,7 @@ export function TitlePage() {
           </div>
         </div>
       )}
-      <Videos title={found} />
+      <Videos title={found} onAsk={ask} confirm={confirm} />
     </>
   );
 }
@@ -88,7 +121,7 @@ function Unfit({ count }: { count: number }) {
   );
 }
 
-function Header({ title }: { title: TitleDetail }) {
+function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) => void }) {
   const navigate = useNavigate();
   const explorer = useExplorer();
   const seasons = title.seasons.length;
@@ -132,6 +165,15 @@ function Header({ title }: { title: TitleDetail }) {
           <Button size="sm" onClick={() => void navigate(`/match?title=${title.id}`)}>
             Change match
           </Button>
+          {title.videos.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onAsk({ what: title.name, where: "title", files: title.videos })}
+            >
+              Delete
+            </Button>
+          )}
         </div>
         {explorer.problem && (
           <p role="alert" className="text-13 text-broken-fg">
@@ -153,16 +195,24 @@ function Header({ title }: { title: TitleDetail }) {
   );
 }
 
-function Seasons({ seasons, episodes }: { seasons: SeasonCount[]; episodes: EpisodeState[] }) {
+function Seasons(props: {
+  seasons: SeasonCount[];
+  episodes: EpisodeState[];
+  videos: TitleFile[];
+  onAsk: (asking: Asking) => void;
+  confirm: ReactNode;
+}) {
+  const { seasons, episodes } = props;
   return (
     <Panel id="seasons-title" title="Seasons" note="Season folders and order, as TMDB numbers them">
       <ul className="flex flex-col">
         {seasons.map((season) => {
           const mine = episodes.filter((episode) => episode.season === season.season);
+          const files = props.videos.filter((video) => video.season === season.season);
           return (
             <li
               key={season.season}
-              className="grid min-h-10 grid-cols-[5.5rem_1fr_3.5rem_7rem] items-center gap-3 border-white/6 border-b text-13 last:border-b-0"
+              className="grid min-h-10 grid-cols-[5.5rem_1fr_3.5rem_7rem_2rem] items-center gap-3 border-white/6 border-b text-13 last:border-b-0"
             >
               <span className="font-bold">Season {season.season}</span>
               <span className="flex h-2 overflow-hidden rounded-3" aria-hidden="true">
@@ -178,10 +228,25 @@ function Seasons({ seasons, episodes }: { seasons: SeasonCount[]; episodes: Epis
                 {season.present}/{season.aired}
               </span>
               <span className="text-12 text-fg-muted">{seasonWord(season, mine)}</span>
+              {files.length > 0 ? (
+                <DeleteIcon
+                  label={`Delete season ${season.season}`}
+                  onClick={() =>
+                    props.onAsk({
+                      what: `season ${season.season}`,
+                      where: `season-${season.season}`,
+                      files,
+                    })
+                  }
+                />
+              ) : (
+                <span />
+              )}
             </li>
           );
         })}
       </ul>
+      {props.confirm}
     </Panel>
   );
 }
@@ -372,7 +437,12 @@ function ReportActions({ path, text }: { path: string; text: string }) {
   );
 }
 
-function Videos({ title }: { title: TitleDetail }) {
+function Videos(props: {
+  title: TitleDetail;
+  onAsk: (asking: Asking) => void;
+  confirm: (where: string) => ReactNode;
+}) {
+  const { title } = props;
   if (title.videos.length === 0) return null;
   return (
     <Panel
@@ -402,11 +472,29 @@ function Videos({ title }: { title: TitleDetail }) {
                   ? `${video.height}p · ${video.codec ?? ""}`
                   : ""}
             </span>
+            <DeleteIcon
+              label={`Delete ${videoName(video)}`}
+              onClick={() =>
+                props.onAsk({ what: videoName(video), where: `video-${video.id}`, files: [video] })
+              }
+            />
+            {props.confirm(`video-${video.id}`) && (
+              <div className="basis-full pb-2">{props.confirm(`video-${video.id}`)}</div>
+            )}
           </li>
         ))}
       </ul>
     </Panel>
   );
+}
+
+/** "S01E03", "S01E03-E04", or the file's name when it has no episode number. */
+function videoName(video: TitleFile): string {
+  if (video.season === null || video.episode === null) {
+    return video.path.split("\\").at(-1) ?? video.path;
+  }
+  const last = video.episodeEnd ? `-E${pad(video.episodeEnd)}` : "";
+  return `S${pad(video.season)}E${pad(video.episode)}${last}`;
 }
 
 function Panel(props: {

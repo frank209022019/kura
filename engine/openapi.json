@@ -1180,6 +1180,50 @@
         }
       }
     },
+    "/files/delete": {
+      "post": {
+        "summary": "Delete Files",
+        "description": "Deletes videos the way Kura deletes: into the quarantine on their own drive, with their\nsubtitles, journaled so History can put them back till the quarantine is cleared out.",
+        "operationId": "delete_files_files_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TidyResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/history": {
       "get": {
         "summary": "What Kura Did",
@@ -2380,6 +2424,22 @@
         ],
         "title": "DataSizes"
       },
+      "DeleteRequest": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "DeleteRequest"
+      },
       "Duplicate": {
         "properties": {
           "label": {
@@ -3317,6 +3377,10 @@
             "type": "integer",
             "title": "Undone"
           },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted"
+          },
           "conversion": {
             "anyOf": [
               {
@@ -3339,6 +3403,7 @@
           "quarantined",
           "failed",
           "undone",
+          "deleted",
           "conversion"
         ],
         "title": "PlanDone"
@@ -4286,6 +4351,10 @@
             "type": "string",
             "title": "Path"
           },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
           "season": {
             "anyOf": [
               {
@@ -4368,6 +4437,7 @@
         "required": [
           "id",
           "path",
+          "size",
           "season",
           "episode",
           "episodeEnd",

@@ -7,12 +7,15 @@ from pathlib import PureWindowsPath
 from kura.core.copies import Copy
 from kura.core.media import Audio, MediaInfo, Subtitle, Video
 from kura.core.plan import (
+    DELETED,
     Change,
     ChangeKind,
     EpisodeOf,
     MovieOf,
     PlacedFile,
+    plan_set_aside,
     plan_tidy,
+    quarantine_place,
     sidecars_of,
 )
 
@@ -413,4 +416,29 @@ def test_kept_names_go_into_the_shows_folders_as_they_are():
     assert [str(c.target) for c in changes] == [
         r"D:\Anime\Movies\Cowboy Bebop - The Movie (2001)\cowboy bebop movie.mkv",
         r"D:\Anime\TV\Cowboy Bebop (1998)\Season 01\[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv",
+    ]
+
+
+def test_deleting_sets_a_video_aside_with_its_subtitles_under_names_still_free():
+    video = LIBRARY / "TV" / "Trigun (1998)" / "Season 01" / "Trigun (1998) - S01E03.mkv"
+    subtitles = (video.with_name("Trigun (1998) - S01E03.en.srt"),)
+    earlier = quarantine_place(video, DAY)  # one set aside earlier today has its name
+
+    plan = plan_set_aside([(video, "Trigun · S01E03", subtitles)], day=DAY, taken={str(earlier)})
+
+    assert [(c.kind, c.source.name, str(c.target), c.label, c.reason) for c in plan.changes] == [
+        (
+            ChangeKind.QUARANTINE,
+            "Trigun (1998) - S01E03.mkv",
+            r"D:\Kura quarantine\2026-10-10\Trigun (1998) - S01E03 (2).mkv",
+            "Trigun · S01E03",
+            DELETED,
+        ),
+        (
+            ChangeKind.QUARANTINE,
+            "Trigun (1998) - S01E03.en.srt",
+            r"D:\Kura quarantine\2026-10-10\Trigun (1998) - S01E03 (2).en.srt",
+            "Trigun · S01E03 · subtitles",
+            DELETED,
+        ),
     ]

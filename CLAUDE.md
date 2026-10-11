@@ -142,6 +142,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   its breadcrumb) stay where they are, and so does a page's own section list beside it.
 - The gap analysis shows in the app as a reader sees it, as an editor's Markdown preview would,
   under the title "Gap Analysis" (the owner, 2026-10-11).
+- Deleting from Kura (the owner, 2026-10-11): a whole title, a season or one video, from the
+  title's page, after Kura asks. It goes to quarantine like any copy set aside, never straight to
+  deletion, and History (or the page, right after) puts it back until the clear-out.
 - Lists sort by release date by default, oldest first, on every page that lists series, movies,
   OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11).
 - Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word

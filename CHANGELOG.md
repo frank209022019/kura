@@ -9,6 +9,9 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Delete a title, a season or one video from its page. Kura asks first, then moves the videos and
+  their subtitles to the quarantine on their drive, for as long as you keep copies set aside; the
+  page, right after, or History puts them back.
 - Only the page scrolls: the nav rail and the page's title (or where it sits) stay where they
   are, and so does Settings' list of sections.
 - A title's gap analysis reads like a document (headings, lists and tables), under the title Gap

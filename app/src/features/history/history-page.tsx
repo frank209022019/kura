@@ -95,7 +95,12 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
   const [verb, title, detail] = words(event);
   const plan = event.kind === "plan" ? event.plan : null;
   const undoable = plan !== null && plan.undoneAt === null && plan.moved + plan.quarantined > 0;
-  const action = plan?.kind === "convert" ? "Put back the original" : "Undo";
+  const action =
+    plan?.kind === "convert"
+      ? "Put back the original"
+      : plan?.deleted
+        ? "Put back what was deleted"
+        : "Undo";
   return (
     <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-white/6 border-b py-3 text-13 last:border-b-0">
       <span className="font-mono text-12 text-fg-muted">{clock(event.at)}</span>
@@ -111,7 +116,7 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
           disabled={props.busy}
           onClick={() => props.onUndo(plan)}
         >
-          {plan.kind === "convert" ? "Put back" : "Undo"}
+          {plan.kind === "convert" || plan.deleted ? "Put back" : "Undo"}
         </Button>
       ) : (
         <span />
@@ -140,6 +145,18 @@ function words(event: Event): [string, string, string | null] {
     const label = plan.title.replace(/^Converted /, "");
     if (event.kind === "undo") return ["Put back", label, "The original is in its place again"];
     return ["Converted", label, made ? conversionWords(made) : null];
+  }
+  if (plan.deleted) {
+    const label = plan.title.replace(/^Deleted /, "");
+    if (event.kind === "undo")
+      return ["Put back", label, `You put ${count(plan.undone, "file")} back`];
+    const parts = [
+      plan.quarantined > 0 && `${count(plan.quarantined, "video")} in quarantine`,
+      plan.failed > 0 && `${plan.failed} couldn't be moved`,
+      plan.undoneAt !== null && "Put back since",
+      `plan ${plan.id}`,
+    ].filter(Boolean);
+    return ["Deleted", label, parts.join(" · ")];
   }
   if (event.kind === "undo") {
     return ["Undone", plan.title, `You put ${count(plan.undone, "file")} back`];

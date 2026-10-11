@@ -27,6 +27,7 @@ from kura.changes import (
     tally,
     undo_plan,
 )
+from kura.convert import label_of
 from kura.core.copies import Copy
 from kura.core.extensions import is_video
 from kura.core.library import QUARANTINE_FOLDER
@@ -41,6 +42,7 @@ from kura.core.plan import (
     PlacedFile,
     Plan,
     copy_key,
+    plan_set_aside,
     plan_tidy,
     sidecars_of,
 )
@@ -109,6 +111,10 @@ class ProposalChangedError(Exception):
     it), so nothing was made."""
 
 
+class ConvertingError(Exception):
+    """A video being converted can't be deleted till it's done. The message says which."""
+
+
 @dataclass(frozen=True)
 class Tidied:
     """What applying or undoing a tidy-up did."""
@@ -136,7 +142,7 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
         [video.placed for video in videos],
         PureWindowsPath(),  # every video names its own library folder
         day=day,
-        taken=taken + _set_aside(videos, day),
+        taken=taken + _set_aside({video.placed.copy.path.anchor for video in videos}, day),
         keep=[PureWindowsPath(path) for path in keep],
         keep_names=names_kept(conn),
     )
@@ -224,10 +230,9 @@ def _folders_in(folder: Path) -> dict[str, str]:
         return {}  # not there yet, or can't be read
 
 
-def _set_aside(videos: Sequence[_Video], day: date) -> list[str]:
-    """What the quarantine folders hold already today, on the drives the videos are on: a copy
-    set aside now never takes the name of one set aside earlier."""
-    drives = {video.placed.copy.path.anchor for video in videos}
+def _set_aside(drives: Iterable[str], day: date) -> list[str]:
+    """What the quarantine folders hold already today, on these drives: a copy set aside now
+    never takes the name of one set aside earlier."""
     return [
         str(path)
         for drive in sorted(drives)
@@ -256,6 +261,50 @@ def apply(
             raise ProposalChangedError
     chosen = [p for p in proposal.changes if str(p.change.source).casefold() in wanted]
     plan_id = save_plan(conn, Plan(tuple(p.change for p in chosen)), _plan_title(chosen), now=now)
+    outcome = apply_plan(conn, plan_id, now=now)
+    _clear_behind(conn, [change.source for change in outcome.changed])
+    write_reports(conn, now=now)
+    return Tidied(plan_id, *tally(outcome.changed), outcome.problems)
+
+
+def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) -> Tidied:
+    """Deletes the videos the owner chose, the way Kura deletes: each goes to the quarantine on
+    its own drive with the subtitles named after it, journaled so History can put it back till
+    the quarantine is cleared out. Folders it empties go, as after a tidy-up. A video waiting to
+    be converted leaves the queue; one being converted stays (ConvertingError), and so does
+    everything else asked for."""
+    ids = list(dict.fromkeys(file_ids))
+    marks = ", ".join("?" * len(ids))
+    rows = conn.execute(
+        f"""SELECT f.id, f.path, f.season, f.episode, t.name AS title,
+                   EXISTS (SELECT 1 FROM jobs AS j
+                           WHERE j.file_id = f.id AND j.state IN ('running', 'replacing'))
+                       AS converting
+            FROM files AS f LEFT JOIN titles AS t ON t.id = f.title_id
+            WHERE f.id IN ({marks}) AND f.gone_at IS NULL
+            ORDER BY f.path""",  # noqa: S608 - only placeholders go in
+        ids,
+    ).fetchall()
+    if not rows:
+        return Tidied(None, 0, 0, ())
+    if busy := [row for row in rows if row["converting"]]:
+        raise ConvertingError(
+            f"{label_of(busy[0])} is being converted. Skip it in the queue, or delete it once "
+            "it's done."
+        )
+    listings: dict[Path, list[str]] = {}
+    videos: list[tuple[PurePath, str, Sequence[PurePath]]] = []
+    for row in rows:
+        path = Path(row["path"])
+        if path.parent not in listings:
+            listings[path.parent] = _listing(path.parent)
+        videos.append((path, label_of(row), sidecars_of(path, listings[path.parent])))
+    day = now.date()
+    taken = _set_aside({video.anchor for video, _, _ in videos}, day)
+    plan = plan_set_aside(videos, day=day, taken=taken)
+    with conn:
+        conn.execute(f"DELETE FROM jobs WHERE state = 'queued' AND file_id IN ({marks})", ids)  # noqa: S608
+    plan_id = save_plan(conn, plan, _deleted_title(rows), now=now)
     outcome = apply_plan(conn, plan_id, now=now)
     _clear_behind(conn, [change.source for change in outcome.changed])
     write_reports(conn, now=now)
@@ -435,6 +484,22 @@ def _plan_title(chosen: Sequence[Proposed]) -> str:
     more = len(titles) - len(named)
     listed = f"{', '.join(named)} and {more} more" if more else " and ".join(named)
     return f"Tidied {count} {files}: {listed}"
+
+
+def _deleted_title(rows: Sequence[sqlite3.Row]) -> str:
+    """ "Deleted Trigun · S01E03", "Deleted 26 Trigun files", or "Deleted 30 files: Trigun,
+    Cowboy Bebop and 2 more", as History lists it."""
+    if len(rows) == 1:
+        return f"Deleted {label_of(rows[0])}"
+    titles = list(dict.fromkeys(row["title"] for row in rows if row["title"]))
+    if len(titles) == 1 and all(row["title"] for row in rows):
+        return f"Deleted {len(rows)} {titles[0]} files"
+    if not titles:
+        return f"Deleted {len(rows)} files"
+    named = titles[:2]
+    more = len(titles) - len(named)
+    listed = f"{', '.join(named)} and {more} more" if more else " and ".join(named)
+    return f"Deleted {len(rows)} files: {listed}"
 
 
 def _clear_behind(conn: sqlite3.Connection, left: Sequence[Path]) -> None:

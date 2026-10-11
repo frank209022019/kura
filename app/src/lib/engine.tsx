@@ -437,6 +437,8 @@ export interface EpisodeRef {
 export interface TitleFile {
   id: number;
   path: string;
+  /** In bytes. */
+  size: number;
   season: number | null;
   episode: number | null;
   episodeEnd: number | null;
@@ -745,13 +747,27 @@ export const useTidy = (keep: string[] = []) =>
     true,
     true,
   );
-const TIDIED = ["/tidy", "/history", "/titles", "/franchises", "/library", "/review"];
+const TIDIED = [
+  "/tidy",
+  "/history",
+  "/titles",
+  "/franchises",
+  "/library",
+  "/review",
+  "/convert",
+  "/data",
+];
 /** Makes the changes: `apply.mutate({ path: "/tidy", body: { changes, keep } })`, `changes`
  * being ReviewedChange[]. */
 export const useApplyTidy = () => useEngineAction<TidyResult>(TIDIED);
 /** Puts back what a tidy-up moved (or what couldn't go back last time):
  * `undo.mutate({ path: "/plans/12/undo" })`. */
 export const useUndoPlan = () => useEngineAction<TidyResult>(TIDIED);
+/**
+ * Deletes videos the way Kura deletes: into the quarantine with their subtitles, put back from
+ * History till it's cleared out: `remove.mutate({ path: "/files/delete", body: { files } })`.
+ */
+export const useDeleteFiles = () => useEngineAction<TidyResult>([...TIDIED, "/queue"]);
 
 /** A video's picture and size, before or after converting. */
 export interface Picture {
@@ -784,6 +800,8 @@ export interface PlanDone {
   quarantined: number;
   failed: number;
   undone: number;
+  /** The owner deleted these videos: they went to quarantine. */
+  deleted: boolean;
   conversion: Conversion | null;
 }
 

@@ -215,3 +215,49 @@ def test_no_scan_starts_while_kura_moves_files(client: TestClient, conn: sqlite3
 
     assert answer.status_code == 409
     assert answer.json()["detail"] == "Kura is moving files. Scan once they're in place."
+
+
+def test_videos_deleted_go_to_quarantine_and_history_puts_them_back(
+    client: TestClient, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["Trigun (1998)/Trigun (1998) - S01E01.mkv"])
+    episode = root / "Trigun (1998)" / "Trigun (1998) - S01E01.mkv"
+
+    answer = client.post("/files/delete", json={"files": [1]})
+
+    assert answer.status_code == 200
+    assert (answer.json()["quarantined"], answer.json()["moved"]) == (1, 0)
+    assert not episode.exists()
+    [plan] = client.get("/history").json()["plans"]
+    assert (plan["title"], plan["deleted"]) == ("Deleted Trigun (1998) - S01E01", True)
+    assert client.post(f"/plans/{plan['id']}/undo").status_code == 200
+    assert episode.is_file()
+
+
+def test_nothing_is_deleted_while_files_move(
+    client: TestClient, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["Trigun (1998)/Trigun (1998) - S01E01.mkv"])
+    scanner = cast("Scanner", cast("FastAPI", client.app).state.scanner)
+
+    with scanner.hold():
+        answer = client.post("/files/delete", json={"files": [1]})
+
+    assert answer.status_code == 409
+    assert answer.json()["detail"].endswith("Delete it once that's done.")
+
+
+def test_a_video_being_converted_isnt_deleted_through_the_api(
+    client: TestClient, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["Trigun (1998)/Trigun (1998) - S01E01.mkv"])
+    with conn:
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " VALUES (1, 'best', 1, 'running', 'now')"
+        )
+
+    answer = client.post("/files/delete", json={"files": [1]})
+
+    assert answer.status_code == 409
+    assert answer.json()["detail"].startswith("Trigun (1998) - S01E01 is being converted.")

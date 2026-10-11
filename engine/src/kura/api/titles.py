@@ -54,6 +54,7 @@ class TitleSummary(ApiModel):
 class TitleFile(ApiModel):
     id: int
     path: str
+    size: int  # bytes
     season: int | None
     episode: int | None
     episode_end: int | None
@@ -150,7 +151,7 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
     group = titles.franchise_of(conn, title_id, _today())
     gaps = found.gaps
     videos = conn.execute(
-        """SELECT id, path, season, episode, episode_end, problem, height, codec, duration
+        """SELECT id, path, size, season, episode, episode_end, problem, height, codec, duration
            FROM files WHERE title_id = ? AND gone_at IS NULL
            ORDER BY season, episode, path""",
         (title_id,),

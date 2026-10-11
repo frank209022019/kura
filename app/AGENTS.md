@@ -21,6 +21,8 @@ and [../CLAUDE.md](../CLAUDE.md).
   `page-top`, so it stays put while the rest scrolls under it.
 - Say what a thing does, never which media server reads it: no "Plex" anywhere in the UI.
 - Markdown (Kura's reports) shows through `components/markdown.tsx`, as a reader sees it.
+- Deleting asks first, beside what goes (`features/title/delete.tsx`), says where it goes and for
+  how long, and offers it back right after. Nothing is ever deleted outright.
 
 ## Where things go
 

@@ -178,6 +178,12 @@ follow them already. History lists every tidy-up,
 which can be undone from there, and undone again for any file that couldn't go back the first
 time (the plan counts as undone only once nothing is left).
 
+Deleting (`tidy.delete`, from a title's page: the whole title, a season or one video) is a plan of
+the same kind: each video and the subtitles named after it go to the quarantine on their own
+drive, folders left empty go, a video waiting to be converted leaves the queue (one converting
+can't be deleted), and History, or the page right after, puts them back until the quarantine is
+cleared out. Kura never deletes a file outright.
+
 Converting (`kura/convert.py`) brings one file to the standard by the method its recipe names
 (`kura/core/convert.py`): the AI model between two ffmpegs (`kura/upscale.py`), or one ffmpeg
 command (see [stack/upscaling.md](stack/upscaling.md)). The result is made beside the original,

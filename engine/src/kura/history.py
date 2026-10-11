@@ -9,6 +9,7 @@ from typing import Literal
 
 from kura.changes import ChangeState, changes_of, tally
 from kura.core.media import media_from_ffprobe
+from kura.core.plan import DELETED
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class PlanDone:
     quarantined: int  # copies set aside, and still there (their subtitles uncounted)
     failed: int  # changes that couldn't be made
     undone: int  # changes put back
+    deleted: bool = False  # the owner deleted these videos: they went to quarantine
     conversion: Conversion | None = None  # what a conversion made of its file
 
 
@@ -73,6 +75,7 @@ def plans(conn: sqlite3.Connection) -> list[PlanDone]:
                 quarantined=quarantined,
                 failed=states.count(ChangeState.FAILED),
                 undone=states.count(ChangeState.UNDONE),
+                deleted=bool(changes) and all(change.reason == DELETED for change in changes),
                 conversion=_conversion(conn, row["id"]) if row["kind"] == "convert" else None,
             )
         )

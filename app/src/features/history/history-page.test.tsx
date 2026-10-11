@@ -27,6 +27,7 @@ const TIDIED: PlanDone = {
   quarantined: 1,
   failed: 0,
   undone: 0,
+  deleted: false,
   conversion: null,
 };
 const CONVERTED: PlanDone = {
@@ -129,6 +130,36 @@ describe("HistoryPage", () => {
       expect(
         fetch.mock.calls.some(
           ([input, init]) => init?.method === "POST" && String(input).endsWith("/plans/13/undo"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("says what was deleted, and puts it back", async () => {
+    const deleted: PlanDone = {
+      ...TIDIED,
+      id: 15,
+      title: "Deleted 2 Trigun files",
+      moved: 0,
+      quarantined: 2,
+      deleted: true,
+    };
+    const fetch = fakeEngine({
+      "/history": { plans: [deleted], scans: [] },
+      "POST /plans/15/undo": { planId: 15, moved: 0, quarantined: 2, problems: [] },
+    });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "11:40Deleted2 Trigun files2 videos in quarantine · plan 15",
+    );
+    screen.getByRole("button", { name: "Put back what was deleted" }).click();
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(
+          ([input, init]) => init?.method === "POST" && String(input).endsWith("/plans/15/undo"),
         ),
       ).toBe(true),
     );
