@@ -13,6 +13,7 @@ from kura.core.plan import (
     EpisodeOf,
     MovieOf,
     PlacedFile,
+    in_quarantine,
     plan_set_aside,
     plan_tidy,
     quarantine_place,
@@ -442,3 +443,20 @@ def test_deleting_sets_a_video_aside_with_its_subtitles_under_names_still_free()
             DELETED,
         ),
     ]
+
+
+def test_only_a_file_in_a_days_folder_of_a_drives_quarantine_counts_as_set_aside():
+    set_aside = quarantine_place(LIBRARY / "Trigun - 03.mkv", DAY)
+
+    assert in_quarantine(set_aside)
+    assert in_quarantine(set_aside.with_name("Trigun - 03 (2).mkv"))
+    assert in_quarantine(PureWindowsPath(r"f:\kura QUARANTINE\2026-10-10\x.mkv"))
+    for elsewhere in (
+        r"C:\Users\Frank\Documents\thesis.docx",
+        r"D:\Kura quarantine\thesis.docx",
+        r"D:\Kura quarantine\not a day\x.mkv",
+        r"D:\Anime\Kura quarantine\2026-10-10\x.mkv",
+        r"D:\Kura quarantine\2026-10-10\..",
+        r"D:\Users\..\Kura quarantine\2026-10-10\x.mkv",
+    ):
+        assert not in_quarantine(PureWindowsPath(elsewhere)), elsewhere

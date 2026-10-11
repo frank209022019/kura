@@ -93,3 +93,23 @@ def test_an_original_whose_converted_file_never_went_in_is_kept(
 
     assert clear_out(conn, days=30, now=NOW) == 0
     assert place.exists()  # the only copy of the episode now
+
+
+def test_only_whats_in_a_quarantine_folder_is_ever_cleared_out(
+    conn: sqlite3.Connection, tmp_path: Path
+):
+    precious = tmp_path / "Documents" / "thesis.docx"
+    precious.parent.mkdir()
+    precious.write_text("years of work")
+    # A record naming it as set aside, as a damaged database or an imported one could hold.
+    plan = Plan(
+        (Change(ChangeKind.QUARANTINE, tmp_path / "x.mkv", precious, "x", "Kept the other"),)
+    )
+    save_plan(conn, plan, "Tidied x", now=NOW)
+    with conn:
+        conn.execute("UPDATE changes SET state = 'done'")
+        conn.execute("UPDATE plans SET applied_at = ?", ((NOW - timedelta(days=60)).isoformat(),))
+
+    assert clear_out(conn, days=30, now=NOW) == 0
+
+    assert precious.read_text() == "years of work"

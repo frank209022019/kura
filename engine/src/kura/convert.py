@@ -295,7 +295,7 @@ def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
         problem = set_aside.problem if set_aside else None
         raise ConvertError(problem or "Kura couldn't put the original back.")
     if moved is not None:
-        moved.source.unlink(missing_ok=True)  # the converted copy, taken out of the way
+        _take_away(moved.source)  # the converted copy, taken out of the way
     original = set_aside.source
     probe = json.loads(job["source_probe"])
     _record(conn, job["file_id"], original, job["source_size"], job["source_modified"], probe, now)
@@ -341,7 +341,7 @@ def settle(
     if plan_id is not None:
         undo_plan(conn, plan_id, now=now)
         if moved is not None:
-            moved.source.unlink(missing_ok=True)  # the result, never in place
+            _take_away(moved.source)  # the result, never in place
     with conn:  # a result kept beside its original (InUseError) that never began going in waits on
         conn.execute(
             """UPDATE jobs SET state = 'queued', plan_id = NULL, started_at = NULL,
@@ -349,6 +349,13 @@ def settle(
                WHERE id = ?""",
             (plan_id is None, job_id),
         )
+
+
+def _take_away(result: Path) -> None:
+    """Removes a result that never went in, or came back out: only ever a file named as Kura's
+    work in progress, whatever a damaged or imported journal says."""
+    if result.name.endswith(WORKING):
+        result.unlink(missing_ok=True)
 
 
 def _moved(conn: sqlite3.Connection, plan_id: int | None) -> SavedChange | None:

@@ -10,6 +10,8 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from kura.core.plan import in_quarantine
+
 log = logging.getLogger(__name__)
 
 
@@ -36,6 +38,9 @@ def clear_out(conn: sqlite3.Connection, *, days: int | None, now: datetime) -> i
         if datetime.fromisoformat(row["applied_at"]) >= cutoff:
             continue
         target = Path(row["target"])
+        if not in_quarantine(target):  # a damaged or imported record: never Kura's to delete
+            log.warning("Kura didn't clear %s out: it isn't in a quarantine folder", target)
+            continue
         try:
             target.unlink(missing_ok=True)
         except OSError as error:

@@ -72,8 +72,8 @@ def forget_artwork(conn: sqlite3.Connection, folders: Iterable[Path] | None = No
         path = Path(row["path"])
         if within is not None and path.parent.resolve() not in within:
             continue
-        try:
-            if path.stat().st_size == row["size"]:
+        try:  # only a picture named as Kura names them, whatever a damaged record says
+            if path.name in (POSTER, BACKGROUND) and path.stat().st_size == row["size"]:
                 path.unlink()
                 gone += 1
         except OSError:

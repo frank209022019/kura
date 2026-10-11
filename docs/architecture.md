@@ -187,7 +187,10 @@ Deleting (`tidy.delete`, from a title's page: the whole title, a season or one v
 the same kind: each video and the subtitles named after it go to the quarantine on their own
 drive, folders left empty go, a video waiting to be converted leaves the queue (one converting
 can't be deleted), and History, or the page right after, puts them back until the quarantine is
-cleared out. Kura never deletes a file outright.
+cleared out. Kura never deletes a file outright. Whatever its records say (a damaged database,
+or one an imported export held), Kura deletes only a file in a day's folder of a quarantine
+(`core.plan.in_quarantine`), its own unfinished results (`.kura-converting`, `.kura-partial`)
+and its own `poster.jpg` and `fanart.jpg`.
 
 Converting (`kura/convert.py`) brings one file to the standard by the method its recipe names
 (`kura/core/convert.py`): the AI model between two ffmpegs (`kura/upscale.py`), or one ffmpeg

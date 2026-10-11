@@ -42,7 +42,8 @@ shows these notes when it offers the update.
   then is backed up first, even when it doesn't check out.
 - What waited in quarantine longer than you keep it (30 days unless you choose otherwise) is
   cleared out once a day while Kura is open. A converted file's original goes only once its
-  converted copy is in place.
+  converted copy is in place. Whatever its records say, Kura deletes nothing but what's in its
+  quarantine folders, its own unfinished copies and its own pictures.
 - Settings: your anime folders, the standard and how files are named (changed at once), the
   TMDB key, where Kura's data lives and how big each part is, the export to a folder you pick,
   whether a gap report goes next to each anime, how long copies set aside are kept, updates, and

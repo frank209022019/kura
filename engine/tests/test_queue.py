@@ -13,10 +13,11 @@ from types import SimpleNamespace
 import pytest
 
 from kura import changes
-from kura.changes import changes_of
+from kura.changes import changes_of, save_plan
 from kura.config import DataPaths
 from kura.convert import WORKING, ConvertError, Programs
 from kura.core.fields import Json
+from kura.core.plan import Change, ChangeKind, Plan
 from kura.core.standard import Method
 from kura.queue import Queue
 from kura.scan import ScanBusyError, Scanner
@@ -615,3 +616,29 @@ def test_after_a_crash_a_result_going_in_from_waiting_waits_again(
     [waiting] = queue.status().queued
     assert waiting.retry_at is not None
     assert (shows / f"Trigun (1998) - S01E01{WORKING}").is_file()
+
+
+def test_after_a_crash_only_kuras_own_unfinished_result_is_removed(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+    precious = shows / "thesis.docx"
+    precious.write_text("years of work")
+    episode = shows / "Trigun (1998) - S01E01.mkv"
+    # A journal naming it as the result, as a damaged database or an imported one could hold.
+    plan = Plan(
+        (
+            Change(ChangeKind.QUARANTINE, episode, shows / "aside" / episode.name, "x", "y"),
+            Change(ChangeKind.MOVE, precious, episode, "x", "y"),
+        )
+    )
+    plan_id = save_plan(conn, plan, "Converted x", now=NOW, kind="convert")
+    with conn:
+        conn.execute("UPDATE changes SET state = 'failed'")
+        conn.execute("UPDATE jobs SET state = 'replacing', plan_id = ?", (plan_id,))
+
+    queue.recover()
+
+    assert precious.read_text() == "years of work"
+    assert states(conn) == [(1, "queued")]

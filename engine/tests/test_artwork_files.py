@@ -100,3 +100,19 @@ def test_a_folder_shared_with_another_anime_gets_no_pictures(
         conn.execute("UPDATE files SET title_id = 2 WHERE path LIKE '%Cowboy Bebop - 01.mkv'")
 
     assert write_artwork(conn, pictures, now=NOW) == 0
+
+
+def test_only_pictures_named_as_kura_names_them_are_ever_taken_away(
+    conn: sqlite3.Connection, show: Path
+):
+    precious = show / "thesis.docx"  # recorded as a picture, as a damaged database could hold
+    precious.write_text("years of work")
+    with conn:
+        conn.execute(
+            "INSERT INTO artwork_files (path, title_id, size, written_at) VALUES (?, 1, ?, 'now')",
+            (str(precious), precious.stat().st_size),
+        )
+
+    assert forget_artwork(conn) == 0
+
+    assert precious.read_text() == "years of work"

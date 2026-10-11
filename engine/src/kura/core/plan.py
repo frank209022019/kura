@@ -297,6 +297,19 @@ def quarantine_place(source: PurePath, day: date) -> PurePath:
     return type(source)(source.anchor) / QUARANTINE_FOLDER / day.isoformat() / source.name
 
 
+def in_quarantine(path: PurePath) -> bool:
+    """Whether a path is a file set aside, in one day's folder of the quarantine on its drive
+    (quarantine_place): only such a file is the clear-out's to delete, whatever a record says."""
+    day, quarantine = path.parent, path.parent.parent
+    if path.name in ("", ".", "..") or quarantine.parent != type(path)(path.anchor):
+        return False
+    try:
+        date.fromisoformat(day.name)
+    except ValueError:
+        return False
+    return quarantine.name.casefold() == QUARANTINE_FOLDER.casefold()
+
+
 def _label(identity: Identity) -> str:
     match identity:
         case EpisodeOf() as episode:
