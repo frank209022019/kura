@@ -223,7 +223,8 @@ Everything decided so far. Don't ask again; change only with the owner.
 - Node LTS, pnpm 12, Vite 8, React 19, TypeScript 7, Tailwind 4, Vitest 5, Biome 2 (lint and
   format). TypeScript 7 is the native compiler; typescript-eslint and openapi-typescript don't
   support it yet, hence Biome and hand-written API types.
-- Rust stable (edition 2024), Tauri 2.12 with the single-instance and updater plugins.
+- Rust stable (edition 2024), Tauri 2.12 with the single-instance, updater, dialog, opener,
+  notification and autostart plugins, and its tray icon.
 - No Dependabot: it opens branches. Dependencies are updated on `main` with the routine in
   [docs/development.md](docs/development.md).
 

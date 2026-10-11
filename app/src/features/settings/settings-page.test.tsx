@@ -63,9 +63,11 @@ const TONIGHT = backup(stamp(0, "03:00"));
 const LAST_NIGHT = backup(stamp(1, "03:00"));
 
 function renderSettings(section = "libraries") {
-  shell.invoke.mockImplementation(async (command: string) => {
+  shell.invoke.mockImplementation(async (command: string, args?: { on?: boolean }) => {
     if (command === "engine_status") return READY;
     if (command === "pick_folder") return "D:\\Backups";
+    if (command === "start_with_windows") return false;
+    if (command === "set_start_with_windows") return args?.on;
     return undefined;
   });
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -229,10 +231,26 @@ describe("SettingsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("starts Kura with Windows, waiting in the tray, when asked", async () => {
+    fakeEngine({ "/folders": FOLDERS });
+    renderSettings("general");
+
+    const start = await screen.findByRole("switch", { name: "Start Kura when Windows starts" });
+    await waitFor(() => expect(start).toHaveAttribute("aria-checked", "false"));
+    start.click();
+
+    await waitFor(() =>
+      expect(shell.invoke).toHaveBeenCalledWith("set_start_with_windows", { on: true }),
+    );
+    await waitFor(() => expect(start).toHaveAttribute("aria-checked", "true"));
+  });
+
   it("takes an unknown section to the first", async () => {
     fakeEngine({ "/folders": FOLDERS });
     renderSettings("nowhere");
 
-    expect(await screen.findByText("2941 videos")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("switch", { name: "Start Kura when Windows starts" }),
+    ).toBeInTheDocument();
   });
 });

@@ -11,6 +11,7 @@ Rust stable (edition 2024).
 | `app/src-tauri/src/main.rs` | The app: plugins, state, commands, start and exit |
 | `app/src-tauri/src/engine.rs` | Starting, watching and stopping the engine |
 | `app/src-tauri/src/updater.rs` | Updates from the GitHub releases |
+| `app/src-tauri/src/tray.rs` | The tray icon, starting with Windows, and notifications |
 | `app/src-tauri/src/process.rs` | Running console programs without a console window |
 | `app/src-tauri/tauri.conf.json` | Name, version source, window, security policy, bundle, updater address and key |
 | `app/src-tauri/tauri.bundle.conf.json` | Extra settings for building the installer (see below) |
@@ -69,6 +70,17 @@ the person, so write it as a sentence.
 - **opener**: opens web pages in the default browser. Kura drives it from Rust too (`links.rs`):
   the window asks for a page by name (`open_downloads_page`), so it needs no opener permission and
   can't be steered to any other address.
+- **The tray** (Tauri's `tray-icon` feature, `tray.rs`): an icon in the notification area while
+  Kura runs, with Open Kura and Quit Kura; a click opens the window.
+- **autostart**: "Start with Windows" in Settings > General, which Windows keeps in its own list
+  of startup apps (the shell asks it, so the switch is always true to it). Windows starts Kura
+  with `--in-tray`: the window stays hidden (it's created hidden and shown at start otherwise),
+  and with the setting on, closing the window keeps Kura in the tray instead of quitting. Don't
+  turn it on from a development build: Windows would start that build at sign-in.
+- **notification**: Windows notifications for what the engine tells of on its stdout after the
+  ready line (`{"event":"notify",...}`: a finished batch, a queue that paused itself), shown only
+  while the window is away (in the tray or minimized); a click on one opens the window. All from
+  Rust, so the window needs no permission for either.
 
 ## The engine process
 

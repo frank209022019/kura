@@ -2,7 +2,7 @@ import { Check, Folder, Info, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
-import { StandardChoices } from "@/components/standard-choices";
+import { StandardChoices, Toggle } from "@/components/standard-choices";
 import { TmdbKey } from "@/components/tmdb-key";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -23,11 +23,13 @@ import {
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
+import { useSetStartWithWindows, useStartWithWindows } from "@/lib/startup";
 import { cn } from "@/lib/utils";
 import { BackupsPanel } from "./backups-panel";
 import { Panel } from "./panel";
 
 const SECTIONS = [
+  { key: "general", label: "General" },
   { key: "libraries", label: "Libraries" },
   { key: "standard", label: "Standard" },
   { key: "titles", label: "Titles and artwork" },
@@ -43,7 +45,7 @@ export function SettingsPage() {
   const { section } = useParams();
   const folders = useFolders();
   const known = SECTIONS.find((each) => each.key === section);
-  if (!known) return <Navigate to="/settings/libraries" replace />;
+  if (!known) return <Navigate to="/settings/general" replace />;
   return (
     <>
       <h1 className="page-top type-title animate-fade-up">Settings</h1>
@@ -82,6 +84,8 @@ export function SettingsPage() {
 
 function Content({ section }: { section: Section }) {
   switch (section) {
+    case "general":
+      return <General />;
     case "libraries":
       return <Libraries />;
     case "standard":
@@ -95,6 +99,26 @@ function Content({ section }: { section: Section }) {
     case "about":
       return <About />;
   }
+}
+
+function General() {
+  const start = useStartWithWindows();
+  const change = useSetStartWithWindows();
+  return (
+    <Panel title="General">
+      <Toggle
+        label="Start Kura when Windows starts"
+        text="It waits in the tray, so the queue, the nightly backup and the watching carry on, and it tells you when a batch is done. Closing the window keeps it there; quit from the tray."
+        checked={start.data ?? false}
+        onChange={(on) => change.mutate(on)}
+      />
+      {(start.isError || change.isError) && (
+        <p role="alert" className="text-13 text-broken-fg">
+          {String(change.error ?? start.error)}
+        </p>
+      )}
+    </Panel>
+  );
 }
 
 function Libraries() {

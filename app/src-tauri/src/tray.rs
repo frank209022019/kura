@@ -1,0 +1,119 @@
+//! Kura in the notification area (the tray): an icon while it runs, to open the window or quit.
+//! With "Start with Windows" on, Kura starts there when Windows signs in, and closing the window
+//! keeps it there, so the queue, the backups and the watching carry on. What the engine tells of
+//! (a finished batch, a paused queue) comes as a Windows notification while the window is away.
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Manager};
+use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_notification::NotificationExt;
+
+/// What Windows starts Kura with at sign-in: wait in the tray, the window hidden.
+pub const IN_TRAY: &str = "--in-tray";
+
+/// Whether closing the window keeps Kura in the tray: it does with "Start with Windows" on.
+#[derive(Default)]
+pub struct Tray {
+    keep: AtomicBool,
+}
+
+impl Tray {
+    pub fn keeps(&self) -> bool {
+        self.keep.load(Ordering::Relaxed)
+    }
+}
+
+/// The icon and its menu, and a click on a notification opening the window. Run once, at start.
+pub fn set_up(app: &AppHandle) -> tauri::Result<()> {
+    let keep = app.autolaunch().is_enabled().unwrap_or(false);
+    app.state::<Tray>().keep.store(keep, Ordering::Relaxed);
+    let open = MenuItem::with_id(app, "open", "Open Kura", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Kura", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let mut tray = TrayIconBuilder::with_id("kura")
+        .tooltip("Kura")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => show(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.build(app)?;
+    let handle = app.clone();
+    let _ = app.notification().on_action(move |_| show(&handle));
+    Ok(())
+}
+
+/// Brings the window back: from the tray, from the taskbar, or from behind other windows.
+pub fn show(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// A Windows notification, unless the window is in front of the owner: it shows the same itself.
+pub fn tell(app: &AppHandle, title: &str, body: &str) {
+    let open = app.get_webview_window("main").is_some_and(|window| {
+        window.is_visible().unwrap_or(false) && !window.is_minimized().unwrap_or(false)
+    });
+    if !open {
+        let _ = app.notification().builder().title(title).body(body).show();
+    }
+}
+
+/// Whether Windows started Kura at sign-in, to wait in the tray.
+pub fn started_in_tray(args: impl IntoIterator<Item = String>) -> bool {
+    args.into_iter().any(|arg| arg == IN_TRAY)
+}
+
+/// Whether Kura starts with Windows, in the tray.
+#[tauri::command]
+pub fn start_with_windows(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|error| format!("Windows didn't say ({error})."))
+}
+
+/// Starts Kura with Windows, in the tray, or stops that. On, closing the window keeps Kura there.
+#[tauri::command]
+pub fn set_start_with_windows(app: AppHandle, on: bool) -> Result<bool, String> {
+    let autolaunch = app.autolaunch();
+    let done = if on {
+        autolaunch.enable()
+    } else {
+        autolaunch.disable()
+    };
+    done.map_err(|error| format!("Windows didn't take that ({error})."))?;
+    app.state::<Tray>().keep.store(on, Ordering::Relaxed);
+    Ok(on)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kura_waits_in_the_tray_only_when_windows_started_it() {
+        assert!(started_in_tray(["kura.exe".into(), IN_TRAY.into()]));
+        assert!(!started_in_tray(["kura.exe".into()]));
+    }
+}

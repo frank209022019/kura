@@ -42,6 +42,11 @@ engine, where it is easy to test.
    after 3 seconds if it hasn't). If Kura crashes, Windows closes the pipe anyway, so the engine
    never outlives the window. The engine puts itself in a Windows job that ends every program it
    starts (ffmpeg) when it ends, however it ends.
+6. With "Start with Windows" on (Settings > General), Windows starts Kura at sign-in in the tray,
+   and closing the window keeps it there, so the queue, the nightly backup and the watching carry
+   on; Quit Kura in the tray's menu ends it. After the ready line the engine may print
+   `{"event": "notify", "title": …, "body": …}` lines (a finished batch, a queue that paused
+   itself), which the shell shows as Windows notifications while the window is away.
 
 If no ready line arrives within a minute, the engine exits first, or it stops on its own later,
 the status becomes `failed` with the engine's last error lines, and the UI says so with "Try again"

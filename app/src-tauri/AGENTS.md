@@ -12,6 +12,7 @@ process or updating belongs in the engine. Start with [../../AGENTS.md](../../AG
 | App setup: plugins, state, commands, exit | `src/main.rs` |
 | Starting, watching and stopping the engine | `src/engine.rs` |
 | Updates from the GitHub releases | `src/updater.rs` |
+| The tray icon, starting with Windows, notifications | `src/tray.rs` |
 | Pages opened in the browser (the downloads page) | `src/links.rs` |
 | Windows' dialogs (the folder picker) | `src/dialogs.rs` |
 | Showing a folder or file in Explorer | `src/explorer.rs` |

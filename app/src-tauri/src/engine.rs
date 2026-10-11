@@ -4,7 +4,9 @@
 //! The handshake, also tested from the engine's side in engine/tests/test_cli.py:
 //! - the shell starts `kura serve --watch-stdin` with a fresh token in KURA_TOKEN;
 //! - the engine prints one JSON line once it listens: {"event":"ready","port":N};
-//! - the engine stops by itself when its stdin closes, so it never outlives the app.
+//! - the engine stops by itself when its stdin closes, so it never outlives the app;
+//! - after the ready line, it may print {"event":"notify","title":…,"body":…}: something worth a
+//!   Windows notification while the window is away (see tray.rs).
 //!
 //! If the engine stops on its own, before or after it was ready, the status becomes
 //! `failed` with its last error lines, and the UI offers to try again.
@@ -19,7 +21,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::process;
+use crate::{process, tray};
 
 /// How long the engine may take to start. The first launch after an install is the slowest.
 const START_TIMEOUT: Duration = Duration::from_secs(60);
@@ -159,7 +161,9 @@ fn launch(app: &AppHandle) -> Result<Started, EngineStatus> {
     let stdin = child.stdin.take().expect("stdin is piped");
     let errors = ErrorLog::follow(child.stderr.take().expect("stderr is piped"));
 
-    match wait_for_port(child.stdout.take().expect("stdout is piped")) {
+    let told = app.clone();
+    let stdout = child.stdout.take().expect("stdout is piped");
+    match wait_for_port(stdout, move |title, body| tray::tell(&told, title, body)) {
         Ok((port, exited)) => {
             *app.state::<Engine>().running.lock().unwrap() = Some(Running { child, stdin });
             Ok(Started {
@@ -218,30 +222,37 @@ enum NotReady {
     Exited,
 }
 
+/// What the engine says on its stdout, one JSON object a line.
 #[derive(Deserialize)]
-struct Announcement {
-    event: String,
-    port: u16,
+#[serde(tag = "event", rename_all = "lowercase")]
+enum Said {
+    /// It listens on this port.
+    Ready { port: u16 },
+    /// Something worth a Windows notification while the window is away.
+    Notify { title: String, body: String },
 }
 
-/// Reads the engine's stdout until it announces its port. Reading carries on, throwing the
-/// rest away so the engine never stalls on a full pipe, until the engine exits and its
-/// output closes; that is when `recv()` on the returned receiver comes back.
+/// Reads the engine's stdout until it announces its port. Reading carries on, passing what it
+/// tells after that to `heard` (a title and a line) and the rest by, so the engine never stalls
+/// on a full pipe, until the engine exits and its output closes; that is when `recv()` on the
+/// returned receiver comes back.
 fn wait_for_port(
     stdout: impl Read + Send + 'static,
+    heard: impl Fn(&str, &str) + Send + 'static,
 ) -> Result<(u16, mpsc::Receiver<u16>), NotReady> {
     let (announce, announced) = mpsc::channel();
     thread::spawn(move || {
-        let mut lines = BufReader::new(stdout).lines().map_while(Result::ok);
-        for line in lines.by_ref() {
-            if let Ok(Announcement { event, port }) = serde_json::from_str(&line)
-                && event == "ready"
-            {
-                let _ = announce.send(port);
-                break;
+        let mut ready = false;
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            match serde_json::from_str(&line) {
+                Ok(Said::Ready { port }) if !ready => {
+                    ready = true;
+                    let _ = announce.send(port);
+                }
+                Ok(Said::Notify { title, body }) if ready => heard(&title, &body),
+                _ => {}
             }
         }
-        lines.for_each(drop);
     });
     match announced.recv_timeout(START_TIMEOUT) {
         Ok(port) => Ok((port, announced)),
@@ -305,19 +316,39 @@ mod tests {
     #[test]
     fn finds_the_port_in_the_ready_line() {
         let stdout = Cursor::new(format!("starting\n{READY}"));
-        assert!(matches!(wait_for_port(stdout), Ok((51234, _))));
+        assert!(matches!(wait_for_port(stdout, |_, _| {}), Ok((51234, _))));
     }
 
     #[test]
     fn notices_when_the_engine_exits_without_announcing_a_port() {
         let stdout = Cursor::new("Traceback (most recent call last):\n");
-        assert!(matches!(wait_for_port(stdout), Err(NotReady::Exited)));
+        assert!(matches!(
+            wait_for_port(stdout, |_, _| {}),
+            Err(NotReady::Exited)
+        ));
+    }
+
+    #[test]
+    fn passes_on_what_the_engine_tells_once_it_is_ready() {
+        let notice =
+            "{\"event\":\"notify\",\"title\":\"Trigun is done\",\"body\":\"26 episodes\"}\n";
+        let stdout = Cursor::new(format!("{notice}{READY}{notice}"));
+        let (heard, hear) = mpsc::channel();
+        let (_, exited) = wait_for_port(stdout, move |title, body| {
+            let _ = heard.send(format!("{title}: {body}"));
+        })
+        .expect("a port");
+        let _ = exited.recv(); // the engine's output is over
+        assert_eq!(
+            hear.try_iter().collect::<Vec<_>>(),
+            ["Trigun is done: 26 episodes"]
+        );
     }
 
     #[test]
     fn notices_when_the_engine_exits_after_starting() {
         let stdout = Cursor::new(format!("{READY}{READY}later output\n"));
-        let (_, exited) = wait_for_port(stdout).expect("a port");
+        let (_, exited) = wait_for_port(stdout, |_, _| {}).expect("a port");
         assert!(
             exited.recv().is_err(),
             "only one announcement, then the end"
