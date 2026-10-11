@@ -634,10 +634,232 @@
           }
         }
       }
+    },
+    "/review": {
+      "get": {
+        "summary": "Files To Review",
+        "description": "Every file Kura couldn't place surely, folder by folder.",
+        "operationId": "files_to_review_review_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WaitingFile"
+                  },
+                  "type": "array",
+                  "title": "Response Files To Review Review Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/review/{file_id}/search": {
+      "get": {
+        "summary": "Search Anilist",
+        "description": "AniList's entries for a name, scored against this file.",
+        "operationId": "search_anilist_review__file_id__search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Guess"
+                  },
+                  "title": "Response Search Anilist Review  File Id  Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/{file_id}": {
+      "post": {
+        "summary": "Choose",
+        "description": "The owner's choice for this file, and for the others that are the same anime.",
+        "operationId": "choose_review__file_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Choice"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chosen"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/{file_id}/ignore": {
+      "post": {
+        "summary": "Ignore",
+        "description": "Not anime: Kura leaves it out, and no rescan asks about it again.",
+        "operationId": "ignore_review__file_id__ignore_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Choice": {
+        "properties": {
+          "anilistId": {
+            "type": "integer",
+            "title": "Anilistid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "episode",
+              "movie",
+              "special"
+            ],
+            "title": "Kind",
+            "default": "episode"
+          },
+          "also": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Also"
+          }
+        },
+        "type": "object",
+        "required": [
+          "anilistId"
+        ],
+        "title": "Choice"
+      },
+      "Chosen": {
+        "properties": {
+          "placed": {
+            "type": "integer",
+            "title": "Placed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "placed"
+        ],
+        "title": "Chosen"
+      },
       "EpisodeRef": {
         "properties": {
           "season": {
@@ -679,6 +901,96 @@
           "aired"
         ],
         "title": "EpisodeRef"
+      },
+      "Guess": {
+        "properties": {
+          "anilistId": {
+            "type": "integer",
+            "title": "Anilistid"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TitleKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "episodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episodes"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "cover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover"
+          },
+          "confidence": {
+            "type": "integer",
+            "title": "Confidence"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "anilistId",
+          "title",
+          "kind",
+          "year",
+          "episodes",
+          "minutes",
+          "cover",
+          "confidence",
+          "reasons"
+        ],
+        "title": "Guess"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1557,6 +1869,157 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WaitingFile": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "audio": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Audio"
+          },
+          "subtitles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subtitles"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "episode",
+              "special",
+              "movie",
+              "extra",
+              "dvd"
+            ],
+            "title": "Kind"
+          },
+          "guesses": {
+            "items": {
+              "$ref": "#/components/schemas/Guess"
+            },
+            "type": "array",
+            "title": "Guesses"
+          },
+          "alike": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Alike"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "size",
+          "minutes",
+          "height",
+          "codec",
+          "audio",
+          "subtitles",
+          "group",
+          "title",
+          "season",
+          "episode",
+          "kind",
+          "guesses",
+          "alike"
+        ],
+        "title": "WaitingFile"
       },
       "kura__scan__State": {
         "type": "string",

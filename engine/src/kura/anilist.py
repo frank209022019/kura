@@ -55,13 +55,19 @@ class AniList:
         return catalog.anime_list(answer)
 
     def entry(self, anime_id: int) -> Anime | None:
-        """One entry by its AniList number, or None when AniList has no such entry."""
-        payload = {"query": _ONE, "variables": {"id": anime_id}}
-        try:
-            answer = self._service.json("POST", API, payload=payload)
-        except WebError as error:
-            if error.status == 404:
-                return None
-            raise
+        """One entry by its AniList number, or None when AniList has no such entry. An answer
+        is kept for a week."""
+        key = f"anilist entry {anime_id}"
+        answer = self._cache.get(key, 7 * DAY) if self._cache else None
+        if answer is None:
+            payload = {"query": _ONE, "variables": {"id": anime_id}}
+            try:
+                answer = self._service.json("POST", API, payload=payload)
+            except WebError as error:
+                if error.status == 404:
+                    return None
+                raise
+            if self._cache:
+                self._cache.put(key, answer)
         media = fields.mapping(fields.mapping(answer, "data"), "Media")
         return catalog.anime(media) if media else None

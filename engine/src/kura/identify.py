@@ -12,7 +12,7 @@ import logging
 import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import PureWindowsPath
 
@@ -69,8 +69,7 @@ class Identifier:
         files, others = _to_identify(conn)
         stamp = self._now().isoformat()
         _mark_unlookable(conn, others, stamp)
-        key = credentials.load(self._paths, "tmdb")
-        tmdb = Tmdb(key, self._transport, cache=self._cache) if key else None
+        tmdb = self._tmdb()
 
         found: list[tuple[Group, list[Guess]]] = []
         for group in group_files(files):
@@ -99,6 +98,72 @@ class Identifier:
                 break
             sure, unsure = sure + placed, unsure + waiting
         return Identified(sure, unsure, note)
+
+    def choose(
+        self, conn: sqlite3.Connection, file_ids: Sequence[int], anilist_id: int, as_kind: Kind
+    ) -> int:
+        """The owner's choice: these files are this AniList entry, as episodes, a film, or
+        specials. It's pinned, so no rescan undoes it. Returns how many files it placed.
+
+        Raises LookupError when AniList has no such entry, and WebError when a service can't be
+        asked right now.
+        """
+        entry = self._anilist.entry(anilist_id)
+        if entry is None:
+            raise LookupError(f"AniList has no entry {anilist_id}.")
+        title_id, show = self._title_for(conn, entry, self._tmdb())
+        stamp = self._now().isoformat()
+        chosen = _facts(conn, file_ids)
+        with conn:
+            for facts in chosen:
+                parsed = replace(facts.parsed, kind=as_kind)
+                where: Placement | None = None
+                if as_kind is not Kind.MOVIE and entry.kind is not TitleKind.MOVIE:
+                    if show is not None:
+                        where = place(parsed, show, entry)
+                    else:
+                        where = _by_anilist_number(replace(facts, parsed=parsed), entry)
+                special = as_kind is Kind.SPECIAL
+                conn.execute(
+                    """UPDATE files SET title_id = ?, anilist_id = ?, season = ?, episode = ?,
+                              episode_end = ?, matched = 'sure', confidence = 100,
+                              pinned = 1, identified_at = ?
+                       WHERE id = ?""",
+                    (
+                        title_id,
+                        entry.id,
+                        where.season if where else (0 if special else None),
+                        where.episode if where else None,
+                        where.last if where else None,
+                        stamp,
+                        facts.id,
+                    ),
+                )
+        return len(chosen)
+
+    def ignore(self, conn: sqlite3.Connection, file_id: int) -> None:
+        """The owner says it isn't anime: Kura leaves it out, and no rescan asks again."""
+        with conn:
+            conn.execute(
+                """UPDATE files SET title_id = NULL, season = NULL, episode = NULL,
+                          episode_end = NULL, matched = 'ignored', pinned = 1, identified_at = ?
+                   WHERE id = ?""",
+                (self._now().isoformat(), file_id),
+            )
+
+    def search(self, conn: sqlite3.Connection, file_id: int, text: str) -> list[Guess]:
+        """AniList's entries for `text`, scored against one file, for the owner to pick from."""
+        facts = _facts(conn, [file_id])
+        if not facts or not text.strip():
+            return []
+        group = Group(
+            text.strip(), facts[0].parsed.year, facts[0].parsed.kind is Kind.MOVIE, tuple(facts)
+        )
+        return guesses(group, self._anilist.search(text.strip()))
+
+    def _tmdb(self) -> Tmdb | None:
+        key = credentials.load(self._paths, "tmdb")
+        return Tmdb(key, self._transport, cache=self._cache) if key else None
 
     def _settle(
         self,
@@ -385,6 +450,24 @@ def _clashes(files: Sequence[FileFacts], placements: dict[int, Placement | None]
         if len(numbers) > 1:
             clashing.update(f.id for f in together)
     return clashing
+
+
+def _facts(conn: sqlite3.Connection, file_ids: Sequence[int]) -> list[FileFacts]:
+    """What Kura knows about these files, whatever their state."""
+    marks = ",".join("?" * len(file_ids))
+    rows = conn.execute(
+        f"SELECT id, path, duration FROM files WHERE id IN ({marks}) AND gone_at IS NULL",  # noqa: S608 - only question marks
+        tuple(file_ids),
+    ).fetchall()
+    return [
+        FileFacts(
+            row["id"],
+            PureWindowsPath(row["path"]),
+            parse_name(PureWindowsPath(row["path"])),
+            row["duration"] / 60 if row["duration"] else None,
+        )
+        for row in rows
+    ]
 
 
 def _to_identify(conn: sqlite3.Connection) -> tuple[list[FileFacts], list[tuple[int, Kind]]]:
