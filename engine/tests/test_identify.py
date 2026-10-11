@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -10,7 +11,10 @@ import pytest
 from kura import credentials
 from kura.anilist import API as ANILIST
 from kura.config import DataPaths
+from kura.core.catalog import anime_list
+from kura.identify import save_anilist_title
 from kura.library import find_files, folders, read_file, unread
+from kura.titles import title
 from tests.fake_ffprobe import REPORT
 from tests.services import SAVED, internet
 from tests.shelf import NOW, identify, library
@@ -87,6 +91,60 @@ def test_without_a_key_anilist_numbers_the_episodes(
     assert (title["tmdb_id"], title["anilist_id"]) == (None, 813)
     assert conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == 291
     assert all(path.startswith("POST https://graphql") for path in web.paths())
+
+
+def test_without_a_key_a_show_still_airing_lists_what_has_aired(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["One Piece/One Piece - 1000.mkv"])
+
+    identify(paths, conn, internet(tmdb=False))
+
+    row = conn.execute("SELECT id, airing FROM titles").fetchone()
+    episodes = conn.execute("SELECT COUNT(*), COUNT(aired) FROM episodes").fetchone()
+    assert (row["airing"], tuple(episodes)) == (1, (1180, 0))  # aired so far, never dated
+    found = title(conn, row["id"], NOW.date())
+    assert found is not None
+    assert found.gaps is not None
+    assert (len(found.gaps.missing), len(found.gaps.upcoming)) == (1179, 0)
+
+
+def test_a_show_still_airing_is_saved_from_what_anilist_says_now(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["One Piece/One Piece - 1000.mkv"])
+    identify(paths, conn, internet(tmdb=False))  # the search is kept a week
+    with conn:
+        conn.execute("DELETE FROM titles")
+        conn.execute("UPDATE files SET identified_at = NULL, title_id = NULL")
+
+    identify(paths, conn, internet(tmdb=False, airing={21: 1183}))
+
+    assert conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == 1182
+
+
+def test_a_scan_leaves_a_list_from_anilist_until_its_due(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["One Piece/One Piece - 1000.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    library(conn, root, ["One Piece/One Piece - 1001.mkv"])
+    web = internet(tmdb=False, airing={21: 1185})
+
+    identify(paths, conn, web)  # within the hour
+
+    assert conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == 1180
+    assert all("search" in str(asked.payload["variables"]) for asked in web.asked)
+
+
+def test_a_list_anilist_cant_count_now_is_kept_as_it_was(conn: sqlite3.Connection):
+    answer = json.loads((SAVED / "one-piece.json").read_text(encoding="utf-8"))
+    one_piece = next(entry for entry in anime_list(answer) if entry.id == 21)
+    save_anilist_title(conn, one_piece, NOW)
+
+    save_anilist_title(conn, replace(one_piece, next_episode=None), NOW)
+
+    assert conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == 1180
 
 
 def test_a_name_kura_cant_match_waits_for_the_owner(

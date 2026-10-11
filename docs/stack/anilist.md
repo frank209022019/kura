@@ -33,6 +33,18 @@ relations { edges { relationType node { … } } }`.
 `Related` values, with Kura's kinds: TV, TV short and web series (ONA) are a series, MOVIE a
 movie, OVA an OVA, SPECIAL and MUSIC a special. Relations to manga and novels are dropped.
 
+Answers are kept a week in the data folder's `cache/`, so a rescan asks nothing again. A show
+still airing is the exception: whenever its episode list is due (every hour), a scan or the hourly
+check asks AniList afresh, or a new episode would go unnoticed for a week.
+
+## Without a TMDB key
+
+AniList's count stands in for TMDB's episode list: the episodes aired so far, numbered 1 to N in
+one season (`save_anilist_title` in [kura/identify.py](../../engine/src/kura/identify.py)). For a
+show still airing that's every episode before `nextAiringEpisode`; when AniList can't say, the list
+stays as it was. AniList doesn't date old episodes, so they carry no air date, and all of them
+count as aired when Kura looks for gaps.
+
 ## Tests
 
 `tests/data/anilist/` holds real AniList answers (Dragon Ball Z, Cowboy Bebop, Attack on Titan

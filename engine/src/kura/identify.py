@@ -235,7 +235,20 @@ class Identifier:
                 hit = _find(tmdb, entry, "movie")  # a one-off OVA is often a film on TMDB
             if hit is not None:
                 return self._tmdb_title(conn, entry, hit, tmdb)
-        return save_anilist_title(conn, entry, self._now()), None
+        return self._anilist_title(conn, entry), None
+
+    def _anilist_title(self, conn: sqlite3.Connection, entry: Anime) -> int:
+        """The title of an entry Kura knows only from AniList. A list the library already has
+        stays until it's due; a show still airing is asked about afresh, since a search answer
+        can be days old."""
+        row = conn.execute(
+            "SELECT * FROM titles WHERE anilist_id = ? AND tmdb_id IS NULL", (entry.id,)
+        ).fetchone()
+        if row is not None and not due(row, self._now()):
+            return row["id"]
+        if entry.airing:
+            entry = self._anilist.entry(entry.id, fresh=True) or entry
+        return save_anilist_title(conn, entry, self._now())
 
     def _tmdb_title(
         self, conn: sqlite3.Connection, entry: Anime, hit: Hit, tmdb: Tmdb
@@ -247,13 +260,13 @@ class Identifier:
         if hit.media == "movie":
             film = tmdb.film(hit.id)
             if film is None:
-                return save_anilist_title(conn, entry, self._now()), None
+                return self._anilist_title(conn, entry), None
             return _save_film(conn, row, film, entry, self._now()), None
         if row is not None and not due(row, self._now()):
             return row["id"], show_of(conn, row["id"])
         found = tmdb.show(hit.id)
         if found is None:
-            return save_anilist_title(conn, entry, self._now()), None
+            return self._anilist_title(conn, entry), None
         return save_show(conn, found, kind, entry.id, self._now()), found
 
 
@@ -342,7 +355,7 @@ def _save_film(
 
 def save_anilist_title(conn: sqlite3.Connection, entry: Anime, now: datetime) -> int:
     """A title known only from AniList (no TMDB key, or TMDB doesn't have it): its episodes are
-    numbered 1 to N, as AniList counts them."""
+    the ones aired so far, numbered 1 to N as AniList counts them. AniList doesn't date them."""
     kind = entry.kind or TitleKind.SERIES
     with conn:
         row = conn.execute(
@@ -366,17 +379,22 @@ def save_anilist_title(conn: sqlite3.Connection, entry: Anime, now: datetime) ->
             ),
         ).fetchone()
         title_id: int = row["id"]
-        if kind is not TitleKind.MOVIE and entry.episodes:
-            out = entry.episodes if not entry.airing else (entry.next_episode or 1) - 1
+        aired = _aired(entry)
+        if kind is not TitleKind.MOVIE and aired is not None:
             conn.execute("DELETE FROM episodes WHERE title_id = ?", (title_id,))
             conn.executemany(
-                "INSERT INTO episodes (title_id, season, number, aired) VALUES (?, 1, ?, ?)",
-                [
-                    (title_id, number, entry.start.isoformat() if entry.start else None)
-                    for number in range(1, max(out, 0) + 1)
-                ],
+                "INSERT INTO episodes (title_id, season, number) VALUES (?, 1, ?)",
+                [(title_id, number) for number in range(1, aired + 1)],
             )
     return title_id
+
+
+def _aired(entry: Anime) -> int | None:
+    """How many of an entry's episodes have aired, or None when AniList can't say just now
+    (the list Kura has stays as it is)."""
+    if not entry.airing:
+        return entry.episodes
+    return entry.next_episode - 1 if entry.next_episode else None
 
 
 def _parent_show(conn: sqlite3.Connection, entry: Anime) -> tuple[int, Show | None] | None:

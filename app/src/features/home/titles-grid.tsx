@@ -4,6 +4,7 @@ import { SortControl } from "@/components/sort-control";
 import { StatusShape } from "@/components/status";
 import { type TitleSort, type TitleSummary, useTitles } from "@/lib/engine";
 import { files, kindWord } from "@/lib/kinds";
+import { share } from "@/lib/share";
 
 /** Every anime and film in the library as poster cards, oldest release first unless the owner
  * picks another order. */
@@ -68,9 +69,7 @@ function TitleCard({ title }: { title: TitleSummary }) {
         {title.aired > 0 && (
           <span className="font-mono text-11 text-fg-faint">
             {title.present} of {title.aired}
-            {title.missing === 0
-              ? " · complete"
-              : ` · ${Math.floor((title.present / title.aired) * 100)}%`}
+            {title.missing === 0 ? " · complete" : ` · ${share(title.present, title.aired)}%`}
           </span>
         )}
       </span>

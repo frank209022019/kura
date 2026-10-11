@@ -110,8 +110,9 @@ or film is found on TMDB, whose episode lists say where each file sits. A file K
 about waits for the owner; offline, identification waits for the next scan and the scan says so.
 Last, the scan checks the library: each series with a folder of its own gets its
 `Kura - Gap analysis.md` (`kura/reports.py`), rewritten only when its news changes. The missing
-episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`); specials and
-OVAs are listed apart and never counted as missing.
+episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`), or without a
+TMDB key the ones AniList counts as aired so far; specials and OVAs are listed apart and never
+counted as missing.
 
 While Kura is open, `kura/watch.py` keeps the library current: a scan at start catches up on what
 changed while Kura was closed; the library folders are watched (`watchdog`), so a new, removed or

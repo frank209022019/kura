@@ -112,7 +112,7 @@ def test_a_report_goes_next_to_a_show_with_a_folder_of_its_own(
 
     report = (root / "Dragon Ball Z (1989)" / GAP_ANALYSIS_FILE).read_text(encoding="utf-8")
     assert report.startswith("# Dragon Ball Z (1989) — gap analysis\n")
-    assert "- Present: **290 of 291** episodes (100%)" in report
+    assert "- Present: **290 of 291** episodes (99%)" in report
     assert "| S05E11  | 150      | Season 05 |" in report
     assert (root / "Cowboy Bebop" / GAP_ANALYSIS_FILE).exists()
     assert written.reports == 2

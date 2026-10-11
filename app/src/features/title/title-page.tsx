@@ -12,6 +12,7 @@ import {
   useTitle,
 } from "@/lib/engine";
 import { files, kindWord } from "@/lib/kinds";
+import { share } from "@/lib/share";
 
 /** One anime or film: how much of it is there, its seasons and episode map, what's missing, its
  * specials and OVAs apart, its videos, and the gap analysis next to it. */
@@ -72,7 +73,6 @@ function Breadcrumb({ name }: { name: string }) {
 }
 
 function Header({ title }: { title: TitleDetail }) {
-  const share = title.aired > 0 ? Math.floor((title.present / title.aired) * 100) : null;
   const seasons = title.seasons.length;
   const facts = [
     title.year ? String(title.year) : null,
@@ -105,9 +105,11 @@ function Header({ title }: { title: TitleDetail }) {
           </span>
         )}
       </div>
-      {share !== null && (
+      {title.aired > 0 && (
         <div className="flex flex-col items-center gap-1">
-          <span className="font-extrabold text-36 tracking-[-0.02em]">{share}%</span>
+          <span className="font-extrabold text-36 tracking-[-0.02em]">
+            {share(title.present, title.aired)}%
+          </span>
           <span className="text-12 text-fg-muted">
             {title.present} of {title.aired} episodes
           </span>
@@ -177,8 +179,8 @@ function EpisodeMap({ episodes }: { episodes: EpisodeState[] }) {
 
 function MissingAndBroken({ title, episodes }: { title: TitleDetail; episodes: EpisodeState[] }) {
   const absolute = new Map(episodes.map((episode, index) => [key(episode), index + 1]));
-  const rows = episodes.filter(
-    (episode) => episode.state === "missing" || episode.state === "broken",
+  const rows = runs(
+    episodes.filter((episode) => episode.state === "missing" || episode.state === "broken"),
   );
   return (
     <Panel id="gaps-title" title="Missing and broken">
@@ -189,27 +191,65 @@ function MissingAndBroken({ title, episodes }: { title: TitleDetail; episodes: E
             : "Every episode is here."}
         </p>
       ) : (
-        <ul className="flex flex-col">
-          {rows.map((episode) => (
+        <ul className="grid grid-cols-[1rem_auto_1fr] gap-x-3">
+          {rows.map(({ first, last, count }) => (
             <li
-              key={key(episode)}
-              className="grid min-h-10 grid-cols-[1rem_4.5rem_1fr] items-center gap-3 border-white/6 border-b text-13 last:border-b-0"
+              key={key(first)}
+              className="col-span-3 grid min-h-10 grid-cols-subgrid items-center border-white/6 border-b text-13 last:border-b-0"
             >
-              <StatusShape state={episode.state} className="size-3" />
+              <StatusShape state={first.state} className="size-3" />
               <span className="font-mono">
-                S{pad(episode.season)}E{pad(episode.number)}
+                S{pad(first.season)}E{pad(first.number)}
+                {count > 1 && `–E${pad(last.number)}`}
               </span>
               <span className="text-fg-muted">
-                Episode {absolute.get(key(episode))}
-                {episode.name && !episode.name.startsWith("Episode ") ? ` · ${episode.name}` : ""}
-                {` · ${episode.state === "broken" ? "won't play" : "missing"}`}
-                {episode.aired ? ` · aired ${day(episode.aired)}` : ""}
+                {count > 1 ? (
+                  `Episodes ${absolute.get(key(first))} to ${absolute.get(key(last))} · ${count} missing`
+                ) : (
+                  <>
+                    Episode {absolute.get(key(first))}
+                    {first.name && !first.name.startsWith("Episode ") ? ` · ${first.name}` : ""}
+                    {` · ${first.state === "broken" ? "won't play" : "missing"}`}
+                    {first.aired ? ` · aired ${day(first.aired)}` : ""}
+                  </>
+                )}
               </span>
             </li>
           ))}
         </ul>
       )}
     </Panel>
+  );
+}
+
+type Run = { first: EpisodeState; last: EpisodeState; count: number };
+
+/** Missing episodes in a row within a season: three or more read as one range, as the gap
+ * analysis lists them. A broken episode always stands alone: it needs replacing. */
+function runs(episodes: EpisodeState[]): Run[] {
+  const found: Run[] = [];
+  for (const episode of episodes) {
+    const run = found.at(-1);
+    if (
+      run &&
+      run.last.state === "missing" &&
+      episode.state === "missing" &&
+      run.last.season === episode.season &&
+      run.last.number + 1 === episode.number
+    ) {
+      run.last = episode;
+      run.count += 1;
+    } else {
+      found.push({ first: episode, last: episode, count: 1 });
+    }
+  }
+  return found.flatMap((run) =>
+    run.count === 2
+      ? [
+          { first: run.first, last: run.first, count: 1 },
+          { first: run.last, last: run.last, count: 1 },
+        ]
+      : [run],
   );
 }
 

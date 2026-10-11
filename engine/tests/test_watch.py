@@ -184,6 +184,20 @@ def test_episode_lists_are_asked_for_again_when_due(
     assert report.exists()
 
 
+def test_a_show_from_anilist_is_asked_about_afresh_every_hour(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    library(conn, tmp_path / "Anime", ["One Piece/One Piece - 1000.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    web = internet(tmdb=False)
+
+    first = Watcher(paths, Scans(), web, now=lambda: NOW + timedelta(hours=2), clock=clock)
+    second = Watcher(paths, Scans(), web, now=lambda: NOW + timedelta(hours=4), clock=clock)
+
+    assert (first.refresh(), second.refresh()) == (1, 1)
+    assert len(web.asked) == 2  # never answered from the week-long cache
+
+
 def test_offline_the_lists_wait_for_the_next_hour(
     paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
 ):

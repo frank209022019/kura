@@ -18,6 +18,7 @@ from kura.core.report import (
     describe_gpu_time,
     describe_size,
     gap_analysis_markdown,
+    share,
 )
 from kura.core.standard import CINEMA_1080, COMPACT_720, Decision, Method
 
@@ -168,3 +169,62 @@ def test_estimates_default_to_nothing():
     analysis = GapAnalysis("Empty", PureWindowsPath(r"D:\Anime"), datetime(2026, 1, 1), ())
 
     assert analysis.to_convert == Estimate(0.0, 0)
+
+
+def test_missing_episodes_in_a_row_read_as_one_range():
+    held = {1, 2, 3, 6, 61, 63, 64}
+    analysis = GapAnalysis(
+        show="Dragon Ball (1986)",
+        library=PureWindowsPath(r"D:\Anime"),
+        updated=datetime(2026, 10, 11, 15, 30),
+        episodes=tuple(
+            EpisodeState(number, Status.TO_CONVERT if number.absolute in held else Status.MISSING)
+            for number in all_episodes((153,))
+        ),
+    )
+
+    text = gap_analysis_markdown(analysis)
+
+    assert (
+        "## Missing\n"
+        "| Episode     | Absolute | Folder    |\n"
+        "|-------------|----------|-----------|\n"
+        "| S01E04      | 4        | Season 01 |\n"
+        "| S01E05      | 5        | Season 01 |\n"
+        "| S01E07–E60  | 7–60     | Season 01 |\n"
+        "| S01E62      | 62       | Season 01 |\n"
+        "| S01E65–E153 | 65–153   | Season 01 |\n"
+    ) in text
+
+
+def test_a_range_stops_at_the_end_of_a_season():
+    analysis = GapAnalysis(
+        show="Dragon Ball Z (1989)",
+        library=PureWindowsPath(r"D:\Anime"),
+        updated=datetime(2026, 10, 11, 15, 30),
+        episodes=tuple(
+            EpisodeState(number, Status.MISSING if 37 <= number.absolute <= 42 else Status.READY)
+            for number in all_episodes(DRAGON_BALL_Z)
+        ),
+    )
+
+    text = gap_analysis_markdown(analysis)
+
+    assert "| S01E37–E39 | 37–39    | Season 01 |\n" in text
+    assert "| S02E01–E03 | 40–42    | Season 02 |\n" in text
+
+
+@pytest.mark.parametrize(
+    ("present", "total", "percent"),
+    [
+        (287, 291, 99),
+        (3, 153, 2),
+        (290, 291, 99),  # never 100 while one is missing
+        (1, 300, 1),  # never 0 once one is there
+        (26, 26, 100),
+        (0, 12, 0),
+        (0, 0, 0),
+    ],
+)
+def test_how_much_is_there_rounds_but_never_overstates(present: int, total: int, percent: int):
+    assert share(present, total) == percent

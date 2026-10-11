@@ -146,7 +146,7 @@ class Watcher:
                             save_show(conn, show, kind, row["anilist_id"], self._now())
                             asked += 1
                     elif row["tmdb_id"] is None and row["anilist_id"] is not None:
-                        entry = anilist.entry(row["anilist_id"])
+                        entry = anilist.entry(row["anilist_id"], fresh=True)
                         if entry is not None:
                             save_anilist_title(conn, entry, self._now())
                             asked += 1

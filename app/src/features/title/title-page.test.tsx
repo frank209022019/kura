@@ -127,6 +127,27 @@ describe("TitlePage", () => {
     expect(screen.getByText(/Episode 44 · won't play/)).toBeInTheDocument();
   });
 
+  it("reads a long run of missing episodes as one range", async () => {
+    renderTitle({
+      ...DBZ,
+      name: "Dragon Ball",
+      year: 1986,
+      aired: 153,
+      present: 4,
+      missing: 149,
+      source: "anilist",
+      seasons: [{ season: 1, present: 4, aired: 153, total: 153 }],
+      episodes: episodes(1, 153, (n) => (n <= 3 || n === 6 ? "to convert" : "missing")),
+    });
+
+    expect(await screen.findByText("S01E07–E153")).toBeInTheDocument();
+    expect(screen.getByText(/Episodes 7 to 153 · 147 missing/)).toBeInTheDocument();
+    expect(screen.getByText(/Episode 4 · missing/)).toBeInTheDocument();
+    expect(screen.getByText(/Episode 5 · missing/)).toBeInTheDocument();
+    expect(screen.queryByText(/Episode 100 · missing/)).not.toBeInTheDocument();
+    expect(screen.getByText("3%")).toBeInTheDocument();
+  });
+
   it("keeps the specials and OVAs apart", async () => {
     renderTitle(DBZ);
 

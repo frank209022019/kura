@@ -53,6 +53,8 @@ select = [
     "PT",      # pytest style
     "RUF",     # ruff's own rules
 ]
+# Ranges are written with an en dash, as in "S01E04–E153" and "4–153", on purpose.
+allowed-confusables = ["–"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S603"]  # asserts, test tokens, starting the engine

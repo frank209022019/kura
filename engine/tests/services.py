@@ -2,7 +2,7 @@
 and TMDB answers built in TMDB's shape (tests/tmdb_data.py), for Dragon Ball Z and Cowboy Bebop."""
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date
 from pathlib import Path
 from typing import cast
@@ -19,6 +19,7 @@ ANILIST_ANSWERS = {
     "dragon ball z": "dragon-ball-z",
     "dbz": "dragon-ball-z",
     "cowboy bebop": "cowboy-bebop",
+    "one piece": "one-piece",
 }
 
 DBZ_DETAILS = tv_details(12971, "Dragon Ball Z", DBZ_SEASONS, first_aired=date(1989, 4, 26))
@@ -32,13 +33,36 @@ BEBOP_DETAILS = tv_details(
 )
 
 
-def anilist(asked: Asked) -> object:
-    variables = cast("dict[str, object]", asked.payload["variables"])
-    search = str(variables.get("search", "")).casefold()
-    saved = next((file for name, file in ANILIST_ANSWERS.items() if search.startswith(name)), None)
-    if saved is None:
-        return {"data": {"Page": {"media": []}}}
-    return json.loads((SAVED / f"{saved}.json").read_text(encoding="utf-8"))
+def anilist(airing: Mapping[int, int]) -> Callable[[Asked], object]:
+    """AniList's searches and entries. `airing` moves a show's next episode on in its answers
+    about one entry: what AniList says now, while a search kept from days ago says less."""
+
+    def answer(asked: Asked) -> object:
+        variables = cast("dict[str, object]", asked.payload["variables"])
+        if "id" in variables:
+            anime_id = cast("int", variables["id"])
+            media = saved_entry(anime_id)
+            if media is not None and anime_id in airing:
+                known = cast("dict[str, object]", media)
+                media = {**known, "nextAiringEpisode": {"episode": airing[anime_id]}}
+            return {"data": {"Media": media}}
+        search = str(variables.get("search", "")).casefold()
+        file = next((f for name, f in ANILIST_ANSWERS.items() if search.startswith(name)), None)
+        if file is None:
+            return {"data": {"Page": {"media": []}}}
+        return json.loads((SAVED / f"{file}.json").read_text(encoding="utf-8"))
+
+    return answer
+
+
+def saved_entry(anime_id: int) -> object:
+    """One entry from the saved searches, as AniList answers a question about it."""
+    for file in sorted(SAVED.glob("*.json")):
+        answer = json.loads(file.read_text(encoding="utf-8"))
+        for media in answer["data"]["Page"]["media"]:
+            if media["id"] == anime_id:
+                return media
+    return None
 
 
 def tmdb_show(details: dict[str, object]) -> Callable[[Asked], object]:
@@ -68,8 +92,8 @@ def tmdb_search_movie(asked: Asked) -> object:
     return {"results": []}
 
 
-def internet(*, tmdb: bool = True) -> FakeWeb:
-    answers: dict[str, Answer] = {f"POST {ANILIST}": anilist}
+def internet(*, tmdb: bool = True, airing: Mapping[int, int] | None = None) -> FakeWeb:
+    answers: dict[str, Answer] = {f"POST {ANILIST}": anilist(airing or {})}
     if tmdb:
         answers |= {
             f"GET {TMDB}/search/tv": tmdb_search_tv,

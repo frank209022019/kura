@@ -278,7 +278,7 @@ describe("HomePage", () => {
     expect(screen.getByText("TV series · 1989 · 291 episodes")).toBeInTheDocument();
     expect(screen.getByText("Movie · 2001")).toBeInTheDocument();
     expect(screen.getByText("4 missing")).toBeInTheDocument();
-    expect(screen.getByText("287 of 291 · 98%")).toBeInTheDocument();
+    expect(screen.getByText("287 of 291 · 99%")).toBeInTheDocument();
     expect(screen.getByText("3 anime · 314 videos · 90.0 GB · 1 folder")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Release date" })).toBeChecked();
     expect(

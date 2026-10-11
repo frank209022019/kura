@@ -100,7 +100,9 @@ def show_of(conn: sqlite3.Connection, title_id: int) -> Show | None:
         title=row["name"],
         original_title=row["name"],
         first_aired=_day(row["released"]),
-        airing=bool(row["airing"]),
+        # AniList's list holds only the episodes aired so far, undated (save_anilist_title):
+        # none of them is still to come.
+        airing=bool(row["airing"]) and row["tmdb_id"] is not None,
         poster=row["poster"],
         episodes=episodes,
     )

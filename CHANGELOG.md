@@ -15,8 +15,8 @@ shows these notes when it offers the update.
 - Home's "Needs your attention": files that need a match, episodes missing, files that won't play
   and folders holding mixed anime, each leading to what to do.
 - A page for each anime: how much of it is there, its seasons and episode map with every
-  episode's state by shape, the missing and broken episodes, its specials and OVAs apart, its
-  videos, and the gap analysis written next to it.
+  episode's state by shape, the missing and broken episodes (a long run of missing ones as one
+  range), its specials and OVAs apart, its videos, and the gap analysis written next to it.
 - Scans identify every video: which anime, movie, OVA or special it is and, with a TMDB key,
   which season and episode, numbered as Plex shows them. Files Kura isn't sure about wait for you
   instead of being guessed. Offline, the scan still finishes and identifies them next time.
@@ -29,7 +29,8 @@ shows these notes when it offers the update.
   same release, and it's remembered, so a rescan never undoes it. "Not anime" leaves a file out
   for good.
 - A gap analysis next to each anime that has a folder of its own (`Kura - Gap analysis.md`): the
-  episodes TMDB lists as aired that the library doesn't hold, with specials and OVAs listed apart
+  episodes TMDB lists as aired that the library doesn't hold (without a TMDB key, AniList's count
+  of the episodes aired so far), a run of them as one range, with specials and OVAs listed apart
   and never counted as missing.
 - Kura keeps the library current while it's open: it catches up at start on what changed while it
   was closed, notices new, removed and renamed videos in your folders and scans once copying is

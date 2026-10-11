@@ -4,7 +4,7 @@ They are plain Markdown, readable without Kura (Plex ignores .md files), and mat
 board in the design word for word.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
@@ -55,23 +55,20 @@ class GapAnalysis:
 def gap_analysis_markdown(analysis: GapAnalysis) -> str:
     by_status = {status: [e for e in analysis.episodes if e.status == status] for status in Status}
     present = len(analysis.episodes) - len(by_status[Status.MISSING])
-    share = round(present / len(analysis.episodes) * 100) if analysis.episodes else 0
 
     lines = [
         f"# {analysis.show} — gap analysis",
         f"_Updated {_date(analysis.updated)} · library {analysis.library}_",
         "",
         "## Summary",
-        f"- Present: **{present} of {len(analysis.episodes)}** episodes ({share}%)",
+        f"- Present: **{present} of {len(analysis.episodes)}** episodes"
+        f" ({share(present, len(analysis.episodes))}%)",
         f"- Missing: **{len(by_status[Status.MISSING])}**"
         f" · Broken: **{len(by_status[Status.BROKEN])}**"
         f" · At standard: **{len(by_status[Status.READY])}**",
     ]
     if missing := by_status[Status.MISSING]:
-        rows = [
-            [e.number.code, str(e.number.absolute), f"Season {e.number.season:02d}"]
-            for e in missing
-        ]
+        rows = [_missing_row(run) for run in runs([e.number for e in missing])]
         lines += ["", "## Missing", *_table(["Episode", "Absolute", "Folder"], rows)]
     if broken := by_status[Status.BROKEN]:
         lines += ["", "## Broken"]
@@ -89,6 +86,50 @@ def gap_analysis_markdown(analysis: GapAnalysis) -> str:
         lines += ["", "## Specials and OVAs not in the library"]
         lines += [_special(special) for special in analysis.specials]
     return "\n".join(lines) + "\n"
+
+
+def share(present: int, total: int) -> int:
+    """How much of a show is there, in whole percent: never 100 while an episode is missing, and
+    never 0 once one is there."""
+    if total <= 0:
+        return 0
+    percent = round(present / total * 100)
+    if present < total:
+        percent = min(percent, 99)
+    if present > 0:
+        percent = max(percent, 1)
+    return percent
+
+
+def runs(numbers: Sequence[EpisodeNumber]) -> list[tuple[EpisodeNumber, EpisodeNumber]]:
+    """Episodes in a row within a season, as (first, last): three or more read as one range, a
+    shorter run as each episode on its own (first is last)."""
+    together: list[list[EpisodeNumber]] = []
+    for number in numbers:
+        before = together[-1][-1] if together else None
+        if (
+            before is not None
+            and before.season == number.season
+            and before.episode + 1 == number.episode
+        ):
+            together[-1].append(number)
+        else:
+            together.append([number])
+    found: list[tuple[EpisodeNumber, EpisodeNumber]] = []
+    for run in together:
+        if len(run) >= 3:
+            found.append((run[0], run[-1]))
+        else:
+            found.extend((number, number) for number in run)
+    return found
+
+
+def _missing_row(run: tuple[EpisodeNumber, EpisodeNumber]) -> list[str]:
+    first, last = run
+    folder = f"Season {first.season:02d}"
+    if first == last:
+        return [first.code, str(first.absolute), folder]
+    return [f"{first.code}–E{last.episode:02d}", f"{first.absolute}–{last.absolute}", folder]
 
 
 def _special(special: SpecialState) -> str:

@@ -54,11 +54,11 @@ class AniList:
                 self._cache.put(key, answer)
         return catalog.anime_list(answer)
 
-    def entry(self, anime_id: int) -> Anime | None:
+    def entry(self, anime_id: int, *, fresh: bool = False) -> Anime | None:
         """One entry by its AniList number, or None when AniList has no such entry. An answer
-        is kept for a week."""
+        is kept for a week; `fresh` asks again anyway (how far a show still airing has got)."""
         key = f"anilist entry {anime_id}"
-        answer = self._cache.get(key, 7 * DAY) if self._cache else None
+        answer = self._cache.get(key, 7 * DAY) if self._cache and not fresh else None
         if answer is None:
             payload = {"query": _ONE, "variables": {"id": anime_id}}
             try:
