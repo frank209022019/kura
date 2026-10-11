@@ -6,7 +6,7 @@ routes as an APIRouter in its own module, included below.
 """
 
 import secrets
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, closing
 from dataclasses import replace
 from datetime import datetime
@@ -40,6 +40,7 @@ from kura.backups import restore_asked
 from kura.cache import Cache
 from kura.care import Care
 from kura.config import DataPaths
+from kura.events import Notify
 from kura.gpu import Gpu
 from kura.queue import Queue, programs_from
 from kura.recovery import Recovery
@@ -65,7 +66,7 @@ def create_app(
     *,
     watch: bool = False,
     work: bool = False,
-    notify: Callable[[str, str], None] = lambda _title, _body: None,
+    notify: Notify = lambda _title, _body, link=None: None,
 ) -> FastAPI:
     """The API, with its parts. Tests pass their own tools, scanner and transport (the
     internet as TMDB and AniList see it). `watch` keeps the library current while the engine

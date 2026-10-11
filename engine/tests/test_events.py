@@ -21,6 +21,12 @@ def test_a_notification_is_one_json_line_in_plain_ascii(capsys: pytest.CaptureFi
     }
 
 
+def test_a_notification_can_lead_somewhere_in_kura(capsys: pytest.CaptureFixture[str]):
+    notify("Trigun, season 1 is done", "26 episodes", link="/titles/12")
+
+    assert json.loads(capsys.readouterr().out)["link"] == "/titles/12"
+
+
 def test_while_it_works_at_starting_the_engine_says_so_every_few_seconds(
     capsys: pytest.CaptureFixture[str],
 ):

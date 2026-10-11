@@ -1,13 +1,15 @@
 //! Kura in the notification area (the tray): an icon while it runs, to open the window or quit.
 //! With "Start with Windows" on, Kura starts there when Windows signs in, and closing the window
 //! keeps it there, so the queue, the backups and the watching carry on. What the engine tells of
-//! (a finished batch, a paused queue) comes as a Windows notification while the window is away.
+//! (a finished batch, a paused queue) comes as a Windows notification while the window is away,
+//! and as a note in the window (the `notice` event) while it's open.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use serde::Serialize;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_notification::NotificationExt;
 
@@ -70,8 +72,28 @@ pub fn show(app: &AppHandle) {
     }
 }
 
+/// What the window shows of a notification while it's open. Mirrors `Notice` in
+/// app/src/components/shell/notices.tsx.
+#[derive(Clone, Serialize)]
+struct Notice<'a> {
+    title: &'a str,
+    body: &'a str,
+    /// Where in Kura it leads: "/titles/12".
+    link: Option<&'a str>,
+}
+
+/// Tells the owner: a note in the window while it's in front of them, else a Windows
+/// notification (a click on it opens the window).
+pub fn tell(app: &AppHandle, title: &str, body: &str, link: Option<&str>) {
+    if window_open(app) {
+        let _ = app.emit("notice", Notice { title, body, link });
+    } else {
+        tell_away(app, title, body);
+    }
+}
+
 /// A Windows notification, unless the window is in front of the owner: it shows the same itself.
-pub fn tell(app: &AppHandle, title: &str, body: &str) {
+pub fn tell_away(app: &AppHandle, title: &str, body: &str) {
     if !window_open(app) {
         let _ = app.notification().builder().title(title).body(body).show();
     }

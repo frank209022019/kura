@@ -47,8 +47,10 @@ engine, where it is easy to test.
 6. With "Start with Windows" on (Settings > General), Windows starts Kura at sign-in in the tray,
    and closing the window keeps it there, so the queue, the nightly backup and the watching carry
    on; Quit Kura in the tray's menu ends it. After the ready line the engine may print
-   `{"event": "notify", "title": …, "body": …}` lines (a finished batch, a queue that paused
-   itself), which the shell shows as Windows notifications while the window is away.
+   `{"event": "notify", "title": …, "body": …, "link": …}` lines (a finished batch, a queue that
+   paused itself), which the shell shows as Windows notifications while the window is away, and
+   passes to the window while it's open (the `notice` event), where they show as a note at its
+   foot with View leading to `link` (the title's page, History, the queue).
 
 If the engine is silent for a minute before its ready line, exits first, or stops on its own later,
 the status becomes `failed` with the engine's last error lines, and the UI says so with "Try again"

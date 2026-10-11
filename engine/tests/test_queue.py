@@ -29,6 +29,8 @@ from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
 
+type Told = tuple[str, str, str | None]  # a notification: its title, its line, where it leads
+
 RESULT = report(1440, 1080, tag=BEST_TAG)
 
 
@@ -52,9 +54,10 @@ def make_queue(
     paths: DataPaths,
     kit: Programs | None = None,
     scanner: Scanner | None = None,
-    told: list[tuple[str, str]] | None = None,
+    told: list[Told] | None = None,
 ) -> Queue:
-    """A queue on the test's data; what it tells the app (a notification) goes into `told`."""
+    """A queue on the test's data; what it tells the app (a notification: a title, a line and
+    where in Kura it leads) goes into `told`."""
     clock = iter(range(1, 10_000))
     heard = told if told is not None else []
     return Queue(
@@ -62,7 +65,7 @@ def make_queue(
         scanner or Scanner(paths, Tools(paths, items=())),
         lambda: kit,
         now=lambda: NOW + timedelta(seconds=next(clock)),
-        notify=lambda title, body: heard.append((title, body)),
+        notify=lambda title, body, link=None: heard.append((title, body, link)),
     )
 
 
@@ -443,7 +446,7 @@ def test_a_full_drive_pauses_the_queue_and_says_so(
 def test_once_nothing_waits_the_batch_is_told_of(
     paths: DataPaths, shows: Path, conn: sqlite3.Connection
 ):
-    told: list[tuple[str, str]] = []
+    told: list[Told] = []
     queue = make_queue(paths, programs(RESULT), told=told)
     queue.add([1, 2])
 
@@ -451,16 +454,17 @@ def test_once_nothing_waits_the_batch_is_told_of(
     assert told == []  # one still waits
     queue.work_once()
 
-    [(title, body)] = told
+    [(title, body, link)] = told
     assert title == "Trigun, season 1 is done"
     assert body.startswith("2 episodes · all checked · ")
     assert " → " in body
+    assert link == "/titles/1"
 
 
 def test_a_batch_with_a_failure_says_so(
     paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ):
-    told: list[tuple[str, str]] = []
+    told: list[Told] = []
     queue = make_queue(paths, programs(RESULT), told=told)
     with conn:  # one from another show
         conn.execute("INSERT INTO titles (id, kind, name) VALUES (2, 'series', 'Cowboy Bebop')")
@@ -471,15 +475,16 @@ def test_a_batch_with_a_failure_says_so(
 
     queue.work_once()
 
-    [(title, body)] = told
+    [(title, body, link)] = told
     assert title == "The queue is done"
     assert body.startswith("1 converted, 1 failed · ")
+    assert link == "/history"
 
 
 def test_a_full_drive_is_told_of(
     paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ):
-    told: list[tuple[str, str]] = []
+    told: list[Told] = []
     queue = make_queue(paths, programs(RESULT), told=told)
     queue.add([1])
 
@@ -490,9 +495,10 @@ def test_a_full_drive_is_told_of(
 
     queue.work_once()
 
-    [(title, body)] = told
+    [(title, body, link)] = told
     assert title == "The queue paused"
     assert body.startswith("There isn't room on")
+    assert link == "/convert/queue"
 
 
 def test_a_file_open_in_another_app_waits_its_result_kept_and_goes_in_later(
@@ -501,7 +507,7 @@ def test_a_file_open_in_another_app_waits_its_result_kept_and_goes_in_later(
     episode = shows / "Trigun (1998) - S01E01.mkv"
     open_in_player = open_elsewhere(monkeypatch, episode)
     commands: list[Sequence[str]] = []
-    told: list[tuple[str, str]] = []
+    told: list[Told] = []
     queue = make_queue(paths, programs(RESULT, commands), told=told)
     queue.add([1, 2])
     kept = shows / f"Trigun (1998) - S01E01{WORKING}"
@@ -532,7 +538,7 @@ def test_a_file_open_in_another_app_waits_its_result_kept_and_goes_in_later(
     assert not kept.exists()
     made = [command for command in commands if command[-1] == str(kept)]
     assert len(made) == 1  # made once: the kept result went in
-    [(title, _)] = told
+    [(title, _, _)] = told
     assert title == "Trigun, season 1 is done"
 
 

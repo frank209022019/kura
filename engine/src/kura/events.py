@@ -1,8 +1,8 @@
 """What the engine tells the app besides the ready line, on its standard output: one JSON object
 a line, which the shell reads (app/src-tauri/src/engine.rs). Before the ready line, that it's
 still working at starting (moving the data takes minutes): the app waits rather than give up on
-it. After it, notifications: something worth a Windows notification while Kura's window is in
-the tray, such as a finished batch.
+it. After it, notifications: something worth telling the owner, such as a finished batch: a
+Windows notification while Kura's window is away, a note in the window while it's open.
 """
 
 import json
@@ -10,15 +10,24 @@ import sys
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Protocol
 
 _lock = threading.Lock()  # one line at a time, from whichever thread
 _EVERY = 5.0  # seconds between the lines saying the engine is still working at starting
 
 
-def notify(title: str, body: str) -> None:
-    """Asks the app for a notification: a title and a line under it. In plain ASCII (JSON's
-    escapes), so it reads the same whatever code page Windows gives the pipe."""
-    _say({"event": "notify", "title": title, "body": body})
+class Notify(Protocol):
+    """Tells the app something worth a notification (see `notify`)."""
+
+    def __call__(self, title: str, body: str, /, *, link: str | None = None) -> None: ...
+
+
+def notify(title: str, body: str, *, link: str | None = None) -> None:
+    """Asks the app for a notification: a title, a line under it, and where in Kura it leads
+    (`link`, a page such as "/titles/12"). In plain ASCII (JSON's escapes), so it reads the same
+    whatever code page Windows gives the pipe."""
+    event = {"event": "notify", "title": title, "body": body}
+    _say({**event, "link": link} if link else event)
 
 
 @contextmanager

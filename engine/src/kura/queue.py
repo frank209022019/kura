@@ -61,6 +61,7 @@ from kura.convert import (
 from kura.core.estimate import estimate
 from kura.core.media import media_from_ffprobe
 from kura.core.standard import Method, Standard, decide
+from kura.events import Notify
 from kura.preferences import library_standard
 from kura.probe import probe
 from kura.recovery import Recovery
@@ -148,10 +149,10 @@ class Queue:
         *,
         now: Callable[[], datetime],
         clock: Callable[[], float] = time.monotonic,
-        notify: Callable[[str, str], None] = lambda _title, _body: None,
+        notify: Notify = lambda _title, _body, link=None: None,
     ) -> None:
         """`programs` gives what converting runs, or None while Kura has no ffmpeg. `notify`
-        tells the app something worth a notification: a title and a line."""
+        tells the app something worth a notification: a title, a line, and where it leads."""
         self._paths = paths
         self._notify = notify
         self._batch: list[int] = []  # files converted (or failed) since nothing last waited
@@ -472,7 +473,7 @@ class Queue:
             with conn:
                 _save(conn, _PAUSED, True)
                 _save(conn, _HELD_UP, problem)
-            self._notify("The queue paused", problem)
+            self._notify("The queue paused", problem, link="/convert/queue")
         except ConvertError as error:
             self._finished(conn, job_id, "failed", str(error))
         except Exception:
@@ -505,7 +506,8 @@ class Queue:
                 self._batch,
             ).fetchall()
             self._batch.clear()
-        self._notify(*_told(rows))
+        title, body, link = _told(rows)
+        self._notify(title, body, link=link)
 
     def try_waiting(self) -> bool:
         """Puts in place each result waiting beside its original for another app to let go of
@@ -676,9 +678,10 @@ class Queue:
             self._try_now.clear()
 
 
-def _told(rows: list[sqlite3.Row]) -> tuple[str, str]:
-    """What a finished batch is called and what it came to: "Dragon Ball Z, season 1 is done",
-    "39 episodes · all checked · 9.1 GB → 17.5 GB"."""
+def _told(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
+    """What a finished batch is called, what it came to, and where to see it: "Dragon Ball Z,
+    season 1 is done", "39 episodes · all checked · 9.1 GB → 17.5 GB", its title's page (or
+    History, for several titles')."""
     titles = {row["title_id"] for row in rows}
     seasons = {row["season"] for row in rows}
     name = rows[0]["title"]
@@ -698,7 +701,9 @@ def _told(rows: list[sqlite3.Row]) -> tuple[str, str]:
         count = f"{len(done)} {what}{'' if len(done) == 1 else 's'} · all checked"
     before = sum(row["source_size"] or 0 for row in done)
     after = sum(row["output_size"] or 0 for row in done)
-    return title, f"{count} · {_size(before)} → {_size(after)}" if done else count
+    [only] = titles if len(titles) == 1 else [None]
+    link = f"/titles/{only}" if only is not None else "/history"
+    return title, f"{count} · {_size(before)} → {_size(after)}" if done else count, link
 
 
 def _size(count: int) -> str:

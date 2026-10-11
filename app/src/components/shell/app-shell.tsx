@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router";
 import { ScreenError } from "@/components/screen-error";
 import { NavRail } from "./nav-rail";
+import { Notices } from "./notices";
 import { TitleBar } from "./title-bar";
 import { UpdateCard } from "./update-card";
 
@@ -29,6 +30,7 @@ export function AppShell() {
         </main>
       </div>
       <UpdateCard />
+      <Notices />
     </div>
   );
 }

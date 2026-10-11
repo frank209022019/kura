@@ -80,8 +80,9 @@ the person, so write it as a sentence.
 - **notification**: Windows notifications for what the engine tells of on its stdout after the
   ready line (`{"event":"notify",...}`: a finished batch, a queue that paused itself), and for an
   engine that can't run (it's then tried again by itself), shown only while the window is away
-  (in the tray or minimized); a click on one opens the window. All from Rust, so the window needs
-  no permission for either.
+  (in the tray or minimized); a click on one opens the window. While the window is open, the
+  engine's notifications go to it instead, as the `notice` event. All from Rust, so the window
+  needs no permission for either.
 
 ## The engine process
 
