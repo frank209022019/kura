@@ -28,7 +28,9 @@ shows these notes when it offers the update.
 - Start with Windows (Settings > General): Kura waits in the tray, so the queue, the nightly
   backup and the watching carry on, and closing the window keeps it there. While it's in the
   tray, a Windows notification says when a batch is done ("Trigun, season 1 is done · 26
-  episodes · all checked") or when a full drive paused the queue; a click opens Kura.
+  episodes · all checked") or when a full drive paused the queue; a click opens Kura. If Kura
+  can't run there (its data's drive isn't connected yet, say), a notification says why, and it
+  tries again by itself.
 - Delete a title, a season or one video from its page. Kura asks first, then moves the videos and
   their subtitles to the quarantine on their drive, for as long as you keep copies set aside; the
   page, right after, or History puts them back. A video another app has open stays (the page

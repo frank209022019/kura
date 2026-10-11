@@ -12,7 +12,9 @@
 //!   Windows notification while the window is away (see tray.rs).
 //!
 //! If the engine stops on its own, before or after it was ready, the status becomes
-//! `failed` with its last error lines, and the UI offers to try again.
+//! `failed` with its last error lines, and the UI offers to try again. While the window is away
+//! (Kura waiting in the tray), nobody sees that: Windows tells the owner once, and the shell tries
+//! again by itself, after a pause that grows (the data's drive may not be there yet at sign-in).
 
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Read};
@@ -31,6 +33,15 @@ use crate::{process, tray};
 const START_TIMEOUT: Duration = Duration::from_secs(60);
 /// How many of the engine's last error lines to keep for "Copy details".
 const ERROR_LINES: usize = 40;
+/// Pauses before trying a failed engine again while the window is away, the last repeating.
+const RETRY_PAUSES: [Duration; 4] = [
+    Duration::from_secs(30),
+    Duration::from_secs(60),
+    Duration::from_secs(5 * 60),
+    Duration::from_secs(15 * 60),
+];
+/// The longest line of the engine's own that a notification carries.
+const SAID_AT_MOST: usize = 200;
 
 /// What the UI sees. Mirrors `EngineStatus` in app/src/lib/engine.tsx.
 #[derive(Clone, Default, Serialize)]
@@ -93,11 +104,16 @@ impl Engine {
 
 /// Starts the engine in the background. The UI follows along through `engine-status` events.
 pub fn start(app: AppHandle) {
+    run(app, 0);
+}
+
+/// Starts the engine, `failures` being how many tries in a row have failed before this one.
+fn run(app: AppHandle, failures: usize) {
     set_status(&app, EngineStatus::Starting);
     thread::spawn(move || {
         let started = match launch(&app) {
             Ok(started) => started,
-            Err(failure) => return set_status(&app, failure),
+            Err(failure) => return fail(&app, failure, failures),
         };
         set_status(
             &app,
@@ -109,12 +125,70 @@ pub fn start(app: AppHandle) {
 
         let _ = started.exited.recv(); // returns once the engine has exited
         if app.state::<Engine>().ended_unexpectedly(started.pid) {
-            set_status(
-                &app,
-                failed("It stopped unexpectedly.", started.errors.text()),
-            );
+            let failure = failed("It stopped unexpectedly.", started.errors.text());
+            fail(&app, failure, 0); // it ran: a new run of failures, if it fails again
         }
     });
+}
+
+/// A failed engine: the UI says so. While the window is away, Windows tells the owner (once in a
+/// run of failures), and the engine is tried again after a pause, unless the owner has started it
+/// since or has the window open (where "Try again" is theirs).
+fn fail(app: &AppHandle, failure: EngineStatus, failures: usize) {
+    if failures == 0
+        && let EngineStatus::Failed { message, details } = &failure
+    {
+        let said = last_said(details).unwrap_or(message);
+        tray::tell(
+            app,
+            "Kura isn't running",
+            &format!("{said} Kura tries again by itself."),
+        );
+    }
+    set_status(app, failure);
+    let app = app.clone();
+    thread::spawn(move || {
+        loop {
+            thread::sleep(pause_after(failures));
+            if !matches!(
+                *app.state::<Engine>().status.lock().unwrap(),
+                EngineStatus::Failed { .. }
+            ) {
+                return; // started again meanwhile
+            }
+            if !tray::window_open(&app) && try_again(&app) {
+                return run(app, failures + 1);
+            }
+        }
+    });
+}
+
+/// How long to wait before trying again after this many failures in a row (0 for the first).
+fn pause_after(failures: usize) -> Duration {
+    RETRY_PAUSES[failures.min(RETRY_PAUSES.len() - 1)]
+}
+
+/// The engine's last line, when it's a short sentence of its own ("Kura's data is in F:\Kura,
+/// which isn't there. Connect its drive, then try again.") rather than a crash's.
+fn last_said(details: &str) -> Option<&str> {
+    let line = details
+        .lines()
+        .map(str::trim)
+        .rfind(|line| !line.is_empty())?;
+    let sentence = line.len() <= SAID_AT_MOST && line.ends_with('.') && !line.contains("Error:");
+    sentence.then_some(line)
+}
+
+/// Marks a failed engine as starting again, unless something else has (the owner pressing
+/// "Try again"). True when it's this caller's to start.
+fn try_again(app: &AppHandle) -> bool {
+    let engine = app.state::<Engine>();
+    let mut status = engine.status.lock().unwrap();
+    if !matches!(*status, EngineStatus::Failed { .. }) {
+        return false;
+    }
+    *status = EngineStatus::Starting;
+    true
 }
 
 #[tauri::command]
@@ -431,6 +505,22 @@ mod tests {
         let kept = ErrorLog::follow(Cursor::new(stderr)).text();
         assert!(kept.starts_with("line 11\n"));
         assert!(kept.ends_with("line 50"));
+    }
+
+    #[test]
+    fn a_failed_engine_is_tried_again_after_a_growing_pause() {
+        let pauses: Vec<u64> = (0..6).map(|n| pause_after(n).as_secs()).collect();
+        assert_eq!(pauses, [30, 60, 300, 900, 900, 900]);
+    }
+
+    #[test]
+    fn a_notification_carries_the_engines_own_sentence_not_a_crash() {
+        let missing =
+            "Kura's data is in F:\\Kura, which isn't there. Connect its drive, then try again.";
+        assert_eq!(last_said(&format!("{missing}\n")), Some(missing));
+        let crash = "Traceback (most recent call last):\n  File \"x.py\"\nValueError: bad.";
+        assert_eq!(last_said(crash), None);
+        assert_eq!(last_said(""), None);
     }
 
     #[test]

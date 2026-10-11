@@ -72,12 +72,16 @@ pub fn show(app: &AppHandle) {
 
 /// A Windows notification, unless the window is in front of the owner: it shows the same itself.
 pub fn tell(app: &AppHandle, title: &str, body: &str) {
-    let open = app.get_webview_window("main").is_some_and(|window| {
-        window.is_visible().unwrap_or(false) && !window.is_minimized().unwrap_or(false)
-    });
-    if !open {
+    if !window_open(app) {
         let _ = app.notification().builder().title(title).body(body).show();
     }
+}
+
+/// Whether the window is in front of the owner: shown, and not minimized.
+pub fn window_open(app: &AppHandle) -> bool {
+    app.get_webview_window("main").is_some_and(|window| {
+        window.is_visible().unwrap_or(false) && !window.is_minimized().unwrap_or(false)
+    })
 }
 
 /// Whether Windows started Kura at sign-in, to wait in the tray.

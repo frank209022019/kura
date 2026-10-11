@@ -52,7 +52,10 @@ engine, where it is easy to test.
 
 If the engine is silent for a minute before its ready line, exits first, or stops on its own later,
 the status becomes `failed` with the engine's last error lines, and the UI says so with "Try again"
-and "Copy details". Both sides of this handshake are tested: `engine/tests/test_cli.py` and
+and "Copy details". While the window is away (Kura waiting in the tray), a Windows notification
+says so once, with the engine's own last sentence when it has one ("Kura's data is in F:\Kura,
+which isn't there…"), and the shell tries again by itself after 30 seconds, a minute, 5 minutes,
+then every 15. Both sides of this handshake are tested: `engine/tests/test_cli.py` and
 `app/src-tauri/src/engine.rs`.
 
 ## Contracts
