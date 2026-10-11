@@ -84,9 +84,11 @@ node --test "scripts/*.test.mjs"
 
 Fix formatting: `uv run ruff format` (engine), `pnpm fix` (app), `cargo fmt` (shell).
 Build the installer locally: `cd app; pnpm build:installer` (needs the signing key, see
-[docs/releasing.md](docs/releasing.md)). Release: `node scripts/release.mjs patch|minor|major`
-(commits and tags), then `git push --atomic origin main v1.2.3`. A tag reaches every installed
-copy, so releasing is the owner's call.
+[docs/releasing.md](docs/releasing.md)). Release: on GitHub, Actions › Release › Run workflow on
+`main` (patch, minor, major or an exact version); from a PC,
+`node scripts/release.mjs patch|minor|major` (commits and tags), then
+`git push --atomic origin main v1.2.3`. A release reaches every installed copy, so releasing is
+the owner's call.
 
 ## How it fits together
 
@@ -207,6 +209,11 @@ Everything decided so far. Don't ask again; change only with the owner.
   major for a change to act on. `scripts/release.mjs` picks the version, moves CHANGELOG.md's
   "Unreleased" entries under it, commits and tags; it and the release workflow refuse a version
   that isn't newer than the last, so every release is an update.
+- The owner releases from GitHub's site when happy with `main` (2026-10-11): Actions › Release ›
+  Run workflow. On `main` it checks CI passed, runs `release.mjs`, builds and checks the
+  installer, and only then pushes the release commit and tag together and publishes. The commit
+  carries the name and no-reply address of whoever started the run. A tag pushed from a PC still
+  releases too.
 - A `v*` tag builds the NSIS installer, signs it for the updater, and publishes a public release
   with its notes (the changelog entries, every commit since the last release, a comparison link),
   `latest.json` (which carries the entries to the update card) and `THIRD-PARTY-NOTICES.txt`. The

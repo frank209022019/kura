@@ -1,37 +1,67 @@
-# Builds Kura's signed installer.
-# - A version tag (v1.2.3, made by scripts/release.mjs) publishes it as a GitHub release with
-#   its notes from CHANGELOG.md and the third-party notices, checks that installed copies now see
-#   it as an update, and refreshes the downloads page.
-# - Starting it by hand is a dry run: the installer and a preview of the notes are kept as a
-#   workflow artifact instead.
-# See docs/releasing.md.
+# Releases Kura: builds the signed installer and publishes it as a GitHub release with its notes
+# from CHANGELOG.md and the third-party notices, checks that installed copies now see it as an
+# update, and refreshes the downloads page. See docs/releasing.md.
+#
+# How a release starts:
+# - On the site, on main (Actions, Release, Run workflow): checks main passed CI, picks the next
+#   version and commits and tags it with scripts/release.mjs, builds and checks the installer,
+#   and only then pushes the commit and the tag together and publishes.
+# - On the site, on a version tag: publishes that tag, for a release that stopped after its tag
+#   went out.
+# - A version tag pushed from a PC (made there by scripts/release.mjs) publishes that tag.
+# A dry run does everything but push and publish, and keeps the installer and a preview of the
+# notes as a workflow artifact.
 name: Release
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "What's new: patch for fixes only, minor for new features, major for a change you have to act on"
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+      version:
+        description: "Or an exact version instead, such as 0.1.0 for the first release"
+        type: string
+        required: false
+      dry_run:
+        description: "Dry run: build and check everything, release nothing"
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
-  actions: write # to refresh the downloads page
+  contents: write # to push the release commit and tag, and publish the release
+  actions: write # to see main's CI result, and refresh the downloads page
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release # one release at a time
 
 jobs:
-  installer:
-    name: Installer
+  release:
+    name: Release
     runs-on: windows-latest
     defaults:
       run:
         shell: bash
     env:
       GH_TOKEN: ${{ github.token }}
+      # Started on main, the run makes the release; started on a tag, or by a pushed tag, it
+      # publishes that tag.
+      PREPARE: ${{ github.event_name == 'workflow_dispatch' && github.ref_type == 'branch' }}
+      PUBLISH: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
     steps:
+      - name: Check the run is on main
+        if: env.PREPARE == 'true' && github.ref_name != 'main'
+        run: |
+          echo "::error::Releases come from main, not $GITHUB_REF_NAME. Pick main under 'Use workflow from'."
+          exit 1
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # every tag and commit, for the notes
+          fetch-depth: 0 # every tag and commit, for the version and the notes
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
@@ -49,6 +79,30 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: app/src-tauri
+
+      # What goes out is main as it is now, and only once CI has passed on it.
+      - name: Check that main passed CI
+        if: env.PREPARE == 'true' && env.PUBLISH == 'true'
+        run: |
+          state=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --json status,conclusion \
+            --jq '.[0] | if . then "\(.status) \(.conclusion)" else "not run" end')
+          if [ "$state" != "completed success" ]; then
+            echo "::error::CI hasn't passed on main's latest commit ${GITHUB_SHA:0:7} (it says: $state). Release once it's green."
+            exit 1
+          fi
+
+      # The release commit and tag carry the name and GitHub no-reply address of whoever started
+      # the run, like every other commit.
+      - name: Make the release commit and tag
+        if: env.PREPARE == 'true'
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXACT: ${{ inputs.version }}
+        run: |
+          exact=$(printf '%s' "$EXACT" | tr -d '[:space:]')
+          git config user.name "$(gh api "users/$GITHUB_ACTOR" --jq '.name // .login')"
+          git config user.email "$GITHUB_ACTOR_ID+$GITHUB_ACTOR@users.noreply.github.com"
+          node scripts/release.mjs "${exact:-$BUMP}"
 
       - name: Check the version
         run: |
@@ -68,7 +122,7 @@ jobs:
       # already out (installed copies would never update to this one).
       - name: Write the release notes
         env:
-          DRY_RUN: ${{ github.ref_type == 'tag' && '0' || '1' }}
+          DRY_RUN: ${{ env.PUBLISH == 'true' && '0' || '1' }}
         run: node scripts/release-notes.mjs "$VERSION" release-notes
 
       - run: uv sync --locked --directory engine
@@ -88,7 +142,7 @@ jobs:
         run: uv run pytest tests/test_cli.py -k announces
 
       - name: Keep the installer (dry run)
-        if: github.ref_type != 'tag'
+        if: env.PUBLISH != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kura-${{ env.VERSION }}-installer
@@ -97,10 +151,16 @@ jobs:
             app/src-tauri/target/THIRD-PARTY-NOTICES.txt
             release-notes/
 
+      # Only now, with the installer built and checked, does the release leave the runner. The
+      # commit and the tag reach main together or not at all (if main moved on meanwhile, say).
+      - name: Push the release commit and tag
+        if: env.PREPARE == 'true' && env.PUBLISH == 'true'
+        run: git push --atomic origin main "v$VERSION"
+
       # The release starts as a draft, so installed copies only see it once
       # latest.json (the update manifest) is in place.
       - name: Publish the release
-        if: github.ref_type == 'tag'
+        if: env.PUBLISH == 'true'
         run: |
           tag="v$VERSION"
           name="Kura_${VERSION}_x64-setup.exe"
@@ -126,7 +186,7 @@ jobs:
       # The address every installed Kura checks. If it doesn't name this version, no copy
       # would update, so the run fails and says so.
       - name: Check that installed copies see the update
-        if: github.ref_type == 'tag'
+        if: env.PUBLISH == 'true'
         run: |
           manifest="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/latest/download/latest.json"
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
@@ -141,5 +201,5 @@ jobs:
           exit 1
 
       - name: Refresh the downloads page
-        if: github.ref_type == 'tag'
+        if: env.PUBLISH == 'true'
         run: gh workflow run downloads.yml --ref main

@@ -4,19 +4,28 @@ How a change becomes an installed, self-updating Kura.
 
 ## The short version
 
+On GitHub, when `main` is ready: **Actions › Release › Run workflow**, keep "Use workflow from" on
+`main`, pick **patch**, **minor** or **major** (or type an exact version), and run it. The first
+release is `0.1.0`: type it in the exact-version box.
+
+The workflow checks that `main` passed CI, then does what
+[scripts/release.mjs](../scripts/release.mjs) does on a PC: moves what's under "Unreleased" in [CHANGELOG.md](../CHANGELOG.md) under the new
+version, sets the version everywhere, commits "Release 0.3.0" and tags it. It builds and checks the
+installer, and only then pushes the commit and the tag to `main` together and publishes. About
+fifteen minutes after starting it, the release is on GitHub and on the
+[downloads page](https://frankgrobbelaar.github.io/kura/), and every installed Kura offers
+"Kura 0.3.0 is ready", with what changed, within a day. Pull `main` before working on a PC again:
+the release commit is on GitHub.
+
+The same from a PC, which publishes when the tag is pushed:
+
 ```powershell
 node scripts/release.mjs minor          # or patch, major, or an exact version such as 0.3.0
 git push --atomic origin main v0.3.0    # publishing is the owner's call
 ```
 
-`release.mjs` moves what's under "Unreleased" in [CHANGELOG.md](../CHANGELOG.md) under the new
-version, sets the version everywhere, commits "Release 0.3.0" and tags it; nothing leaves the PC.
 `--atomic` sends the commit and the tag together or not at all, so a tag never goes out for a
-commit that isn't on `main`. Pushing the tag starts the
-[release workflow](../.github/workflows/release.yml). About fifteen
-minutes later the release is on GitHub and on the [downloads page](https://frankgrobbelaar.github.io/kura/),
-and every installed Kura offers "Kura 0.3.0 is ready", with what changed, within a day. The first
-release is `node scripts/release.mjs 0.1.0`.
+commit that isn't on `main`.
 
 ## Versions
 
@@ -54,6 +63,10 @@ The rules live in [scripts/versioning.mjs](../scripts/versioning.mjs), tested wi
 
 ## What the release workflow does
 
+Started on `main` from the site, it first checks that CI passed on `main`'s latest commit and makes
+the release commit and tag with `release.mjs` (as whoever started it, with their GitHub no-reply
+address). Then, for that tag or for one pushed from a PC:
+
 1. Checks that the tag, `package.json` and `pyproject.toml` agree.
 2. Writes the notes from CHANGELOG.md, and stops if the version has none, or if a newer version is
    already out.
@@ -61,17 +74,21 @@ The rules live in [scripts/versioning.mjs](../scripts/versioning.mjs), tested wi
    bundled engine starts and answers.
 4. Bundles them into `Kura_<version>_x64-setup.exe` (NSIS) and signs it for the updater, which
    writes `Kura_<version>_x64-setup.exe.sig`.
-5. Creates a **draft** release with the installer, its signature, `THIRD-PARTY-NOTICES.txt` and the
+5. Started from the site, pushes the release commit and tag to `main` together (`--atomic`):
+   if `main` moved on during the run, nothing is pushed or published, and running it again
+   releases the newer `main`.
+6. Creates a **draft** release with the installer, its signature, `THIRD-PARTY-NOTICES.txt` and the
    notes, writes `latest.json` (the update manifest: version, notes, date, signature, and the
    installer's download address), uploads it, then publishes the release as the latest. Installed
    copies only ever see a complete release.
-6. Reads `releases/latest/download/latest.json`, the address every installed Kura checks, and fails
+7. Reads `releases/latest/download/latest.json`, the address every installed Kura checks, and fails
    unless it names the new version, so a release can't silently miss installed copies.
-7. Starts the downloads page workflow, which republishes the page with the new version.
+8. Starts the downloads page workflow, which republishes the page with the new version.
 
-Starting the workflow by hand (Actions › Release › Run workflow) is a dry run: it builds and signs
-the installer and keeps it, with the notices and a preview of the notes (from "Unreleased"), as a
-downloadable workflow artifact, without releasing anything.
+Ticking **Dry run** does all of it except pushing and publishing: the installer, the notices and
+the notes it would have published are kept as a downloadable workflow artifact. If a release stops
+after its tag reached GitHub (publishing failed, say), run the workflow from that tag instead of
+`main` ("Use workflow from"): it publishes the tag as it is.
 
 ## How updates reach a PC
 

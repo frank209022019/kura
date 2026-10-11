@@ -1,6 +1,7 @@
 // Prepares a release on main: picks the next version, moves CHANGELOG.md's Unreleased notes under
-// it, sets the version everywhere it lives, commits "Release <version>" and tags it. Nothing leaves
-// the PC: pushing the tag is what publishes it, and that stays the owner's call.
+// it, sets the version everywhere it lives, commits "Release <version>" and tags it. The Release
+// workflow runs it when the owner releases from GitHub; run on a PC, nothing leaves the PC until
+// the commit and the tag are pushed, which publishes them.
 //
 //   node scripts/release.mjs patch      # fixes only: 0.4.2 -> 0.4.3
 //   node scripts/release.mjs minor      # new features: 0.4.2 -> 0.5.0
@@ -68,5 +69,8 @@ git("add", "--", ...files);
 git("commit", "--quiet", "-m", `Release ${version}`);
 git("tag", "--annotate", `v${version}`, "-m", `Kura ${version}`);
 
-console.log(`\nKura ${version} is committed and tagged. Publish it, which every installed copy then`);
-console.log(`offers as an update, with:\n  git push --atomic origin main v${version}`);
+console.log(`\nKura ${version} is committed and tagged.`);
+if (!process.env.GITHUB_ACTIONS) {
+  console.log("Publish it, which every installed copy then offers as an update, with:");
+  console.log(`  git push --atomic origin main v${version}`);
+}
