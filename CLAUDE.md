@@ -130,6 +130,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   `Movies\Title (Year)\Title (Year).mkv`, never release groups, resolutions or codecs. Folders a
   tidy-up leaves empty are removed (and come back on undo), and subtitle files beside a video move
   and rename with it.
+- Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word
+  on its card, title page, review and report (status keeps the shapes), with counts by kind
+  ("TV · 26 episodes · 2 OVAs · 1 movie"). Specials and OVAs are listed apart from missing
+  episodes, so they never count as missing.
 - "A simple tool, but we don't want to struggle with small things": empty, error and recovery
   states are designed, not afterthoughts (see the "small things" screen).
 - Order of work: design language (done), repo and pipelines (done), then building.
@@ -251,10 +255,18 @@ Everything decided so far. Don't ask again; change only with the owner.
 1. Identification and missing episodes: names parsed (done in the core), titles matched with
    manami's offline database (a download, so it joins downloads.json), looked up on TMDB and
    AniList with artwork (the owner has a TMDB key, to enter in Setup), a review screen for low
-   confidence, the gap check against TMDB's episode lists with its reports, and the library home
-   board. The scan screen gains its last three stages.
-2. Tidy-up in the app (the planner and journal exist): review, apply, undo, History.
-3. Conversion, with the queue.
+   confidence, the gap check against TMDB's episode lists with its reports, and the TMDB credit.
+   The scan screen gains its last three stages.
+2. The library home and a page per title (their boards): every show with its artwork, kind and
+   status, "Needs your attention", and each show's seasons and episode map.
+3. Tidy-up in the app (the planner and journal exist): review, apply, undo, quarantine, History.
+4. Conversion, with the queue: upscaling, the encode, Kura's mux, checking each output, estimates,
+   overnight runs, and a full disk or an unplugged drive handled.
+5. Settings: everything chosen in setup, the TMDB key, moving the data folder, starting with
+   Windows.
+6. Background care: nightly database backups (keep 7), and notifications from the tray.
+7. Plex poster and fanart files next to each show (optional, as decided).
+8. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), Real-ESRGAN's
 model (BSD-3-Clause) and Anime4K's shaders (MIT), which ship with their notices, manami's
