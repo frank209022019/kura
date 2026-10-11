@@ -20,6 +20,11 @@ class DataPaths:
         return self.root / "logs"
 
     @property
+    def cache(self) -> Path:
+        """Answers from TMDB and AniList, kept for a while (see kura/cache.py)."""
+        return self.root / "cache"
+
+    @property
     def tools(self) -> Path:
         """What Kura downloads to work with, such as ffmpeg (see downloads.json)."""
         return self.root / "tools"

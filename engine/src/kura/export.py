@@ -109,6 +109,24 @@ _LIBRARY_COLUMNS = (
     "height",
     "codec",
     "problem",
+    "title",
+    "kind",
+    "season",
+    "episode",
+    "matched",
+)
+
+
+_LIBRARY = (
+    "SELECT d.path, f.path, f.size, f.found_at, f.gone_at, f.probed_at, f.duration,"
+    " f.width, f.height, f.codec, f.problem, t.name, t.kind, f.season, f.episode, f.matched"
+    " FROM files AS f JOIN folders AS d ON d.id = f.folder_id"
+    " LEFT JOIN titles AS t ON t.id = f.title_id ORDER BY f.path"
+)
+_LIBRARY_BEFORE_TITLES = (
+    "SELECT d.path, f.path, f.size, f.found_at, f.gone_at, f.probed_at, f.duration,"
+    " f.width, f.height, f.codec, f.problem, NULL, NULL, NULL, NULL, NULL"
+    " FROM files AS f JOIN folders AS d ON d.id = f.folder_id ORDER BY f.path"
 )
 
 
@@ -116,11 +134,8 @@ def _library_csv(conn: sqlite3.Connection) -> str | None:
     """Every video Kura found, with what reading it showed, or None before the library existed."""
     if not _has_table(conn, "files"):
         return None
-    rows = conn.execute(
-        "SELECT d.path, f.path, f.size, f.found_at, f.gone_at, f.probed_at, f.duration,"
-        " f.width, f.height, f.codec, f.problem"
-        " FROM files AS f JOIN folders AS d ON d.id = f.folder_id ORDER BY f.path"
-    )
+    # A database from before identification has no titles: those columns stay empty.
+    rows = conn.execute(_LIBRARY if _has_table(conn, "titles") else _LIBRARY_BEFORE_TITLES)
     text = io.StringIO()
     writer = csv.writer(text)
     writer.writerow(_LIBRARY_COLUMNS)

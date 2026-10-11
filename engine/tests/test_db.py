@@ -42,3 +42,34 @@ def test_a_failing_migration_changes_nothing(tmp_path: Path, monkeypatch: pytest
         tables = {row["name"] for row in conn.execute("SELECT name FROM sqlite_master")}
         assert "settings" in tables
         assert "half_done" not in tables
+
+
+def test_identification_keeps_every_scan_and_file_from_before(tmp_path: Path):
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:3]))
+        conn.execute("PRAGMA user_version = 3")
+        conn.execute("INSERT INTO folders (path, added_at) VALUES ('D:/Anime', '2026-10-11')")
+        conn.execute(
+            "INSERT INTO files (folder_id, path, size, modified, found_at, seen_at)"
+            " VALUES (1, 'D:/Anime/Trigun - 01.mkv', 1, 1, 'then', 'then')"
+        )
+        conn.execute(
+            "INSERT INTO scans (started_at, finished_at, state, stage)"
+            " VALUES ('2026-10-11T09:00', '2026-10-11T09:05', 'done', 'done')"
+        )
+        conn.commit()
+
+        db.migrate(conn)
+
+        scan = conn.execute("SELECT * FROM scans").fetchone()
+        assert (scan["state"], scan["stage"], scan["note"]) == ("done", "done", None)
+        file = conn.execute("SELECT * FROM files").fetchone()
+        assert (file["path"], file["matched"], file["pinned"]) == (
+            "D:/Anime/Trigun - 01.mkv",
+            None,
+            0,
+        )
+        conn.execute(  # the new stages are allowed
+            "INSERT INTO scans (started_at, state, stage)"
+            " VALUES ('later', 'running', 'identifying')"
+        )

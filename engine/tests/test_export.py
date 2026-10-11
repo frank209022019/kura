@@ -132,7 +132,41 @@ def test_the_export_lists_every_video_in_the_library(
         "height": "540",
         "codec": "hevc",
         "problem": "",
+        "title": "",
+        "kind": "",
+        "season": "",
+        "episode": "",
+        "matched": "",
     }
+
+
+def test_the_library_list_says_what_each_video_is(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    folder = add_folder(conn, anime, now=NOW)
+    find_files(conn, folder, stamp=NOW.isoformat())
+    with conn:
+        conn.execute(
+            "INSERT INTO titles (id, kind, name, year) VALUES (1, 'series', 'Dragon Ball Z', 1989)"
+        )
+        conn.execute(
+            "UPDATE files SET title_id = 1, season = 1, episode = 1, matched = 'sure'"
+            " WHERE path LIKE '%DBZ - 001%'"
+        )
+
+    archive = export_data(paths, paths.root.parent / "exports", now=NOW)
+
+    assert archive is not None
+    with zipfile.ZipFile(archive) as zipped:
+        rows = list(csv.DictReader(io.StringIO(zipped.read("library.csv").decode("utf-8-sig"))))
+    dbz = next(row for row in rows if "DBZ" in row["path"])
+    assert (dbz["title"], dbz["kind"], dbz["season"], dbz["episode"], dbz["matched"]) == (
+        "Dragon Ball Z",
+        "series",
+        "1",
+        "1",
+        "sure",
+    )
 
 
 def test_a_second_export_on_the_same_day_keeps_both(paths: DataPaths, tmp_path: Path):

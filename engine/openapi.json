@@ -758,6 +758,25 @@
               }
             ],
             "title": "Problem"
+          },
+          "titles": {
+            "type": "integer",
+            "title": "Titles"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           }
         },
         "type": "object",
@@ -773,7 +792,10 @@
           "current",
           "secondsLeft",
           "unavailable",
-          "problem"
+          "problem",
+          "titles",
+          "waiting",
+          "note"
         ],
         "title": "Scan"
       },
@@ -822,6 +844,8 @@
         "enum": [
           "finding",
           "reading",
+          "identifying",
+          "checking",
           "done"
         ]
       },

@@ -14,6 +14,7 @@ from kura.scan import Scanner
 from kura.tools import Tools
 from tests.conftest import TOKEN
 from tests.fake_ffprobe import REPORT
+from tests.fake_web import FakeWeb
 
 START = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
 
@@ -26,6 +27,7 @@ def scanner(paths: DataPaths) -> Scanner:
         Tools(paths, items=()),
         read=lambda _: REPORT,
         now=lambda: START + timedelta(seconds=next(seconds)),
+        transport=FakeWeb(),
     )
 
 

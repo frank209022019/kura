@@ -1,0 +1,83 @@
+"""AniList and TMDB as the tests stand them in: real AniList answers saved in tests/data/anilist,
+and TMDB answers built in TMDB's shape (tests/tmdb_data.py), for Dragon Ball Z and Cowboy Bebop."""
+
+import json
+from collections.abc import Callable
+from datetime import date
+from pathlib import Path
+from typing import cast
+
+from kura.anilist import API as ANILIST
+from kura.tmdb import API as TMDB
+from tests.fake_web import Answer, Asked, FakeWeb
+from tests.tmdb_data import DBZ_SEASONS, movie_details, movie_search, tv_details, tv_search
+
+SAVED = Path(__file__).parent / "data" / "anilist"
+
+# What AniList answers, by what it's asked: real answers saved in tests/data/anilist.
+ANILIST_ANSWERS = {
+    "dragon ball z": "dragon-ball-z",
+    "dbz": "dragon-ball-z",
+    "cowboy bebop": "cowboy-bebop",
+}
+
+DBZ_DETAILS = tv_details(12971, "Dragon Ball Z", DBZ_SEASONS, first_aired=date(1989, 4, 26))
+BEBOP_DETAILS = tv_details(
+    30991,
+    "Cowboy Bebop",
+    (26,),
+    first_aired=date(1998, 4, 3),
+    specials=3,
+    special_dates=(date(1998, 4, 3), date(1998, 6, 26), date(2012, 12, 21)),
+)
+
+
+def anilist(asked: Asked) -> object:
+    variables = cast("dict[str, object]", asked.payload["variables"])
+    search = str(variables.get("search", "")).casefold()
+    saved = next((file for name, file in ANILIST_ANSWERS.items() if search.startswith(name)), None)
+    if saved is None:
+        return {"data": {"Page": {"media": []}}}
+    return json.loads((SAVED / f"{saved}.json").read_text(encoding="utf-8"))
+
+
+def tmdb_show(details: dict[str, object]) -> Callable[[Asked], object]:
+    """A /tv/{id} that answers the way TMDB does: the show, or the show with seasons appended."""
+
+    def answer(asked: Asked) -> object:
+        wanted = asked.query.get("append_to_response")
+        if wanted is None:
+            return {key: value for key, value in details.items() if not key.startswith("season/")}
+        return {"id": details["id"], **{key: details[key] for key in wanted.split(",")}}
+
+    return answer
+
+
+def tmdb_search_tv(asked: Asked) -> object:
+    query = asked.query["query"].casefold()
+    if query == "dragon ball z":
+        return tv_search((12971, "Dragon Ball Z", date(1989, 4, 26)))
+    if query == "cowboy bebop":
+        return tv_search((30991, "Cowboy Bebop", date(1998, 4, 3)))
+    return {"results": []}
+
+
+def tmdb_search_movie(asked: Asked) -> object:
+    if asked.query["query"].casefold().startswith("cowboy bebop"):
+        return movie_search((11299, "Cowboy Bebop: The Movie", date(2001, 9, 1)))
+    return {"results": []}
+
+
+def internet(*, tmdb: bool = True) -> FakeWeb:
+    answers: dict[str, Answer] = {f"POST {ANILIST}": anilist}
+    if tmdb:
+        answers |= {
+            f"GET {TMDB}/search/tv": tmdb_search_tv,
+            f"GET {TMDB}/search/movie": tmdb_search_movie,
+            f"GET {TMDB}/tv/12971": tmdb_show(DBZ_DETAILS),
+            f"GET {TMDB}/tv/30991": tmdb_show(BEBOP_DETAILS),
+            f"GET {TMDB}/movie/11299": movie_details(
+                11299, "Cowboy Bebop: The Movie", date(2001, 9, 1), 115
+            ),
+        }
+    return FakeWeb(answers)

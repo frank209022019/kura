@@ -3,6 +3,7 @@ and what's airing. It needs no key, and allows about 30 requests a minute; kura/
 it says the minute's requests are spent.
 """
 
+from kura.cache import DAY, Cache
 from kura.core import catalog, fields
 from kura.core.catalog import Anime
 from kura.web import Send, Service, WebError, send
@@ -33,14 +34,24 @@ _ONE = f"query ($id: Int) {{ Media(id: $id, type: ANIME) {{ {_ENTRY} }} }}"
 
 
 class AniList:
-    def __init__(self, transport: Send = send, service: Service | None = None) -> None:
+    def __init__(
+        self, transport: Send = send, service: Service | None = None, cache: Cache | None = None
+    ) -> None:
         self._service = service or Service("AniList", transport)
+        self._cache = cache
 
     def search(self, text: str, count: int = 8) -> list[Anime]:
-        """Entries whose names fit `text`, best first, as AniList ranks them."""
-        answer = self._service.json(
-            "POST", API, payload={"query": _SEARCH, "variables": {"search": text, "count": count}}
-        )
+        """Entries whose names fit `text`, best first, as AniList ranks them. An answer is kept
+        for a week, so a rescan doesn't ask again."""
+        key = f"anilist search {count} {text.casefold()}"
+        answer = self._cache.get(key, 7 * DAY) if self._cache else None
+        if answer is None:
+            variables = {"search": text, "count": count}
+            answer = self._service.json(
+                "POST", API, payload={"query": _SEARCH, "variables": variables}
+            )
+            if self._cache:
+                self._cache.put(key, answer)
         return catalog.anime_list(answer)
 
     def entry(self, anime_id: int) -> Anime | None:

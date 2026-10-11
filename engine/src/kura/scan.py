@@ -1,4 +1,5 @@
-"""The scan: finds every video in the library folders, then reads each one with ffprobe.
+"""The scan: finds every video in the library folders, reads each one with ffprobe, identifies
+which anime and episode it is (kura/identify.py), then checks the library.
 
 One scan runs at a time, on a background thread with its own database connection. The scans
 table holds where it is, and everything it learns is saved as it goes, so a scan that's paused, or
@@ -21,16 +22,18 @@ from kura import db
 from kura.config import DataPaths
 from kura.core.library import time_left
 from kura.core.media import Json
+from kura.identify import Identifier
 from kura.library import find_files, folders, read_file, unread
 from kura.probe import ProbeToolError, probe
 from kura.tools import Tools
+from kura.web import Send, send
 
 log = logging.getLogger(__name__)
 
 _STOPPING = 0.5  # seconds a resume waits for a scan that's still stopping for a pause
 
 type State = Literal["idle", "running", "paused", "done", "failed"]
-type Stage = Literal["finding", "reading", "done"]
+type Stage = Literal["finding", "reading", "identifying", "checking", "done"]
 
 
 class ScanBusyError(Exception):
@@ -55,6 +58,9 @@ class ScanStatus:
     seconds_left: float | None
     unavailable: tuple[str, ...]  # library folders that aren't there (a drive unplugged)
     problem: str | None  # why the scan stopped, when it failed
+    titles: int = 0  # anime and films identified in the library
+    waiting: int = 0  # files that need the owner to say which anime they are
+    note: str | None = None  # what the scan couldn't do, though it finished
 
 
 def _utc_now() -> datetime:
@@ -71,15 +77,17 @@ class Scanner:
         *,
         read: Callable[[Path], Json] | None = None,
         now: Callable[[], datetime] = _utc_now,
+        transport: Send = send,
     ) -> None:
         self._paths = paths
         self._tools = tools
         self._read = read
         self._now = now
+        self._identifier = Identifier(paths, transport, now=now)
         self._lock = threading.Lock()
         self._pause = threading.Event()
         self._thread: threading.Thread | None = None
-        self._current: Path | None = None
+        self._current: str | None = None  # the file, or the anime, being looked at
         self._reading_since: float | None = None
         self._read_live = 0
         self._to_read_live = 0
@@ -159,9 +167,20 @@ class Scanner:
                 if stage == "finding":
                     if not self._find(conn, started):
                         return self._stop(conn, scan_id, "finding")
-                    _set(conn, scan_id, stage="reading")
-                if not self._read_all(conn):
-                    return self._stop(conn, scan_id, "reading")
+                    stage = "reading"
+                    _set(conn, scan_id, stage=stage)
+                if stage == "reading":
+                    if not self._read_all(conn):
+                        return self._stop(conn, scan_id, "reading")
+                    stage = "identifying"
+                    _set(conn, scan_id, stage=stage)
+                if stage == "identifying":
+                    identified = self._identifier.run(
+                        conn, stop=self._pause.is_set, looking_at=self._looking_at
+                    )
+                    if identified is None:
+                        return self._stop(conn, scan_id, "identifying")
+                    _set(conn, scan_id, stage="checking", note=identified.note)
                 _set(conn, scan_id, state="done", stage="done", finished_at=self._now().isoformat())
             except _NoReaderError:
                 _set(conn, scan_id, state="failed", problem=_NEEDS_FFMPEG)
@@ -233,8 +252,8 @@ class Scanner:
             raise _NoReaderError
         return lambda path: probe(ffprobe, path)
 
-    def _looking_at(self, path: Path) -> None:
-        self._current = path
+    def _looking_at(self, what: Path | str) -> None:
+        self._current = str(what)
 
     def _stop(self, conn: sqlite3.Connection, scan_id: int, stage: Stage) -> None:
         _set(conn, scan_id, state="paused", stage=stage)
@@ -245,6 +264,12 @@ class Scanner:
         problems: int = conn.execute(
             "SELECT COUNT(*) FROM files WHERE problem IS NOT NULL AND gone_at IS NULL"
         ).fetchone()[0]
+        titles, waiting_owner = conn.execute(
+            """SELECT (SELECT COUNT(DISTINCT title_id) FROM files
+                       WHERE title_id IS NOT NULL AND gone_at IS NULL),
+                      (SELECT COUNT(*) FROM files
+                       WHERE matched IN ('unsure', 'none') AND gone_at IS NULL)"""
+        ).fetchone()
         if latest is None:
             return ScanStatus(
                 "idle", None, None, None, 0, 0, 0, problems, None, None, unavailable, None
@@ -274,10 +299,13 @@ class Scanner:
             to_read=read + waiting,
             read=read,
             problems=problems,
-            current=str(current) if current else None,
+            current=current,
             seconds_left=left,
             unavailable=unavailable,
             problem=latest["problem"],
+            titles=titles,
+            waiting=waiting_owner,
+            note=latest["note"],
         )
 
 
@@ -305,11 +333,13 @@ def _set(
     stage: str | None = None,
     finished_at: str | None = None,
     problem: str | None = None,
+    note: str | None = None,
 ) -> None:
     with conn:
         conn.execute(
             """UPDATE scans SET state = COALESCE(?, state), stage = COALESCE(?, stage),
-                                finished_at = COALESCE(?, finished_at), problem = ?
+                                finished_at = COALESCE(?, finished_at), problem = ?,
+                                note = COALESCE(?, note)
                WHERE id = ?""",
-            (state, stage, finished_at, problem, scan_id),
+            (state, stage, finished_at, problem, note, scan_id),
         )

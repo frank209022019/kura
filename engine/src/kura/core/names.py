@@ -183,8 +183,12 @@ def _clean_title(title: str | None, drop: set[str] | frozenset[str]) -> str | No
     if title is None:
         return None
     words = title.split()
+    dropped = False
     while words and words[-1].strip(" -:").casefold() in drop:
         words.pop()
+        dropped = True
+    if dropped and words and words[-1].casefold() == "the":
+        words.pop()  # "Cowboy Bebop - The Movie": the article goes with the word it named
     cleaned = " ".join(words).strip(" -:")
     return cleaned or None
 

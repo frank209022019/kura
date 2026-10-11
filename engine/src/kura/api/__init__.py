@@ -70,7 +70,7 @@ def create_app(
     app.state.paths = paths
     app.state.transport = transport
     app.state.tools = toolbox or Tools(paths)
-    app.state.scanner = scanner or Scanner(paths, app.state.tools)
+    app.state.scanner = scanner or Scanner(paths, app.state.tools, transport=transport)
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)

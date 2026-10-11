@@ -47,10 +47,12 @@ tables, give every table a primary key, and add the new data to the export.
 | `plans` | 2 | Tidy-up plans: a title, and when each was made, applied and undone |
 | `changes` | 2 | The undo journal: each plan's moves and quarantines in order, with their state (`planned`, `moving`, `done`, `failed`, `undoing`, `undone`), any problem, and the folders each one created |
 | `folders` | 3 | The library folders, unique whatever their case |
-| `files` | 3 | Every video a scan found: its folder, path, size and time (to notice changes), when it was found, last seen and gone, and once read, ffprobe's JSON report with the duration, size and codec at a glance, or why it couldn't be read |
-| `scans` | 3 | Each scan: when it started and finished, its state (`running`, `paused`, `done`, `failed`), its stage (`finding`, `reading`, `done`) and any problem |
+| `files` | 3, 4 | Every video a scan found: its folder, path, size and time (to notice changes), when it was found, last seen and gone, and once read, ffprobe's JSON report with the duration, size and codec at a glance, or why it couldn't be read. Since 4, what it is: its title, the AniList entry it matched, its season and episode as TMDB numbers them, how sure Kura is (`sure`, `unsure`, `none`, `extra`, `ignored`) with the best guesses for review, and whether the owner pinned it |
+| `scans` | 3, 4 | Each scan: when it started and finished, its state (`running`, `paused`, `done`, `failed`), its stage (`finding`, `reading`, `identifying`, `checking`, `done`), any problem, and a note on what it couldn't do though it finished |
+| `titles` | 4 | Each anime and film in the library: its kind (`series`, `movie`, `ova`, `special`), name, year and release date (lists sort by it), its TMDB show or film and the AniList entry it was found by, whether it's airing, its poster, and when its episode list was last asked for |
+| `episodes` | 4 | Each title's episode list, from TMDB (or AniList's count without a key): season (0 for the specials), number, name, air date and length |
 
-Matches, the queue and history come with the features that need them.
+The queue and history come with the features that need them.
 
 ## Backups and export
 

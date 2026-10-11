@@ -77,4 +77,62 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         problem     TEXT
     ) STRICT;
     """,
+    # 4. Identification: the titles in the library (TMDB's shows and films, or AniList's entries
+    #    without a TMDB key), their episode lists, and what each video is. Scans gain the stages
+    #    after reading; SQLite can't change a CHECK, so that table is made again.
+    """
+    CREATE TABLE titles (
+        id         INTEGER PRIMARY KEY,
+        kind       TEXT NOT NULL CHECK (kind IN ('series', 'movie', 'ova', 'special')),
+        name       TEXT NOT NULL,
+        year       INTEGER,
+        released   TEXT,     -- first aired, or the film's release: lists sort by it
+        tmdb_type  TEXT CHECK (tmdb_type IN ('tv', 'movie')),
+        tmdb_id    INTEGER,
+        anilist_id INTEGER,  -- the AniList entry it was found by
+        airing     INTEGER NOT NULL DEFAULT 0 CHECK (airing IN (0, 1)),
+        poster     TEXT,     -- TMDB's image path, or AniList's cover address
+        checked_at TEXT,     -- when its episode list was last asked for
+        UNIQUE (tmdb_type, tmdb_id)
+    ) STRICT;
+    CREATE UNIQUE INDEX titles_by_anilist ON titles (anilist_id) WHERE tmdb_id IS NULL;
+
+    CREATE TABLE episodes (
+        title_id INTEGER NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
+        season   INTEGER NOT NULL,  -- 0 holds the specials
+        number   INTEGER NOT NULL,
+        name     TEXT,
+        aired    TEXT,
+        minutes  INTEGER,
+        PRIMARY KEY (title_id, season, number)
+    ) STRICT, WITHOUT ROWID;
+
+    ALTER TABLE files ADD COLUMN title_id INTEGER REFERENCES titles (id) ON DELETE SET NULL;
+    ALTER TABLE files ADD COLUMN anilist_id INTEGER;   -- the AniList entry it matched
+    ALTER TABLE files ADD COLUMN season INTEGER;       -- where it sits in its title, numbered
+    ALTER TABLE files ADD COLUMN episode INTEGER;      -- as TMDB numbers it; NULL for a film
+    ALTER TABLE files ADD COLUMN episode_end INTEGER;  -- the last episode, when it holds several
+    ALTER TABLE files ADD COLUMN matched TEXT
+        CHECK (matched IN ('sure', 'unsure', 'none', 'extra', 'ignored'));
+    ALTER TABLE files ADD COLUMN confidence INTEGER;
+    ALTER TABLE files ADD COLUMN guesses TEXT;         -- JSON: the best guesses, for review
+    ALTER TABLE files ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1));
+    ALTER TABLE files ADD COLUMN identified_at TEXT;   -- NULL while it's still to identify
+    CREATE INDEX files_by_title ON files (title_id);
+
+    CREATE TABLE scans_next (
+        id          INTEGER PRIMARY KEY,
+        started_at  TEXT NOT NULL,
+        finished_at TEXT,
+        state       TEXT NOT NULL CHECK (state IN ('running', 'paused', 'done', 'failed')),
+        stage       TEXT NOT NULL CHECK (
+                        stage IN ('finding', 'reading', 'identifying', 'checking', 'done')),
+        problem     TEXT,
+        note        TEXT     -- what the scan couldn't do, though it finished
+    ) STRICT;
+    INSERT INTO scans_next (id, started_at, finished_at, state, stage, problem)
+        SELECT id, started_at, finished_at, state, stage, problem FROM scans;
+    DROP TABLE scans;
+    ALTER TABLE scans_next RENAME TO scans;
+    """,
 )

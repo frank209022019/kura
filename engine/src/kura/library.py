@@ -229,7 +229,8 @@ def _record(
         """UPDATE files
            SET folder_id = ?, size = ?, modified = ?, seen_at = ?, gone_at = NULL,
                probed_at = NULL, probe = NULL, problem = NULL,
-               duration = NULL, width = NULL, height = NULL, codec = NULL
+               duration = NULL, width = NULL, height = NULL, codec = NULL,
+               identified_at = CASE WHEN pinned = 1 THEN identified_at END
            WHERE path = ?""",
         (folder_id, size, modified, stamp, str(path)),
     )

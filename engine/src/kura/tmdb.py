@@ -8,6 +8,7 @@ import re
 from typing import Literal
 from urllib.parse import urlencode
 
+from kura.cache import DAY, Cache
 from kura.core import catalog
 from kura.core.catalog import Film, Hit, Show
 from kura.core.fields import Json
@@ -20,9 +21,16 @@ _V3_KEY = re.compile(r"[0-9a-fA-F]{32}")
 
 
 class Tmdb:
-    def __init__(self, key: str, transport: Send = send, service: Service | None = None) -> None:
+    def __init__(
+        self,
+        key: str,
+        transport: Send = send,
+        service: Service | None = None,
+        cache: Cache | None = None,
+    ) -> None:
         self._key = key.strip()
         self._service = service or Service("TMDB", transport)
+        self._cache = cache
 
     def check(self) -> None:
         """Raises WebError unless TMDB accepts the key."""
@@ -31,11 +39,19 @@ class Tmdb:
     def search(
         self, media: Literal["tv", "movie"], query: str, year: int | None = None
     ) -> list[Hit]:
-        """Shows or films whose name fits `query`, best first, as TMDB ranks them."""
-        options: dict[str, str] = {"query": query, "include_adult": "false"}
-        if year is not None:
-            options["first_air_date_year" if media == "tv" else "primary_release_year"] = str(year)
-        return catalog.hits(self._get(f"/search/{media}", options), media)
+        """Shows or films whose name fits `query`, best first, as TMDB ranks them. An answer is
+        kept for a week."""
+        key = f"tmdb search {media} {query.casefold()} {year}"
+        answer = self._cache.get(key, 7 * DAY) if self._cache else None
+        if answer is None:
+            options: dict[str, str] = {"query": query, "include_adult": "false"}
+            if year is not None:
+                field = "first_air_date_year" if media == "tv" else "primary_release_year"
+                options[field] = str(year)
+            answer = self._get(f"/search/{media}", options)
+            if self._cache:
+                self._cache.put(key, answer)
+        return catalog.hits(answer, media)
 
     def show(self, show_id: int) -> Show | None:
         """A show with every episode of every season, specials included, or None if it's gone."""

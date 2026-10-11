@@ -22,6 +22,8 @@ from kura.probe import ProbeError, ProbeToolError
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools, manifest
 from tests.fake_ffprobe import REPORT
+from tests.fake_web import FakeWeb
+from tests.services import internet
 
 NOW = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
 
@@ -34,14 +36,19 @@ _SECONDS = itertools.count(1)  # one clock for every scanner, so a later scan st
 
 
 def scanner(
-    paths: DataPaths, read: Callable[[Path], Json] | None = reads, tools: Tools | None = None
+    paths: DataPaths,
+    read: Callable[[Path], Json] | None = reads,
+    tools: Tools | None = None,
+    web: FakeWeb | None = None,
 ) -> Scanner:
-    """A scanner whose clock moves on a second each time it's read."""
+    """A scanner whose clock moves on a second each time it's read. Nothing it asks of AniList
+    or TMDB is answered unless `web` says so."""
     return Scanner(
         paths,
         tools or Tools(paths, items=()),
         read=read,
         now=lambda: NOW + timedelta(seconds=next(_SECONDS)),
+        transport=web or FakeWeb(),
     )
 
 
@@ -331,3 +338,34 @@ def test_a_file_whose_folder_vanishes_mid_scan_is_left_for_the_next_one(
         "SELECT gone_at, probed_at FROM files WHERE path LIKE '%[Group] DBZ%'"
     ).fetchone()
     assert (row["gone_at"], row["probed_at"]) == (None, None)
+
+
+def test_a_scan_identifies_what_it_read(paths: DataPaths, conn: sqlite3.Connection, anime: Path):
+    add_folder(conn, anime, now=NOW)
+    scan = scanner(paths, web=internet(tmdb=False))
+
+    scan.start()
+    finished(scan)
+
+    status = scan.status()
+    assert (status.state, status.stage) == ("done", "done")
+    # [Group] DBZ - 001 is Dragon Ball Z; Dragon Ball and Broly aren't in the stood-in AniList.
+    assert (status.titles, status.waiting, status.note) == (1, 2, None)
+
+
+def test_offline_a_scan_still_finishes_and_says_titles_wait(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    add_folder(conn, anime, now=NOW)
+    offline = internet()
+    offline.offline = True
+    scan = scanner(paths, web=offline)
+
+    scan.start()
+    finished(scan)
+
+    status = scan.status()
+    assert status.state == "done"
+    assert (status.note or "").startswith(
+        "Titles wait for the next scan: AniList couldn't be asked"
+    )

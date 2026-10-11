@@ -209,6 +209,11 @@ class TestKinds:
 
         assert (result.kind, result.title) == (Kind.MOVIE, "Cowboy Bebop")
 
+    def test_the_movie_goes_as_a_whole(self):
+        result = parsed(r"D:\Anime\Movies\Cowboy Bebop - The Movie (2001).mkv")
+
+        assert (result.kind, result.title, result.year) == (Kind.MOVIE, "Cowboy Bebop", 2001)
+
     def test_a_year_and_no_episode_is_a_movie(self):
         result = parsed(r"D:\Anime\[Group] Dragon Ball Super - Broly (2018) [1080p].mkv")
 

@@ -21,6 +21,9 @@ class Scan(ApiModel):
     seconds_left: float | None
     unavailable: list[str]
     problem: str | None
+    titles: int  # anime and films identified in the library
+    waiting: int  # files that need the owner to say which anime they are
+    note: str | None  # what the scan couldn't do, though it finished
 
 
 def _scan(now: ScanStatus) -> Scan:
@@ -37,6 +40,9 @@ def _scan(now: ScanStatus) -> Scan:
         seconds_left=now.seconds_left,
         unavailable=list(now.unavailable),
         problem=now.problem,
+        titles=now.titles,
+        waiting=now.waiting,
+        note=now.note,
     )
 
 

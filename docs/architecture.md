@@ -67,7 +67,9 @@ kura/
   db.py           connecting to SQLite and migrating it
   migrations.py   the schema, as an append-only list
   library.py      library folders, and finding and reading their videos
-  scan.py         the scan: find every video, then read each one
+  scan.py         the scan: find every video, read each one, identify it, check the library
+  identify.py     which anime and episode each video is, asked of AniList and TMDB
+  cache.py        their answers, kept a while so a rescan asks nobody again
   probe.py        running ffprobe on one file
   tools.py        downloading what downloads.json lists (ffmpeg)
   changes.py      applying and undoing tidy-up plans, journaled
@@ -98,7 +100,11 @@ Scanning (`kura/scan.py`) runs on a background thread: it walks each library fol
 (`kura/library.py`, by the rules in `kura/core/library.py`) and records each with its size and
 time, then reads the new and changed ones with ffprobe (`kura/probe.py`). Everything is saved as it
 goes and the scan's stage is in the `scans` table, so a pause, an exit or a crash loses nothing: the
-next start carries on. A folder on an unplugged drive is skipped and its files stay as they were,
+next start carries on. Then each video read is identified (`kura/identify.py`): files that look
+like the same anime are looked up together on AniList, and with the owner's TMDB key the same show
+or film is found on TMDB, whose episode lists say where each file sits. A file Kura isn't sure
+about waits for the owner; offline, identification waits for the next scan and the scan says so.
+A folder on an unplugged drive is skipped and its files stay as they were,
 and so do the files in a folder the walk couldn't open; only a file whose folder is there without
 it is marked gone. Links and junctions aren't followed. Files that couldn't be read are read again
 by the next scan. If ffprobe itself doesn't work, the scan stops without marking any file and

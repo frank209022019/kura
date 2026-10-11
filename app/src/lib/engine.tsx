@@ -215,7 +215,7 @@ export type ScanState = "idle" | "running" | "paused" | "done" | "failed";
 /** The latest scan. */
 export interface Scan {
   state: ScanState;
-  stage: "finding" | "reading" | "done" | null;
+  stage: "finding" | "reading" | "identifying" | "checking" | "done" | null;
   startedAt: string | null;
   finishedAt: string | null;
   found: number;
@@ -226,6 +226,12 @@ export interface Scan {
   secondsLeft: number | null;
   unavailable: string[];
   problem: string | null;
+  /** Anime and films identified in the library. */
+  titles: number;
+  /** Files that need the owner to say which anime they are. */
+  waiting: number;
+  /** What the scan couldn't do, though it finished (offline, say). */
+  note: string | null;
 }
 
 const LIBRARY = ["/folders", "/library", "/scan"];
