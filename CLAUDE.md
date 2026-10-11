@@ -114,9 +114,9 @@ Everything decided so far. Don't ask again; change only with the owner.
 **The product**
 - Point Kura at folders in any layout: one anime per folder, franchise sub-folders, or many anime
   mixed in one folder. Files live on local drives; the library is many episodes across many anime.
-- It analyses every file, identifies it from free sources (TMDB, AniList, the offline manami
-  database) with artwork, reports gaps and health (a Markdown report per anime), renames for Plex,
-  quarantines duplicates, and converts everything to one standard with a preview and estimates.
+- It analyses every file, identifies it from free sources (TMDB and AniList) with artwork,
+  reports gaps and health (a Markdown report per anime), renames for Plex, quarantines duplicates,
+  and converts everything to one standard with a preview and estimates.
 - Conversion history is kept "last modified" style. Installer, auto-updater, and an uninstaller that
   offers an export first.
 - The pilot library is the whole Dragon Ball franchise (not on the PC yet).
@@ -130,6 +130,8 @@ Everything decided so far. Don't ask again; change only with the owner.
   `Movies\Title (Year)\Title (Year).mkv`, never release groups, resolutions or codecs. Folders a
   tidy-up leaves empty are removed (and come back on undo), and subtitle files beside a video move
   and rename with it.
+- Lists sort by release date by default, oldest first, on every page that lists series, movies,
+  OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11).
 - Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word
   on its card, title page, review and report (status keeps the shapes), with counts by kind
   ("TV · 26 episodes · 2 OVAs · 1 movie"). Specials and OVAs are listed apart from missing
@@ -158,15 +160,22 @@ Everything decided so far. Don't ask again; change only with the owner.
   plus a CLI. SQLite for data.
 - A pure core behind small interfaces: parse → match → plan → check → estimate.
 - Identification: anitopy parses names (chosen over guessit and aniparse after testing them on
-  real names, see docs/stack/anitopy.md), the manami offline database matches titles, results map
-  to TMDB IDs, low confidence goes to a review screen, and manual fixes are pinned so a rescan
-  never undoes them.
+  real names, see docs/stack/anitopy.md), AniList's search matches titles (falling back to
+  TMDB's), results map to TMDB IDs, low confidence goes to a review screen, and manual fixes are
+  pinned so a rescan never undoes them. The manami offline database was the first plan, but its
+  repository was archived in 2026 and stopped updating, so AniList's search, which is always
+  current and needs no download, took its place (2026-10-11).
 - Metadata from TMDB and AniList together, for full coverage (the owner, 2026-10-11). TMDB gives
   the episode lists (titles, air dates, Plex's seasons) and the artwork, with the owner's own key:
   Kura asks for it in Setup and Settings and keeps it on the PC, never in the code or an export.
   AniList, which needs no key, covers what TMDB lacks: obscure titles, how series, movies and
   specials connect, and airing dates. Missing episodes are those TMDB lists as aired that the
   library doesn't hold.
+- When the missing-episode check runs (the owner, 2026-10-11): "Scan now" refreshes everything.
+  While Kura is open it watches the library folders, so new and removed files are noticed at once,
+  and it catches up at start on what changed while it was closed. Episode lists of shows still
+  airing are refreshed every hour, finished shows' every week. A "Start with Windows" setting (off
+  by default) keeps Kura in the tray so the checks carry on and it can notify; no scheduled task.
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs
   the AI model with ONNX Runtime on DirectML, ffmpeg resizes and encodes NVENC HEVC 10-bit. Kura's
   own final mux handles the audio policy, subtitles, fonts, chapters and a "processed" tag. Every
@@ -232,11 +241,12 @@ Everything decided so far. Don't ask again; change only with the owner.
   a licence that isn't allowed.
 - **Every download is listed in the installer** (the owner, 2026-10-11: "really important"). No
   one installs anything by hand except a graphics driver, which Kura checks and links to. What
-  isn't inside the installer (WebView2 on a PC without it, ffmpeg, later manami's database)
-  goes in one manifest, `engine/src/kura/downloads.json`: what it's for, version, size, licence,
-  source and checksum. The installer's first page lists it (`scripts/installer-notes.mjs`), the
-  first-run Tools step downloads Kura's part of it (`engine/src/kura/tools.py`), and Kura
-  downloads nothing that isn't on it.
+  isn't inside the installer (WebView2 on a PC without it, ffmpeg) goes in one manifest,
+  `engine/src/kura/downloads.json`: what it's for, version, size, licence, source and checksum.
+  The installer's first page lists it (`scripts/installer-notes.mjs`), the first-run Tools step
+  downloads Kura's part of it (`engine/src/kura/tools.py`), and Kura downloads nothing that isn't
+  on it. Lookups (titles, episode lists, artwork from TMDB and AniList) aren't downloads of
+  programs or data sets, and are named on the same page.
 - Per-user install (no admin) into `%LOCALAPPDATA%\Programs\Kura`, apart from the data.
 - The update-signing key is `%USERPROFILE%\.tauri\kura-updater.key` (no password) and the
   `TAURI_SIGNING_PRIVATE_KEY` repo secret. Lose it and installed copies can't update.
@@ -252,11 +262,10 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 ## What's next
 
-1. Identification and missing episodes: names parsed (done in the core), titles matched with
-   manami's offline database (a download, so it joins downloads.json), looked up on TMDB and
-   AniList with artwork (the owner has a TMDB key, to enter in Setup), a review screen for low
-   confidence, the gap check against TMDB's episode lists with its reports, and the TMDB credit.
-   The scan screen gains its last three stages.
+1. Identification and missing episodes: names parsed (done in the core), titles matched on
+   AniList and TMDB with artwork (the owner has a TMDB key, to enter in Setup), a review screen
+   for low confidence, the gap check against TMDB's episode lists with its reports, the checks
+   while Kura is open, and the TMDB credit. The scan screen gains its last three stages.
 2. The library home and a page per title (their boards): every show with its artwork, kind and
    status, "Needs your attention", and each show's seasons and episode map.
 3. Tidy-up in the app (the planner and journal exist): review, apply, undo, quarantine, History.
@@ -269,9 +278,9 @@ Everything decided so far. Don't ask again; change only with the owner.
 8. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), Real-ESRGAN's
-model (BSD-3-Clause) and Anime4K's shaders (MIT), which ship with their notices, manami's
-offline database (ODbL: downloaded rather than shipped, and credited), and the attribution
-TMDB's terms require inside the app.
+model (BSD-3-Clause) and Anime4K's shaders (MIT), which ship with their notices, the attribution
+TMDB's terms require inside the app, and AniList's terms (free for non-commercial use, within its
+rate limit).
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.

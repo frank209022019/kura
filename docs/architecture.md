@@ -79,7 +79,7 @@ The pipeline the core will grow into, step by step:
 | Step | Takes | Gives |
 | --- | --- | --- |
 | Parse | file names and folders | title, season, episode, group, quality |
-| Match | parsed names, the manami database, TMDB and AniList | which anime and episode, with a confidence |
+| Match | parsed names, AniList and TMDB | which anime and episode, with a confidence |
 | Plan | matches, the standard, the naming style | proposed renames, moves, quarantines, conversions |
 | Check | the library, finished conversions | gaps, broken files, verified outputs |
 | Estimate | a plan, measured speeds | GPU time and disk space |

@@ -9,7 +9,7 @@ Start with [../AGENTS.md](../AGENTS.md) and [../CLAUDE.md](../CLAUDE.md).
 | What | Where |
 | --- | --- |
 | Library rules: parsing names, matching titles, plans, checks, estimates | `src/kura/core/`, pure functions only |
-| Reaching the world: files, ffprobe and ffmpeg, TMDB and AniList, the manami database | modules beside `core/`, one per outside thing, each small and replaceable |
+| Reaching the world: files, ffprobe and ffmpeg, TMDB and AniList | modules beside `core/`, one per outside thing, each small and replaceable |
 | The API the UI calls | `src/kura/api/<feature>.py`, one `APIRouter` per feature, included in `api/__init__.py` |
 | Shared API pieces | `src/kura/api/common.py` (`ApiModel`, `Paths`, `Database`) |
 | The schema | `src/kura/migrations.py`, append-only |

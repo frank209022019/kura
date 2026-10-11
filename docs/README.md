@@ -44,5 +44,5 @@ Every tool Kura uses, its version on 2026-10-10, and the page that explains how 
 | GitHub Actions | | CI and releases | [github-actions.md](stack/github-actions.md) |
 | NSIS | via Tauri | The Windows installer | [tauri.md](stack/tauri.md#installer) |
 
-Tools planned for the build phase (ONNX Runtime, the manami database, TMDB and AniList) get a page
+Tools planned for the build phase (ONNX Runtime, TMDB and AniList) get a page
 when they are first used.
