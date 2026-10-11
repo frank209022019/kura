@@ -46,8 +46,11 @@ tables, give every table a primary key, and add the new data to the export.
 | `settings` | 1 | Kura's preferences: one JSON value per key |
 | `plans` | 2 | Tidy-up plans: a title, and when each was made, applied and undone |
 | `changes` | 2 | The undo journal: each plan's moves and quarantines in order, with their state (`planned`, `moving`, `done`, `failed`, `undoing`, `undone`), any problem, and the folders each one created |
+| `folders` | 3 | The library folders, unique whatever their case |
+| `files` | 3 | Every video a scan found: its folder, path, size and time (to notice changes), when it was found, last seen and gone, and once read, ffprobe's JSON report with the duration, size and codec at a glance, or why it couldn't be read |
+| `scans` | 3 | Each scan: when it started and finished, its state (`running`, `paused`, `done`, `failed`), its stage (`finding`, `reading`, `done`) and any problem |
 
-The library, files, matches, the queue and history come with the features that need them.
+Matches, the queue and history come with the features that need them.
 
 ## Backups and export
 

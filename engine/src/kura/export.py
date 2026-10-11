@@ -36,6 +36,7 @@ def export_data(paths: DataPaths, folder: Path, now: datetime | None = None) -> 
             copy.execute("PRAGMA journal_mode = DELETE")  # one self-contained file
             settings = _settings(source)
             changes = _changes_csv(source)
+            library = _library_csv(source)
             schema_version = db.schema_version(source)
 
         manifest = {
@@ -50,6 +51,8 @@ def export_data(paths: DataPaths, folder: Path, now: datetime | None = None) -> 
             if changes is not None:
                 # With a byte order mark, so Excel shows Japanese titles and accents.
                 archive.writestr("changes.csv", changes.encode("utf-8-sig"))
+            if library is not None:
+                archive.writestr("library.csv", library.encode("utf-8-sig"))
             archive.writestr("manifest.json", json.dumps(manifest, indent=2))
     return target
 
@@ -90,6 +93,37 @@ def _changes_csv(conn: sqlite3.Connection) -> str | None:
     text = io.StringIO()
     writer = csv.writer(text)
     writer.writerow(_CHANGE_COLUMNS)
+    writer.writerows(tuple(row) for row in rows)
+    return text.getvalue()
+
+
+_LIBRARY_COLUMNS = (
+    "folder",
+    "path",
+    "size",
+    "found_at",
+    "gone_at",
+    "read_at",
+    "duration",
+    "width",
+    "height",
+    "codec",
+    "problem",
+)
+
+
+def _library_csv(conn: sqlite3.Connection) -> str | None:
+    """Every video Kura found, with what reading it showed, or None before the library existed."""
+    if not _has_table(conn, "files"):
+        return None
+    rows = conn.execute(
+        "SELECT d.path, f.path, f.size, f.found_at, f.gone_at, f.probed_at, f.duration,"
+        " f.width, f.height, f.codec, f.problem"
+        " FROM files AS f JOIN folders AS d ON d.id = f.folder_id ORDER BY f.path"
+    )
+    text = io.StringIO()
+    writer = csv.writer(text)
+    writer.writerow(_LIBRARY_COLUMNS)
     writer.writerows(tuple(row) for row in rows)
     return text.getvalue()
 

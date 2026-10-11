@@ -11,6 +11,7 @@ from pydantic.alias_generators import to_camel
 
 from kura import db
 from kura.config import DataPaths
+from kura.scan import Scanner
 from kura.tools import Tools
 
 
@@ -39,7 +40,13 @@ def _toolbox(request: Request) -> Tools:
     return toolbox
 
 
+def _scanner(request: Request) -> Scanner:
+    scanner: Scanner = request.app.state.scanner
+    return scanner
+
+
 # Use these as parameter types in routes, e.g. `def route(conn: Database) -> ...`.
 Paths = Annotated[DataPaths, Depends(_paths)]
 Database = Annotated[sqlite3.Connection, Depends(_database)]
 Toolbox = Annotated[Tools, Depends(_toolbox)]
+Scans = Annotated[Scanner, Depends(_scanner)]

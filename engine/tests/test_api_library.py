@@ -1,0 +1,132 @@
+"""The library and scan routes: adding folders, scanning them, and the library at a glance."""
+
+import itertools
+from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from kura.api import create_app
+from kura.config import DataPaths
+from kura.scan import Scanner
+from kura.tools import Tools
+from tests.conftest import TOKEN
+from tests.fake_ffprobe import REPORT
+
+START = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
+
+
+@pytest.fixture
+def scanner(paths: DataPaths) -> Scanner:
+    seconds = itertools.count(1)
+    return Scanner(
+        paths,
+        Tools(paths, items=()),
+        read=lambda _: REPORT,
+        now=lambda: START + timedelta(seconds=next(seconds)),
+    )
+
+
+@pytest.fixture
+def api(paths: DataPaths, scanner: Scanner) -> Iterator[TestClient]:
+    app = create_app(TOKEN, paths, Tools(paths, items=()), scanner)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    with TestClient(app, base_url="http://127.0.0.1", headers=headers) as client:
+        yield client
+
+
+def test_a_new_library_has_no_folders_and_has_never_been_scanned(api: TestClient):
+    assert api.get("/folders").json() == []
+    assert api.get("/scan").json()["state"] == "idle"
+    assert api.get("/library").json() == {
+        "folders": 0,
+        "files": 0,
+        "size": 0,
+        "unread": 0,
+        "problems": 0,
+        "sd": 0,
+        "hd720": 0,
+        "hd1080": 0,
+        "larger": 0,
+    }
+
+
+def test_adding_a_folder_then_scanning_fills_the_library(
+    api: TestClient, scanner: Scanner, anime: Path
+):
+    added = api.post("/folders", json={"path": str(anime)})
+    assert added.status_code == 201
+    assert added.json()["path"] == str(anime)
+    assert added.json()["files"] == 0
+
+    started = api.post("/scan")
+    scanner.wait(timeout=10)
+
+    assert started.status_code == 202
+    scan = api.get("/scan").json()
+    assert (scan["state"], scan["found"], scan["read"], scan["toRead"]) == ("done", 3, 3, 3)
+    [folder] = api.get("/folders").json()
+    assert (folder["files"], folder["unread"], folder["problems"], folder["available"]) == (
+        3,
+        0,
+        0,
+        True,
+    )
+    library = api.get("/library").json()
+    assert (library["folders"], library["files"], library["sd"]) == (1, 3, 3)
+    videos = [
+        anime / "Broly the Legendary Super Saiyan.avi",
+        anime / "Downloads" / "[Group] DBZ - 001 [480p].MKV",
+        anime / "Dragon Ball" / "Dragon Ball - 001 - Secret of the Dragon Balls.mkv",
+    ]
+    assert library["size"] == sum(video.stat().st_size for video in videos)
+
+
+def test_a_folder_that_cant_be_added_says_why(api: TestClient, anime: Path):
+    api.post("/folders", json={"path": str(anime)})
+
+    again = api.post("/folders", json={"path": str(anime)})
+    blank = api.post("/folders", json={"path": "  "})
+
+    assert again.status_code == 400
+    assert again.json() == {"detail": f"{anime} is already in your library."}
+    assert blank.json() == {"detail": "Choose a folder to add."}
+
+
+def test_forgetting_a_folder_leaves_its_files_alone(api: TestClient, anime: Path):
+    folder = api.post("/folders", json={"path": str(anime)}).json()
+
+    assert api.delete(f"/folders/{folder['id']}").status_code == 204
+    assert api.delete(f"/folders/{folder['id']}").status_code == 404
+    assert api.get("/folders").json() == []
+    assert (anime / "Broly the Legendary Super Saiyan.avi").exists()
+
+
+def test_a_scan_can_be_paused_and_resumed_through_the_api(
+    api: TestClient, scanner: Scanner, anime: Path
+):
+    api.post("/folders", json={"path": str(anime)})
+    api.post("/scan")
+    scanner.wait(timeout=10)
+
+    paused = api.post("/scan/pause")
+    resumed = api.post("/scan/resume")
+    scanner.wait(timeout=10)
+
+    assert paused.status_code == 202
+    assert resumed.status_code == 202
+    assert api.get("/scan").json()["state"] == "done"
+
+
+def test_only_one_scan_at_a_time(
+    api: TestClient, scanner: Scanner, anime: Path, monkeypatch: pytest.MonkeyPatch
+):
+    api.post("/folders", json={"path": str(anime)})
+    monkeypatch.setattr(scanner, "_running", lambda: True)
+
+    busy = api.post("/scan")
+
+    assert busy.status_code == 409
+    assert busy.json() == {"detail": "A scan is already running."}

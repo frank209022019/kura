@@ -17,8 +17,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from kura import __version__, changes, db
-from kura.api import health, tools
+from kura.api import health, library, scan, tools
 from kura.config import DataPaths
+from kura.scan import Scanner
 from kura.tools import Tools
 
 # The app's own pages: the installed app, and the Vite dev server in development.
@@ -28,7 +29,9 @@ LOCAL_HOSTS = ["127.0.0.1", "localhost"]
 _bearer = HTTPBearer(auto_error=False)
 
 
-def create_app(token: str, paths: DataPaths, toolbox: Tools | None = None) -> FastAPI:
+def create_app(
+    token: str, paths: DataPaths, toolbox: Tools | None = None, scanner: Scanner | None = None
+) -> FastAPI:
     expected = token.encode()
 
     def require_token(
@@ -43,10 +46,12 @@ def create_app(token: str, paths: DataPaths, toolbox: Tools | None = None) -> Fa
             )
 
     @asynccontextmanager
-    async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
+    async def lifespan(running: FastAPI) -> AsyncGenerator[None]:
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
             changes.recover(conn)  # settle file moves that a crash interrupted
+        scans: Scanner = running.state.scanner
+        scans.recover()  # carry on a scan that an exit or a crash stopped
         yield
 
     app = FastAPI(
@@ -57,6 +62,7 @@ def create_app(token: str, paths: DataPaths, toolbox: Tools | None = None) -> Fa
     )
     app.state.paths = paths
     app.state.tools = toolbox or Tools(paths)
+    app.state.scanner = scanner or Scanner(paths, app.state.tools)
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)
@@ -68,6 +74,8 @@ def create_app(token: str, paths: DataPaths, toolbox: Tools | None = None) -> Fa
     )
     app.include_router(health.router)
     app.include_router(tools.router)
+    app.include_router(library.router)
+    app.include_router(scan.router)
     return app
 
 

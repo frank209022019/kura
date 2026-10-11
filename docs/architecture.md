@@ -84,6 +84,13 @@ The pipeline the core will grow into, step by step:
 | Check | the library, finished conversions | gaps, broken files, verified outputs |
 | Estimate | a plan, measured speeds | GPU time and disk space |
 
+Scanning (`kura/scan.py`) runs on a background thread: it walks each library folder for videos
+(`kura/library.py`, by the rules in `kura/core/library.py`) and records each with its size and
+time, then reads the new and changed ones with ffprobe (`kura/probe.py`). Everything is saved as it
+goes and the scan's stage is in the `scans` table, so a pause, an exit or a crash loses nothing: the
+next start carries on. A folder on an unplugged drive is skipped and its files stay as they were.
+Scans only look; nothing in the folders changes.
+
 A plan is applied only after review, by `kura/changes.py`: each change is written to the
 database before and after its file moves, so it can be undone (newest first) and so the engine,
 when it starts, can settle any move a crash interrupted. Nothing is overwritten: a taken name

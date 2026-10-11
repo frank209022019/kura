@@ -13,7 +13,9 @@ from kura.changes import apply_plan, save_plan
 from kura.config import DataPaths
 from kura.core.plan import Change, ChangeKind, Plan
 from kura.export import export_data
+from kura.library import add_folder, find_files, read_file, unread
 from kura.migrations import MIGRATIONS
+from tests.fake_ffprobe import REPORT
 
 NOW = datetime(2026, 10, 10, 14, 20, tzinfo=UTC)
 
@@ -40,6 +42,7 @@ def test_export_writes_one_zip_with_the_database_settings_and_manifest(
         assert sorted(zipped.namelist()) == [
             "changes.csv",
             "kura.db",
+            "library.csv",
             "manifest.json",
             "settings.json",
         ]
@@ -94,6 +97,42 @@ def test_the_export_lists_every_change_kura_made(paths: DataPaths, tmp_path: Pat
             "problem": "",
         }
     ]
+
+
+def test_the_export_lists_every_video_in_the_library(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    folder = add_folder(conn, anime, now=NOW)
+    find_files(conn, folder, stamp=NOW.isoformat())
+    for file_id, path in unread(conn):
+        read_file(conn, file_id, path, lambda _: REPORT, now=NOW)
+
+    archive = export_data(paths, paths.root.parent / "exports", now=NOW)
+
+    assert archive is not None
+    with zipfile.ZipFile(archive) as zipped:
+        raw = zipped.read("library.csv")
+    assert raw.startswith(codecs.BOM_UTF8)
+    rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))))
+    movie = anime / "Broly the Legendary Super Saiyan.avi"
+    assert {row["path"] for row in rows} == {
+        str(movie),
+        str(anime / "Downloads" / "[Group] DBZ - 001 [480p].MKV"),
+        str(anime / "Dragon Ball" / "Dragon Ball - 001 - Secret of the Dragon Balls.mkv"),
+    }
+    assert next(row for row in rows if row["path"] == str(movie)) == {
+        "folder": str(anime),
+        "path": str(movie),
+        "size": str(movie.stat().st_size),
+        "found_at": "2026-10-10T14:20:00+00:00",
+        "gone_at": "",
+        "read_at": "2026-10-10T14:20:00+00:00",
+        "duration": "1244.202",
+        "width": "720",
+        "height": "540",
+        "codec": "hevc",
+        "problem": "",
+    }
 
 
 def test_a_second_export_on_the_same_day_keeps_both(paths: DataPaths, tmp_path: Path):

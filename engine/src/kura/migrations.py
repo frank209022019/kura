@@ -41,4 +41,40 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         UNIQUE (plan_id, position)
     ) STRICT;
     """,
+    # 3. The library: the folders Kura looks after, every video found in them, and the scans.
+    """
+    CREATE TABLE folders (
+        id       INTEGER PRIMARY KEY,
+        path     TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        added_at TEXT NOT NULL
+    ) STRICT;
+
+    CREATE TABLE files (
+        id        INTEGER PRIMARY KEY,
+        folder_id INTEGER NOT NULL REFERENCES folders (id) ON DELETE CASCADE,
+        path      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        size      INTEGER NOT NULL,
+        modified  INTEGER NOT NULL,  -- nanoseconds since 1970, as Windows reports it
+        found_at  TEXT NOT NULL,
+        seen_at   TEXT NOT NULL,     -- the last scan that found it
+        gone_at   TEXT,              -- a later scan didn't find it
+        probed_at TEXT,              -- when ffprobe read it; NULL while it's still to read
+        probe     TEXT,              -- ffprobe's JSON report
+        problem   TEXT,              -- why it couldn't be read, in words
+        duration  REAL,              -- seconds
+        width     INTEGER,
+        height    INTEGER,
+        codec     TEXT               -- the picture's codec, such as hevc
+    ) STRICT;
+    CREATE INDEX files_by_folder ON files (folder_id);
+
+    CREATE TABLE scans (
+        id          INTEGER PRIMARY KEY,
+        started_at  TEXT NOT NULL,
+        finished_at TEXT,
+        state       TEXT NOT NULL CHECK (state IN ('running', 'paused', 'done', 'failed')),
+        stage       TEXT NOT NULL CHECK (stage IN ('finding', 'reading', 'done')),
+        problem     TEXT
+    ) STRICT;
+    """,
 )

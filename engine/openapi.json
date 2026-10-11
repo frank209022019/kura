@@ -100,6 +100,228 @@
           }
         }
       }
+    },
+    "/folders": {
+      "get": {
+        "summary": "List Folders",
+        "operationId": "list_folders_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryFolder"
+                  },
+                  "type": "array",
+                  "title": "Response List Folders Folders Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "New Folder",
+        "description": "Adds a folder to the library. Nothing in it changes; the next scan looks inside.",
+        "operationId": "new_folder_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewFolder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryFolder"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/folders/{folder_id}": {
+      "delete": {
+        "summary": "Forget Folder",
+        "description": "Takes a folder out of the library. Its files stay exactly where they are.",
+        "operationId": "forget_folder_folders__folder_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Folder Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library": {
+      "get": {
+        "summary": "Library",
+        "operationId": "library_library_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Library"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/scan": {
+      "get": {
+        "summary": "Scan",
+        "operationId": "scan_scan_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scan"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Start Scan",
+        "description": "Starts scanning every library folder. Nothing in them changes.",
+        "operationId": "start_scan_scan_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scan"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/scan/pause": {
+      "post": {
+        "summary": "Pause Scan",
+        "description": "Stops the scan after the file it's on; resuming carries on from there.",
+        "operationId": "pause_scan_scan_pause_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scan"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/scan/resume": {
+      "post": {
+        "summary": "Resume Scan",
+        "operationId": "resume_scan_scan_resume_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scan"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -146,14 +368,233 @@
         ],
         "title": "Health"
       },
-      "State": {
+      "Library": {
+        "properties": {
+          "folders": {
+            "type": "integer",
+            "title": "Folders"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "unread": {
+            "type": "integer",
+            "title": "Unread"
+          },
+          "problems": {
+            "type": "integer",
+            "title": "Problems"
+          },
+          "sd": {
+            "type": "integer",
+            "title": "Sd"
+          },
+          "hd720": {
+            "type": "integer",
+            "title": "Hd720"
+          },
+          "hd1080": {
+            "type": "integer",
+            "title": "Hd1080"
+          },
+          "larger": {
+            "type": "integer",
+            "title": "Larger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "folders",
+          "files",
+          "size",
+          "unread",
+          "problems",
+          "sd",
+          "hd720",
+          "hd1080",
+          "larger"
+        ],
+        "title": "Library",
+        "description": "The whole library at a glance: what Home shows before titles are identified."
+      },
+      "LibraryFolder": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "addedAt": {
+            "type": "string",
+            "title": "Addedat"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          },
+          "unread": {
+            "type": "integer",
+            "title": "Unread"
+          },
+          "problems": {
+            "type": "integer",
+            "title": "Problems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "addedAt",
+          "available",
+          "files",
+          "unread",
+          "problems"
+        ],
+        "title": "LibraryFolder"
+      },
+      "NewFolder": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "NewFolder"
+      },
+      "Scan": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/kura__scan__State"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Stage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "found": {
+            "type": "integer",
+            "title": "Found"
+          },
+          "toRead": {
+            "type": "integer",
+            "title": "Toread"
+          },
+          "read": {
+            "type": "integer",
+            "title": "Read"
+          },
+          "problems": {
+            "type": "integer",
+            "title": "Problems"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "secondsLeft": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondsleft"
+          },
+          "unavailable": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unavailable"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "stage",
+          "startedAt",
+          "finishedAt",
+          "found",
+          "toRead",
+          "read",
+          "problems",
+          "current",
+          "secondsLeft",
+          "unavailable",
+          "problem"
+        ],
+        "title": "Scan"
+      },
+      "Stage": {
         "type": "string",
         "enum": [
-          "missing",
-          "downloading",
-          "unpacking",
-          "ready",
-          "failed"
+          "finding",
+          "reading",
+          "done"
         ]
       },
       "Tool": {
@@ -183,7 +624,7 @@
             "title": "Size"
           },
           "state": {
-            "$ref": "#/components/schemas/State"
+            "$ref": "#/components/schemas/kura__tools__State"
           },
           "done": {
             "type": "integer",
@@ -254,6 +695,26 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "kura__scan__State": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "running",
+          "paused",
+          "done",
+          "failed"
+        ]
+      },
+      "kura__tools__State": {
+        "type": "string",
+        "enum": [
+          "missing",
+          "downloading",
+          "unpacking",
+          "ready",
+          "failed"
+        ]
       }
     },
     "securitySchemes": {
