@@ -36,7 +36,10 @@ copy, and what "done" means.
 7. **Test first.** New behaviour and every bug fix start with a failing test.
 8. **Latest stable versions** of every tool and library; a page in `docs/stack/` for every tool.
 9. **Docs move with code**, in the same commit. Decisions go in CLAUDE.md.
-10. **No company names.** Kura is a personal project; the publisher is "Kura".
+10. **No personal details.** No email addresses, no employer or company behind Kura, and no
+    personal details beyond the owner's name, anywhere: files, test data, commit messages. The
+    publisher is "Kura"; commits carry only the owner's GitHub no-reply address, and Claude's
+    co-author line has no address.
 11. **Only ship what Kura may share.** A new dependency's licence must be on the allowed list in
     `engine/tools/third_party_notices.py`; adapted code keeps its notice; no media in the repo.
 

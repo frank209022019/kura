@@ -6,12 +6,11 @@ converts the whole library to one standard, with AI upscaling for SD sources. It
 own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
 licence: anyone may fork it, but the repo takes no contributions.
 
-**Where it stands (2026-10-10):** design language chosen, repo, CI, installer and updater pipeline
+**Where it stands (2026-10-11):** design language chosen, repo, CI, installer and updater pipeline
 set up, the engine's pure core (names, Plex naming, standards, estimates, gap reports, tidy
-plans) and the tidy-up journal (apply, undo, crash recovery) built test first. No library features in the app yet: the engine serves `/health` and
-exports, the app shows its shell. The repo is about to go public; it stays private until the owner
-decides how to clean old commits (they hold a personal email address). Next is the first build
-step in [What's next](#whats-next).
+plans) and the tidy-up journal (apply, undo, crash recovery) built test first. No library
+features in the app yet: the engine serves `/health` and exports, the app shows its shell. The
+repo is public. Next is the first build step in [What's next](#whats-next).
 
 ## Ground rules
 
@@ -25,8 +24,11 @@ step in [What's next](#whats-next).
   proposed first, applied only when approved, logged, and undoable. Duplicates and replaced
   originals go to quarantine (30 days), never straight to deletion. Anime files are never touched
   by uninstalling.
-- **Kura is personal.** No company names anywhere: publisher, docs, accounts, signing.
-  The publisher name is "Kura".
+- **Kura is personal.** No email address, no company name (no employer, no organisation behind
+  Kura) and no personal details beyond the owner's name (LICENSE, commit author), anywhere in
+  the project: files, test data, commit messages, publisher, accounts, signing. The publisher
+  name is "Kura". Commits carry only the owner's GitHub no-reply address (the clone's
+  `user.email`), and Claude's co-author line has no address.
 - **Only ship what Kura may share.** Kura is MIT. A dependency's licence must be on the allowed
   list in [engine/tools/third_party_notices.py](engine/tools/third_party_notices.py) (the
   installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:

@@ -76,7 +76,8 @@ How Kura's code is written. The aim is code a newcomer can read top to bottom an
 
 - One branch: `main`. Commit small, working steps; every commit passes the checks.
 - Commit messages: a short summary in the imperative ("Add the export command"), then why, if it
-  isn't obvious.
+  isn't obvious. No email addresses anywhere: commits carry only the owner's GitHub no-reply
+  address, and Claude's co-author line has none (`Co-Authored-By: Claude Opus 5.5`).
 - Never commit generated output (`dist/`, `target/`, `.venv/`) or anything secret. Generated files
   that are part of a contract (`engine/openapi.json`, `docs/design/`) are committed on purpose.
 - Docs change in the same commit as the code they describe.
