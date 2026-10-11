@@ -78,3 +78,33 @@ def test_a_cut_off_last_frame_is_left_out():
 
 def test_the_model_says_how_big_its_frames_come_out():
     assert upscaled_size(doubled, 720, 480) == (1440, 960)
+
+
+def test_a_model_that_fails_part_way_stops_it_with_the_reason():
+    decoder, encoder = io.BytesIO(frames(200)), Encoder()  # far more than the buffers hold
+    calls = 0
+
+    def failing(frame: Frame) -> Frame:
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            raise RuntimeError("D3D12: the device was removed")
+        return doubled(frame)
+
+    outcome: list[BaseException | int] = []
+
+    def run() -> None:
+        try:
+            outcome.append(pipe(decoder, encoder, failing, WIDTH, HEIGHT, done=lambda _: None))
+        except BaseException as error:  # kept, to look at below
+            outcome.append(error)
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(timeout=10)
+
+    assert not worker.is_alive(), "the pipe hung after the model failed"
+    [error] = outcome
+    assert isinstance(error, UpscaleError)
+    assert "the device was removed" in str(error)
+    assert encoder.closed

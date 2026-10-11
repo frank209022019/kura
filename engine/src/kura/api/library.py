@@ -82,7 +82,18 @@ def new_folder(body: NewFolder, conn: Database) -> LibraryFolder:
 
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 def forget_folder(folder_id: int, conn: Database) -> Response:
-    """Takes a folder out of the library. Its files stay exactly where they are."""
+    """Takes a folder out of the library. Its files stay exactly where they are. Not while a
+    file in it is converting: its result is about to take the original's place."""
+    converting = conn.execute(
+        """SELECT 1 FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+           WHERE f.folder_id = ? AND j.state IN ('running', 'replacing')""",
+        (folder_id,),
+    ).fetchone()
+    if converting is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A file in it is converting. Forget the folder once that's done, or skip it first.",
+        )
     if not remove_folder(conn, folder_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That folder isn't in your library.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

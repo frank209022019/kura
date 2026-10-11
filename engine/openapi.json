@@ -173,7 +173,7 @@
     "/folders/{folder_id}": {
       "delete": {
         "summary": "Forget Folder",
-        "description": "Takes a folder out of the library. Its files stay exactly where they are.",
+        "description": "Takes a folder out of the library. Its files stay exactly where they are. Not while a\nfile in it is converting: its result is about to take the original's place.",
         "operationId": "forget_folder_folders__folder_id__delete",
         "security": [
           {

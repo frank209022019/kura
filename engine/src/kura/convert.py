@@ -197,17 +197,25 @@ def lighter(decided: Method, chosen: Method) -> Method:
 
 
 def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
-    """Puts a converted file's original back in its place, and the converted copy away."""
+    """Puts a converted file's original back, and the converted copy away. The original comes
+    back where the converted file is now (a tidy-up may have filed it since), under that name with
+    its own extension. It works for a conversion that failed after setting its original aside."""
     job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-    if job is None or job["plan_id"] is None or job["state"] != "done":
+    plan_id: int | None = job["plan_id"] if job else None
+    set_aside = _set_aside(conn, plan_id)
+    if job is None or plan_id is None or set_aside is None or job["state"] == "restored":
         raise ConvertError("Kura has no converted file to put back for that.")
-    changes = changes_of(conn, job["plan_id"])
-    original = next(c.source for c in changes if c.kind is ChangeKind.QUARANTINE)
-    copy = next(c.source for c in changes if c.kind is ChangeKind.MOVE)  # where it was made
-    outcome = undo_plan(conn, job["plan_id"], now=now)
-    if outcome.problems:
-        raise ConvertError(f"Kura couldn't put the original back. {outcome.problems[0].problem}")
-    copy.unlink(missing_ok=True)
+    if set_aside.cleared_at is not None:
+        raise ConvertError("Its original was cleared out of quarantine, so it can't come back.")
+    _follow_the_copy(conn, plan_id, job["file_id"])
+    undo_plan(conn, plan_id, now=now)
+    set_aside, moved = _set_aside(conn, plan_id), _moved(conn, plan_id)
+    if set_aside is None or set_aside.state is not ChangeState.UNDONE:
+        problem = set_aside.problem if set_aside else None
+        raise ConvertError(problem or "Kura couldn't put the original back.")
+    if moved is not None:
+        moved.source.unlink(missing_ok=True)  # the converted copy, taken out of the way
+    original = set_aside.source
     probe = json.loads(job["source_probe"])
     _record(conn, job["file_id"], original, job["source_size"], job["source_modified"], probe, now)
     with conn:
@@ -265,6 +273,35 @@ def _moved(conn: sqlite3.Connection, plan_id: int | None) -> SavedChange | None:
     if plan_id is None:
         return None
     return next((c for c in changes_of(conn, plan_id) if c.kind is ChangeKind.MOVE), None)
+
+
+def _set_aside(conn: sqlite3.Connection, plan_id: int | None) -> SavedChange | None:
+    """A conversion plan's first change: the original into quarantine."""
+    if plan_id is None:
+        return None
+    return next((c for c in changes_of(conn, plan_id) if c.kind is ChangeKind.QUARANTINE), None)
+
+
+def _follow_the_copy(conn: sqlite3.Connection, plan_id: int, file_id: int) -> None:
+    """When a tidy-up has moved the converted file since (its record followed it), the plan's
+    changes are pointed at where it is now: putting the original back then takes the converted
+    file from there, and the original takes its place, with the original's own extension."""
+    moved, set_aside = _moved(conn, plan_id), _set_aside(conn, plan_id)
+    row = conn.execute("SELECT path FROM files WHERE id = ?", (file_id,)).fetchone()
+    if moved is None or set_aside is None or row is None or moved.state is not ChangeState.DONE:
+        return
+    now_at = Path(row["path"])
+    if str(now_at) == str(moved.target):
+        return
+    with conn:
+        conn.execute(
+            "UPDATE changes SET source = ?, target = ? WHERE id = ?",
+            (str(now_at.with_name(now_at.stem + WORKING)), str(now_at), moved.id),
+        )
+        conn.execute(
+            "UPDATE changes SET source = ? WHERE id = ?",
+            (str(now_at.with_suffix(set_aside.source.suffix)), set_aside.id),
+        )
 
 
 def _job(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
@@ -461,11 +498,15 @@ def _replace(
         )
     outcome = apply_plan(conn, plan_id, now=now)
     if outcome.problems:
-        undo_plan(conn, plan_id, now=now)
+        undone = undo_plan(conn, plan_id, now=now)
         work.unlink(missing_ok=True)
-        raise ConvertError(
-            f"Kura couldn't put it in place, so the original is back: {outcome.problems[0].problem}"
-        )
+        problem = outcome.problems[0].problem
+        if undone.problems:  # the original stays in quarantine: History can still put it back
+            raise ConvertError(
+                f"Kura couldn't put it in place ({problem}), nor the original back: it's in "
+                f"{place}. Put it back from History."
+            )
+        raise ConvertError(f"Kura couldn't put it in place, so the original is back: {problem}")
     finish(conn, row["id"], result, now)
 
 
@@ -495,10 +536,13 @@ def _record(
     report: Json,
     now: datetime,
 ) -> None:
-    """The library's record of a file, as a scan would have read it."""
+    """The library's record of a file, as a scan would have read it. Another record at its
+    path (one a scan made meanwhile, or a file once there and gone since) gives way: this one
+    knows what the file is."""
     media = media_from_ffprobe(report)
     video = media.video
     with conn:
+        conn.execute("DELETE FROM files WHERE path = ? AND id != ?", (str(path), file_id))
         conn.execute(
             """UPDATE files SET path = ?, size = ?, modified = ?, gone_at = NULL, probed_at = ?,
                       probe = ?, problem = NULL, duration = ?, width = ?, height = ?, codec = ?

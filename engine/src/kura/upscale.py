@@ -9,6 +9,7 @@ kura/core/convert.py builds the two commands.
 import queue
 import threading
 from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
 from typing import IO, Protocol
 
@@ -97,8 +98,8 @@ def pipe(
             while (frame := upscaled.get()) is not None:
                 if not problems:
                     encoder.write(frame.tobytes())
-        except OSError as error:
-            problems.append(f"The encoder stopped ({error.strerror or error}).")
+        except Exception as error:  # an OSError when the encoder stops, whatever it is
+            problems.append(f"The encoder stopped ({_words(error)}).")
             while upscaled.get() is not None:
                 pass  # let the model's side finish
         finally:
@@ -109,17 +110,33 @@ def pipe(
     reader.start()
     writer.start()
     count = 0
+    finished = False
     try:
         while (frame := decoded.get()) is not None:
             if stop() or problems:
                 continue  # drain what's left so the reader can finish
-            upscaled.put(upscale(frame))
-            count += 1
-            done(count)
+            try:
+                upscaled.put(upscale(frame))
+                count += 1
+                done(count)
+            except Exception as error:  # ONNX Runtime's own kinds, all plain Exceptions
+                problems.append(f"The AI model stopped ({_words(error)}).")
+        finished = True
     finally:
+        if not finished and not problems:
+            problems.append("Kura stopped converting.")  # the reader stops, then
         upscaled.put(None)
+        while reader.is_alive():  # a reader waiting on a full queue sees the end once drained
+            with suppress(queue.Empty):
+                decoded.get(timeout=0.1)
         reader.join()
         writer.join()
     if problems:
         raise UpscaleError(problems[0])
     return count
+
+
+def _words(error: Exception) -> str:
+    if isinstance(error, OSError):
+        return str(error.strerror or error)
+    return str(error) or type(error).__name__

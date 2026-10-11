@@ -149,8 +149,7 @@ class Queue:
         self._problem: str | None = None
 
     def start(self) -> None:
-        """Settles what a crash left, then converts until `stop`."""
-        self.recover()
+        """Converts until `stop`. Call `recover` first, before any scan starts."""
         self._thread = threading.Thread(target=self._loop, name="queue", daemon=True)
         self._thread.start()
 

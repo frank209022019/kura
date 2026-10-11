@@ -219,3 +219,45 @@ def test_a_test_play_reads_no_keys(conn: sqlite3.Connection, episode: Path):
     plays = [command for command in commands if "null" in command]
     assert plays
     assert all(command[len(FAKE_FFMPEG)] == "-nostdin" for command in plays)
+
+
+def test_an_original_comes_back_where_a_tidy_up_filed_its_converted_file(
+    conn: sqlite3.Connection, episode: Path
+):
+    original = episode.read_bytes()
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+    filed = episode.parent / "Trigun (1998) - S01E03 - Murder Machine.mkv"
+    episode.rename(filed)  # a tidy-up named it, and its record followed
+    with conn:
+        conn.execute("UPDATE files SET path = ?", (str(filed),))
+
+    restore(conn, 1, now=NOW)
+
+    assert filed.read_bytes() == original  # the original, under the name it's filed by now
+    assert not episode.exists()
+    assert not list(episode.parent.glob(f"*{WORKING}"))
+    assert Path(conn.execute("SELECT path FROM files").fetchone()[0]) == filed
+    assert conn.execute("SELECT state FROM jobs").fetchone()[0] == "restored"
+
+
+def test_an_original_set_aside_by_a_conversion_that_failed_can_come_back(
+    conn: sqlite3.Connection, episode: Path
+):
+    original = episode.read_bytes()
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+    with conn:  # it went wrong after the original was set aside
+        conn.execute("UPDATE jobs SET state = 'failed'")
+
+    restore(conn, 1, now=NOW)
+
+    assert episode.read_bytes() == original
+
+
+def test_putting_an_original_back_twice_says_theres_nothing_to_put_back(
+    conn: sqlite3.Connection, episode: Path
+):
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+    restore(conn, 1, now=NOW)
+
+    with pytest.raises(ConvertError, match="no converted file to put back"):
+        restore(conn, 1, now=NOW)

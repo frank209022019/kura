@@ -9,12 +9,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from kura.api import create_app
 from kura.config import DataPaths
 from kura.queue import Queue
+from kura.scan import Scanner
+from tests.conftest import TOKEN
 from tests.converting import BEST_TAG, programs, report
 from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
+
+SD_PROBE = json.dumps(report(8, 6, codec="h264"))
 
 
 @pytest.fixture
@@ -180,3 +185,49 @@ def test_without_ffmpeg_there_is_nothing_to_compare(client: TestClient, shelf: P
 
     assert answer.status_code == 503
     assert answer.json()["detail"].startswith("Kura needs ffmpeg")
+
+
+def test_at_start_a_conversion_a_crash_stopped_is_settled_before_any_scan(
+    paths: DataPaths, monkeypatch: pytest.MonkeyPatch
+):
+    order: list[str] = []
+
+    class Scans:
+        """A scanner that only notes when the startup scan is asked for."""
+
+        def recover(self) -> None:
+            order.append("scan")
+
+    def settled(_queue: Queue) -> None:
+        order.append("queue")
+
+    monkeypatch.setattr(Queue, "recover", settled)
+    app = create_app(TOKEN, paths, scanner=cast("Scanner", Scans()), work=True)
+
+    with TestClient(app, base_url="http://127.0.0.1"):
+        pass
+
+    assert order == ["queue", "scan"]  # files settle in place before a scan looks at them
+
+
+def test_a_record_left_at_the_results_name_gives_way(
+    client: TestClient, converting: Queue, conn: sqlite3.Connection, tmp_path: Path
+):
+    root = tmp_path / "Anime"
+    library(conn, root, ["Old/Ep01.mp4"])
+    with conn:  # a file once at the result's name, gone since
+        conn.execute("UPDATE files SET probe = ? WHERE path LIKE '%Ep01.mp4'", (SD_PROBE,))
+        conn.execute(
+            """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at, gone_at)
+               VALUES (1, ?, 1, 0, 'then', 'then', 'then')""",
+            (str(root / "Old" / "Ep01.mkv"),),
+        )
+    mp4 = conn.execute("SELECT id FROM files WHERE path LIKE '%Ep01.mp4'").fetchone()[0]
+    client.post("/queue", json={"files": [mp4]})
+
+    converting.work_once()
+
+    [done] = client.get("/queue").json()["today"]
+    assert (done["state"], done["problem"]) == ("done", None)
+    paths_now = [row[0] for row in conn.execute("SELECT path FROM files WHERE gone_at IS NULL")]
+    assert str(root / "Old" / "Ep01.mkv") in paths_now

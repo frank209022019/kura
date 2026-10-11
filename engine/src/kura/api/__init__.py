@@ -81,6 +81,11 @@ def create_app(
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
             changes.recover(conn)  # settle file moves that a crash interrupted
+        worker: Queue = running.state.queue
+        if work:
+            # A conversion a crash stopped while its result was taking the original's place is
+            # finished or undone before any scan looks at the folders.
+            worker.recover()
         scans: Scanner = running.state.scanner
         scans.recover()  # carry on a scan that an exit or a crash stopped
         anilist: AniList = running.state.anilist
@@ -88,9 +93,8 @@ def create_app(
         running.state.watcher = watcher
         if watcher is not None:
             watcher.start()
-        worker: Queue = running.state.queue
         if work:
-            worker.start()  # settles what a crash left, then converts what waits
+            worker.start()  # converts what waits
         yield
         if work:
             worker.stop()  # the file converting now is first in line next time
