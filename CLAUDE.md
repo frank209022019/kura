@@ -6,7 +6,7 @@ converts the whole library to one standard, with AI upscaling for SD sources. It
 own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
 licence: anyone may fork it, but the repo takes no contributions.
 
-**Where it stands (2026-10-11):** design language chosen; repo, CI, installer and updater
+**Where it stands (2026-10-12):** design language chosen; repo, CI, installer and updater
 pipeline set up, with semantic versions, a changelog and a downloads page. Built and tested end to
 end: first-run setup with ffmpeg fetched from the list the installer shows; the scan (find, read
 with ffprobe, identify on AniList and TMDB, check for gaps and write the reports); "Which anime is
@@ -15,8 +15,10 @@ this?"; the watcher; Home's shelf of franchises and series, a page per franchise
 History's undo; converting with the queue (the AI model for SD, Anime4K for 720p, NVENC HEVC
 10-bit, every result checked before it takes its original's place, nights only, full and
 unplugged drives handled); Settings; nightly backups and restoring one; the quarantine cleared
-out daily; and the tray with "Start with Windows" and notifications. No release has been tagged
-yet. Next is in [What's next](#whats-next).
+out daily; the tray with "Start with Windows" and notifications; and most of the small-things
+board (a file open in another app, a crash told on Home, a failed conversion's log and "Mark as
+broken", offline, notes in the window). No release has been tagged yet. Next is in
+[What's next](#whats-next).
 
 ## Ground rules
 
@@ -215,6 +217,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   off unless the owner turns it on).
 - Export: one zip (SQLite, JSON, CSV, the .md reports, settings). Today it holds the database,
   settings, every file change (`changes.csv`) and a manifest; it grows with the schema.
+- Kura deletes only its own files, whatever its records say (a damaged database, or one an
+  imported export held): what's in a day's folder of a quarantine, its unfinished copies
+  (`.kura-converting`, `.kura-partial`) and its own `poster.jpg` and `fanart.jpg`.
 - Uninstall: offer the export first, keep the data folder unless the owner ticks "Delete the
   application data", never touch anime files.
 
@@ -294,7 +299,13 @@ Everything decided so far. Don't ask again; change only with the owner.
    with "Start with Windows" and notifications).
 7. Poster and background pictures next to each show, for media servers: done (optional, off
    unless turned on; the UI never names Plex).
-8. Light mode, once it's designed.
+8. The small-things board: done for a file open in another app, a crash or power cut, a failed
+   conversion, a finished batch and being offline. Still to build: "The new name is already
+   taken" (Compare the two, Keep both, Skip) and the overnight keep-awake note. Open with the
+   owner: "Not enough space" offers "Empty quarantine first" (deleting copies before their days
+   are up) and "Write to another drive" (results away from their originals' drive): both change
+   what's decided, so they wait for the owner.
+9. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), the attribution
 TMDB's terms require inside the app (its logo is open with the owner), and AniList's terms (free
