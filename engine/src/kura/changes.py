@@ -56,6 +56,7 @@ class SavedChange:
     state: ChangeState
     problem: str | None  # why it failed, or why it couldn't be undone
     created_dirs: tuple[Path, ...]  # folders this change created, outermost first
+    cleared_at: str | None = None  # what it set aside went from quarantine then, for good
 
 
 @dataclass(frozen=True)
@@ -158,13 +159,14 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
     """Put back every change that was made, newest first.
 
     A file that can't go back (it has gone, or its old name is taken now) stays where it is, and
-    its change says why; the plan counts as undone once nothing is left to put back.
+    its change says why; the plan counts as undone once nothing is left to put back. What was
+    cleared out of quarantine is gone for good, and isn't asked about.
     """
     stamp = _stamp(now)
     back: list[int] = []
     kept: list[int] = []
     for change in reversed(changes_of(conn, plan_id)):
-        if change.state is not ChangeState.DONE:
+        if change.state is not ChangeState.DONE or change.cleared_at is not None:
             continue
         _record(conn, change, ChangeState.UNDOING)
         problem = _why_not(change.target, change.source)
@@ -187,7 +189,7 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
         _record(conn, change, ChangeState.DONE, problem=f"Kura couldn't put it back. {problem}")
         kept.append(change.id)
     after = changes_of(conn, plan_id)
-    if not any(change.state is ChangeState.DONE for change in after):
+    if not any(c.state is ChangeState.DONE and c.cleared_at is None for c in after):
         with conn:
             conn.execute("UPDATE plans SET undone_at = ? WHERE id = ?", (stamp, plan_id))
     return Outcome(_these(after, back), _these(after, kept))
@@ -436,6 +438,7 @@ def _saved(row: sqlite3.Row) -> SavedChange:
         state=ChangeState(row["state"]),
         problem=row["problem"],
         created_dirs=tuple(Path(path) for path in json.loads(row["created_dirs"])),
+        cleared_at=row["cleared_at"],
     )
 
 

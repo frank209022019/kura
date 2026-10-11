@@ -177,4 +177,8 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     """
     ALTER TABLE jobs ADD COLUMN output_probe TEXT;
     """,
+    # 8. When what a change set aside was cleared out of quarantine: after that it can't come back.
+    """
+    ALTER TABLE changes ADD COLUMN cleared_at TEXT;
+    """,
 )
