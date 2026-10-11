@@ -315,13 +315,22 @@ def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) 
     taken = _set_aside({video.anchor for video, _, _ in videos}, day)
     plan = plan_set_aside(videos, day=day, taken=taken)
     plan_id = save_plan(conn, plan, _deleted_title(rows), now=now)
+    with conn:  # out of the queue's reach while they move: none starts converting meanwhile
+        waiting = conn.execute(
+            f"""UPDATE jobs SET state = 'skipped'
+                WHERE state = 'queued' AND file_id IN ({marks})
+                RETURNING id, file_id""",  # noqa: S608 - only placeholders go in
+            ids,
+        ).fetchall()
     outcome = apply_plan(conn, plan_id, now=now)
     deleted = {str(change.source) for change in outcome.changed}
-    gone = [row["id"] for row in rows if str(Path(row["path"])) in deleted]
-    with conn:  # a video waiting to be converted leaves the queue, once it's gone
-        conn.executemany(
-            "DELETE FROM jobs WHERE state = 'queued' AND file_id = ?", [(id_,) for id_ in gone]
-        )
+    gone = {row["id"] for row in rows if str(Path(row["path"])) in deleted}
+    with conn:  # a video gone leaves the queue; one that stayed waits in it again
+        for job in waiting:
+            if job["file_id"] in gone:
+                conn.execute("DELETE FROM jobs WHERE id = ?", (job["id"],))
+            else:
+                conn.execute("UPDATE jobs SET state = 'queued' WHERE id = ?", (job["id"],))
     _clear_behind(conn, [change.source for change in outcome.changed])
     write_reports(conn, now=now)
     return Tidied(plan_id, *tally(outcome.changed), outcome.problems)
@@ -342,9 +351,24 @@ def _shared_with_staying(
 
 
 def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
-    """Puts back what a tidy-up moved, newest first. Asked again, it puts back what couldn't go
-    back the first time."""
-    outcome = undo_plan(conn, plan_id, now=now)
+    """Puts back what a tidy-up moved, newest first, but a video being converted (or its result
+    waiting beside it) stays, with its subtitles. Asked again, it puts back what couldn't go back
+    the first time."""
+    converting = {
+        row["path"].casefold()
+        for row in conn.execute(
+            """SELECT f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+               WHERE j.state IN ('running', 'replacing')
+                  OR (j.state = 'queued' AND j.retry_at IS NOT NULL)"""
+        )
+    }
+
+    def held(change: SavedChange) -> str | None:
+        if str(change.target).casefold() in converting:
+            return "It's being converted: put it back once it's done."
+        return None
+
+    outcome = undo_plan(conn, plan_id, now=now, held=held)
     _clear_behind(conn, [change.target for change in outcome.changed])
     write_reports(conn, now=now)
     return Tidied(plan_id, *tally(outcome.changed), outcome.problems)

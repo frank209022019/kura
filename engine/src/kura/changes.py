@@ -17,7 +17,7 @@ import json
 import logging
 import shutil
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -131,7 +131,7 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
     made: list[int] = []
     failed: list[int] = []
     planned = changes_of(conn, plan_id)
-    for change in planned:
+    for change in _subtitles_last(planned):
         if change.state is not ChangeState.PLANNED:
             continue
         video = _video_of(change, planned)
@@ -166,6 +166,12 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
 _STAYED_WITH = "Its video stayed where it was, so it did too."
 
 
+def _subtitles_last(planned: Iterable[SavedChange]) -> list[SavedChange]:
+    """The changes in their order, each video's subtitles after every video: a subtitle file
+    knows by then whether its video moved."""
+    return sorted(planned, key=lambda change: is_subtitle(change.source.name))
+
+
 def _video_of(change: SavedChange, planned: list[SavedChange]) -> SavedChange | None:
     """The change moving the video a subtitle file is named after, when the plan moves it: the
     longest name that fits (`Show - 12.5.en.srt` is 12.5's, not 12's)."""
@@ -182,18 +188,32 @@ def _video_of(change: SavedChange, planned: list[SavedChange]) -> SavedChange | 
     return max(fits, key=lambda other: len(other.source.stem), default=None)
 
 
-def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outcome:
+def undo_plan(
+    conn: sqlite3.Connection,
+    plan_id: int,
+    *,
+    now: datetime,
+    held: Callable[[SavedChange], str | None] = lambda _change: None,
+) -> Outcome:
     """Put back every change that was made, newest first.
 
     A file that can't go back (it has gone, or its old name is taken now) stays where it is, and
-    its change says why; the plan counts as undone once nothing is left to put back. What was
-    cleared out of quarantine is gone for good, and isn't asked about.
+    its change says why; so does one `held` gives a reason for (it's being converted, say), and a
+    video's subtitles stay with a video that stays. The plan counts as undone once nothing is
+    left to put back. What was cleared out of quarantine is gone for good, and isn't asked about.
     """
     stamp = _stamp(now)
     back: list[int] = []
     kept: list[int] = []
-    for change in reversed(changes_of(conn, plan_id)):
+    done = changes_of(conn, plan_id)
+    for change in _subtitles_last(reversed(done)):
         if change.state is not ChangeState.DONE or change.cleared_at is not None:
+            continue
+        video = _video_of(change, done)
+        reason = _STAYED_WITH if video is not None and video.id in kept else held(change)
+        if reason is not None:
+            _record(conn, change, ChangeState.DONE, problem=f"Kura couldn't put it back. {reason}")
+            kept.append(change.id)
             continue
         _record(conn, change, ChangeState.UNDOING)
         problem = _why_not(change.target, change.source)

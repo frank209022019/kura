@@ -184,6 +184,52 @@ def test_subtitles_stay_with_a_video_that_couldnt_move(
     assert subtitles.read_text(encoding="utf-8") == "subtitles"
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' sharing rules")
+def test_subtitles_planned_before_their_video_still_wait_for_it(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "Death Note - 07.mkv")
+    subtitles = video(downloads / "Death Note - 07.en.srt", "subtitles")
+    show = library / "Death Note (2006)"
+    plan_id = saved(  # by target, ".en.srt" sorts before ".mkv"
+        conn,
+        move(subtitles, show / "Death Note (2006) - S01E07.en.srt"),
+        move(source, show / "Death Note (2006) - S01E07.mkv"),
+    )
+
+    with source.open("rb"):  # a player playing it
+        outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert outcome.changed == ()
+    assert subtitles.read_text(encoding="utf-8") == "subtitles"
+
+
+def test_undo_leaves_a_video_held_back_with_its_subtitles(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "Death Note - 07.mkv")
+    subtitles = video(downloads / "Death Note - 07.en.srt", "subtitles")
+    show = library / "Death Note (2006)"
+    plan_id = saved(
+        conn,
+        move(source, show / "Death Note (2006) - S01E07.mkv"),
+        move(subtitles, show / "Death Note (2006) - S01E07.en.srt"),
+    )
+    apply_plan(conn, plan_id, now=NOW)
+
+    def converting(change: changes.SavedChange) -> str | None:
+        return "It's being converted." if change.target.suffix == ".mkv" else None
+
+    outcome = undo_plan(conn, plan_id, now=NOW, held=converting)
+
+    assert outcome.changed == ()
+    assert [change.problem for change in outcome.problems] == [
+        "Kura couldn't put it back. It's being converted.",
+        "Kura couldn't put it back. Its video stayed where it was, so it did too.",
+    ]
+    assert (show / "Death Note (2006) - S01E07.en.srt").exists()
+
+
 def test_a_change_of_case_alone_renames_the_file(conn: sqlite3.Connection, library: Path):
     source = video(library / "Show" / "show - s01e01.mkv")
     target = library / "Show" / "Show - S01E01.mkv"

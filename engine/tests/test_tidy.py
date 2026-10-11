@@ -135,6 +135,25 @@ def test_undo_puts_it_all_back(downloads: sqlite3.Connection, root: Path):
     assert "Dragon Ball Z - 150.mkv" in paths
 
 
+def test_undo_leaves_a_video_being_converted_where_it_is(downloads: sqlite3.Connection, root: Path):
+    done = apply(downloads, reviewed(propose(downloads, day=NOW.date()).changes), now=NOW)
+    assert done.plan_id is not None
+    bebop = downloads.execute("SELECT id FROM files WHERE path LIKE '%Bebop (1998) - S01E01%'")
+    with downloads:
+        downloads.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " VALUES (?, 'best', 1, 'running', 'now')",
+            (bebop.fetchone()[0],),
+        )
+
+    back = undo(downloads, done.plan_id, now=NOW)
+
+    assert back.moved == 3
+    assert [p.problem for p in back.problems] == [
+        "Kura couldn't put it back. It's being converted: put it back once it's done."
+    ]
+
+
 def test_only_the_files_asked_for_move(downloads: sqlite3.Connection, root: Path):
     proposal = propose(downloads, day=NOW.date())
     dbz = reviewed(p for p in proposal.changes if p.title == "Dragon Ball Z")

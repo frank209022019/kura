@@ -3,10 +3,12 @@ History until the quarantine is cleared out."""
 
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
+from kura import changes, tidy
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.report import GAP_ANALYSIS_FILE
 from kura.history import plans
@@ -130,6 +132,28 @@ def test_a_video_that_couldnt_go_says_why_and_stays_in_the_queue(
         "It's open in another app, maybe your player. Close it, then try again."
     ]
     assert [row["state"] for row in conn.execute("SELECT state FROM jobs")] == ["queued"]
+
+
+def test_a_video_being_deleted_cant_start_converting_meanwhile(
+    conn: sqlite3.Connection, season: Path, monkeypatch: pytest.MonkeyPatch
+):
+    with conn:
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, added_at) VALUES (1, 'best', 1, 'now')"
+        )
+    seen: list[str] = []
+    apply_plan = tidy.apply_plan
+
+    def watched(db: sqlite3.Connection, plan_id: int, *, now: datetime) -> changes.Outcome:
+        seen.append(db.execute("SELECT state FROM jobs").fetchone()[0])  # as the queue sees it
+        return apply_plan(db, plan_id, now=now)
+
+    monkeypatch.setattr("kura.tidy.apply_plan", watched)
+
+    delete(conn, [1], now=NOW)
+
+    assert seen == ["skipped"]  # out of the queue's reach while it moves
+    assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
 
 
 def test_subtitles_another_copy_shares_stay_with_it(conn: sqlite3.Connection, tmp_path: Path):
