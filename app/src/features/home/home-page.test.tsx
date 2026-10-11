@@ -36,6 +36,7 @@ function engineWith(answers: Record<string, unknown> = {}) {
     "/folders": [],
     "/library": NO_LIBRARY,
     "/scan": NO_SCAN,
+    "/tmdb": { connected: false, keyEnd: null },
     ...answers,
   });
 }
@@ -188,6 +189,24 @@ describe("HomePage", () => {
     await screen.findByRole("alert");
 
     expect(screen.queryByRole("button", { name: "Copy details" })).not.toBeInTheDocument();
+  });
+
+  it("says whether TMDB is connected, and where to add the key", async () => {
+    engineWith();
+    renderHome(READY);
+
+    expect(await screen.findByText(/AniList only: no episode titles yet/)).toBeInTheDocument();
+    screen.getByRole("button", { name: "Add your TMDB key" }).click();
+
+    expect(await screen.findByText("Setup")).toBeInTheDocument();
+  });
+
+  it("names the TMDB key in use", async () => {
+    engineWith({ "/tmdb": { connected: true, keyEnd: "ab12" } });
+    renderHome(READY);
+
+    expect(await screen.findByText("TMDB connected · key ending ab12")).toBeInTheDocument();
+    expect(screen.getByText(/not endorsed or certified by TMDB/)).toBeInTheDocument();
   });
 
   it("opens the downloads page to show every version and what changed", async () => {

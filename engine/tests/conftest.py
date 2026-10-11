@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from kura import db
 from kura.api import create_app
 from kura.config import DataPaths
+from tests.fake_web import FakeWeb
 
 TOKEN = "test-token"
 
@@ -21,9 +22,15 @@ def paths(tmp_path: Path) -> DataPaths:
 
 
 @pytest.fixture
-def client(paths: DataPaths) -> Iterator[TestClient]:
+def web() -> FakeWeb:
+    """The internet as the engine sees it in tests: nothing answers until a test says what."""
+    return FakeWeb()
+
+
+@pytest.fixture
+def client(paths: DataPaths, web: FakeWeb) -> Iterator[TestClient]:
     """A client that talks to the API the way the app does: on 127.0.0.1, with the token."""
-    app = create_app(TOKEN, paths)
+    app = create_app(TOKEN, paths, transport=web)
     headers = {"Authorization": f"Bearer {TOKEN}"}
     with TestClient(app, base_url="http://127.0.0.1", headers=headers) as test_client:
         yield test_client

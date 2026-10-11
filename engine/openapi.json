@@ -409,6 +409,94 @@
           }
         ]
       }
+    },
+    "/tmdb": {
+      "get": {
+        "summary": "Tmdb",
+        "description": "Whether Kura has a TMDB key, for episode lists, titles and artwork.",
+        "operationId": "tmdb_tmdb_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TmdbStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Connect Tmdb",
+        "description": "Checks the key with TMDB, then keeps it on this PC.",
+        "operationId": "connect_tmdb_tmdb_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TmdbStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Disconnect Tmdb",
+        "description": "Forgets the key. Titles Kura already looked up stay.",
+        "operationId": "disconnect_tmdb_tmdb_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TmdbStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -564,6 +652,19 @@
           "path"
         ],
         "title": "NewFolder"
+      },
+      "NewKey": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "NewKey"
       },
       "Scan": {
         "properties": {
@@ -743,6 +844,31 @@
           "graphicsCard"
         ],
         "title": "System"
+      },
+      "TmdbStatus": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "keyEnd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keyend"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected",
+          "keyEnd"
+        ],
+        "title": "TmdbStatus"
       },
       "Tool": {
         "properties": {

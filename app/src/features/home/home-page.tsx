@@ -16,6 +16,7 @@ import {
   useScan,
   useScanAction,
   useSettings,
+  useTmdb,
 } from "@/lib/engine";
 import { openDownloadsPage } from "@/lib/links";
 import { useReadyUpdate } from "@/lib/updates";
@@ -174,11 +175,13 @@ function summary(library: Library): string {
   return `${videos} · ${size} · ${folders}`;
 }
 
-/** Engine, data folder, database and updates at a glance. */
+/** Engine, data folder, database, lookups and updates at a glance. */
 function ThisCopy() {
   const engine = useEngine();
   const health = useHealth();
+  const tmdb = useTmdb();
   const update = useReadyUpdate();
+  const navigate = useNavigate();
 
   const engineText = {
     starting: "Starting…",
@@ -216,6 +219,23 @@ function ThisCopy() {
         </dd>
         <dt className="text-fg-muted">Database</dt>
         <dd>{health.data ? `Ready · schema version ${health.data.schemaVersion}` : "…"}</dd>
+        <dt className="text-fg-muted">Titles and artwork</dt>
+        <dd>
+          {tmdb.data?.connected && `TMDB connected · key ending ${tmdb.data.keyEnd}`}
+          {tmdb.data && !tmdb.data.connected && (
+            <>
+              AniList only: no episode titles yet ·{" "}
+              <button
+                type="button"
+                className="cursor-pointer text-accent-fg underline-offset-3 hover:text-accent-fg-hover hover:underline"
+                onClick={() => void navigate("/setup?step=tools")}
+              >
+                Add your TMDB key
+              </button>
+            </>
+          )}
+          {!tmdb.data && "…"}
+        </dd>
         <dt className="text-fg-muted">Updates</dt>
         <dd>{updateText}</dd>
         <dt className="text-fg-muted">Versions</dt>
@@ -229,6 +249,10 @@ function ThisCopy() {
           </button>
         </dd>
       </dl>
+      <p className="text-12 text-fg-faint">
+        Episode lists and artwork come from TMDB, anime details from AniList. This product uses the
+        TMDB API but is not endorsed or certified by TMDB.
+      </p>
     </section>
   );
 }

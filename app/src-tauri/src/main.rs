@@ -31,6 +31,7 @@ fn main() {
             updater::prepare_update,
             updater::install_update,
             links::open_downloads_page,
+            links::open_tmdb_api_page,
             dialogs::pick_folder,
         ])
         .setup(|app| {

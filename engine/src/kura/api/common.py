@@ -13,6 +13,7 @@ from kura import db
 from kura.config import DataPaths
 from kura.scan import Scanner
 from kura.tools import Tools
+from kura.web import Send
 
 
 class ApiModel(BaseModel):
@@ -45,8 +46,14 @@ def _scanner(request: Request) -> Scanner:
     return scanner
 
 
+def _transport(request: Request) -> Send:
+    transport: Send = request.app.state.transport
+    return transport
+
+
 # Use these as parameter types in routes, e.g. `def route(conn: Database) -> ...`.
 Paths = Annotated[DataPaths, Depends(_paths)]
 Database = Annotated[sqlite3.Connection, Depends(_database)]
 Toolbox = Annotated[Tools, Depends(_toolbox)]
 Scans = Annotated[Scanner, Depends(_scanner)]
+Web = Annotated[Send, Depends(_transport)]  # how Kura reaches TMDB and AniList

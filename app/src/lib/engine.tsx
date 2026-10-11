@@ -270,6 +270,19 @@ export const useSettings = () => useEngineQuery<Settings>("/settings");
 /** Saves the preferences: `save.mutate({ path: "/settings", body: settings })`. */
 export const useSaveSettings = () => useEngineAction<Settings>(["/settings"], "PUT");
 
+/** Whether Kura has a TMDB key, for episode lists, episode titles and artwork. */
+export interface TmdbStatus {
+  connected: boolean;
+  /** The key's last four characters, to tell which key it is. */
+  keyEnd: string | null;
+}
+
+export const useTmdb = () => useEngineQuery<TmdbStatus>("/tmdb");
+/** Checks a key with TMDB, then keeps it: `connect.mutate({ path: "/tmdb", body: { key } })`. */
+export const useConnectTmdb = () => useEngineAction<TmdbStatus>(["/tmdb"], "PUT");
+/** Forgets the key: `forget.mutate({ path: "/tmdb" })`. */
+export const useForgetTmdb = () => useEngineAction<TmdbStatus>(["/tmdb"], "DELETE");
+
 /** What this PC has to work with. */
 export interface System {
   /** As Windows names it; null when Windows wouldn't say. */

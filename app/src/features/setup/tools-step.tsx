@@ -1,5 +1,6 @@
 import { Check, Cpu } from "lucide-react";
 import { useNavigate } from "react-router";
+import { TmdbKey } from "@/components/tmdb-key";
 import { Button } from "@/components/ui/button";
 import {
   type Tool,
@@ -45,6 +46,7 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
           </li>
         ))}
       </ul>
+      <TmdbKey />
       <p className="flex items-center gap-2.5 text-13 text-fg-soft">
         <Cpu size={16} aria-hidden="true" className="text-fg-muted" />
         {system.isPending && "Checking the graphics card…"}

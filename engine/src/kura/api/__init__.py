@@ -17,10 +17,11 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from kura import __version__, changes, db
-from kura.api import health, library, scan, settings, system, tools
+from kura.api import health, library, scan, settings, system, tmdb, tools
 from kura.config import DataPaths
 from kura.scan import Scanner
 from kura.tools import Tools
+from kura.web import Send, send
 
 # The app's own pages: the installed app, and the Vite dev server in development.
 APP_ORIGINS = ["http://tauri.localhost", "http://localhost:1420"]
@@ -30,8 +31,14 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def create_app(
-    token: str, paths: DataPaths, toolbox: Tools | None = None, scanner: Scanner | None = None
+    token: str,
+    paths: DataPaths,
+    toolbox: Tools | None = None,
+    scanner: Scanner | None = None,
+    transport: Send = send,
 ) -> FastAPI:
+    """The API, with its parts. Tests pass their own tools, scanner and transport (the
+    internet as TMDB and AniList see it)."""
     expected = token.encode()
 
     def require_token(
@@ -61,6 +68,7 @@ def create_app(
         dependencies=[Depends(require_token)],
     )
     app.state.paths = paths
+    app.state.transport = transport
     app.state.tools = toolbox or Tools(paths)
     app.state.scanner = scanner or Scanner(paths, app.state.tools)
     # The middleware added last runs first: CORS answers the webview's preflight
@@ -78,6 +86,7 @@ def create_app(
     app.include_router(scan.router)
     app.include_router(settings.router)
     app.include_router(system.router)
+    app.include_router(tmdb.router)
     return app
 
 

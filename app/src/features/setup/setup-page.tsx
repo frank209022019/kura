@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
 import { TitleBar } from "@/components/shell/title-bar";
 import { Button } from "@/components/ui/button";
-import { useFolders, useHealth, useSettings, useSystem, useTools } from "@/lib/engine";
+import { useFolders, useHealth, useSettings, useSystem, useTmdb, useTools } from "@/lib/engine";
 import { cn } from "@/lib/utils";
 import { FoldersStep } from "./folders-step";
 import { FolderChip, Footer, Panel, Row } from "./parts";
@@ -30,7 +30,7 @@ export function SetupPage() {
   const current = STEPS.findIndex((each) => each.id === step);
   const go = (to: Step) => setStep(to);
   // Everything the steps show, so one place can say when the engine couldn't give it.
-  const queries = [useHealth(), useFolders(), useSettings(), useTools(), useSystem()];
+  const queries = [useHealth(), useFolders(), useSettings(), useTools(), useSystem(), useTmdb()];
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -58,8 +58,8 @@ export function SetupPage() {
           })}
 
           <p className="text-13 text-fg-faint">
-            Kura never uploads your files. It only goes online to look up titles and artwork, to
-            fetch its tools, and to check for updates.
+            Kura never uploads your files. It only goes online to look up titles, episode lists and
+            artwork on AniList and TMDB, to fetch its tools, and to check for updates.
           </p>
         </main>
       </div>

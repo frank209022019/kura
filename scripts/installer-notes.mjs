@@ -34,7 +34,7 @@ export function beforeYouInstall(downloads, licence) {
     lines.push("");
   });
   lines.push(
-    "Kura never uploads your files. It only goes online to look up titles and artwork, to fetch what's listed above, and to check for updates.",
+    "Kura never uploads your files. It only goes online to look up titles, episode lists and artwork (on AniList, and on TMDB with your own free key), to fetch what's listed above, and to check for updates.",
     "",
     "KURA'S LICENCE",
     "",

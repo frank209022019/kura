@@ -66,6 +66,16 @@ kura/
   config.py       where the data folder is
   db.py           connecting to SQLite and migrating it
   migrations.py   the schema, as an append-only list
+  library.py      library folders, and finding and reading their videos
+  scan.py         the scan: find every video, then read each one
+  probe.py        running ffprobe on one file
+  tools.py        downloading what downloads.json lists (ffmpeg)
+  changes.py      applying and undoing tidy-up plans, journaled
+  web.py          asking web services for JSON: timeouts, rate limits, errors in words
+  anilist.py      AniList: which anime a file is
+  tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
+  credentials.py  the TMDB key, encrypted for the Windows user, outside the database
+  system.py       the graphics card
   export.py       the export zip
 ```
 
@@ -105,8 +115,9 @@ rename with it, and folders inside a library folder that the moves leave truly e
 ## Data
 
 - **The data folder**, `%LOCALAPPDATA%\Kura`: `kura.db` (everything Kura knows), `logs/`
-  (`engine.log`, kept 30 days), later `artwork/` and `backups/` (7 nights). Development uses
-  `engine/.dev-data`, so it never touches the real folder.
+  (`engine.log`, kept 30 days), `tools/` (ffmpeg), `credentials.json` (the TMDB key, encrypted by
+  Windows for this user and never exported), later `artwork/` and `backups/` (7 nights).
+  Development uses `engine/.dev-data`, so it never touches the real folder.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
   A database written by a newer Kura is refused, not damaged.
 - **With the anime**: `Kura - Gap analysis.md` and `Kura - History.md` per anime, a tag inside each

@@ -1,0 +1,40 @@
+# AniList (which anime a file is)
+
+[AniList](https://anilist.co) knows anime best: every entry's English, romaji and native titles
+and its nicknames ("DBZ"), whether it's a TV series, a film, an OVA or a special, its episode count
+and dates, what's airing, and how seasons, films and specials connect (sequel, prequel, side
+story). Kura searches it to work out which anime a file is; TMDB ([tmdb.md](tmdb.md)) then gives
+the episodes in Plex's shape.
+
+It replaced the manami offline database, the first plan, whose repository was archived in 2026:
+AniList is always current and needs no download.
+
+## No key, about 30 requests a minute
+
+AniList's API is free for non-commercial use and needs no key or account. Its rate limit is
+90 requests a minute, currently lowered to 30 (it says so in `X-RateLimit-Limit`). When a minute's
+requests run out (`X-RateLimit-Remaining: 0`), [kura/web.py](../../engine/src/kura/web.py) waits
+for `X-RateLimit-Reset` before the next one, and a 429 is retried after its `Retry-After`. Kura
+asks once per anime, with everything it needs in that one answer, and keeps the answers, so a
+library of a hundred anime costs a few minutes on the first scan and nothing after.
+
+## What Kura asks
+
+One GraphQL endpoint, `POST https://graphql.anilist.co`, from
+[kura/anilist.py](../../engine/src/kura/anilist.py):
+
+- a search: `Page(perPage: N) { media(search: $search, type: ANIME) { … } }`;
+- one entry: `Media(id: $id, type: ANIME) { … }`.
+
+Both ask for the same fields: `id format episodes duration status startDate endDate
+title { romaji english native } synonyms coverImage { large } nextAiringEpisode
+relations { edges { relationType node { … } } }`.
+[kura/core/catalog.py](../../engine/src/kura/core/catalog.py) reads them into `Anime` and
+`Related` values, with Kura's kinds: TV, TV short and web series (ONA) are a series, MOVIE a
+movie, OVA an OVA, SPECIAL and MUSIC a special. Relations to manga and novels are dropped.
+
+## Tests
+
+`tests/data/anilist/` holds real AniList answers (Dragon Ball Z, Cowboy Bebop, Attack on Titan
+Season 3 Part 2, One Piece), saved once, so parsing is tested against what AniList really sends.
+No test reaches AniList itself: `tests/fake_web.py` answers instead.

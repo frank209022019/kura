@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -18,6 +18,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: shell.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 
 const DATA_DIR = "C:\\Users\\you\\AppData\\Local\\Kura";
+const TMDB_KEY = "a-read-access-token-ending-in-ab12";
 const ANIME: LibraryFolder = {
   id: 1,
   path: "D:\\Anime",
@@ -41,7 +42,11 @@ const FFMPEG: Tool = {
 
 /** A first run: no folders yet, recommended settings, ffmpeg still to fetch. */
 function firstRun(overrides: Record<string, unknown> = {}) {
-  const library = { folders: [] as LibraryFolder[], settings: { ...SETTINGS, setUp: false } };
+  const library = {
+    folders: [] as LibraryFolder[],
+    settings: { ...SETTINGS, setUp: false },
+    tmdb: { connected: false, keyEnd: null as string | null },
+  };
   return fakeEngine({
     "/health": { status: "ok", version: "0.1.0", dataDir: DATA_DIR, schemaVersion: 3 },
     "/folders": () => library.folders,
@@ -58,6 +63,15 @@ function firstRun(overrides: Record<string, unknown> = {}) {
     "/tools": [FFMPEG],
     "POST /tools/ffmpeg/download": { ...FFMPEG, state: "downloading" },
     "/system": { graphicsCard: "NVIDIA GeForce GTX 1660 SUPER" },
+    "/tmdb": () => library.tmdb,
+    "PUT /tmdb": (init?: RequestInit) => {
+      const { key } = JSON.parse(String(init?.body)) as { key: string };
+      if (key !== TMDB_KEY) {
+        return Response.json({ detail: "TMDB didn't accept this key." }, { status: 400 });
+      }
+      library.tmdb = { connected: true, keyEnd: key.slice(-4) };
+      return library.tmdb;
+    },
     "/scan": NO_SCAN,
     "POST /scan": { ...NO_SCAN, state: "running", stage: "finding" },
     ...overrides,
@@ -179,6 +193,23 @@ describe("SetupPage", () => {
 
     expect(await screen.findByRole("button", { name: "Download" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("checks a TMDB key with TMDB, then shows it connected", async () => {
+    const fetch = firstRun();
+    renderSetup("tools");
+
+    const field = await screen.findByLabelText("TMDB API Read Access Token");
+    fireEvent.change(field, { target: { value: "not the key" } });
+    screen.getByRole("button", { name: "Connect" }).click();
+    expect(await screen.findByRole("alert")).toHaveTextContent("TMDB didn't accept this key.");
+
+    fireEvent.change(field, { target: { value: TMDB_KEY } });
+    screen.getByRole("button", { name: "Connect" }).click();
+
+    expect(await screen.findByText("Key ending ab12 · kept on this PC only")).toBeInTheDocument();
+    expect(sent(fetch, "PUT", "/tmdb")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Start the first scan" })).toBeInTheDocument();
   });
 
   it("downloads ffmpeg, then starts the first scan", async () => {
