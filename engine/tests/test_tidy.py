@@ -296,3 +296,22 @@ def test_a_copy_is_never_set_aside_on_top_of_one_set_aside_earlier(
     first = propose(conn, day=NOW.date()).changes[0]
 
     assert first.change.target == earlier / "Cowboy Bebop - 01 (copy) (2).mkv"
+
+
+def test_a_folder_already_there_keeps_its_own_spelling(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    (root / "tv" / "cowboy bebop (1998)" / "season 01").mkdir(parents=True)
+    library(conn, root, ["Downloads/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet())
+
+    [proposed] = propose(conn, day=NOW.date()).changes
+
+    assert str(proposed.change.target) == str(
+        root
+        / "tv"
+        / "cowboy bebop (1998)"
+        / "season 01"
+        / "Cowboy Bebop (1998) - S01E01 - Asteroid Blues.mkv"
+    )

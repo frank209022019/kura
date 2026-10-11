@@ -96,6 +96,10 @@ class Identifier:
         except WebError as error:
             log.warning("The owner's choices couldn't be placed again: %s", error)
             return Identified(0, 0, _waiting("AniList or TMDB", error))
+        try:
+            self._link_unlinked(conn)
+        except WebError as error:  # the franchises form at the next scan
+            log.warning("AniList couldn't say how entries relate: %s", error)
         files, others = _to_identify(conn)
         stamp = self._now().isoformat()
         _mark_unlookable(conn, others, stamp)
@@ -291,6 +295,19 @@ class Identifier:
                            WHERE id = ?""",
                         (self._now().isoformat(), row["id"]),
                     )
+
+    def _link_unlinked(self, conn: sqlite3.Connection) -> None:
+        """The entries files are matched to that Kura has no links of (matched before it kept
+        how AniList relates them), linked now so their franchises form. An entry related to no
+        other anime is asked about again, from the cache while that lasts."""
+        rows = conn.execute(
+            """SELECT DISTINCT anilist_id FROM files
+               WHERE anilist_id IS NOT NULL AND gone_at IS NULL
+                 AND anilist_id NOT IN (SELECT anilist_id FROM anilist_links)"""
+        ).fetchall()
+        for row in rows:
+            if entry := self._anilist.entry(row["anilist_id"]):
+                save_links(conn, entry)
 
     def _tmdb(self) -> Tmdb | None:
         key = credentials.load(self._paths, "tmdb")

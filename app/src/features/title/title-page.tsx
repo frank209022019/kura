@@ -13,7 +13,7 @@ import {
   useReport,
   useTitle,
 } from "@/lib/engine";
-import { openFolder, showInFolder } from "@/lib/explorer";
+import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
 
@@ -89,6 +89,7 @@ function Unfit({ count }: { count: number }) {
 
 function Header({ title }: { title: TitleDetail }) {
   const navigate = useNavigate();
+  const explorer = useExplorer();
   const seasons = title.seasons.length;
   const facts = [
     title.year ? String(title.year) : null,
@@ -123,7 +124,7 @@ function Header({ title }: { title: TitleDetail }) {
         )}
         <div className="flex flex-wrap gap-2.5 pt-1.5">
           {title.folder && (
-            <Button size="sm" onClick={() => void openFolder(title.folder ?? "")}>
+            <Button size="sm" onClick={() => explorer.run(() => openFolder(title.folder ?? ""))}>
               Open folder
             </Button>
           )}
@@ -131,6 +132,11 @@ function Header({ title }: { title: TitleDetail }) {
             Change match
           </Button>
         </div>
+        {explorer.problem && (
+          <p role="alert" className="text-13 text-broken-fg">
+            {explorer.problem}
+          </p>
+        )}
       </div>
       {title.aired > 0 && (
         <div className="flex flex-col items-center gap-1">
@@ -339,9 +345,10 @@ function ReportPanel({ titleId }: { titleId: number }) {
 
 function ReportActions({ path, text }: { path: string; text: string }) {
   const [copied, setCopied] = useState(false);
+  const explorer = useExplorer();
   return (
-    <div className="flex flex-wrap gap-2.5">
-      <Button size="sm" onClick={() => void showInFolder(path)}>
+    <div className="flex flex-wrap items-center gap-2.5">
+      <Button size="sm" onClick={() => explorer.run(() => showInFolder(path))}>
         Show in folder
       </Button>
       <Button
@@ -355,6 +362,11 @@ function ReportActions({ path, text }: { path: string; text: string }) {
       >
         {copied ? "Copied" : "Copy"}
       </Button>
+      {explorer.problem && (
+        <p role="alert" className="basis-full text-13 text-broken-fg">
+          {explorer.problem}
+        </p>
+      )}
     </div>
   );
 }

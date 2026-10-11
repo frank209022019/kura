@@ -129,6 +129,20 @@ describe("TitlePage", () => {
     expect(await screen.findByText("Match")).toBeInTheDocument();
   });
 
+  it("says why Explorer couldn't open its folder", async () => {
+    renderTitle(DBZ);
+    const gone = `Windows can't open ${DBZ.folder}: it isn't a folder that's there.`;
+    shell.invoke.mockImplementation(async (command: string) => {
+      if (command === "engine_status") return READY;
+      if (command === "open_folder") throw gone;
+      return undefined;
+    });
+
+    (await screen.findByRole("button", { name: "Open folder" })).click();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(gone);
+  });
+
   it("says which franchise it's part of, and leads back to it", async () => {
     renderTitle({ ...DBZ, franchise: { id: 7, name: "Dragon Ball" } });
 

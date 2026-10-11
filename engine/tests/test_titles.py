@@ -270,3 +270,15 @@ def test_a_titles_report_can_be_read_once_its_written(
 
     assert report["path"] == str(root / "Dragon Ball Z (1989)" / GAP_ANALYSIS_FILE)
     assert report["text"].startswith("# Dragon Ball Z (1989) — gap analysis")
+
+
+def test_franchises_form_for_a_library_identified_before_kura_kept_links(
+    client: TestClient, identified: sqlite3.Connection, paths: DataPaths
+):
+    with identified:
+        identified.execute("DELETE FROM anilist_links")  # as identified before schema 5
+    assert [len(f["titles"]) for f in client.get("/franchises").json()] == [1, 1, 1]
+
+    identify(paths, identified, internet())  # the next scan
+
+    assert [len(f["titles"]) for f in client.get("/franchises").json()] == [1, 2]

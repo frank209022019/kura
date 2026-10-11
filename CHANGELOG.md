@@ -28,9 +28,9 @@ shows these notes when it offers the update.
 - A page for each anime: how much of it is there, its seasons and episode map with every
   episode's state by shape, the missing and broken episodes (a long run of missing ones as one
   range), its specials and OVAs apart, its videos, and the gap analysis written next to it (shown
-  in its folder or copied). "Open folder" opens its folder in Explorer, and "Change match" picks
-  another anime for all its files at once: specials stay specials, and a file that doesn't fit
-  the new anime waits for you, the title page says how many.
+  in its folder or copied). "Open folder" opens its folder in Explorer (or says why it can't),
+  and "Change match" picks another anime for all its files at once: specials stay specials, and a
+  file that doesn't fit the new anime waits for you, the title page says how many.
 - Scans identify every video: which anime, movie, OVA or special it is and, with a TMDB key,
   which season and episode, numbered as Plex shows them. Files Kura isn't sure about wait for you
   instead of being guessed. Offline, the scan still finishes and identifies them next time.

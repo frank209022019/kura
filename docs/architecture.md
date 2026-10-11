@@ -112,7 +112,8 @@ or film is found on TMDB, whose episode lists say where each file sits. An OVA o
 into its show's season 0 when the library has the show and TMDB lists it among the show's
 specials on the day it first aired; otherwise it's a title of its own. Titles AniList ties
 together by story (sequels, prequels, alternative versions, films, side stories) make a franchise
-(`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own. A file
+(`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own (an entry
+matched before Kura kept these links is asked about at the next scan). A file
 Kura isn't sure about waits for the owner, whose choice is pinned (an episode Kura can't place
 asks for its number); offline, identification waits for the next scan and the scan says so. A
 title's match can be changed for all its files at once (`Identifier.rematch`), chosen for its
@@ -141,7 +142,9 @@ quarantine" folder on the same drive. Copies are files of one title's same episo
 holding two episodes isn't a copy of one) or of one film; a film in parts (CD1, CD2) is filed as
 its parts (`- pt1`, `- pt2`, as Plex stacks them). A video stays where it is, with the reason,
 when its new name would be too long for Windows (its subtitles' included) or its new folder is
-one scans skip (a link, or a name starting with a dot). The owner keeps the titles they want, and
+one scans skip (a link, or a name starting with a dot). A folder on the way that's there already
+keeps its own spelling ("cowboy bebop (1998)"), so the records name files exactly as the disk
+does. The owner keeps the titles they want, and
 may keep the other copy instead.
 
 A plan is applied only after review, exactly as reviewed: the app sends back each change it

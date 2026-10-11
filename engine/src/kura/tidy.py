@@ -14,9 +14,9 @@ import os
 import re
 import sqlite3
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePath, PureWindowsPath
 from typing import Literal
 
 from kura.changes import (
@@ -145,6 +145,7 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
             of[str(sidecar).casefold()] = video
     linked = _into_links(plan, of)
     mixed = _mixed_folders(conn)
+    folders: dict[str, dict[str, str]] = {}
     proposed: list[Proposed] = []
     for change in plan.changes:
         video = of[str(change.source).casefold()]
@@ -158,6 +159,8 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
             else "rename"
         )
         root = Path(video.placed.root or "")
+        if change.kind is ChangeKind.MOVE:
+            change = replace(change, target=_as_spelled(change.target, root, folders))
         proposed.append(Proposed(change, root, category, video.title_id, video.title))
     left = [(Path(video.placed.copy.path), _LINKED) for video in videos if video.id in linked]
     return Proposal(
@@ -191,6 +194,32 @@ def _into_links(plan: Plan, of: dict[str, _Video]) -> set[int]:
         if change.kind is ChangeKind.MOVE and linked(Path(change.target).parent, root):
             found.add(video.id)
     return found
+
+
+def _as_spelled(target: PurePath, root: Path, folders: dict[str, dict[str, str]]) -> PurePath:
+    """A new place, with each folder on the way that's there already spelled as it is on disk
+    ("cowboy bebop (1998)", say): Windows would put the file in it anyway, and the library's
+    record then names the file exactly as the disk does. `folders` keeps what was looked at."""
+    try:
+        inside = PureWindowsPath(target).relative_to(root)
+    except ValueError:
+        return target
+    folder = PureWindowsPath(root)
+    for name in inside.parts[:-1]:
+        key = str(folder).casefold()
+        if key not in folders:
+            folders[key] = _folders_in(Path(folder))
+        folder /= folders[key].get(name.casefold(), name)
+    return folder / inside.name
+
+
+def _folders_in(folder: Path) -> dict[str, str]:
+    """The folders in a folder, by their names in lower case."""
+    try:
+        with os.scandir(folder) as entries:
+            return {entry.name.casefold(): entry.name for entry in entries if entry.is_dir()}
+    except OSError:
+        return {}  # not there yet, or can't be read
 
 
 def _set_aside(videos: Sequence[_Video], day: date) -> list[str]:
