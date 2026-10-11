@@ -9,6 +9,9 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Poster and background pictures next to each show and film (Settings > Your data, off unless you
+  turn it on): `poster.jpg` and `fanart.jpg`, which media servers show. Kura never writes over a
+  picture that's there, and turning it off takes away only the ones it wrote, unchanged.
 - Import an export (Settings > Your data), from this PC or another: Kura's records become the
   export's as its engine starts again, and what it knew till then is backed up first, so
   Backups can bring it back.

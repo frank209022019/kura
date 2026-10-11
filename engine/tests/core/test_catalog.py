@@ -98,6 +98,7 @@ def test_a_tmdb_show_has_every_episode_in_season_order():
     first = dbz.season(1)[0]
     assert (first.title, first.aired) == ("The New Threat", date(1989, 4, 26))
     assert not dbz.airing
+    assert (dbz.poster, dbz.backdrop) == ("/poster-12971.jpg", "/backdrop-12971.jpg")
 
 
 def test_a_tmdb_show_still_in_production_is_airing():
@@ -115,3 +116,25 @@ def test_a_tmdb_film():
 
     assert bebop is not None
     assert (bebop.title, bebop.year, bebop.minutes) == ("Cowboy Bebop: The Movie", 2001, 115)
+    assert bebop.backdrop == "/backdrop-movie-11299.jpg"
+
+
+def test_an_anilist_entry_has_its_banner_for_a_background():
+    found = {
+        "data": {
+            "Page": {
+                "media": [
+                    {
+                        "id": 1,
+                        "title": {"english": "Cowboy Bebop"},
+                        "format": "TV",
+                        "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1.jpg",
+                    }
+                ]
+            }
+        }
+    }
+
+    [bebop] = anime_list(found)
+
+    assert bebop.banner == "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1.jpg"

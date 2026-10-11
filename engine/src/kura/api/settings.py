@@ -4,10 +4,12 @@ import json
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import ValidationError
 
 from kura.api.common import ApiModel, Database
+from kura.artwork_files import forget_artwork
+from kura.care import Care
 from kura.reports import write_reports
 
 router = APIRouter()
@@ -22,6 +24,7 @@ class Settings(ApiModel):
     reports: bool = True  # a gap analysis next to each anime with a folder of its own
     # Days copies set aside and converted files' originals are kept, or None: for good.
     quarantine_days: Literal[7, 30, 90] | None = 30
+    artwork: bool = False  # poster and background pictures next to each show, for media servers
 
 
 @router.get("/settings")
@@ -41,9 +44,10 @@ def settings(conn: Database) -> Settings:
 
 
 @router.put("/settings")
-def save_settings(body: Settings, conn: Database) -> Settings:
+def save_settings(body: Settings, conn: Database, request: Request) -> Settings:
     """Keeps the owner's choices. Turning the reports off takes them out of the anime folders at
-    once; turning them on writes them again."""
+    once; turning them on writes them again. So with the pictures next to each show: off, the
+    ones Kura wrote go at once; on, Kura's care writes them now."""
     before = settings(conn)
     with conn:
         conn.executemany(
@@ -53,4 +57,10 @@ def save_settings(body: Settings, conn: Database) -> Settings:
         )
     if body.reports != before.reports:
         write_reports(conn, now=datetime.now().astimezone())
+    if body.artwork != before.artwork:
+        if body.artwork:
+            care: Care = request.app.state.care
+            care.wake()
+        else:
+            forget_artwork(conn)
     return settings(conn)

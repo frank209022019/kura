@@ -44,16 +44,19 @@ tables, give every table a primary key, and add the new data to the export.
 | Table | Since | Holds |
 | --- | --- | --- |
 | `settings` | 1 | Kura's preferences: one JSON value per key |
-| `plans` | 2 | Tidy-up plans: a title, and when each was made, applied and undone |
-| `changes` | 2 | The undo journal: each plan's moves and quarantines in order, with their state (`planned`, `moving`, `done`, `failed`, `undoing`, `undone`), any problem, and the folders each one created |
+| `plans` | 2, 6 | Plans of changes: a title, when each was made, applied and undone, and since 6 its kind (`tidy`, which deleting uses too, or `convert`) |
+| `changes` | 2 | The undo journal: each plan's moves and quarantines in order, with their state (`planned`, `moving`, `done`, `failed`, `undoing`, `undone`), any problem, and the folders each one created; since 8, when what one set aside was cleared out of quarantine |
 | `folders` | 3 | The library folders, unique whatever their case |
 | `files` | 3, 4 | Every video a scan found: its folder, path, size and time (to notice changes), when it was found, last seen and gone, and once read, ffprobe's JSON report with the duration, size and codec at a glance, or why it couldn't be read. Since 4, what it is: its title, the AniList entry it matched, its season and episode as TMDB numbers them, how sure Kura is (`sure`, `unsure`, `none`, `extra`, `ignored`) with the best guesses for review, and whether the owner pinned it |
 | `scans` | 3, 4 | Each scan: when it started and finished, its state (`running`, `paused`, `done`, `failed`), its stage (`finding`, `reading`, `identifying`, `checking`, `done`), any problem, and a note on what it couldn't do though it finished |
-| `titles` | 4 | Each anime and film in the library: its kind (`series`, `movie`, `ova`, `special`), name, year and release date (lists sort by it), its TMDB show or film and the AniList entry it was found by, whether it's airing, its poster, and when its episode list was last asked for |
+| `titles` | 4 | Each anime and film in the library: its kind (`series`, `movie`, `ova`, `special`), name, year and release date (lists sort by it), its TMDB show or film and the AniList entry it was found by, whether it's airing, its poster (since 10, its wide background picture too), and when its episode list was last asked for |
 | `episodes` | 4 | Each title's episode list, from TMDB (or AniList's count without a key): season (0 for the specials), number, name, air date and length |
 | `anilist_links` | 5 | How AniList relates each entry the library matched to others (`SEQUEL`, `PREQUEL`, `PARENT`, `SIDE_STORY`, `ALTERNATIVE`, ...): what ties a franchise together |
+| `jobs` | 6, 7 | The conversion queue: each file waiting, converting or converted, in the owner's order, its state (`queued`, `running`, `replacing`, `done`, `failed`, `skipped`, `restored`), the plan that put its result in place, and what it takes to put the original back; since 7, what the result was |
+| `artwork_files` | 10 | The poster and background pictures Kura wrote next to a title, with their size: only these, unchanged, are Kura's to take away |
 
-The queue and history come with the features that need them.
+Migration 9 changed no table: it reworded what earlier tidy-ups said (the UI never names a media
+server).
 
 ## Backups and export
 

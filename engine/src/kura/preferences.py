@@ -33,6 +33,13 @@ def library_standard(conn: sqlite3.Connection) -> Standard:
     )
 
 
+def artwork_wanted(conn: sqlite3.Connection) -> bool:
+    """Whether Kura keeps poster and background pictures next to each show (off unless the owner
+    turns it on: it writes into the anime folders)."""
+    row = conn.execute("SELECT value FROM settings WHERE key = 'artwork'").fetchone()
+    return row is not None and json.loads(row["value"]) is True
+
+
 def quarantine_days(conn: sqlite3.Connection) -> int | None:
     """How many days what's set aside is kept before it's cleared out (Settings > Your data), or
     None: for good."""

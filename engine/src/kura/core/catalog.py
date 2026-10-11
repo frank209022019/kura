@@ -63,6 +63,7 @@ class Anime:
     next_episode: int | None  # the next one to air, while it airs
     cover: str | None  # the cover's web address
     related: tuple[Related, ...]
+    banner: str | None = None  # the wide banner's web address: a background behind the poster
 
     @property
     def year(self) -> int | None:
@@ -107,6 +108,7 @@ class Show:
     airing: bool  # more episodes are coming
     poster: str | None  # a path on TMDB's image server
     episodes: tuple[Episode, ...]  # in season order, then episode order
+    backdrop: str | None = None  # the wide background picture's path on TMDB's image server
 
     @property
     def year(self) -> int | None:
@@ -129,6 +131,7 @@ class Film:
     released: date | None
     minutes: int | None
     poster: str | None
+    backdrop: str | None = None  # the wide background picture's path on TMDB's image server
 
     @property
     def year(self) -> int | None:
@@ -166,6 +169,7 @@ def anime(media: Json) -> Anime | None:
         next_episode=fields.whole(upcoming, "episode"),
         cover=fields.text(fields.mapping(media, "coverImage"), "large"),
         related=tuple(_related(fields.mapping(media, "relations"))),
+        banner=fields.text(media, "bannerImage"),
     )
 
 
@@ -215,6 +219,7 @@ def show(details: Json) -> Show | None:
         airing=bool(details.get("in_production")) or status in _AIRING,
         poster=fields.text(details, "poster_path"),
         episodes=tuple(episodes),
+        backdrop=fields.text(details, "backdrop_path"),
     )
 
 
@@ -237,6 +242,7 @@ def film(details: Json) -> Film | None:
         released=fields.day(fields.text(details, "release_date")),
         minutes=fields.whole(details, "runtime") or None,
         poster=fields.text(details, "poster_path"),
+        backdrop=fields.text(details, "backdrop_path"),
     )
 
 

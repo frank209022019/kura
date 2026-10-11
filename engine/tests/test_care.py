@@ -13,6 +13,9 @@ from kura.changes import changes_of
 from kura.config import DataPaths
 from kura.scan import Scanner
 from kura.tools import Tools
+from kura.web import Reply
+from tests.fake_web import FakeWeb
+from tests.shelf import library
 from tests.test_quarantine import NOW, set_aside
 
 pytestmark = pytest.mark.usefixtures("quarantine")
@@ -110,6 +113,24 @@ def test_the_clear_out_waits_while_files_move(
 
     care.look_after()
     assert cleared(conn, old)
+
+
+def test_the_pictures_next_to_each_show_are_written_as_care_looks_after_things(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    library(conn, tmp_path / "Anime", ["TV/Trigun (1998)/Trigun (1998) - S01E01.mkv"])
+    with conn:
+        conn.execute(
+            "INSERT INTO titles (id, kind, name, poster) VALUES (1, 'series', 'Trigun', '/p.jpg')"
+        )
+        conn.execute("UPDATE files SET title_id = 1, matched = 'sure'")
+        conn.execute("INSERT INTO settings (key, value) VALUES ('artwork', 'true')")
+    web = FakeWeb(answers={"GET https://image.tmdb.org/t/p/w780/p.jpg": Reply(200, {}, b"poster")})
+    care = Care(paths, Scanner(paths, Tools(paths, items=())).hold, now=lambda: NOW, transport=web)
+
+    care.look_after()
+
+    assert (tmp_path / "Anime" / "TV" / "Trigun (1998)" / "poster.jpg").read_bytes() == b"poster"
 
 
 def test_care_looks_after_things_at_once_and_stops_when_asked(

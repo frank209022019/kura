@@ -37,6 +37,7 @@ def tv_details(
         "status": status,
         "in_production": status == "Returning Series",
         "poster_path": f"/poster-{show_id}.jpg",
+        "backdrop_path": f"/backdrop-{show_id}.jpg",
         "seasons": [
             {"season_number": number, "episode_count": size}
             for number, size in enumerate([specials, *seasons])
@@ -71,6 +72,7 @@ def movie_details(movie_id: int, title: str, released: date, minutes: int) -> di
         "release_date": released.isoformat(),
         "runtime": minutes,
         "poster_path": f"/poster-movie-{movie_id}.jpg",
+        "backdrop_path": f"/backdrop-movie-{movie_id}.jpg",
     }
 
 

@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +20,28 @@ def test_a_new_kura_starts_from_the_recommended_choices(client: TestClient):
         "setUp": False,
         "reports": True,
         "quarantineDays": 30,
+        "artwork": False,
     }
+
+
+def test_turning_the_pictures_off_takes_away_the_ones_kura_wrote(
+    client: TestClient, conn: sqlite3.Connection, tmp_path: Path
+):
+    picture = tmp_path / "Trigun (1998)" / "poster.jpg"
+    picture.parent.mkdir()
+    picture.write_bytes(b"a poster")
+    with conn:
+        conn.execute("INSERT INTO titles (id, kind, name) VALUES (1, 'series', 'Trigun')")
+        conn.execute(
+            "INSERT INTO artwork_files (path, title_id, size, written_at) VALUES (?, 1, 8, 'now')",
+            (str(picture),),
+        )
+    on = {**client.get("/settings").json(), "artwork": True}
+    client.put("/settings", json=on)
+
+    client.put("/settings", json={**on, "artwork": False})
+
+    assert not picture.exists()
 
 
 def test_choices_are_kept(client: TestClient, conn: sqlite3.Connection):
@@ -31,6 +53,7 @@ def test_choices_are_kept(client: TestClient, conn: sqlite3.Connection):
         "setUp": True,
         "reports": True,
         "quarantineDays": None,
+        "artwork": True,
     }
 
     saved = client.put("/settings", json=chosen)

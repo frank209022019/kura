@@ -188,4 +188,16 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     UPDATE changes SET reason = REPLACE(reason, 'Named for Plex', 'Named and filed')
         WHERE reason LIKE 'Named for Plex%';
     """,
+    # 10. A title's wide background picture, and the poster and background files Kura wrote next
+    #     to a show for media servers: only those, and only unchanged, are Kura's to take away.
+    """
+    ALTER TABLE titles ADD COLUMN backdrop TEXT;  -- TMDB's image path, or AniList's banner address
+
+    CREATE TABLE artwork_files (
+        path       TEXT PRIMARY KEY,  -- poster.jpg or fanart.jpg next to a title's videos
+        title_id   INTEGER NOT NULL REFERENCES titles (id) ON DELETE CASCADE,
+        size       INTEGER NOT NULL,  -- as Kura wrote it
+        written_at TEXT NOT NULL
+    ) STRICT;
+    """,
 )

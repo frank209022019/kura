@@ -18,6 +18,7 @@ _ENTRY = """
     title { romaji english native }
     synonyms
     coverImage { large }
+    bannerImage
     nextAiringEpisode { episode airingAt }
     relations {
       edges {

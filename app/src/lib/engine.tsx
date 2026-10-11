@@ -307,6 +307,8 @@ export interface Settings {
   reports: boolean;
   /** Days copies set aside and converted files' originals are kept, or null: for good. */
   quarantineDays: 7 | 30 | 90 | null;
+  /** Poster and background pictures next to each show, for media servers. */
+  artwork: boolean;
 }
 
 export const useSettings = () => useEngineQuery<Settings>("/settings");

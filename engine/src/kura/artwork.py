@@ -18,12 +18,29 @@ _HOSTS = ("image.tmdb.org", "anilist.co")  # and its subdomains, such as s4.anil
 _KINDS = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 
 
-def poster_address(poster: str | None) -> str | None:
-    """Where a title's poster is: a TMDB image path becomes its address on the image server;
-    an AniList cover is already one. Anything from another host is refused."""
+def poster_address(poster: str | None, size: str = POSTER_SIZE) -> str | None:
+    """Where a title's poster is: a TMDB image path becomes its address on the image server, at
+    `size`; an AniList cover is already one. Anything from another host is refused."""
     if not poster:
         return None
-    address = f"{IMAGES}/{POSTER_SIZE}{poster}" if poster.startswith("/") else poster
+    return _trusted(f"{IMAGES}/{size}{poster}" if poster.startswith("/") else poster)
+
+
+def large_poster_address(poster: str | None) -> str | None:
+    """A poster big enough for a media server: TMDB's at 780 wide, AniList's largest cover."""
+    address = poster_address(poster, "w780")
+    return address.replace("/cover/large/", "/cover/extraLarge/") if address else None
+
+
+def background_address(backdrop: str | None) -> str | None:
+    """Where a title's wide background picture is: TMDB's at 1280 wide, or AniList's banner."""
+    if not backdrop:
+        return None
+    return _trusted(f"{IMAGES}/w1280{backdrop}" if backdrop.startswith("/") else backdrop)
+
+
+def _trusted(address: str) -> str | None:
+    """The address, when it's on TMDB's or AniList's image servers over HTTPS."""
     parts = urlsplit(address)
     host = parts.hostname or ""
     trusted = any(host == known or host.endswith(f".{known}") for known in _HOSTS)

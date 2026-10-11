@@ -19,6 +19,7 @@ from datetime import date, datetime
 from pathlib import Path, PurePath, PureWindowsPath
 from typing import Literal
 
+from kura.artwork_files import forget_artwork
 from kura.changes import (
     SavedChange,
     apply_plan,
@@ -512,10 +513,10 @@ def _clear_behind(conn: sqlite3.Connection, left: Sequence[Path]) -> None:
         while any(folder != root and folder.is_relative_to(root) for root in roots):
             folders.add(folder)
             folder = folder.parent
-    for folder in sorted(folders, key=lambda f: len(f.parts), reverse=True):
-        report = folder / GAP_ANALYSIS_FILE
-        if report.is_file() and not _holds_videos(folder):
-            report.unlink(missing_ok=True)
+    empty = [folder for folder in folders if not _holds_videos(folder)]
+    for folder in sorted(empty, key=lambda f: len(f.parts), reverse=True):
+        (folder / GAP_ANALYSIS_FILE).unlink(missing_ok=True)
+    forget_artwork(conn, empty)  # the pictures Kura put next to a show that's gone from here
     remove_emptied(conn, folders)
 
 

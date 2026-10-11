@@ -24,6 +24,7 @@ export const SETTINGS: Settings = {
   setUp: true,
   reports: true,
   quarantineDays: 30,
+  artwork: false,
 };
 
 export const NO_LIBRARY: Library = {

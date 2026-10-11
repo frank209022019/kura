@@ -61,6 +61,7 @@ def test_with_a_tmdb_key_every_episode_lands_in_tmdbs_seasons(
     title = conn.execute("SELECT * FROM titles").fetchone()
     assert (title["tmdb_type"], title["tmdb_id"], title["anilist_id"]) == ("tv", 12971, 813)
     assert (title["year"], title["released"]) == (1989, "1989-04-26")
+    assert (title["poster"], title["backdrop"]) == ("/poster-12971.jpg", "/backdrop-12971.jpg")
     assert conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == 291
     assert done.sure == 3
 

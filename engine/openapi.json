@@ -347,7 +347,7 @@
       },
       "put": {
         "summary": "Save Settings",
-        "description": "Keeps the owner's choices. Turning the reports off takes them out of the anime folders at\nonce; turning them on writes them again.",
+        "description": "Keeps the owner's choices. Turning the reports off takes them out of the anime folders at\nonce; turning them on writes them again. So with the pictures next to each show: off, the\nones Kura wrote go at once; on, Kura's care writes them now.",
         "operationId": "save_settings_settings_put",
         "requestBody": {
           "content": {
@@ -4127,6 +4127,11 @@
             ],
             "title": "Quarantinedays",
             "default": 30
+          },
+          "artwork": {
+            "type": "boolean",
+            "title": "Artwork",
+            "default": false
           }
         },
         "type": "object",

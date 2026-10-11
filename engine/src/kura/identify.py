@@ -426,12 +426,12 @@ def save_show(
     with conn:
         row = conn.execute(
             """INSERT INTO titles (kind, name, year, released, tmdb_type, tmdb_id, anilist_id,
-                                   airing, poster, checked_at)
-               VALUES (?, ?, ?, ?, 'tv', ?, ?, ?, ?, ?)
+                                   airing, poster, backdrop, checked_at)
+               VALUES (?, ?, ?, ?, 'tv', ?, ?, ?, ?, ?, ?)
                ON CONFLICT (tmdb_type, tmdb_id) DO UPDATE SET
                    name = excluded.name, year = excluded.year, released = excluded.released,
                    airing = excluded.airing, poster = excluded.poster,
-                   checked_at = excluded.checked_at,
+                   backdrop = excluded.backdrop, checked_at = excluded.checked_at,
                    anilist_id = COALESCE(titles.anilist_id, excluded.anilist_id),
                    kind = CASE WHEN titles.kind = 'series' THEN 'series' ELSE excluded.kind END
                RETURNING id""",
@@ -444,6 +444,7 @@ def save_show(
                 anilist_id,
                 int(show.airing),
                 show.poster,
+                show.backdrop,
                 now.isoformat(),
             ),
         ).fetchone()
@@ -477,11 +478,12 @@ def _save_film(
     with conn:
         saved = conn.execute(
             """INSERT INTO titles (kind, name, year, released, tmdb_type, tmdb_id, anilist_id,
-                                   poster, checked_at)
-               VALUES ('movie', ?, ?, ?, 'movie', ?, ?, ?, ?)
+                                   poster, backdrop, checked_at)
+               VALUES ('movie', ?, ?, ?, 'movie', ?, ?, ?, ?, ?)
                ON CONFLICT (tmdb_type, tmdb_id) DO UPDATE SET
                    name = excluded.name, year = excluded.year, released = excluded.released,
-                   poster = excluded.poster, checked_at = excluded.checked_at
+                   poster = excluded.poster, backdrop = excluded.backdrop,
+                   checked_at = excluded.checked_at
                RETURNING id""",
             (
                 film.title,
@@ -490,6 +492,7 @@ def _save_film(
                 film.id,
                 entry.id if row is None else row["anilist_id"],
                 film.poster,
+                film.backdrop,
                 now.isoformat(),
             ),
         ).fetchone()
@@ -504,12 +507,12 @@ def save_anilist_title(conn: sqlite3.Connection, entry: Anime, now: datetime) ->
     with conn:
         row = conn.execute(
             """INSERT INTO titles (kind, name, year, released, anilist_id, airing, poster,
-                                   checked_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                   backdrop, checked_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (anilist_id) WHERE tmdb_id IS NULL DO UPDATE SET
                    name = excluded.name, year = excluded.year, released = excluded.released,
                    airing = excluded.airing, poster = excluded.poster,
-                   checked_at = excluded.checked_at
+                   backdrop = excluded.backdrop, checked_at = excluded.checked_at
                RETURNING id""",
             (
                 kind.value,
@@ -519,6 +522,7 @@ def save_anilist_title(conn: sqlite3.Connection, entry: Anime, now: datetime) ->
                 entry.id,
                 int(entry.airing),
                 entry.cover,
+                entry.banner,
                 now.isoformat(),
             ),
         ).fetchone()

@@ -161,6 +161,25 @@ describe("SettingsPage", () => {
     expect(body(fetch, "PUT", "/settings")).toMatchObject({ reports: false });
   });
 
+  it("puts poster and background pictures next to each show, when asked", async () => {
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "PUT /settings": SETTINGS,
+    });
+    renderSettings("data");
+
+    (
+      await screen.findByRole("switch", {
+        name: "Poster and background pictures next to each show",
+      })
+    ).click();
+
+    await waitFor(() => expect(sent(fetch, "PUT", "/settings")).toHaveLength(1));
+    expect(body(fetch, "PUT", "/settings")).toMatchObject({ artwork: true });
+  });
+
   it("exports everything to a folder the owner picks", async () => {
     const fetch = fakeEngine({
       "/folders": FOLDERS,

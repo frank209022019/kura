@@ -229,7 +229,10 @@ Before queueing, the Convert screen shows one frame of a file before and after
   A database written by a newer Kura is refused, not damaged.
 - **With the anime**: `Kura - Gap analysis.md` per anime (the owner can turn these off in
   Settings, which takes them out of the folders), later `Kura - History.md`, a tag inside each
-  converted MKV, optional Plex artwork. These survive a reinstall, and Kura can rebuild its
+  converted MKV, and, when the owner turns them on, `poster.jpg` and `fanart.jpg` in each show's
+  and film's own folder for media servers (`kura/artwork_files.py`, written by Kura's care from
+  TMDB's or AniList's larger pictures; never over a file that's there, and only Kura's own,
+  unchanged, taken away again). These survive a reinstall, and Kura can rebuild its
   library from the tags.
 - **Export**: one zip, readable without Kura, written to a folder the owner picks in Settings (or
   with `kura export`). It grows with the schema. Settings imports one too, from this PC or

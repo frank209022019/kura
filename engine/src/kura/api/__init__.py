@@ -130,7 +130,7 @@ def create_app(
         paths, app.state.scanner, lambda: app.state.programs(), now=_now, notify=notify
     )
     app.state.gpu = Gpu()
-    app.state.care = Care(paths, app.state.scanner.hold, now=_now)
+    app.state.care = Care(paths, app.state.scanner.hold, now=_now, transport=transport)
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)

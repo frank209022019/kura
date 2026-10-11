@@ -211,7 +211,8 @@ Everything decided so far. Don't ask again; change only with the owner.
   `tools\` (ffmpeg, downloaded on first run; see docs/stack/ffmpeg.md). The folder can be moved to
   another drive.
 - Next to the files: `Kura - Gap analysis.md` and `Kura - History.md` per anime (Plex ignores .md),
-  a tag inside every converted MKV, and optional Plex poster and fanart.
+  a tag inside every converted MKV, and optional poster and fanart for media servers (built:
+  off unless the owner turns it on).
 - Export: one zip (SQLite, JSON, CSV, the .md reports, settings). Today it holds the database,
   settings, every file change (`changes.csv`) and a manifest; it grows with the schema.
 - Uninstall: offer the export first, keep the data folder unless the owner ticks "Delete the
@@ -291,8 +292,8 @@ Everything decided so far. Don't ask again; change only with the owner.
 5. Settings: done (moving the data folder to another drive, and importing an export, too).
 6. Background care: done (nightly backups with restore, the daily quarantine clear-out, the tray
    with "Start with Windows" and notifications).
-7. Poster and background images next to each show, for media servers (optional, as decided; the
-   UI never names Plex).
+7. Poster and background pictures next to each show, for media servers: done (optional, off
+   unless turned on; the UI never names Plex).
 8. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), the attribution
