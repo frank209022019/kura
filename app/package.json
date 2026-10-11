@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "build:engine": "uv run --directory ../engine pyinstaller kura-engine.spec --noconfirm",
     "build:notices": "uv run --directory ../engine python tools/third_party_notices.py",
+    "build:installer-notes": "node ../scripts/installer-notes.mjs src-tauri/target/BEFORE-YOU-INSTALL.txt",
     "build:installer": "tauri build --config src-tauri/tauri.bundle.conf.json"
   },
   "dependencies": {

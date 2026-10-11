@@ -185,10 +185,19 @@ function Upcoming({ step }: { step: Step }) {
   const tools = useTools();
   const size = (tools.data ?? []).reduce((total, tool) => total + tool.size, 0);
 
+  if (step === "folders") {
+    return (
+      <Row dashed title="Your folders" icon={<Folder size={18} />}>
+        <span className="text-13">The folders your anime is in, in any layout.</span>
+      </Row>
+    );
+  }
   if (step !== "tools") {
-    const label = STEPS.find((each) => each.id === step)?.label ?? "";
-    const icon = step === "folders" ? <Folder size={18} /> : <SlidersHorizontal size={18} />;
-    return <Row dashed title={label} icon={icon} />;
+    return (
+      <Row dashed title="Your standard" icon={<SlidersHorizontal size={18} />}>
+        <span className="text-13">The size and format every file is brought to, and its name.</span>
+      </Row>
+    );
   }
   return (
     <Row

@@ -275,6 +275,7 @@ ${whatsNew}
     <li><strong>Windows SmartScreen warns once.</strong> Kura isn't code-signed: choose More info, then Run anyway.</li>
     <li><strong>No admin rights needed.</strong> Kura installs for you alone, keeps its data apart, and never touches your anime files.</li>
     <li><strong>It updates itself.</strong> Once installed, Kura offers each new version and shows what changed.</li>
+    <li><strong>Nothing is fetched behind your back.</strong> The installer's first page lists everything Kura downloads, such as ffmpeg, and Kura checks each download before using it.</li>
   </ul>
 </section>
 ${previous(older)}

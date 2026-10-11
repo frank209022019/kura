@@ -140,7 +140,15 @@ PyInstaller's bootloader exception), the build stops and names it: read the lice
 
 ## The installer
 
-Tauri builds it with NSIS; Kura adds three hooks in
+Its first page, before anything is installed, is `BEFORE-YOU-INSTALL.txt`: everything Kura
+downloads to the PC (each entry of
+[engine/src/kura/downloads.json](../engine/src/kura/downloads.json) with what it's for, its size,
+licence, address and SHA-256), then Kura's licence. `pnpm build:installer-notes`
+([scripts/installer-notes.mjs](../scripts/installer-notes.mjs)) writes it during
+`build:installer`, and NSIS shows it as its licence page (`bundle.licenseFile` in
+`tauri.bundle.conf.json`). It's plain ASCII with Windows line endings, which the script checks.
+
+Tauri builds the installer with NSIS; Kura adds three hooks in
 [app/src-tauri/windows/hooks.nsh](../app/src-tauri/windows/hooks.nsh):
 
 - Program files go to `%LOCALAPPDATA%\Programs\Kura`, not Tauri's default `%LOCALAPPDATA%\Kura`,

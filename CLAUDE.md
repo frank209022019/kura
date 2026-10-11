@@ -6,12 +6,13 @@ converts the whole library to one standard, with AI upscaling for SD sources. It
 own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
 licence: anyone may fork it, but the repo takes no contributions.
 
-**Where it stands (2026-10-11):** design language chosen, repo, CI, installer and updater pipeline
-set up, the engine's pure core (names, Plex naming, standards, estimates, gap reports, tidy
-plans) and the tidy-up journal (apply, undo, crash recovery) built test first, and the upscaling
-test settled how each source is converted. No library features in the app yet: the engine serves
-`/health` and exports, the app shows its shell. The repo is public. Next is the first build step
-in [What's next](#whats-next).
+**Where it stands (2026-10-11):** design language chosen; repo, CI, installer and updater
+pipeline set up, with semantic versions, a changelog and a downloads page; the engine's pure core
+(names, Plex naming, standards, estimates, gap reports, tidy plans) and the tidy-up journal
+(apply, undo, crash recovery) built test first; the upscaling test settled how each source is
+converted. Scanning works end to end: first-run setup, ffmpeg fetched from the list the installer
+shows, library folders, the scan (find, then read with ffprobe), and Home's library at a glance.
+No release has been tagged yet. Next is identification, in [What's next](#whats-next).
 
 ## Ground rules
 
@@ -216,9 +217,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   one installs anything by hand except a graphics driver, which Kura checks and links to. What
   isn't inside the installer (WebView2 on a PC without it, ffmpeg, later manami's database)
   goes in one manifest, `engine/src/kura/downloads.json`: what it's for, version, size, licence,
-  source and checksum. The installer shows that list before it installs, the first-run Tools step downloads
-  it, Settings shows it, and Kura downloads nothing that isn't on it. Built with the first
-  download, ffmpeg.
+  source and checksum. The installer's first page lists it (`scripts/installer-notes.mjs`), the
+  first-run Tools step downloads Kura's part of it (`engine/src/kura/tools.py`), and Kura
+  downloads nothing that isn't on it.
 - Per-user install (no admin) into `%LOCALAPPDATA%\Programs\Kura`, apart from the data.
 - The update-signing key is `%USERPROFILE%\.tauri\kura-updater.key` (no password) and the
   `TAURI_SIGNING_PRIVATE_KEY` repo secret. Lose it and installed copies can't update.
@@ -234,9 +235,12 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 ## What's next
 
-1. Scanning: the download manifest and the installer's list, with ffmpeg first; add folders, find
-   files, read them with ffprobe, the first-scan screen.
-2. Identification and the library home, then tidy-up plans, then conversion.
+1. Identification and the library home: names parsed (done in the core), titles matched with
+   manami's offline database (a download, so it joins downloads.json), mapped to TMDB with
+   artwork (needs a TMDB API key: the owner's call whose), a review screen for low confidence,
+   and the library home board. The scan screen gains its last three stages.
+2. Tidy-up in the app (the planner and journal exist): review, apply, undo, History.
+3. Conversion, with the queue.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), Real-ESRGAN's
 model (BSD-3-Clause) and Anime4K's shaders (MIT), which ship with their notices, manami's

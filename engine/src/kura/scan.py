@@ -27,6 +27,8 @@ from kura.tools import Tools
 
 log = logging.getLogger(__name__)
 
+_STOPPING = 0.5  # seconds a resume waits for a scan that's still stopping for a pause
+
 type State = Literal["idle", "running", "paused", "done", "failed"]
 type Stage = Literal["finding", "reading", "done"]
 
@@ -109,7 +111,12 @@ class Scanner:
     def resume(self) -> ScanStatus:
         """Carries on a paused scan, or keeps a running one going."""
         with self._lock:
+            was_paused = self._pause.is_set()
             self._pause.clear()
+            if was_paused and self._thread is not None:
+                # It may have seen the pause just before it was cleared, and be stopping now:
+                # let it finish (one file at most), then start it again if it did stop.
+                self._thread.join(timeout=_STOPPING)
             if not self._running():
                 self._carry_on(states=("paused", "running"))
         return self.status()

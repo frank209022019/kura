@@ -104,15 +104,18 @@ def find_files(
         current = waiting.pop()
         try:
             with os.scandir(current) as entries:
-                listed = sorted(entries, key=lambda entry: entry.name.casefold(), reverse=True)
+                listed = sorted(entries, key=lambda entry: entry.name.casefold())
         except OSError as error:
             problems.append(f"Kura couldn't look in {current}: {error.strerror or error}.")
             continue
+        inside = [
+            Path(entry.path)
+            for entry in listed
+            if entry.is_dir(follow_symlinks=False) and not skipped_folder(entry.name)
+        ]
+        waiting.extend(reversed(inside))  # so folders come off the stack in name order too
         for entry in listed:
-            if entry.is_dir(follow_symlinks=False):
-                if not skipped_folder(entry.name):
-                    waiting.append(Path(entry.path))
-            elif entry.is_file(follow_symlinks=False) and is_video(entry.name):
+            if entry.is_file(follow_symlinks=False) and is_video(entry.name):
                 if stop():
                     conn.commit()
                     return None

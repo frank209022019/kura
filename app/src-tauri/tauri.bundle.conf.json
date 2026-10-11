@@ -1,10 +1,11 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "build": {
-    "beforeBuildCommand": "pnpm build:engine && pnpm build && pnpm build:notices"
+    "beforeBuildCommand": "pnpm build:engine && pnpm build && pnpm build:notices && pnpm build:installer-notes"
   },
   "bundle": {
     "createUpdaterArtifacts": true,
+    "licenseFile": "target/BEFORE-YOU-INSTALL.txt",
     "resources": {
       "../../engine/dist/kura-engine/": "engine/",
       "../../LICENSE": "LICENSE.txt",

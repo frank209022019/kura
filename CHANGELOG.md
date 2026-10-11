@@ -13,6 +13,8 @@ shows these notes when it offers the update.
   how files are named, and the tools Kura needs, with a quick check of the graphics card.
 - Kura downloads ffmpeg (77 MB) the first time it needs it, and uses it only after checking it
   matches what Kura expects.
+- The installer's first page lists everything Kura downloads to your PC, with what each is for,
+  its size, licence and source.
 - Scanning: Kura finds every video in your folders, whatever their layout, and reads each one's
   length and quality. A scan can pause, carries on after a restart, and later scans only read
   what's new or changed. Nothing in your folders is renamed or moved.
