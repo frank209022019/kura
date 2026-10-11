@@ -155,6 +155,12 @@ Everything decided so far. Don't ask again; change only with the owner.
   real names, see docs/stack/anitopy.md), the manami offline database matches titles, results map
   to TMDB IDs, low confidence goes to a review screen, and manual fixes are pinned so a rescan
   never undoes them.
+- Metadata from TMDB and AniList together, for full coverage (the owner, 2026-10-11). TMDB gives
+  the episode lists (titles, air dates, Plex's seasons) and the artwork, with the owner's own key:
+  Kura asks for it in Setup and Settings and keeps it on the PC, never in the code or an export.
+  AniList, which needs no key, covers what TMDB lacks: obscure titles, how series, movies and
+  specials connect, and airing dates. Missing episodes are those TMDB lists as aired that the
+  library doesn't hold.
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs
   the AI model with ONNX Runtime on DirectML, ffmpeg resizes and encodes NVENC HEVC 10-bit. Kura's
   own final mux handles the audio policy, subtitles, fonts, chapters and a "processed" tag. Every
@@ -235,10 +241,11 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 ## What's next
 
-1. Identification and the library home: names parsed (done in the core), titles matched with
-   manami's offline database (a download, so it joins downloads.json), mapped to TMDB with
-   artwork (needs a TMDB API key: the owner's call whose), a review screen for low confidence,
-   and the library home board. The scan screen gains its last three stages.
+1. Identification and missing episodes: names parsed (done in the core), titles matched with
+   manami's offline database (a download, so it joins downloads.json), looked up on TMDB and
+   AniList with artwork (the owner has a TMDB key, to enter in Setup), a review screen for low
+   confidence, the gap check against TMDB's episode lists with its reports, and the library home
+   board. The scan screen gains its last three stages.
 2. Tidy-up in the app (the planner and journal exist): review, apply, undo, History.
 3. Conversion, with the queue.
 
