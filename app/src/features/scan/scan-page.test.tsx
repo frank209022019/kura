@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type Scan } from "@/lib/engine";
+import { EngineProvider, type EngineStatus, type Scan } from "@/lib/engine";
 import { fakeEngine, NO_SCAN, READY } from "@/test/engine";
 import { ScanPage } from "./scan-page";
 
@@ -48,9 +48,9 @@ function Where() {
   return <p>{`${location.pathname}${location.search}`}</p>;
 }
 
-function renderScan() {
+function renderScan(engine: EngineStatus = READY) {
   shell.invoke.mockImplementation(async (command: string) =>
-    command === "engine_status" ? READY : undefined,
+    command === "engine_status" ? engine : undefined,
   );
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -131,6 +131,36 @@ describe("ScanPage", () => {
     screen.getByRole("button", { name: "Get ffmpeg" }).click();
 
     expect(await screen.findByText("/setup?step=tools")).toBeInTheDocument();
+  });
+
+  it("says when the engine couldn't answer, and asks again", async () => {
+    let asked = 0;
+    fakeEngine({
+      "/scan": () => {
+        asked += 1;
+        return asked === 1 ? new Response("Internal Server Error", { status: 500 }) : RUNNING;
+      },
+      "/folders": [FOLDER],
+    });
+    renderScan();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kura couldn't load this screen. The engine answered 500 to GET /scan. " +
+        "Nothing in your folders was touched.",
+    );
+    screen.getByRole("button", { name: "Try again" }).click();
+
+    expect(await screen.findByRole("heading", { name: "Mapping D:\\Anime" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says when the engine isn't running", async () => {
+    engineWith(RUNNING);
+    renderScan({ state: "failed", message: "It stopped unexpectedly.", details: "" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kura's engine isn't running. It stopped unexpectedly. Nothing in your folders was touched.",
+    );
   });
 
   it("says when it's done and offers to scan again", async () => {

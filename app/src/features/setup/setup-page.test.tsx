@@ -2,7 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type LibraryFolder, type Settings, type Tool } from "@/lib/engine";
+import {
+  EngineProvider,
+  type EngineStatus,
+  type LibraryFolder,
+  type Settings,
+  type Tool,
+} from "@/lib/engine";
 import { fakeEngine, NO_SCAN, READY, SETTINGS } from "@/test/engine";
 import { SetupPage } from "./setup-page";
 
@@ -58,9 +64,9 @@ function firstRun(overrides: Record<string, unknown> = {}) {
   });
 }
 
-function renderSetup(step?: string) {
+function renderSetup(step?: string, engine: EngineStatus = READY) {
   shell.invoke.mockImplementation(async (command: string) => {
-    if (command === "engine_status") return READY;
+    if (command === "engine_status") return engine;
     if (command === "pick_folder") return "D:\\Anime";
     return undefined;
   });
@@ -142,6 +148,37 @@ describe("SetupPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "D:\\Anime is already in your library.",
     );
+  });
+
+  it("says when the engine isn't running, and offers to try again", async () => {
+    firstRun();
+    renderSetup(undefined, { state: "failed", message: "It stopped unexpectedly.", details: "" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kura's engine isn't running. It stopped unexpectedly. Nothing in your folders was touched.",
+    );
+    screen.getByRole("button", { name: "Try again" }).click();
+
+    expect(shell.invoke).toHaveBeenCalledWith("restart_engine");
+  });
+
+  it("says when the engine couldn't answer, and asks again", async () => {
+    let asked = 0;
+    firstRun({
+      "/tools": () => {
+        asked += 1;
+        return asked === 1 ? new Response("Internal Server Error", { status: 500 }) : [FFMPEG];
+      },
+    });
+    renderSetup("tools");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kura couldn't load this screen. The engine answered 500 to GET /tools.",
+    );
+    screen.getByRole("button", { name: "Try again" }).click();
+
+    expect(await screen.findByRole("button", { name: "Download" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("downloads ffmpeg, then starts the first scan", async () => {

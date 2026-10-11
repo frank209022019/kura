@@ -100,6 +100,73 @@ describe("HomePage", () => {
     expect(screen.getByRole("button", { name: "Scan again" })).toBeEnabled();
   });
 
+  it("leaves out adding a folder while a scan runs", async () => {
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 3, size: 407_000_000, sd: 3 },
+      "/scan": { ...NO_SCAN, state: "running", stage: "reading", found: 3, toRead: 3, read: 1 },
+    });
+    renderHome(READY);
+
+    expect(
+      await screen.findByRole("button", { name: "Scanning… see progress" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a folder" })).not.toBeInTheDocument();
+  });
+
+  it("catches up with the library when the scan finishes", async () => {
+    let asked = 0;
+    let finished = false;
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": () => ({
+        ...NO_LIBRARY,
+        folders: 1,
+        files: finished ? 3 : 1,
+        size: 407_000_000,
+        sd: finished ? 3 : 1,
+      }),
+      "/scan": () => {
+        asked += 1;
+        finished = asked > 1;
+        return finished
+          ? { ...NO_SCAN, state: "done", stage: "done", found: 3, toRead: 3, read: 3 }
+          : { ...NO_SCAN, state: "running", stage: "reading", found: 3, toRead: 3, read: 1 };
+      },
+    });
+    renderHome(READY);
+
+    expect(await screen.findByText("1 video · 0.4 GB · 1 folder")).toBeInTheDocument();
+    // The scan is asked again a second later, finds it done, and the library is asked again.
+    expect(
+      await screen.findByText("3 videos · 0.4 GB · 1 folder", undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
+  });
+
+  it("says when the engine couldn't answer, and asks again", async () => {
+    let asked = 0;
+    engineWith({
+      "/folders": () => {
+        asked += 1;
+        return asked === 1
+          ? Response.json({ detail: "The database is locked." }, { status: 503 })
+          : [FOLDER];
+      },
+      "/library": { ...NO_LIBRARY, folders: 1, files: 3, size: 407_000_000, sd: 3 },
+    });
+    renderHome(READY);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kura couldn't load this screen. The database is locked. Nothing in your folders was touched.",
+    );
+    screen.getByRole("button", { name: "Try again" }).click();
+
+    expect(
+      await screen.findByRole("heading", { name: "Your videos by picture" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("says when the engine isn't running, and offers to try again", async () => {
     engineWith();
     renderHome({ state: "failed", message: "It stopped unexpectedly.", details: "Traceback…" });

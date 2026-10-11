@@ -1,6 +1,7 @@
 import { Check, FolderTree, Pause, Play, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
 import { type Scan, useFolders, useScan, useScanAction } from "@/lib/engine";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,12 @@ export function ScanPage() {
   const navigate = useNavigate();
 
   if (!scan.data || !folders.data) {
-    return <h1 className="type-title animate-fade-up">Scan</h1>;
+    return (
+      <>
+        <h1 className="type-title animate-fade-up">Scan</h1>
+        <EngineProblem queries={[scan, folders]} />
+      </>
+    );
   }
   const now = scan.data;
   const where = mapping(folders.data.map((folder) => folder.path));
@@ -60,6 +66,7 @@ export function ScanPage() {
         </div>
       </header>
 
+      <EngineProblem queries={[scan, folders]} />
       {action.isError && (
         <p role="alert" className="text-13 text-broken-fg">
           {action.error.message}

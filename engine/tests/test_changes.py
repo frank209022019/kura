@@ -3,6 +3,8 @@
 import json
 import shutil
 import sqlite3
+import subprocess
+import sys
 from collections.abc import Iterator
 from contextlib import closing
 from datetime import UTC, datetime
@@ -430,3 +432,24 @@ def test_a_folder_outside_the_library_is_left_alone(
     apply_plan(conn, saved(conn, move(source, target)), now=NOW)
 
     assert (downloads / "Season 1").exists()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows'")
+def test_a_junction_is_never_removed_by_a_tidy_up(
+    conn: sqlite3.Connection, library: Path, tmp_path: Path
+):
+    in_library(conn, library)
+    elsewhere = tmp_path / "Films on another drive"
+    video(elsewhere / "Akira.mkv")
+    movies = library / "Movies"
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(movies), str(elsewhere)],  # noqa: S607
+        check=True,
+        capture_output=True,
+    )
+    plan_id = saved(conn, move(movies / "Akira.mkv", movies / "Akira (1988)" / "Akira (1988).mkv"))
+
+    apply_plan(conn, plan_id, now=NOW)
+
+    assert movies.is_junction()
+    assert (elsewhere / "Akira (1988)" / "Akira (1988).mkv").exists()

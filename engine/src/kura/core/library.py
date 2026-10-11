@@ -1,5 +1,6 @@
-"""The library's folders and files: what counts as a video, where a scan never looks, how folders
-may sit together, and how long a scan has left. Pure rules; kura/library.py does the looking.
+"""The library's folders and files: where a scan never looks, how folders may sit together, how
+big a picture is, and how long a scan has left. Pure rules; kura/library.py does the looking.
+What counts as a video is in kura/core/extensions.py.
 """
 
 from collections.abc import Iterable
@@ -9,24 +10,12 @@ from typing import Literal
 
 from kura.core.plan import QUARANTINE_FOLDER
 
-VIDEO_EXTENSIONS = frozenset(
-    {
-        ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".flv", ".webm", ".ogm", ".divx",
-        ".ts", ".m2ts", ".mts", ".mpg", ".mpeg", ".vob", ".rm", ".rmvb", ".3gp",
-    }
-)  # fmt: skip
-
 # Kura's own quarantine, and the folders Windows keeps on every drive.
 _SKIPPED = frozenset(
     name.casefold()
     for name in (QUARANTINE_FOLDER, "$RECYCLE.BIN", "RECYCLER", "System Volume Information")
 )
 _MIN_FILES_FOR_PACE = 5
-
-
-def is_video(name: str) -> bool:
-    """A video by its extension, in any case. Subtitles, reports and pictures aren't."""
-    return PureWindowsPath(name).suffix.casefold() in VIDEO_EXTENSIONS
 
 
 def skipped_folder(name: str) -> bool:

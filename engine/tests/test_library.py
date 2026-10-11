@@ -1,6 +1,9 @@
 """The library folders, and the videos a scan finds and reads in them."""
 
+import os
 import sqlite3
+import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -173,3 +176,56 @@ def test_removing_a_folder_forgets_its_files_and_touches_nothing(
     assert conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 0
     assert (anime / "Broly the Legendary Super Saiyan.avi").exists()
     assert not remove_folder(conn, folder.id)
+
+
+def junction(link: Path, target: Path) -> None:
+    """A Windows junction, which a scan must never walk into."""
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],  # noqa: S607
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows'")
+def test_a_scan_doesnt_walk_through_junctions(conn: sqlite3.Connection, anime: Path):
+    junction(anime / "Dragon Ball" / "Loop back", anime)  # would go round for ever
+    folder = add_folder(conn, anime, now=NOW)
+
+    found = find_files(conn, folder, stamp=STAMP)
+
+    assert found is not None
+    assert found.files == 3
+
+
+def test_a_folder_that_cant_be_opened_keeps_its_files(
+    conn: sqlite3.Connection, anime: Path, monkeypatch: pytest.MonkeyPatch
+):
+    folder = add_folder(conn, anime, now=NOW)
+    find_files(conn, folder, stamp=STAMP)
+    real = os.scandir
+
+    def denied(path: str | os.PathLike[str]) -> object:
+        if Path(path).name == "Downloads":
+            raise PermissionError(13, "Access is denied")
+        return real(path)
+
+    monkeypatch.setattr("kura.library.os.scandir", denied)
+
+    found = find_files(conn, folder, stamp="2026-10-12T09:30:00+00:00")
+
+    assert found is not None
+    assert found.gone == 0
+    assert found.problems == (f"Kura couldn't look in {anime / 'Downloads'}: Access is denied.",)
+    assert paths_in(conn, gone=True) == set()
+
+
+def test_a_folder_forgotten_while_it_is_walked_stops_the_walk_cleanly(
+    conn: sqlite3.Connection, anime: Path
+):
+    folder = add_folder(conn, anime, now=NOW)
+
+    def forget(path: Path) -> None:
+        conn.execute("DELETE FROM folders WHERE id = ?", (folder.id,))
+
+    assert find_files(conn, folder, stamp=STAMP, on_file=forget) is None

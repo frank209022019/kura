@@ -4,16 +4,8 @@ from pathlib import PureWindowsPath
 
 import pytest
 
-from kura.core.library import (
-    Covered,
-    Holds,
-    Picture,
-    fits,
-    is_video,
-    picture_size,
-    skipped_folder,
-    time_left,
-)
+from kura.core.extensions import is_video
+from kura.core.library import Covered, Holds, Picture, fits, picture_size, skipped_folder, time_left
 
 
 @pytest.mark.parametrize(

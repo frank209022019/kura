@@ -8,6 +8,7 @@ KURA_FFMPEG_DIR can point at an ffmpeg that's already on the PC instead.
 
 import errno
 import hashlib
+import http.client
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path, PurePosixPath
 from types import TracebackType
-from typing import Literal, Protocol, Self
+from typing import Literal, Protocol, Self, cast
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -93,6 +94,10 @@ class DownloadError(Exception):
     """A download Kura won't use, with a sentence saying why."""
 
 
+class _DroppedError(Exception):
+    """The connection failed partway through a download."""
+
+
 class Tools:
     """Kura's downloaded tools: which are ready, fetching the rest, and where each program is."""
 
@@ -131,14 +136,26 @@ class Tools:
 
     def path(self, program: str) -> Path | None:
         """Where one of the tools' programs is, once its tool is ready: `path("ffprobe")`."""
-        name = f"{program}.exe" if os.name == "nt" else program
         for item in self._items.values():
             folder = self._override(item)
             if folder is None and self._installed(item):
                 folder = self._folder(item)
+            name = f"{program}.exe" if os.name == "nt" else program
             if folder is not None and (folder / name).is_file():
                 return folder / name
         return None
+
+    def broken(self, tool: str) -> None:
+        """A tool that stopped working goes back to missing, so it can be downloaded again.
+        A development copy (KURA_FFMPEG_DIR) is left alone."""
+        item = self._items[tool]
+        if self._override(item) is not None:
+            return
+        log.warning("%s stopped working, so it is to be downloaded again", item.name)
+        try:
+            (self._folder(item) / _MARKER).unlink(missing_ok=True)
+        except OSError as error:
+            log.warning("Couldn't mark %s to download again: %s", item.name, error)
 
     def _now(self, item: Download) -> Progress:
         progress = self._progress.get(item.id)
@@ -153,12 +170,17 @@ class Tools:
         return self._paths.tools / item.id
 
     def _installed(self, item: Download) -> bool:
+        """The listed build is unpacked, and every file of it is still there."""
+        folder = self._folder(item)
         try:
-            text = (self._folder(item) / _MARKER).read_text(encoding="utf-8")
-            sha256: object = json.loads(text)["sha256"]
+            marker = json.loads((folder / _MARKER).read_text(encoding="utf-8"))
+            sha256: object = marker["sha256"]
+            files: object = marker["files"]
         except OSError, ValueError, KeyError, TypeError:
             return False
-        return sha256 == item.sha256
+        if sha256 != item.sha256 or not isinstance(files, list):
+            return False
+        return all((folder / str(name)).is_file() for name in cast(list[object], files))
 
     @staticmethod
     def _override(item: Download) -> Path | None:
@@ -180,9 +202,18 @@ class Tools:
         except DownloadError as error:
             self._set(item, "failed", problem=str(error))
         except URLError as error:
-            self._set(item, "failed", problem=_offline(item, error))
+            self._set(item, "failed", problem=_offline(item, error.reason))
+        except _DroppedError as error:
+            self._set(item, "failed", problem=_offline(item, f"the connection dropped ({error})"))
+        except (TimeoutError, ConnectionError) as error:
+            self._set(item, "failed", problem=_offline(item, error.strerror or error))
         except OSError as error:
             self._set(item, "failed", problem=_unsaved(item, error, self._paths.tools))
+        except Exception as error:  # whatever it was, the download ends and can be tried again
+            log.exception("Downloading %s failed", item.name)
+            self._set(
+                item, "failed", problem=f"Kura couldn't get {item.name} ({error}). Try again."
+            )
         else:
             with self._lock:
                 self._progress.pop(item.id, None)
@@ -195,7 +226,7 @@ class Tools:
         done = 0
         try:
             with self._fetch(item.url) as response, part.open("wb") as out:
-                while chunk := response.read(_CHUNK):
+                while chunk := _read(response):
                     out.write(chunk)
                     digest.update(chunk)
                     done += len(chunk)
@@ -214,6 +245,7 @@ class Tools:
         staging = self._paths.tools / f"{item.id}.unpacking"
         shutil.rmtree(staging, ignore_errors=True)
         staging.mkdir()
+        files: list[str] = []  # what was unpacked, so a file that goes missing later is noticed
         try:
             with zipfile.ZipFile(archive) as zipped:
                 for member in zipped.infolist():
@@ -230,7 +262,8 @@ class Tools:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with zipped.open(member) as source, target.open("wb") as out:
                         shutil.copyfileobj(source, out)
-            marker = {"version": item.version, "sha256": item.sha256}
+                    files.append("/".join(parts[2:]))
+            marker = {"version": item.version, "sha256": item.sha256, "files": files}
             (staging / _MARKER).write_text(json.dumps(marker), encoding="utf-8")
             final = self._folder(item)
             shutil.rmtree(final, ignore_errors=True)
@@ -240,9 +273,18 @@ class Tools:
             raise
 
 
-def _offline(item: Download, error: URLError) -> str:
+def _read(response: Response) -> bytes:
+    """The next part of a download. A network failure here isn't a full disk."""
+    try:
+        return response.read(_CHUNK)
+    except (OSError, http.client.HTTPException) as error:
+        reason = error.strerror if isinstance(error, OSError) and error.strerror else error
+        raise _DroppedError(reason) from error
+
+
+def _offline(item: Download, reason: object) -> str:
     return (
-        f"Kura couldn't download {item.name}: {error.reason}. "
+        f"Kura couldn't download {item.name}: {reason}. "
         "Check the internet connection, then try again."
     )
 

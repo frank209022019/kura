@@ -102,4 +102,15 @@ describe("callEngine", () => {
 
     await expect(callEngine(ready, "/health")).rejects.toThrow(EngineError);
   });
+
+  it("says so in plain words when the engine doesn't answer at all", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
+
+    await expect(callEngine(ready, "/health")).rejects.toThrow("Kura's engine didn't answer.");
+  });
 });

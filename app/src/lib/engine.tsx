@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { createContext, type ReactNode, use, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  use,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 /** The engine as Kura's shell reports it. Mirrors `EngineStatus` in src-tauri/src/engine.rs. */
 export type EngineStatus =
@@ -53,7 +61,12 @@ export async function callEngine<T>(
 ): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${engine.token}`);
-  const response = await fetch(new URL(path, engine.url), { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(new URL(path, engine.url), { ...init, headers });
+  } catch {
+    throw new EngineError("Kura's engine didn't answer.");
+  }
   if (!response.ok) {
     throw new EngineError(
       (await problemIn(response)) ??
@@ -98,6 +111,19 @@ export function useEngineQuery<T>(path: string, poll?: (data: T | undefined) => 
   });
 }
 
+/** Asks the engine again for what these paths' queries show, so screens catch up with a change. */
+function useRefresh() {
+  const engine = useEngine();
+  const queries = useQueryClient();
+  return useCallback(
+    (paths: string[]) =>
+      Promise.all(
+        paths.map((path) => queries.invalidateQueries({ queryKey: engineKey(engine, path) })),
+      ),
+    [engine, queries],
+  );
+}
+
 /**
  * A change sent to the engine: `send(path, body?)` posts it, then refreshes the queries for
  * `refreshes` so the screen shows the result.
@@ -107,7 +133,7 @@ export function useEngineAction<T>(
   method: "POST" | "PUT" | "DELETE" = "POST",
 ) {
   const engine = useEngine();
-  const queries = useQueryClient();
+  const refresh = useRefresh();
   return useMutation({
     mutationFn: ({ path, body }: { path: string; body?: unknown }) => {
       if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
@@ -118,10 +144,7 @@ export function useEngineAction<T>(
       }
       return callEngine<T>(engine, path, init);
     },
-    onSettled: () =>
-      Promise.all(
-        refreshes.map((path) => queries.invalidateQueries({ queryKey: engineKey(engine, path) })),
-      ),
+    onSettled: () => refresh(refreshes),
   });
 }
 
@@ -210,9 +233,21 @@ const LIBRARY = ["/folders", "/library", "/scan"];
 export const useFolders = () => useEngineQuery<LibraryFolder[]>("/folders");
 export const useLibrary = () => useEngineQuery<Library>("/library");
 
-/** The latest scan, asked again every second while it runs. */
-export const useScan = () =>
-  useEngineQuery<Scan>("/scan", (scan) => (scan?.state === "running" ? 1000 : false));
+/**
+ * The latest scan, asked again every second while it runs. A scan fills in the library, so when
+ * one stops, the library and its folders are asked again too.
+ */
+export function useScan() {
+  const scan = useEngineQuery<Scan>("/scan", (now) => (now?.state === "running" ? 1000 : false));
+  const refresh = useRefresh();
+  const running = scan.data?.state === "running";
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) void refresh(["/library", "/folders"]);
+    wasRunning.current = running;
+  }, [running, refresh]);
+  return scan;
+}
 
 /** Adds a folder: `add.mutate({ path: "/folders", body: { path } })`. */
 export const useAddFolder = () => useEngineAction<LibraryFolder>(LIBRARY);

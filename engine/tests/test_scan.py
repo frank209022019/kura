@@ -1,20 +1,26 @@
 """The scan job: find every video, read each one, pause, and carry on after an exit."""
 
 import itertools
+import json
+import os
 import sqlite3
 import threading
 from collections.abc import Callable
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+import kura.scan
+from kura import db
 from kura.config import DataPaths
 from kura.core.media import Json
-from kura.library import add_folder
-from kura.probe import ProbeError
+from kura.library import Folder, Found, add_folder
+from kura.probe import ProbeError, ProbeToolError
 from kura.scan import ScanBusyError, Scanner
-from kura.tools import Tools
+from kura.tools import Tools, manifest
 from tests.fake_ffprobe import REPORT
 
 NOW = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
@@ -24,12 +30,33 @@ def reads(path: Path) -> Json:
     return REPORT
 
 
-def scanner(paths: DataPaths, read: Callable[[Path], Json] | None = reads) -> Scanner:
+_SECONDS = itertools.count(1)  # one clock for every scanner, so a later scan starts later
+
+
+def scanner(
+    paths: DataPaths, read: Callable[[Path], Json] | None = reads, tools: Tools | None = None
+) -> Scanner:
     """A scanner whose clock moves on a second each time it's read."""
-    seconds = itertools.count(1)
     return Scanner(
-        paths, Tools(paths, items=()), read=read, now=lambda: NOW + timedelta(seconds=next(seconds))
+        paths,
+        tools or Tools(paths, items=()),
+        read=read,
+        now=lambda: NOW + timedelta(seconds=next(_SECONDS)),
     )
+
+
+def installed_ffmpeg(paths: DataPaths) -> Tools:
+    """Kura's tools with ffmpeg downloaded and unpacked, as after setup."""
+    ffmpeg = next(item for item in manifest() if item.id == "ffmpeg")
+    folder = paths.tools / "ffmpeg"
+    folder.mkdir(parents=True)
+    program = "ffprobe.exe" if os.name == "nt" else "ffprobe"
+    (folder / program).write_bytes(b"probe")
+    marker = {"version": ffmpeg.version, "sha256": ffmpeg.sha256, "files": [program]}
+    (folder / "kura-download.json").write_text(json.dumps(marker), encoding="utf-8")
+    tools = Tools(paths, items=(ffmpeg,))
+    assert tools.path("ffprobe") == folder / program
+    return tools
 
 
 def finished(scan: Scanner) -> None:
@@ -205,3 +232,102 @@ def test_before_any_scan_there_is_nothing_to_report(paths: DataPaths, conn: sqli
     status = scanner(paths).status()
 
     assert (status.state, status.stage, status.found) == ("idle", None, 0)
+
+
+def test_a_broken_ffprobe_stops_the_scan_and_marks_no_file(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    def broken(path: Path) -> Json:
+        raise ProbeToolError("ffprobe stopped with code 0xC0000135")
+
+    add_folder(conn, anime, now=NOW)
+    tools = installed_ffmpeg(paths)
+    scan = scanner(paths, broken, tools)
+    scan.start()
+    finished(scan)
+
+    status = scan.status()
+    assert (status.state, status.read, status.problems) == ("failed", 0, 0)
+    assert status.problem == (
+        "ffprobe couldn't run (ffprobe stopped with code 0xC0000135), so Kura stopped the scan "
+        "without marking any file. Get ffmpeg again in Setup, then scan again."
+    )
+    [(_, ffmpeg)] = tools.status()
+    assert ffmpeg.state == "missing"  # so Setup offers to download it again
+
+    again = scanner(paths)
+    again.start()
+    finished(again)
+    assert (again.status().state, again.status().read) == ("done", 3)
+
+
+def test_a_new_scan_tries_again_the_files_that_couldnt_be_read(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    def picky(path: Path) -> Json:
+        if path.suffix == ".avi":
+            raise ProbeError(
+                "Kura couldn't read it (Invalid data). It may be damaged, or not a video."
+            )
+        return REPORT
+
+    add_folder(conn, anime, now=NOW)
+    first = scanner(paths, picky)
+    first.start()
+    finished(first)
+    assert first.status().problems == 1
+
+    second = scanner(paths)
+    second.start()
+    finished(second)
+
+    status = second.status()
+    assert (status.problems, status.to_read, status.read) == (0, 1, 1)
+
+
+def test_a_folder_added_while_the_scan_is_finding_is_scanned_too(
+    paths: DataPaths,
+    conn: sqlite3.Connection,
+    anime: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    more = tmp_path / "More anime"
+    (more / "Trigun").mkdir(parents=True)
+    (more / "Trigun" / "Trigun - 03.mkv").write_bytes(b"three")
+    add_folder(conn, anime, now=NOW)
+    walk = kura.scan.find_files
+
+    def while_walking(conn: sqlite3.Connection, folder: Folder, **options: Any) -> Found | None:
+        if folder.path == anime:
+            with closing(db.connect(paths.database)) as other:
+                add_folder(other, more, now=NOW)
+        return walk(conn, folder, **options)
+
+    monkeypatch.setattr(kura.scan, "find_files", while_walking)
+    scan = scanner(paths)
+    scan.start()
+    finished(scan)
+
+    assert (scan.status().found, scan.status().read) == (4, 4)
+
+
+def test_a_file_whose_folder_vanishes_mid_scan_is_left_for_the_next_one(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    downloads = anime / "Downloads"
+
+    def moving_downloads(path: Path) -> Json:
+        if downloads.exists():
+            downloads.rename(anime / "Downloads, moved")  # as if its drive dropped out
+        return REPORT
+
+    add_folder(conn, anime, now=NOW)
+    scan = scanner(paths, moving_downloads)
+    scan.start()
+    finished(scan)
+
+    row = conn.execute(
+        "SELECT gone_at, probed_at FROM files WHERE path LIKE '%[Group] DBZ%'"
+    ).fetchone()
+    assert (row["gone_at"], row["probed_at"]) == (None, None)

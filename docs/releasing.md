@@ -6,12 +6,14 @@ How a change becomes an installed, self-updating Kura.
 
 ```powershell
 node scripts/release.mjs minor          # or patch, major, or an exact version such as 0.3.0
-git push origin main v0.3.0             # publishing is the owner's call
+git push --atomic origin main v0.3.0    # publishing is the owner's call
 ```
 
 `release.mjs` moves what's under "Unreleased" in [CHANGELOG.md](../CHANGELOG.md) under the new
 version, sets the version everywhere, commits "Release 0.3.0" and tags it; nothing leaves the PC.
-Pushing the tag starts the [release workflow](../.github/workflows/release.yml). About fifteen
+`--atomic` sends the commit and the tag together or not at all, so a tag never goes out for a
+commit that isn't on `main`. Pushing the tag starts the
+[release workflow](../.github/workflows/release.yml). About fifteen
 minutes later the release is on GitHub and on the [downloads page](https://frankgrobbelaar.github.io/kura/),
 and every installed Kura offers "Kura 0.3.0 is ready", with what changed, within a day. The first
 release is `node scripts/release.mjs 0.1.0`.

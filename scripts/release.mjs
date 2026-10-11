@@ -69,4 +69,4 @@ git("commit", "--quiet", "-m", `Release ${version}`);
 git("tag", "--annotate", `v${version}`, "-m", `Kura ${version}`);
 
 console.log(`\nKura ${version} is committed and tagged. Publish it, which every installed copy then`);
-console.log(`offers as an update, with:\n  git push origin main v${version}`);
+console.log(`offers as an update, with:\n  git push --atomic origin main v${version}`);

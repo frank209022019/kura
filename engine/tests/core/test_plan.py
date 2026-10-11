@@ -255,3 +255,28 @@ def test_only_subtitles_named_after_the_video_belong_to_it():
         "EPISODE 1.EN.SRT",
         "Episode 1.srt",
     ]
+
+
+def test_subtitles_go_to_the_video_whose_name_fits_them_best():
+    folder = LIBRARY / "Show"
+    names = ["Show - 12.mkv", "Show - 12.5.mkv", "Show - 12.en.srt", "Show - 12.5.en.srt"]
+
+    assert [p.name for p in sidecars_of(folder / "Show - 12.mkv", names)] == ["Show - 12.en.srt"]
+    assert [p.name for p in sidecars_of(folder / "Show - 12.5.mkv", names)] == [
+        "Show - 12.5.en.srt"
+    ]
+
+
+def test_a_change_of_case_alone_renames_the_subtitles_too():
+    season = LIBRARY / "TV" / "Dragon Ball Z (1989)" / "Season 01"
+    video = season / "dragon ball z (1989) - s01e01 - the new threat.mkv"
+    subtitles = video.with_name("dragon ball z (1989) - s01e01 - the new threat.en.srt")
+    identity = EpisodeOf("Dragon Ball Z", 1989, season=1, episode=1, title="The New Threat")
+    files = [PlacedFile(Copy(video, media(480)), identity, (subtitles,))]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY, taken=[str(video), str(subtitles)]).changes
+
+    assert {c.target.name for c in changes} == {
+        "Dragon Ball Z (1989) - S01E01 - The New Threat.mkv",
+        "Dragon Ball Z (1989) - S01E01 - The New Threat.en.srt",  # not "… (2).en.srt"
+    }

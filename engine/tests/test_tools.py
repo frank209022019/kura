@@ -174,3 +174,79 @@ def test_a_development_copy_of_ffmpeg_can_stand_in(
     [(_, progress)] = tools.status()
     assert progress.state == "ready"
     assert tools.path("ffprobe") == own / PROGRAM
+
+
+class Dropping(io.BytesIO):
+    """A download that stops partway, as when the connection drops."""
+
+    def read(self, size: int | None = -1, /) -> bytes:
+        if self.tell() > 0:
+            raise ConnectionResetError(10054, "An existing connection was forcibly closed")
+        return super().read(10)
+
+
+def test_a_connection_dropping_mid_download_says_so(paths: DataPaths):
+    tools = Tools(paths, items=(listing(BUILD),), fetch=lambda url: Dropping(BUILD))
+
+    downloaded(tools)
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "failed"
+    assert progress.problem == (
+        "Kura couldn't download ffmpeg: the connection dropped "
+        "(An existing connection was forcibly closed). "
+        "Check the internet connection, then try again."
+    )
+    assert not any(paths.tools.iterdir())
+
+
+def test_anything_unexpected_still_ends_the_download_with_a_way_on(paths: DataPaths):
+    def odd(url: str) -> io.BytesIO:
+        raise ValueError("unknown url type")
+
+    tools = Tools(paths, items=(listing(BUILD),), fetch=odd)
+
+    downloaded(tools)
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "failed"  # never stuck at "downloading"
+    assert progress.problem == "Kura couldn't get ffmpeg (unknown url type). Try again."
+
+
+def test_a_tool_that_stopped_working_is_offered_again(paths: DataPaths):
+    tools = Tools(paths, items=(listing(BUILD),), fetch=serving(BUILD))
+    downloaded(tools)
+
+    tools.broken("ffmpeg")
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "missing"
+    assert tools.path("ffprobe") is None
+    downloaded(tools)
+    assert tools.path("ffprobe") == paths.tools / "ffmpeg" / PROGRAM
+
+
+def test_a_tool_missing_one_of_its_files_is_offered_again(paths: DataPaths):
+    tools = Tools(paths, items=(listing(BUILD),), fetch=serving(BUILD))
+    downloaded(tools)
+
+    (paths.tools / "ffmpeg" / "avcodec-63.dll").unlink()  # as an antivirus might
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "missing"
+    assert tools.path("ffprobe") is None
+
+
+def test_a_development_copy_is_never_thrown_out(
+    paths: DataPaths, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    own = tmp_path / "ffmpeg-bin"
+    own.mkdir()
+    (own / PROGRAM).write_bytes(b"probe")
+    monkeypatch.setenv("KURA_FFMPEG_DIR", str(own))
+    tools = Tools(paths, items=(listing(BUILD),), fetch=offline)
+
+    tools.broken("ffmpeg")
+
+    assert (own / PROGRAM).exists()
+    assert tools.path("ffprobe") == own / PROGRAM

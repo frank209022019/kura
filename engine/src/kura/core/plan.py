@@ -12,10 +12,10 @@ from enum import StrEnum
 from pathlib import PurePath
 
 from kura.core.copies import Copy, choose_copy
+from kura.core.extensions import is_subtitle, is_video
 from kura.core.naming import PathTooLongError, episode_path, movie_path, unique_path
 
 QUARANTINE_FOLDER = "Kura quarantine"
-SUBTITLE_EXTENSIONS = frozenset({".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup"})
 
 
 @dataclass(frozen=True)
@@ -47,15 +47,21 @@ class PlacedFile:
 
 
 def sidecars_of(video: PurePath, names: Iterable[str]) -> tuple[PurePath, ...]:
-    """The subtitle files among `names` (a folder's contents) named after `video`:
-    `Episode 1.en.srt` belongs to `Episode 1.mkv`, `Episode 10.en.srt` doesn't."""
-    stem = video.stem.casefold() + "."
-    found = [
-        video.parent / name
-        for name in names
-        if name.casefold().startswith(stem)
-        and PurePath(name).suffix.casefold() in SUBTITLE_EXTENSIONS
-    ]
+    """The subtitle files among `names` (a folder's contents) named after `video`.
+
+    `Episode 1.en.srt` belongs to `Episode 1.mkv`, and `Episode 10.en.srt` doesn't. When two
+    videos' names both fit (`Show - 12` and `Show - 12.5`), the longer one gets it.
+    """
+    listed = list(names)
+    own = video.stem.casefold()
+    stems = {own} | {PurePath(name).stem.casefold() for name in listed if is_video(name)}
+    found: list[PurePath] = []
+    for name in listed:
+        if not is_subtitle(name):
+            continue
+        fits = [stem for stem in stems if name.casefold().startswith(stem + ".")]
+        if fits and max(fits, key=len) == own:
+            found.append(video.parent / name)
     return tuple(sorted(found, key=lambda path: path.name.casefold()))
 
 
@@ -146,8 +152,14 @@ def _with_it(
     changes: list[Change] = []
     for sidecar in placed.sidecars:
         tail = sidecar.name[len(placed.copy.path.stem) :]  # ".en.srt"
-        spot = unique_path(place.with_name(place.stem + tail), used)
-        used.add(str(spot).casefold())
+        target = place.with_name(place.stem + tail)
+        if str(sidecar) == str(target):
+            continue  # already right
+        if str(sidecar).casefold() == str(target).casefold():
+            spot = target  # only the case changes: the name is its own
+        else:
+            spot = unique_path(target, used)
+            used.add(str(spot).casefold())
         label = f"{_label(placed.identity)} · subtitles"
         changes.append(Change(kind, sidecar, spot, label, reason))
     return changes

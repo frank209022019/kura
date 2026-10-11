@@ -2,6 +2,7 @@ import { Check, Cpu, Database, Folder, SlidersHorizontal, X } from "lucide-react
 import { RadioGroup } from "radix-ui";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { EngineProblem } from "@/components/engine-problem";
 import { TitleBar } from "@/components/shell/title-bar";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -41,6 +42,8 @@ export function SetupPage() {
   const [step, setStep] = useState<Step>(isStep(asked) ? asked : "data");
   const current = STEPS.findIndex((each) => each.id === step);
   const go = (to: Step) => setStep(to);
+  // Everything the steps show, so one place can say when the engine couldn't give it.
+  const queries = [useHealth(), useFolders(), useSettings(), useTools(), useSystem()];
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -58,6 +61,7 @@ export function SetupPage() {
             </p>
           </header>
 
+          <EngineProblem queries={queries} />
           <Stepper current={current} />
 
           {STEPS.map((each, index) => {

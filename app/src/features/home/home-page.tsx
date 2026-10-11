@@ -2,11 +2,11 @@ import { FolderPlus } from "lucide-react";
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
+import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
 import { pickFolder } from "@/lib/dialogs";
 import {
   type Library,
-  restartEngine,
   type Scan,
   useAddFolder,
   useEngine,
@@ -36,13 +36,11 @@ export function HomePage() {
       <header className="flex animate-fade-up flex-col gap-1.5">
         <h1 className="type-title">Library</h1>
         <p className="text-14 text-fg-muted">
-          {library.data && !empty ? summary(library.data) : "No folders yet."}
+          {empty ? "No folders yet." : library.data ? summary(library.data) : "…"}
         </p>
       </header>
 
-      {engine.state === "failed" && (
-        <EngineFailed message={engine.message} details={engine.details} />
-      )}
+      <EngineProblem queries={[settings, folders, library, scan]} />
       {engine.state !== "failed" && empty && (
         <EmptyState
           title="Your shelf is empty"
@@ -112,15 +110,18 @@ function Overview({ library, scan }: { library: Library; scan: Scan }) {
               Scan again
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={picking || add.isPending}
-            onClick={() => void addFolder()}
-          >
-            <FolderPlus size={15} aria-hidden="true" />
-            Add a folder
-          </Button>
+          {/* Adding a folder starts a scan, and one can't start while another runs. */}
+          {scan.state !== "running" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={picking || add.isPending}
+              onClick={() => void addFolder()}
+            >
+              <FolderPlus size={15} aria-hidden="true" />
+              Add a folder
+            </Button>
+          )}
         </div>
       </div>
       <ul className="flex flex-col gap-2.5">
@@ -171,45 +172,6 @@ function summary(library: Library): string {
       : `${(library.size / 1e9).toFixed(1)} GB`;
   const folders = `${library.folders} ${library.folders === 1 ? "folder" : "folders"}`;
   return `${videos} · ${size} · ${folders}`;
-}
-
-/** The engine isn't running: say so, say what Kura did, offer the next step. */
-function EngineFailed({ message, details }: { message: string; details: string }) {
-  const [retrying, setRetrying] = useState(false);
-
-  return (
-    <section
-      role="alert"
-      className="flex animate-fade-up flex-col gap-3 rounded-18 border border-broken/26 bg-broken/7 px-4.5 py-4"
-    >
-      <p>
-        <strong>Kura's engine isn't running.</strong> {message} Nothing in your folders was touched.
-      </p>
-      {details && (
-        <pre className="max-h-40 overflow-auto rounded-12 bg-inset px-3 py-2.5 font-mono text-11 text-fg-muted leading-[1.7]">
-          {details}
-        </pre>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={retrying}
-          onClick={() => {
-            setRetrying(true);
-            restartEngine().finally(() => setRetrying(false));
-          }}
-        >
-          Try again
-        </Button>
-        {details && (
-          <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(details)}>
-            Copy details
-          </Button>
-        )}
-      </div>
-    </section>
-  );
 }
 
 /** Engine, data folder, database and updates at a glance. */

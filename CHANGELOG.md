@@ -17,11 +17,13 @@ shows these notes when it offers the update.
   its size, licence and source.
 - Scanning: Kura finds every video in your folders, whatever their layout, and reads each one's
   length and quality. A scan can pause, carries on after a restart, and later scans only read
-  what's new or changed. Nothing in your folders is renamed or moved.
+  what's new or changed, plus any file that couldn't be read last time. Nothing in your folders
+  is renamed or moved.
 - Home shows your library at a glance: how many videos, how big, and how many are SD, 720p, 1080p
   or larger.
 - The export now includes a list of every video in your library.
-- A screen that fails to draw says so and offers to reload, instead of going blank.
+- A screen that fails to draw, or whose data Kura's engine couldn't give, says so and offers to
+  try again, instead of going blank.
 - Kura's window in the Cinema design, with its own title bar. Starting Kura a second time brings
   the open window forward.
 - The engine that does Kura's work starts and stops with the window, and Kura notices if it stops

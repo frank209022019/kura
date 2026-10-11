@@ -23,10 +23,14 @@ HEVC 10-bit all ran without trouble on the GTX 1660 Super.
 ## Where it lives
 
 `%LOCALAPPDATA%\Kura\tools\ffmpeg\` holds the build's `bin` folder (ffmpeg.exe, ffprobe.exe and
-their DLLs) and `kura-download.json`, which names the build. When `downloads.json` moves to a new
-build, the next start sees the difference and offers the download again; the new build replaces the
-old one. [kura/tools.py](../../engine/src/kura/tools.py) does the downloading, checking and
-unpacking, and finds the programs (`Tools.path("ffprobe")`).
+their DLLs) and `kura-download.json`, which names the build and every file unpacked from it. When
+`downloads.json` moves to a new build, the next start sees the difference and offers the download
+again; the new build replaces the old one. A file that goes missing (an antivirus, say) also makes
+ffmpeg "missing" again, and so does an ffprobe that can't even say its version: a scan then stops
+without marking any file, and Setup offers the download. A file that makes ffprobe crash while
+ffprobe itself still works is that file's problem, so one bad file never blocks a scan.
+[kura/tools.py](../../engine/src/kura/tools.py) does the downloading, checking and unpacking, and
+finds the programs (`Tools.path("ffprobe")`).
 
 In development, set `KURA_FFMPEG_DIR` to a folder holding `ffprobe.exe` and `ffmpeg.exe` to skip
 the download.

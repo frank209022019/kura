@@ -22,7 +22,7 @@ from kura.config import DataPaths
 from kura.core.library import time_left
 from kura.core.media import Json
 from kura.library import find_files, folders, read_file, unread
-from kura.probe import probe
+from kura.probe import ProbeToolError, probe
 from kura.tools import Tools
 
 log = logging.getLogger(__name__)
@@ -96,6 +96,11 @@ class Scanner:
             self._pause.clear()
             started = self._now().isoformat()
             with closing(db.connect(self._paths.database)) as conn, conn:
+                # Files that couldn't be read get another try: the cause may have passed.
+                conn.execute(
+                    "UPDATE files SET probed_at = NULL"
+                    " WHERE problem IS NOT NULL AND gone_at IS NULL"
+                )
                 scan_id: int = conn.execute(
                     "INSERT INTO scans (started_at, state, stage) VALUES (?, 'running', 'finding') "
                     "RETURNING id",
@@ -160,6 +165,10 @@ class Scanner:
                 _set(conn, scan_id, state="done", stage="done", finished_at=self._now().isoformat())
             except _NoReaderError:
                 _set(conn, scan_id, state="failed", problem=_NEEDS_FFMPEG)
+            except ProbeToolError as error:
+                log.error("ffprobe didn't work: %s", error)
+                self._tools.broken("ffmpeg")  # so Setup offers to download it again
+                _set(conn, scan_id, state="failed", problem=_ffprobe_broke(error))
             except Exception as error:
                 log.exception("The scan stopped")
                 _set(conn, scan_id, state="failed", problem=_stopped_by(error))
@@ -169,16 +178,20 @@ class Scanner:
         return None
 
     def _find(self, conn: sqlite3.Connection, started: str) -> bool:
-        """Walks every library folder. False when a pause stopped it."""
-        for folder in folders(conn):
-            found = find_files(
-                conn, folder, stamp=started, on_file=self._looking_at, stop=self._pause.is_set
-            )
-            if self._pause.is_set():
-                return False
-            if found is not None:
-                for problem in found.problems:
-                    log.warning("%s", problem)
+        """Walks every library folder, including any added while it walks. False when a pause
+        stopped it."""
+        walked: set[int] = set()
+        while waiting := [folder for folder in folders(conn) if folder.id not in walked]:
+            for folder in waiting:
+                walked.add(folder.id)
+                found = find_files(
+                    conn, folder, stamp=started, on_file=self._looking_at, stop=self._pause.is_set
+                )
+                if self._pause.is_set():
+                    return False
+                if found is not None:
+                    for problem in found.problems:
+                        log.warning("%s", problem)
         return True
 
     def _read_all(self, conn: sqlite3.Connection) -> bool:
@@ -202,12 +215,13 @@ class Scanner:
             self._looking_at(path)
             if path.is_file():
                 read_file(conn, file_id, path, read, now=self._now())
-            else:
+            elif path.parent.is_dir():  # its folder is there and it isn't: it's gone
                 with conn:
                     conn.execute(
                         "UPDATE files SET gone_at = ? WHERE id = ?",
                         (self._now().isoformat(), file_id),
                     )
+            # else its folder went too (a drive dropping out, say): the next scan looks again
             self._read_live += 1
         return True
 
@@ -268,6 +282,13 @@ class Scanner:
 
 
 _NEEDS_FFMPEG = "Kura needs ffmpeg to read the files it found. Download it, then scan again."
+
+
+def _ffprobe_broke(error: ProbeToolError) -> str:
+    return (
+        f"ffprobe couldn't run ({error}), so Kura stopped the scan without marking any file. "
+        "Get ffmpeg again in Setup, then scan again."
+    )
 
 
 def _stopped_by(error: Exception) -> str:

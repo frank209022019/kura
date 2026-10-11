@@ -40,7 +40,8 @@ and [../CLAUDE.md](../CLAUDE.md).
 
 ## Components
 
-- Reuse what exists (`Button`, `EmptyState`) before adding anything.
+- Reuse what exists (`Button`, `EmptyState`, and `EngineProblem` for a screen whose data didn't
+  come) before adding anything.
 - New primitives start from shadcn/ui (`pnpm dlx shadcn@latest add <name>`) and are restyled to
   Cinema with the mapping in [docs/stack/tailwind.md](../docs/stack/tailwind.md). They live in
   `src/components/ui/` and open with a comment naming shadcn/ui and `LICENSE-shadcn.txt`.

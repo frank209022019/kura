@@ -255,6 +255,8 @@ def _remove_emptied(conn: sqlite3.Connection, folders: Iterable[Path]) -> None:
     for folder in sorted(set(folders), key=lambda path: len(path.parts), reverse=True):
         current = folder
         while any(current != root and current.is_relative_to(root) for root in roots):
+            if current.is_junction() or current.is_symlink():
+                break  # removing a link would cut off whatever it leads to
             try:
                 current.rmdir()  # fails unless it's empty
             except OSError:

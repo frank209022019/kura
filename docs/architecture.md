@@ -88,8 +88,11 @@ Scanning (`kura/scan.py`) runs on a background thread: it walks each library fol
 (`kura/library.py`, by the rules in `kura/core/library.py`) and records each with its size and
 time, then reads the new and changed ones with ffprobe (`kura/probe.py`). Everything is saved as it
 goes and the scan's stage is in the `scans` table, so a pause, an exit or a crash loses nothing: the
-next start carries on. A folder on an unplugged drive is skipped and its files stay as they were.
-Scans only look; nothing in the folders changes.
+next start carries on. A folder on an unplugged drive is skipped and its files stay as they were,
+and so do the files in a folder the walk couldn't open; only a file whose folder is there without
+it is marked gone. Links and junctions aren't followed. Files that couldn't be read are read again
+by the next scan. If ffprobe itself doesn't work, the scan stops without marking any file and
+ffmpeg is offered for download again. Scans only look; nothing in the folders changes.
 
 A plan is applied only after review, by `kura/changes.py`: each change is written to the
 database before and after its file moves, so it can be undone (newest first) and so the engine,

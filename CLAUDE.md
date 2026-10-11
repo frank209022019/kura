@@ -85,8 +85,8 @@ node --test "scripts/*.test.mjs"
 Fix formatting: `uv run ruff format` (engine), `pnpm fix` (app), `cargo fmt` (shell).
 Build the installer locally: `cd app; pnpm build:installer` (needs the signing key, see
 [docs/releasing.md](docs/releasing.md)). Release: `node scripts/release.mjs patch|minor|major`
-(commits and tags), then `git push origin main v1.2.3`. A tag reaches every installed copy, so
-releasing is the owner's call.
+(commits and tags), then `git push --atomic origin main v1.2.3`. A tag reaches every installed
+copy, so releasing is the owner's call.
 
 ## How it fits together
 

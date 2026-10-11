@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
 
-from kura.core.library import Covered, Holds, fits, is_video, skipped_folder
+from kura.core.extensions import is_video
+from kura.core.library import Covered, Holds, fits, skipped_folder
 from kura.core.media import Json, media_from_ffprobe
 from kura.probe import ProbeError
 
@@ -92,13 +93,16 @@ def find_files(
 ) -> Found | None:
     """Walks a library folder and records every video in it.
 
-    `stamp` names the scan; files it doesn't see are marked gone. Returns None, changing nothing,
-    when the folder isn't there (its drive unplugged, say), or when `stop` asks to stop.
+    `stamp` names the scan; files it doesn't see are marked gone, except inside folders it
+    couldn't open. Returns None, having marked nothing gone, when the folder isn't there (its
+    drive unplugged, say), when it leaves the library during the walk, or when `stop` asks to stop.
+    Links and junctions aren't followed: they can go round in circles, or off to another drive.
     """
     if not folder.path.is_dir():
         return None
     files = added = changed = 0
     problems: list[str] = []
+    unopened: list[PureWindowsPath] = []
     waiting = [folder.path]
     while waiting:
         current = waiting.pop()
@@ -107,12 +111,9 @@ def find_files(
                 listed = sorted(entries, key=lambda entry: entry.name.casefold())
         except OSError as error:
             problems.append(f"Kura couldn't look in {current}: {error.strerror or error}.")
+            unopened.append(PureWindowsPath(current))
             continue
-        inside = [
-            Path(entry.path)
-            for entry in listed
-            if entry.is_dir(follow_symlinks=False) and not skipped_folder(entry.name)
-        ]
+        inside = [Path(entry.path) for entry in listed if _walks_into(entry)]
         waiting.extend(reversed(inside))  # so folders come off the stack in name order too
         for entry in listed:
             if entry.is_file(follow_symlinks=False) and is_video(entry.name):
@@ -122,18 +123,39 @@ def find_files(
                 path = Path(entry.path)
                 on_file(path)
                 stat = entry.stat(follow_symlinks=False)
-                outcome = _record(conn, folder.id, path, stat.st_size, stat.st_mtime_ns, stamp)
+                try:
+                    outcome = _record(conn, folder.id, path, stat.st_size, stat.st_mtime_ns, stamp)
+                except sqlite3.IntegrityError:  # the folder left the library during the walk
+                    conn.rollback()
+                    return None
                 files += 1
                 added += outcome == "added"
                 changed += outcome == "changed"
                 if files % _COMMIT_EVERY == 0:
                     conn.commit()
+        conn.commit()  # after each folder, so the database is never held up for long
+    unseen = conn.execute(
+        "SELECT id, path FROM files WHERE folder_id = ? AND gone_at IS NULL AND seen_at <> ?",
+        (folder.id, stamp),
+    ).fetchall()
+    gone = [
+        row["id"]
+        for row in unseen
+        if not any(PureWindowsPath(row["path"]).is_relative_to(away) for away in unopened)
+    ]
     with conn:
-        gone = conn.execute(
-            "UPDATE files SET gone_at = ? WHERE folder_id = ? AND gone_at IS NULL AND seen_at <> ?",
-            (stamp, folder.id, stamp),
-        ).rowcount
-    return Found(files, added, changed, gone, tuple(problems))
+        conn.executemany("UPDATE files SET gone_at = ? WHERE id = ?", [(stamp, i) for i in gone])
+    return Found(files, added, changed, len(gone), tuple(problems))
+
+
+def _walks_into(entry: os.DirEntry[str]) -> bool:
+    """A folder the walk goes into: a real folder, not a link or junction, nor one it skips."""
+    return (
+        entry.is_dir(follow_symlinks=False)
+        and not entry.is_symlink()
+        and not entry.is_junction()
+        and not skipped_folder(entry.name)
+    )
 
 
 def unread(conn: sqlite3.Connection) -> list[tuple[int, Path]]:
