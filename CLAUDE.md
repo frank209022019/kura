@@ -11,8 +11,12 @@ pipeline set up, with semantic versions, a changelog and a downloads page; the e
 (names, Plex naming, standards, estimates, gap reports, tidy plans) and the tidy-up journal
 (apply, undo, crash recovery) built test first; the upscaling test settled how each source is
 converted. Scanning works end to end: first-run setup, ffmpeg fetched from the list the installer
-shows, library folders, the scan (find, then read with ffprobe), and Home's library at a glance.
-No release has been tagged yet. Next is identification, in [What's next](#whats-next).
+shows, library folders, the scan (find, read with ffprobe, identify on AniList and TMDB, check for
+gaps and write the reports), "Which anime is this?" for the files Kura isn't sure about, the
+watcher that keeps the library current, Home's poster grid with "Needs your attention", and a
+page per title with its seasons, episode map and gap analysis. No release has been tagged yet.
+Next is finishing the library home (franchises, changing a match), in
+[What's next](#whats-next).
 
 ## Ground rules
 
@@ -262,12 +266,13 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 ## What's next
 
-1. Identification and missing episodes: names parsed (done in the core), titles matched on
-   AniList and TMDB with artwork (the owner has a TMDB key, to enter in Setup), a review screen
-   for low confidence, the gap check against TMDB's episode lists with its reports, the checks
-   while Kura is open, and the TMDB credit. The scan screen gains its last three stages.
-2. The library home and a page per title (their boards): every show with its artwork, kind and
-   status, "Needs your attention", and each show's seasons and episode map.
+1. Identification and missing episodes: done (AniList and TMDB, the review screen, the gap
+   check and its reports, the watcher, the scan's last three stages). Open with the owner: TMDB's
+   logo next to the credit line (the repo ships no media).
+2. The library home and a page per title: the poster grid sorted by release date, "Needs your
+   attention" and the title page are done. Left: franchises (Home groups a franchise's series,
+   films, OVAs and specials into one card with a page of its own, as the home board shows),
+   "Change match" and "Open folder" on the title page.
 3. Tidy-up in the app (the planner and journal exist): review, apply, undo, quarantine, History.
 4. Conversion, with the queue: upscaling, the encode, Kura's mux, checking each output, estimates,
    overnight runs, and a full disk or an unplugged drive handled.
