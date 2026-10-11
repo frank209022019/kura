@@ -6,6 +6,7 @@ import os
 import socket
 import sys
 import threading
+from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Annotated
@@ -17,6 +18,7 @@ from kura import __version__, events
 from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
 from kura.export import export_data
+from kura.relocate import move_asked
 from kura.system import end_programs_with_engine
 
 app = typer.Typer(help="Kura's engine.", no_args_is_help=True, add_completion=False)
@@ -45,7 +47,13 @@ def serve(
             "KURA_TOKEN is not set. The Kura app sets it when it starts the engine.", err=True
         )
         raise typer.Exit(2)
-    paths = DataPaths.default()
+    home = DataPaths.home()
+    # Moved to another drive, if the owner asked, before anything opens a file there.
+    paths = move_asked(home, datetime.now().astimezone())
+    if paths.root != home and not paths.root.is_dir():
+        missing = f"Kura's data is in {paths.root}, which isn't there."
+        typer.echo(f"{missing} Connect its drive, then try again.", err=True)
+        raise typer.Exit(1)
     _log_to_file(paths)
     end_programs_with_engine()  # no ffmpeg it starts outlives it, however it ends
 

@@ -1,6 +1,7 @@
 """Settings > Your data: where Kura keeps it and how big each part is, the export, and what Kura
 keeps next to the anime files."""
 
+import json
 import sqlite3
 import zipfile
 from pathlib import Path
@@ -70,3 +71,40 @@ def test_turning_the_reports_off_takes_them_out_of_the_anime_folders(
     assert not report.exists()
     client.put("/settings", json={**settings, "reports": True})
     assert report.is_file()
+
+
+def test_moving_the_data_is_asked_for_and_happens_as_the_engine_starts_again(
+    client: TestClient, paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    target = tmp_path / "F" / "Kura data"
+
+    answer = client.post("/data/move", json={"folder": str(target)})
+
+    assert answer.status_code == 204
+    assert (paths.root / "move.txt").read_text(encoding="utf-8") == str(target)
+    assert client.get("/data").json()["moved"] is None  # not till the engine starts again
+
+
+def test_a_folder_that_cant_take_the_data_says_why(client: TestClient, paths: DataPaths):
+    answer = client.post("/data/move", json={"folder": str(paths.root / "artwork")})
+
+    assert answer.status_code == 422
+    assert answer.json()["detail"] == (
+        "That folder is inside Kura's data folder: choose one outside it."
+    )
+
+
+def test_how_the_last_move_went_is_shown(client: TestClient, conn: sqlite3.Connection):
+    moved = {"source": r"C:\Kura", "target": r"F:\Kura data", "at": "now", "problem": None}
+    with conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('data_moved', ?)", (json.dumps(moved),)
+        )
+
+    found = client.get("/data").json()["moved"]
+
+    assert (found["source"], found["target"], found["problem"]) == (
+        r"C:\Kura",
+        r"F:\Kura data",
+        None,
+    )

@@ -4,6 +4,10 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+# In the home folder once Kura's data moved to another drive: where it went. The uninstaller
+# reads it too (app/src-tauri/windows/hooks.nsh).
+LOCATION = "location.txt"
+
 
 @dataclass(frozen=True)
 class DataPaths:
@@ -36,9 +40,25 @@ class DataPaths:
 
     @classmethod
     def default(cls) -> DataPaths:
-        r"""%LOCALAPPDATA%\Kura, or the folder in KURA_DATA_DIR when that is set."""
+        """Kura's data folder: its home, or where the owner moved it since (the home's
+        location.txt says where, even while that drive is unplugged)."""
+        return cls.at(cls.home())
+
+    @classmethod
+    def at(cls, home: Path) -> DataPaths:
+        """The data folder of this home: the home itself, or where its note says the data went."""
+        try:
+            moved = (home / LOCATION).read_text(encoding="utf-8").strip()
+        except OSError:
+            return cls(home)
+        return cls(Path(moved)) if moved else cls(home)
+
+    @classmethod
+    def home(cls) -> Path:
+        r"""Where Kura looks for its data first: %LOCALAPPDATA%\Kura, or the folder in
+        KURA_DATA_DIR when that is set."""
         if override := os.environ.get("KURA_DATA_DIR"):
-            return cls(Path(os.path.normpath(override)))
+            return Path(os.path.normpath(override))
         local_app_data = os.environ.get("LOCALAPPDATA")
         base = Path(local_app_data) if local_app_data else Path.home() / "AppData" / "Local"
-        return cls(base / "Kura")
+        return base / "Kura"

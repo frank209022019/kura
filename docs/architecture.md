@@ -217,6 +217,14 @@ Before queueing, the Convert screen shows one frame of a file before and after
   Settings is restored as the engine starts again, before anything opens the database, and what
   Kura knew till then is backed up first.
   Development uses `engine/.dev-data`, so it never touches the real folder.
+- **Moving it** to another drive (Settings > Your data, `kura/relocate.py`): the owner picks a
+  folder (an empty or new one, outside the data folder, with room); the app starts the engine
+  again, and as it starts, before it logs or opens anything, the engine copies the data there,
+  checks the copy (sizes and the database), and only then removes the old one. The home folder
+  keeps a note, `location.txt`, naming where the data went: Kura, `kura export` and the
+  uninstaller follow it, and an engine whose moved data isn't there (an unplugged drive) says so
+  instead of starting empty. A move that fails leaves everything where it was, and Settings says
+  why.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
   A database written by a newer Kura is refused, not damaged.
 - **With the anime**: `Kura - Gap analysis.md` per anime (the owner can turn these off in

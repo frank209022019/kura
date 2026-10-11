@@ -1,4 +1,5 @@
-"""Settings > Your data: where Kura keeps its data and how big each part is, and the export."""
+"""Settings > Your data: where Kura keeps its data and how big each part is, moving it to
+another drive, and the export."""
 
 from datetime import datetime
 from pathlib import Path
@@ -8,6 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 from kura import data
 from kura.api.common import ApiModel, Database, Paths
 from kura.export import export_data
+from kura.relocate import MoveError, ask_to_move, last_move
 
 router = APIRouter()
 
@@ -16,6 +18,13 @@ class Quarantined(ApiModel):
     folder: str  # D:\Kura quarantine
     bytes: int
     files: int
+
+
+class Moved(ApiModel):
+    source: str  # the folder the data left
+    target: str  # the folder it went to, or was to go to
+    at: str
+    problem: str | None  # why it stayed, if it did
 
 
 class DataSizes(ApiModel):
@@ -27,6 +36,11 @@ class DataSizes(ApiModel):
     backups: int
     tools: int
     quarantine: list[Quarantined]  # on each drive the library is on
+    moved: Moved | None  # how the last move to another folder went
+
+
+class MoveRequest(ApiModel):
+    folder: str  # where Kura's data goes: an empty or new folder
 
 
 class ExportRequest(ApiModel):
@@ -55,7 +69,18 @@ def your_data(conn: Database, paths: Paths) -> DataSizes:
             Quarantined(folder=str(q.folder), bytes=q.bytes, files=q.files)
             for q in found.quarantine
         ],
+        moved=Moved.model_validate(last.__dict__) if (last := last_move(conn)) else None,
     )
+
+
+@router.post("/data/move", status_code=status.HTTP_204_NO_CONTENT)
+def move_data(body: MoveRequest, paths: Paths) -> None:
+    """Moves Kura's data to another folder as the engine starts again: the app starts it again
+    right after asking."""
+    try:
+        ask_to_move(paths, Path(body.folder))
+    except MoveError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
 
 
 @router.post("/export")

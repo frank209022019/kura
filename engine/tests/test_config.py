@@ -29,3 +29,21 @@ def test_the_database_and_logs_sit_inside_the_data_folder(tmp_path: Path):
 
     assert paths.database == tmp_path / "kura.db"
     assert paths.logs == tmp_path / "logs"
+
+
+def test_data_moved_to_another_drive_is_found_by_the_note_left_behind(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    home, moved = tmp_path / "Kura", tmp_path / "F" / "Kura data"
+    home.mkdir()
+    (home / "location.txt").write_text(str(moved), encoding="utf-8")
+    monkeypatch.setenv("KURA_DATA_DIR", str(home))
+
+    assert DataPaths.home() == home
+    assert DataPaths.default().root == moved  # there or not: a drive may be unplugged
+
+
+def test_data_never_moved_has_no_note(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("KURA_DATA_DIR", str(tmp_path / "Kura"))
+
+    assert DataPaths.default().root == DataPaths.home() == tmp_path / "Kura"

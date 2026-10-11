@@ -109,6 +109,9 @@ folder, with `LICENSE.txt` and `THIRD-PARTY-NOTICES.txt` beside Kura; and turns 
   `%LOCALAPPDATA%\Kura`, which is the data folder, to `%LOCALAPPDATA%\Programs\Kura`.
 - `NSIS_HOOK_PREUNINSTALL` offers the export and stops if it fails.
 - `NSIS_HOOK_POSTUNINSTALL` deletes the data folder only if "Delete the application data" was ticked.
+  Data moved to another drive (its home's `location.txt` names it) goes too, but only Kura's own
+  parts of it (`kura.db`, `artwork`, `backups`, `cache`, `logs`, `tools`…), and only when it holds
+  `kura.db`; its folder goes only if nothing else is left in it.
 
 Hooks can use the template's variables (`$UpdateMode`, `$PassiveMode`, `$DeleteAppDataCheckboxState`).
 After a Tauri upgrade, build an installer and test an install, an update and an uninstall.

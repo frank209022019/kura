@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Backup, type DataSizes, EngineProvider, type LibraryFolder } from "@/lib/engine";
@@ -41,6 +41,7 @@ const DATA: DataSizes = {
   backups: 0,
   tools: 180_000_000,
   quarantine: [{ folder: "D:\\Kura quarantine", bytes: 3_400_000_000, files: 14 }],
+  moved: null,
 };
 
 /** A local time `daysAgo` days back, as the engine writes a backup's: "2026-10-11T03:00". */
@@ -243,6 +244,26 @@ describe("SettingsPage", () => {
       expect(shell.invoke).toHaveBeenCalledWith("set_start_with_windows", { on: true }),
     );
     await waitFor(() => expect(start).toHaveAttribute("aria-checked", "true"));
+  });
+
+  it("moves the data to another drive, as the engine starts again", async () => {
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "/backups": { backups: [], restored: null },
+      "POST /data/move": null,
+    });
+    renderSettings("data");
+
+    (await screen.findByRole("button", { name: "Move to another drive" })).click();
+    const asking = await screen.findByRole("group", {
+      name: "Move Kura's data to D:\\Backups\\Kura?",
+    });
+    within(asking).getByRole("button", { name: "Move it" }).click();
+
+    await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
+    expect(body(fetch, "POST", "/data/move")).toEqual({ folder: "D:\\Backups\\Kura" });
   });
 
   it("takes an unknown section to the first", async () => {

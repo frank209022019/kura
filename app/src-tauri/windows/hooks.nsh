@@ -35,10 +35,36 @@ FunctionEnd
     ${EndIf}
 !macroend
 
-; 4. Kura's data folder stays unless "Delete the application data" was ticked.
+; 4. Kura's data folder stays unless "Delete the application data" was ticked. Data moved to
+;    another drive goes too (the data folder's location.txt says where), but only Kura's own parts
+;    of it, and its folder only if nothing else is left there: never anyone's other files.
+!macro KuraDeleteData HOME
+    ClearErrors
+    FileOpen $0 "${HOME}\location.txt" r
+    ${IfNot} ${Errors}
+        FileRead $0 $1
+        FileClose $0
+        ${If} $1 != ""
+        ${AndIf} ${FileExists} "$1\kura.db"
+            Delete "$1\kura.db"
+            Delete "$1\kura.db-wal"
+            Delete "$1\kura.db-shm"
+            Delete "$1\credentials.json"
+            Delete "$1\move.txt"
+            RMDir /r "$1\artwork"
+            RMDir /r "$1\backups"
+            RMDir /r "$1\cache"
+            RMDir /r "$1\logs"
+            RMDir /r "$1\tools"
+            RMDir "$1"
+        ${EndIf}
+    ${EndIf}
+    RMDir /r "${HOME}"
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
     ${If} $DeleteAppDataCheckboxState = 1
     ${AndIf} $UpdateMode <> 1
-        RMDir /r "$LOCALAPPDATA\Kura"
+        !insertmacro KuraDeleteData "$LOCALAPPDATA\Kura"
     ${EndIf}
 !macroend

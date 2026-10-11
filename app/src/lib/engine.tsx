@@ -335,9 +335,16 @@ export interface DataSizes {
   tools: number;
   /** On each drive the library is on. */
   quarantine: Quarantined[];
+  /** How the last move to another folder went. */
+  moved: { source: string; target: string; at: string; problem: string | null } | null;
 }
 
 export const useDataSizes = () => useEngineQuery<DataSizes>("/data");
+/**
+ * Asks for Kura's data to move to another folder as the engine starts again, which the caller
+ * asks the shell for next: `move.mutate({ path: "/data/move", body: { folder } })`.
+ */
+export const useMoveData = () => useEngineAction<void>([]);
 /** Writes the export zip: `exporting.mutate({ path: "/export", body: { folder } })`. */
 export const useExport = () => useEngineAction<{ path: string; size: number }>(["/data"]);
 

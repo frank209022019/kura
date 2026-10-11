@@ -174,7 +174,8 @@ Tauri builds the installer with NSIS; Kura adds three hooks in
   which is the data folder.
 - Uninstalling first asks "Export your Kura data before uninstalling?" and, if yes, runs
   `kura-engine export` into Documents. If the export fails, nothing is removed.
-- The data folder stays unless "Delete the application data" is ticked. Anime files are never
+- The data folder (and data moved to another drive) stays unless "Delete the application data"
+  is ticked. Anime files are never
   touched either way.
 
 Updates skip both questions.

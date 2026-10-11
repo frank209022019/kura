@@ -288,8 +288,8 @@ Everything decided so far. Don't ask again; change only with the owner.
    History). Quarantine keeps copies until the 30-day clear-out arrives with step 6.
 4. Conversion, with the queue: done (the AI model and Anime4K, the encode and Kura's mux, checks,
    estimates and "See it first", nights only, full and unplugged drives, put back from History).
-5. Settings: done but for moving the data folder to another drive (and importing an export, on
-   the board).
+5. Settings: done (moving the data folder to another drive too); importing an export, on the
+   board, is still to come.
 6. Background care: done (nightly backups with restore, the daily quarantine clear-out, the tray
    with "Start with Windows" and notifications).
 7. Poster and background images next to each show, for media servers (optional, as decided; the

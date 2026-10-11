@@ -20,13 +20,14 @@ import {
   useSaveSettings,
   useSettings,
 } from "@/lib/engine";
-import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
+import { showInFolder, useExplorer } from "@/lib/explorer";
 import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
 import { useSetStartWithWindows, useStartWithWindows } from "@/lib/startup";
 import { cn } from "@/lib/utils";
 import { BackupsPanel } from "./backups-panel";
 import { Panel } from "./panel";
+import { WhereItLives } from "./where-it-lives";
 
 const SECTIONS = [
   { key: "general", label: "General" },
@@ -239,35 +240,19 @@ function YourData() {
   const sizes = useDataSizes();
   const stored = useSettings();
   const save = useSaveSettings();
-  const explorer = useExplorer();
   const found = sizes.data;
   const settings = stored.data;
   return (
     <>
       <EngineProblem queries={[sizes, stored]} />
-      {found && (
-        <Panel
-          title="Where your data lives"
-          note={<span className="font-mono text-12 text-fg-soft">{found.folder}</span>}
-          action={
-            <Button onClick={() => explorer.run(() => openFolder(found.folder))}>
-              Open folder
-            </Button>
-          }
-        >
-          {explorer.problem && (
-            <p role="alert" className="text-13 text-broken-fg">
-              {explorer.problem}
-            </p>
-          )}
-          <Breakdown sizes={found} />
-          <p className="text-13 text-fg-muted">
-            The library, your matches, the undo journal, the queue and History all live in one
-            database file. There's no server to install, nothing listens beyond this PC, and none of
-            it is uploaded.
-          </p>
-        </Panel>
-      )}
+      <WhereItLives found={found ?? null}>
+        {found && <Breakdown sizes={found} />}
+        <p className="text-13 text-fg-muted">
+          The library, your matches, the undo journal, the queue and History all live in one
+          database file. There's no server to install, nothing listens beyond this PC, and none of
+          it is uploaded.
+        </p>
+      </WhereItLives>
       {settings && (
         <Panel title="Kept with your files too">
           <Choice
