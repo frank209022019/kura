@@ -51,6 +51,7 @@ from kura.core.convert import (
 )
 from kura.core.estimate import FILM, estimate
 from kura.core.fields import Json
+from kura.core.library import WORKING, work_of
 from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
@@ -61,7 +62,6 @@ from kura.upscale import UpscaleError, Upscaler, pipe, upscaled_size
 
 log = logging.getLogger(__name__)
 
-WORKING = ".kura-converting"  # the end of a result's name while it's being made
 SHADER = Path(__file__).parent / "assets" / "anime4k-mode-a-hq.glsl"  # the fast upscale
 CONVERTED = (Method.REMUX, Method.REENCODE, Method.FAST, Method.BEST)  # what a job can be
 _UPSCALES = (Method.BEST, Method.FAST, Method.REENCODE)  # heaviest first
@@ -182,7 +182,7 @@ def convert(
     )
     _name_free(source, Path(made.output))
     _enough_space(source, media, decision, standard)
-    work = source.with_name(source.stem + WORKING)
+    work = work_of(source)
     _clear(work)
     try:
         if made.method is Method.BEST:
@@ -225,7 +225,7 @@ def put_in(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
     when the result can't go in: it went, or the original changed since it was made."""
     row = _job(conn, job_id)
     source = Path(row["path"])
-    work = source.with_name(source.stem + WORKING)
+    work = work_of(source)
     if row["output_probe"] is None or not work.is_file():
         raise ConvertError("Its converted copy isn't there any more. Try again to convert it anew.")
     _still_as_read(source, row["source_size"], row["source_modified"])
@@ -247,7 +247,7 @@ def throw_away_kept(conn: sqlite3.Connection, job_id: int) -> None:
     if row is None:
         return
     path = Path(row["path"])
-    _discard(path.with_name(path.stem + WORKING))
+    _discard(work_of(path))
 
 
 def _keep(conn: sqlite3.Connection, row: sqlite3.Row, result: Json, method: Method) -> None:
@@ -337,7 +337,9 @@ def settle(
                 (str(moved.target), job["file_id"]),
             )
             conn.execute(
-                "UPDATE jobs SET state = 'done', finished_at = ? WHERE id = ?",
+                """UPDATE jobs SET state = 'done', finished_at = COALESCE(finished_at, ?),
+                          retry_at = NULL
+                   WHERE id = ?""",
                 (now.isoformat(), job_id),
             )
         return
@@ -348,9 +350,10 @@ def settle(
     with conn:  # a result kept beside its original (InUseError) that never began going in waits on
         conn.execute(
             """UPDATE jobs SET state = 'queued', plan_id = NULL, started_at = NULL,
-                      retry_at = CASE WHEN ? THEN retry_at END
+                      retry_at = CASE WHEN ? THEN retry_at END,
+                      finished_at = CASE WHEN ? THEN finished_at END
                WHERE id = ?""",
-            (plan_id is None, job_id),
+            (plan_id is None, plan_id is None, job_id),
         )
 
 
@@ -404,7 +407,7 @@ def _follow_the_copy(conn: sqlite3.Connection, plan_id: int, file_id: int) -> No
     with conn:
         conn.execute(
             "UPDATE changes SET source = ?, target = ? WHERE id = ?",
-            (str(now_at.with_name(now_at.stem + WORKING)), str(now_at), moved.id),
+            (str(work_of(now_at)), str(now_at), moved.id),
         )
         conn.execute(
             "UPDATE changes SET source = ? WHERE id = ?",
@@ -658,6 +661,10 @@ def _replace(
     outcome = apply_plan(conn, plan_id, now=now)
     if outcome.problems:
         undone = undo_plan(conn, plan_id, now=now)
+        if not undone.problems and in_use(source):  # a player opened it a moment ago
+            _forget(conn, plan_id, row["id"])  # nothing moved: it leaves no trace
+            _keep(conn, row, result, method)
+            raise InUseError(_open_elsewhere(row))
         _discard(work)
         problem = outcome.problems[0].problem
         if undone.problems:  # the original stays in quarantine: History can still put it back
@@ -667,6 +674,14 @@ def _replace(
             )
         raise ConvertError(f"Kura couldn't put it in place, so the original is back: {problem}")
     finish(conn, row["id"], result, now)
+
+
+def _forget(conn: sqlite3.Connection, plan_id: int, job_id: int) -> None:
+    """A plan that moved nothing, gone from the journal and History."""
+    with conn:
+        conn.execute("UPDATE jobs SET plan_id = NULL WHERE id = ?", (job_id,))
+        conn.execute("DELETE FROM changes WHERE plan_id = ?", (plan_id,))
+        conn.execute("DELETE FROM plans WHERE id = ?", (plan_id,))
 
 
 def _free_place(source: Path, now: datetime) -> Path:

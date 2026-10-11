@@ -113,6 +113,7 @@ kura/
   relocate.py     moving the data folder to another drive, as the engine starts
   events.py       what the engine tells the app on its stdout: still starting, notifications
   recovery.py     what Kura settled after it closed unexpectedly, for Home to tell
+  leftovers.py    results no conversion is waiting with any more, taken away by a scan
 ```
 
 The core is the heart and stays pure: it takes plain values (file facts, titles, settings) and
@@ -223,7 +224,10 @@ has the original open as its result is ready (a player playing it: `system.in_us
 for the right to move it), the checked result waits beside it and the next file goes; a second
 thread of the queue puts it in place once the app lets go, trying every 5 minutes, or at once on
 "Try now", though another file is converting (`Queue.try_waiting`, `convert.put_in`). Skipping it
-throws the result away. After a crash, a file that was converting waits in line again, and one
+throws the result away (one a scan later finds that no job wants, its drive away when it was
+skipped, say, goes then: `kura/leftovers.py`; a result is named after its whole original,
+`Ep01.avi.kura-converting`, so an `Ep01.mp4` beside it has its own). After a crash, a file that
+was converting waits in line again, and one
 whose result was taking its original's place is finished, or its original put back. A clean stop
 leaves none of these, so finding any (or a tidy-up's moves in flight) is how Kura knows it closed
 unexpectedly: `kura/recovery.py` keeps what was settled, and Home says so in a sentence, until the

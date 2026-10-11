@@ -5,7 +5,16 @@ from pathlib import PureWindowsPath
 import pytest
 
 from kura.core.extensions import is_video
-from kura.core.library import Covered, Holds, Picture, fits, picture_size, skipped_folder, time_left
+from kura.core.library import (
+    Covered,
+    Holds,
+    Picture,
+    fits,
+    picture_size,
+    skipped_folder,
+    time_left,
+    work_of,
+)
 
 
 @pytest.mark.parametrize(
@@ -107,3 +116,10 @@ def test_time_left_follows_the_pace_so_far(
 )
 def test_a_picture_is_sorted_by_its_size(width: int | None, height: int | None, size: Picture):
     assert picture_size(width, height) == size
+
+
+def test_a_files_result_is_made_beside_it_under_its_whole_name():
+    folder = PureWindowsPath(r"D:\Anime\Old")
+
+    assert work_of(folder / "Ep01.avi") == folder / "Ep01.avi.kura-converting"
+    assert work_of(folder / "Ep01.avi") != work_of(folder / "Ep01.mp4")

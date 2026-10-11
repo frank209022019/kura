@@ -16,7 +16,7 @@ import pytest
 from kura import changes
 from kura.changes import changes_of, save_plan
 from kura.config import DataPaths
-from kura.convert import WORKING, ConvertError, Programs
+from kura.convert import WORKING, ConvertError, Programs, work_of
 from kura.core.fields import Json
 from kura.core.plan import Change, ChangeKind, Plan
 from kura.core.standard import Method
@@ -346,7 +346,7 @@ def test_after_a_crash_a_file_converting_waits_again_and_its_result_goes(
     queue.add([1])
     with conn:
         conn.execute("UPDATE jobs SET state = 'running'")
-    unfinished = shows / f"Trigun (1998) - S01E01{WORKING}"
+    unfinished = work_of(shows / "Trigun (1998) - S01E01.mkv")
     unfinished.write_bytes(b"half made")
 
     settled = queue.recover()
@@ -530,7 +530,7 @@ def test_a_file_open_in_another_app_waits_its_result_kept_and_goes_in_later(
     told: list[Told] = []
     queue = make_queue(paths, programs(RESULT, commands), told=told)
     queue.add([1, 2])
-    kept = shows / f"Trigun (1998) - S01E01{WORKING}"
+    kept = work_of(shows / "Trigun (1998) - S01E01.mkv")
 
     queue.work_once()  # made and checked, but the player has the original
     [waiting, _] = queue.status().queued
@@ -611,7 +611,7 @@ def test_a_file_still_open_when_tried_again_waits_again(
     assert waiting.retry_at is not None
     assert still.retry_at > waiting.retry_at  # 5 minutes from this try
     assert still.problem == waiting.problem
-    assert (shows / f"Trigun (1998) - S01E01{WORKING}").is_file()
+    assert (work_of(shows / "Trigun (1998) - S01E01.mkv")).is_file()
 
 
 def test_a_file_waiting_for_its_player_can_be_skipped_and_its_result_goes(
@@ -677,7 +677,7 @@ def test_after_a_crash_a_result_going_in_from_waiting_waits_again(
 
     [waiting] = queue.status().queued
     assert waiting.retry_at is not None
-    assert (shows / f"Trigun (1998) - S01E01{WORKING}").is_file()
+    assert (work_of(shows / "Trigun (1998) - S01E01.mkv")).is_file()
 
 
 def test_after_a_crash_only_kuras_own_unfinished_result_is_removed(
@@ -704,3 +704,41 @@ def test_after_a_crash_only_kuras_own_unfinished_result_is_removed(
 
     assert precious.read_text() == "years of work"
     assert states(conn) == [(1, "queued")]
+
+
+def test_after_a_crash_a_waiting_result_in_place_but_unread_waits_no_more(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    open_in_player = open_elsewhere(monkeypatch)
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+    queue.work_once()
+    [waiting] = queue.status().queued
+    open_in_player[0] = False
+    queue.retry(waiting.id)
+
+    def crash(*args: object, **kwargs: object) -> None:  # once both moves are made
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("kura.convert.finish", crash)
+    with pytest.raises(KeyboardInterrupt):
+        queue.try_waiting()
+    monkeypatch.undo()
+
+    make_queue(paths, None).recover()  # the next start, without ffprobe to read it
+
+    job = conn.execute("SELECT state, retry_at FROM jobs").fetchone()
+    assert (job["state"], job["retry_at"]) == ("done", None)
+
+
+def test_a_file_converted_anew_is_timed_by_this_conversion(queue: Queue, conn: sqlite3.Connection):
+    queue.add([1])
+    with conn:  # left from an earlier try, its result put back since
+        conn.execute("UPDATE jobs SET finished_at = '2020-01-01T00:00:00+00:00'")
+
+    queue.work_once()
+
+    [plan] = plans(conn)
+    assert plan.conversion is not None
+    assert plan.conversion.seconds is not None
+    assert plan.conversion.seconds >= 0

@@ -301,6 +301,43 @@ describe("QueuePage", () => {
     await waitFor(() => expect(sent(fetch, "POST", "/queue/4/skip")).toHaveLength(1));
   });
 
+  it("says a result waiting for its app waits, nights only or not", async () => {
+    const waiting = job(4, {
+      retryAt: new Date(Date.now() + 5 * 60_000 - 1000).toISOString(),
+      gpuSeconds: 0,
+    });
+    fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        schedule: "nights",
+        waitsForNight: true,
+        queued: [waiting],
+        gpuSeconds: 0,
+      },
+    });
+    renderQueue();
+
+    expect(await screen.findByText("Waiting for another app · 1 in the queue")).toBeInTheDocument();
+  });
+
+  it("says a made file waits for its drive, and offers no try that can't work", async () => {
+    const waiting = job(4, {
+      retryAt: new Date(Date.now() - 60_000).toISOString(), // due, but its drive is away
+      gpuSeconds: 0,
+      driveMissing: true,
+    });
+    fakeEngine({ "/queue": { ...RUNNING, running: null, queued: [waiting], gpuSeconds: 0 } });
+    renderQueue();
+
+    const said = await screen.findByText("Dragon Ball Z · S01E04 is made, and waits for D:.");
+    expect(said.closest("[role=status]")).toHaveTextContent(
+      "Dragon Ball Z · S01E04 is made, and waits for D:. It goes in once the drive is connected.",
+    );
+    expect(screen.queryByRole("button", { name: "Try now" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skip this file" })).toBeInTheDocument();
+  });
+
   it("says why skipping, taking out or trying again didn't work", async () => {
     const refused = (detail: string) => () => Response.json({ detail }, { status: 404 });
     fakeEngine({

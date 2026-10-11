@@ -3,10 +3,11 @@
 import json
 import sqlite3
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import cast
+from typing import BinaryIO, cast
 
 import pytest
 
@@ -22,6 +23,7 @@ from kura.convert import (
     put_in,
     restore,
     start,
+    work_of,
 )
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.standard import CINEMA_1080, Method
@@ -305,7 +307,7 @@ def test_a_result_whose_original_is_open_in_another_app_waits_beside_it(
 ):
     open_in_player = open_elsewhere(monkeypatch)
     original = episode.read_bytes()
-    kept = episode.with_name(episode.stem + WORKING)
+    kept = work_of(episode)
 
     with pytest.raises(InUseError, match=r"^Trigun \(1998\) - S01E03 is open in another app"):
         run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
@@ -323,6 +325,28 @@ def test_a_result_whose_original_is_open_in_another_app_waits_beside_it(
     job = conn.execute("SELECT state, output_probe FROM jobs").fetchone()
     assert job["state"] == "done"
     assert json.loads(job["output_probe"])["format"]["tags"] == {"KURA": BEST_TAG}
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' sharing rules")
+def test_a_player_opening_the_original_as_it_goes_in_keeps_the_result(
+    conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    held: list[BinaryIO] = []
+
+    def in_use(path: Path) -> bool:
+        if not held:  # free as Kura looks, and opened a moment after
+            held.append(path.open("rb"))
+            return False
+        return True
+
+    monkeypatch.setattr("kura.convert.in_use", in_use)
+    try:
+        with pytest.raises(InUseError):
+            run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+        assert work_of(episode).read_bytes().startswith(b"converted")  # kept, to go in later
+    finally:
+        for handle in held:
+            handle.close()
 
 
 def test_a_picture_ffprobe_couldnt_place_is_looked_at_for_interlacing(

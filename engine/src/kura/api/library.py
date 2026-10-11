@@ -88,7 +88,8 @@ def forget_folder(folder_id: int, conn: Database) -> Response:
     converting = conn.execute(
         """SELECT 1 FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            WHERE f.folder_id = ?
-             AND (j.state IN ('running', 'replacing') OR j.retry_at IS NOT NULL)""",
+             AND (j.state IN ('running', 'replacing')
+                  OR (j.state = 'queued' AND j.retry_at IS NOT NULL))""",
         (folder_id,),
     ).fetchone()
     if converting is not None:

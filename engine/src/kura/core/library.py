@@ -5,10 +5,11 @@ What counts as a video is in kura/core/extensions.py.
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from pathlib import PureWindowsPath
+from pathlib import PurePath, PureWindowsPath
 from typing import Literal
 
 QUARANTINE_FOLDER = "Kura quarantine"  # on each drive: copies set aside, never scanned
+WORKING = ".kura-converting"  # the end of a result's name while it's made beside its original
 
 # Kura's own quarantine, and the folders Windows keeps on every drive.
 _SKIPPED = frozenset(
@@ -16,6 +17,12 @@ _SKIPPED = frozenset(
     for name in (QUARANTINE_FOLDER, "$RECYCLE.BIN", "RECYCLER", "System Volume Information")
 )
 _MIN_FILES_FOR_PACE = 5
+
+
+def work_of[P: PurePath](source: P) -> P:
+    """Where a file's converted result is made: beside it, named after it whole
+    ("Ep01.avi.kura-converting"), so a same-named file of another kind (Ep01.mp4) has its own."""
+    return source.with_name(source.name + WORKING)
 
 
 def skipped_folder(name: str) -> bool:

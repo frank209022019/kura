@@ -43,7 +43,6 @@ from kura.convert import (
     CONVERTED,
     IN_USE_WAIT,
     SHADER,
-    WORKING,
     ConvertError,
     InUseError,
     NoRoomError,
@@ -57,6 +56,7 @@ from kura.convert import (
     restore,
     settle,
     throw_away_kept,
+    work_of,
 )
 from kura.core.estimate import estimate
 from kura.core.media import media_from_ffprobe
@@ -203,7 +203,7 @@ class Queue:
             ).fetchall()
             for row in running:
                 path = Path(row["path"])
-                unfinished = path.with_name(path.stem + WORKING)
+                unfinished = work_of(path)
                 try:
                     unfinished.unlink(missing_ok=True)
                 except OSError:  # still open: converting the file again takes it away
@@ -457,7 +457,8 @@ class Queue:
                     return False
                 with conn:
                     row = conn.execute(
-                        """UPDATE jobs SET state = 'running', started_at = ?, problem = NULL
+                        """UPDATE jobs SET state = 'running', started_at = ?, problem = NULL,
+                                  finished_at = NULL
                            WHERE id = ? AND state = 'queued' RETURNING id""",
                         (self._now().isoformat(), first),
                     ).fetchone()

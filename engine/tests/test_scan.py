@@ -16,6 +16,7 @@ import pytest
 import kura.scan
 from kura import db
 from kura.config import DataPaths
+from kura.core.library import work_of
 from kura.core.media import Json
 from kura.library import Folder, Found, add_folder
 from kura.probe import ProbeError, ProbeToolError
@@ -448,3 +449,33 @@ def test_files_kura_moves_are_its_own_doing_till_a_moment_after(paths: DataPaths
 
     moment[0] += 5
     assert scan.moving() is False
+
+
+def test_a_scan_takes_away_results_no_conversion_is_waiting_with(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    root = tmp_path / "Anime"
+    (root / "Trigun").mkdir(parents=True)
+    for number in (1, 2):
+        (root / "Trigun" / f"Trigun - 0{number}.mkv").write_bytes(b"an episode")
+    add_folder(conn, root, now=NOW)
+    scan = scanner(paths)
+    scan.start()
+    finished(scan)
+    left = work_of(root / "Trigun" / "Trigun - 01.mkv")  # a skipped file's, its drive away then
+    left.write_bytes(b"half a result")
+    waiting = work_of(root / "Trigun" / "Trigun - 02.mkv")
+    waiting.write_bytes(b"a result waiting for its player")
+    second = conn.execute("SELECT id FROM files WHERE path LIKE '%Trigun - 02.mkv'").fetchone()[0]
+    with conn:
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, added_at, retry_at)"
+            " VALUES (?, 'best', 1, 'now', 'later')",
+            (second,),
+        )
+
+    scan.start()
+    finished(scan)
+
+    assert not left.exists()
+    assert waiting.exists()

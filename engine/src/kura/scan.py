@@ -26,6 +26,7 @@ from kura.config import DataPaths
 from kura.core.library import time_left
 from kura.core.media import Json
 from kura.identify import Identifier
+from kura.leftovers import sweep
 from kura.library import find_files, folders, read_file, unread
 from kura.probe import ProbeToolError, probe
 from kura.reports import write_reports
@@ -269,6 +270,7 @@ class Scanner:
                 if found is not None:
                     for problem in found.problems:
                         log.warning("%s", problem)
+                    sweep(conn, found.leftovers)
         return True
 
     def _read_all(self, conn: sqlite3.Connection) -> bool:

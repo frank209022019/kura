@@ -157,7 +157,7 @@ function StatusLine({ status }: { status: QueueStatus }) {
     ? ["bg-fg-faint", ["Paused", queued]]
     : status.running
       ? ["animate-pulse bg-accent", ["Running", queued, left]]
-      : status.waitsForNight && waiting > 0
+      : status.waitsForNight && waiting > 0 && !held
         ? ["bg-convert", ["Waiting for the night", queued, "starts at 23:00"]]
         : missing
           ? ["bg-fg-faint", [`Waiting for ${either(missing) || "a drive"}`, queued]]
@@ -475,9 +475,13 @@ function drivesMissing(jobs: Job[]): string[] | null {
   return [...new Set(drives)].filter(Boolean);
 }
 
-/** A converted file waiting beside its original, which another app (a player, say) has open. */
+/**
+ * A converted file waiting beside its original, which another app (a player, say) has open; or,
+ * made, waiting for its drive to be connected again.
+ */
 function OpenElsewhere({ job, retryAt }: { job: Job; retryAt: string }) {
   const action = useQueueAction();
+  const drive = /^[a-z]:/i.exec(job.path)?.[0].toUpperCase() ?? "its drive";
   return (
     <div
       role="status"
@@ -485,19 +489,30 @@ function OpenElsewhere({ job, retryAt }: { job: Job; retryAt: string }) {
     >
       <span className="flex gap-3 text-14">
         <Lock size={20} aria-hidden="true" className="shrink-0 text-convert-fg" />
-        <span>
-          <strong className="font-extrabold">{job.label} is open in another app,</strong> maybe your
-          player. Kura will try again {retryIn(retryAt, Date.now())}.
-        </span>
+        {job.driveMissing ? (
+          <span>
+            <strong className="font-extrabold">
+              {job.label} is made, and waits for {drive}.
+            </strong>{" "}
+            It goes in once the drive is connected.
+          </span>
+        ) : (
+          <span>
+            <strong className="font-extrabold">{job.label} is open in another app,</strong> maybe
+            your player. Kura will try again {retryIn(retryAt, Date.now())}.
+          </span>
+        )}
       </span>
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          disabled={action.isPending}
-          onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
-        >
-          Try now
-        </Button>
+        {!job.driveMissing && (
+          <Button
+            size="sm"
+            disabled={action.isPending}
+            onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
+          >
+            Try now
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -591,13 +606,13 @@ function JobRow({ job, first, top }: { job: Job; first: number | null; top: bool
         <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
         <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
         <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
-        {job.retryAt !== null ? (
-          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
-            Open in another app
-          </span>
-        ) : job.driveMissing ? (
+        {job.driveMissing ? (
           <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Its drive isn't connected
+          </span>
+        ) : job.retryAt !== null ? (
+          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+            Open in another app
           </span>
         ) : (
           <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">

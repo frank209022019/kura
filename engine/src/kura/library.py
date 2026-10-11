@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path, PureWindowsPath
 
 from kura.core.extensions import is_video
-from kura.core.library import Covered, Holds, fits, skipped_folder
+from kura.core.library import WORKING, Covered, Holds, fits, skipped_folder
 from kura.core.media import Json, media_from_ffprobe
 from kura.probe import ProbeError
 
@@ -41,6 +41,7 @@ class Found:
     changed: int  # a different size or time from before, so read again
     gone: int  # no longer there
     problems: tuple[str, ...]  # folders inside that couldn't be opened
+    leftovers: tuple[Path, ...] = ()  # results named as Kura's work (.kura-converting)
 
 
 def folders(conn: sqlite3.Connection) -> list[Folder]:
@@ -101,6 +102,7 @@ def find_files(
     if not folder.path.is_dir():
         return None
     files = added = changed = 0
+    leftovers: list[Path] = []
     problems: list[str] = []
     unopened: list[PureWindowsPath] = []
     waiting = [folder.path]
@@ -116,6 +118,8 @@ def find_files(
         inside = [Path(entry.path) for entry in listed if _walks_into(entry)]
         waiting.extend(reversed(inside))  # so folders come off the stack in name order too
         for entry in listed:
+            if entry.name.casefold().endswith(WORKING) and entry.is_file(follow_symlinks=False):
+                leftovers.append(Path(entry.path))
             if entry.is_file(follow_symlinks=False) and is_video(entry.name):
                 if stop():
                     conn.commit()
@@ -145,7 +149,7 @@ def find_files(
     ]
     with conn:
         conn.executemany("UPDATE files SET gone_at = ? WHERE id = ?", [(stamp, i) for i in gone])
-    return Found(files, added, changed, len(gone), tuple(problems))
+    return Found(files, added, changed, len(gone), tuple(problems), tuple(leftovers))
 
 
 def _walks_into(entry: os.DirEntry[str]) -> bool:
