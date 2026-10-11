@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from kura import db
+from kura.anilist import AniList
 from kura.config import DataPaths
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
@@ -66,9 +67,15 @@ def _transport(request: Request) -> Send:
     return transport
 
 
+def _anilist(request: Request) -> AniList:
+    anilist: AniList = request.app.state.anilist
+    return anilist
+
+
 # Use these as parameter types in routes, e.g. `def route(conn: Database) -> ...`.
 Paths = Annotated[DataPaths, Depends(_paths)]
 Database = Annotated[sqlite3.Connection, Depends(_database)]
 Toolbox = Annotated[Tools, Depends(_toolbox)]
 Scans = Annotated[Scanner, Depends(_scanner)]
 Web = Annotated[Send, Depends(_transport)]  # how Kura reaches TMDB and AniList
+AniListClient = Annotated[AniList, Depends(_anilist)]  # the engine's one, sharing its limit

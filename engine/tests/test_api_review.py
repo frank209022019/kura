@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import time
 from pathlib import Path
 from typing import cast
 
@@ -10,8 +11,12 @@ from fastapi.testclient import TestClient
 
 from kura import credentials
 from kura.anilist import API as ANILIST
+from kura.anilist import AniList
+from kura.api import create_app
 from kura.config import DataPaths
-from tests.fake_web import Asked, FakeWeb
+from kura.web import Service
+from tests.conftest import TOKEN
+from tests.fake_web import Asked, FakeWeb, reply
 from tests.services import SAVED, internet
 from tests.shelf import identify, library
 
@@ -59,6 +64,27 @@ def test_searching_anilist_scores_its_entries_against_the_file(
     assert found[0]["anilistId"] == 1
     assert found[0]["title"] == "Cowboy Bebop"
     assert 0 <= found[0]["confidence"] <= 100
+
+
+def test_searches_wait_out_anilists_limit_with_the_rest_of_kura(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path, web: FakeWeb
+):
+    library(conn, root, ["Downloads/[subs] ep03 final.mkv"])
+    identify(paths, conn, internet())
+    waited: list[float] = []
+    app = create_app(TOKEN, paths, transport=web)
+    app.state.anilist = AniList(service=Service("AniList", web, sleep=waited.append))
+    spent = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(time.time() + 30)}
+    web.answers[f"POST {ANILIST}"] = reply({"data": {"Page": {"media": []}}}, headers=spent)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    with TestClient(app, base_url="http://127.0.0.1", headers=headers) as client:
+        [first] = client.get("/review").json()
+        for text in ("Trigun", "Trigun Stampede"):
+            client.get(f"/review/{first['id']}/search", params={"q": text})
+
+    assert len(waited) == 1  # the second waited for the minute's reset
+    assert 0 < waited[0] <= 30
 
 
 def test_the_owners_choice_places_the_files_and_sticks(

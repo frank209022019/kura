@@ -266,7 +266,9 @@ export const useLibrary = () => useEngineQuery<Library>("/library");
  * one stops, the library and its folders are asked again too.
  */
 export function useScan() {
-  const scan = useEngineQuery<Scan>("/scan", (now) => (now?.state === "running" ? 1000 : false));
+  // Every second while a scan runs; every ten seconds otherwise, so a scan Kura starts on its own
+  // (when a video arrives) shows too.
+  const scan = useEngineQuery<Scan>("/scan", (now) => (now?.state === "running" ? 1000 : 10_000));
   const refresh = useRefresh();
   const running = scan.data?.state === "running";
   const wasRunning = useRef(running);
@@ -451,12 +453,16 @@ export interface WaitingFile {
 }
 
 export const useReview = () => useEngineQuery<WaitingFile[]>("/review");
-/** AniList's entries for `text`, scored against one file; asked only for two letters or more. */
+/**
+ * AniList's entries for `text`, scored against one file; asked only for two letters or more. The
+ * last answer stays on screen while the next loads.
+ */
 export const useMatchSearch = (fileId: number, text: string) =>
   useEngineQuery<Guess[]>(
     `/review/${fileId}/search?q=${encodeURIComponent(text.trim())}`,
     undefined,
     text.trim().length >= 2,
+    true,
   );
 /** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also, episode } })`. */
 export const useChooseMatch = () =>

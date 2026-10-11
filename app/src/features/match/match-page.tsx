@@ -42,10 +42,8 @@ export function MatchPage() {
       </>
     );
   }
-  // Skipped files go to the back of the queue for this visit.
-  const queue = [...review.data].sort(
-    (a, b) => Number(skipped.includes(a.id)) - Number(skipped.includes(b.id)),
-  );
+  // Skipped files go to the back of the queue for this visit, the latest skipped last.
+  const queue = [...review.data].sort((a, b) => skipped.indexOf(a.id) - skipped.indexOf(b.id));
   const [file, ...next] = queue;
   if (!file) return <AllMatched />;
 
@@ -78,8 +76,9 @@ function MatchFile(props: {
   const choose = useChooseMatch();
   const ignore = useIgnoreFile();
   const [search, setSearch] = useState("");
-  const found = useMatchSearch(file.id, search);
-  const searching = search.trim().length >= 2;
+  const asked = useSettled(search, 350); // AniList is asked once the owner stops typing
+  const found = useMatchSearch(file.id, asked);
+  const searching = asked.trim().length >= 2;
   const guesses = searching ? (found.data ?? []) : file.guesses;
   const [picked, setPicked] = useState<number | null>(file.guesses[0]?.anilistId ?? null);
   const [kind, setKind] = useState<Kind>(asKind(file.kind));
@@ -265,6 +264,16 @@ function MatchFile(props: {
       )}
     </>
   );
+}
+
+/** `value` once it has stayed the same for `delay` milliseconds. */
+function useSettled(value: string, delay: number): string {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return settled;
 }
 
 function Breadcrumb() {

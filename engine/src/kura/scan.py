@@ -19,6 +19,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Literal
 
 from kura import db
+from kura.anilist import AniList
 from kura.config import DataPaths
 from kura.core.library import time_left
 from kura.core.media import Json
@@ -80,12 +81,13 @@ class Scanner:
         read: Callable[[Path], Json] | None = None,
         now: Callable[[], datetime] = _utc_now,
         transport: Send = send,
+        anilist: AniList | None = None,
     ) -> None:
         self._paths = paths
         self._tools = tools
         self._read = read
         self._now = now
-        self._identifier = Identifier(paths, transport, now=now)
+        self._identifier = Identifier(paths, transport, now=now, anilist=anilist)
         self._lock = threading.Lock()
         self._pause = threading.Event()
         self._thread: threading.Thread | None = None

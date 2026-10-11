@@ -65,12 +65,14 @@ class Identifier:
         transport: Send,
         *,
         now: Callable[[], datetime],
+        anilist: AniList | None = None,
     ) -> None:
+        """`anilist` is the engine's one AniList client, whose limit every lookup shares."""
         self._paths = paths
         self._transport = transport
         self._now = now
         cache = Cache(paths.cache)
-        self._anilist = AniList(transport, cache=cache)
+        self._anilist = anilist or AniList(transport, cache=cache)
         self._cache = cache
 
     def run(

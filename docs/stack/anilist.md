@@ -14,7 +14,9 @@ AniList is always current and needs no download.
 AniList's API is free for non-commercial use and needs no key or account. Its rate limit is
 90 requests a minute, currently lowered to 30 (it says so in `X-RateLimit-Limit`). When a minute's
 requests run out (`X-RateLimit-Remaining: 0`), [kura/web.py](../../engine/src/kura/web.py) waits
-for `X-RateLimit-Reset` before the next one, and a 429 is retried after its `Retry-After`. Kura
+for `X-RateLimit-Reset` before the next one, and a 429 is retried after its `Retry-After`. The
+engine has one AniList client (`create_app` makes it), so scans, the hourly check and the match
+screen's search share the minute's requests; the search asks once the owner stops typing. Kura
 asks once per anime, with everything it needs in that one answer, and keeps the answers, so a
 library of a hundred anime costs a few minutes on the first scan and nothing after.
 

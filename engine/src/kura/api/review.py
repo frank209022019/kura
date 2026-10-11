@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse
 from pydantic import Field
 
 from kura import review, stills
-from kura.api.common import ApiModel, Database, Paths, Toolbox, Web
+from kura.anilist import AniList
+from kura.api.common import AniListClient, ApiModel, Database, Paths, Toolbox, Web
 from kura.config import DataPaths
 from kura.core.catalog import TitleKind
 from kura.core.identify import Guess as FoundGuess
@@ -95,21 +96,25 @@ def files_to_review(conn: Database) -> list[WaitingFile]:
 
 
 @router.get("/review/{file_id}/search")
-def search_anilist(file_id: int, q: str, conn: Database, paths: Paths, web: Web) -> list[Guess]:
+def search_anilist(
+    file_id: int, q: str, conn: Database, paths: Paths, web: Web, anilist: AniListClient
+) -> list[Guess]:
     """AniList's entries for a name, scored against this file."""
     try:
-        found = _identifier(paths, web).search(conn, file_id, q)
+        found = _identifier(paths, web, anilist).search(conn, file_id, q)
     except WebError as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, _offline(error)) from None
     return [_guess(guess) for guess in found]
 
 
 @router.post("/review/{file_id}")
-def choose(file_id: int, body: Choice, conn: Database, paths: Paths, web: Web) -> Chosen:
+def choose(
+    file_id: int, body: Choice, conn: Database, paths: Paths, web: Web, anilist: AniListClient
+) -> Chosen:
     """The owner's choice for this file, and for the others that are the same anime. An
     episode Kura can't place is 422: the owner gives its number."""
     try:
-        placed = _identifier(paths, web).choose(
+        placed = _identifier(paths, web, anilist).choose(
             conn,
             file_id,
             body.anilist_id,
@@ -151,13 +156,13 @@ def file_still(
 
 
 @router.post("/review/{file_id}/ignore", status_code=status.HTTP_204_NO_CONTENT)
-def ignore(file_id: int, conn: Database, paths: Paths, web: Web) -> None:
+def ignore(file_id: int, conn: Database, paths: Paths, web: Web, anilist: AniListClient) -> None:
     """Not anime: Kura leaves it out, and no rescan asks about it again."""
-    _identifier(paths, web).ignore(conn, file_id)
+    _identifier(paths, web, anilist).ignore(conn, file_id)
 
 
-def _identifier(paths: DataPaths, web: Send) -> Identifier:
-    return Identifier(paths, web, now=lambda: datetime.now().astimezone())
+def _identifier(paths: DataPaths, web: Send, anilist: AniList) -> Identifier:
+    return Identifier(paths, web, now=lambda: datetime.now().astimezone(), anilist=anilist)
 
 
 def _guess(guess: FoundGuess) -> Guess:

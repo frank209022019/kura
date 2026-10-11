@@ -181,6 +181,34 @@ describe("MatchPage", () => {
     await waitFor(() => expect(sent(fetch, "POST", "/review/4/ignore")).toHaveLength(1));
   });
 
+  it("keeps going round the files that were skipped", async () => {
+    fakeEngine({ "/review": QUEUE });
+    renderMatch();
+
+    for (const shown of ["ep03", "ep04", "ep05", "ep03", "ep04"]) {
+      expect(
+        await screen.findByRole("heading", { name: `[subs] ${shown} final.mkv` }),
+      ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Skip for now" }).click();
+    }
+  });
+
+  it("searches once the owner stops typing", async () => {
+    const fetch = fakeEngine({
+      "/review": QUEUE,
+      "/review/3/search": [{ ...TRIGUN, anilistId: 99, title: "Trigun Stampede", confidence: 70 }],
+    });
+    renderMatch();
+    const box = await screen.findByRole("searchbox", { name: "Search for the right anime" });
+
+    for (const typed of ["Tr", "Tri", "Trig", "Trigu", "Trigun"]) {
+      fireEvent.change(box, { target: { value: typed } });
+    }
+
+    expect(await screen.findByRole("radio", { name: /Trigun Stampede/ })).toBeInTheDocument();
+    expect(sent(fetch, "GET", "/review/3/search")).toHaveLength(1);
+  });
+
   it("says when every file is matched", async () => {
     fakeEngine({ "/review": [] });
     renderMatch();

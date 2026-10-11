@@ -58,11 +58,13 @@ class Watcher:
         *,
         now: Callable[[], datetime],
         clock: Callable[[], float] = time.monotonic,
+        anilist: AniList | None = None,
     ) -> None:
         self._paths = paths
         self._scanner = scanner
         self._transport = transport
         self._now = now
+        self._anilist = anilist or AniList(transport, cache=Cache(paths.cache))
         self._clock = clock
         self._lock = threading.Lock()
         self._changed_at: float | None = None  # when a video last changed, not yet scanned
@@ -135,7 +137,6 @@ class Watcher:
         key = credentials.load(self._paths, "tmdb")
         cache = Cache(self._paths.cache)
         tmdb = Tmdb(key, self._transport, cache=cache) if key else None
-        anilist = AniList(self._transport, cache=cache)
         asked = 0
         with closing(db.connect(self._paths.database)) as conn:
             rows = conn.execute(
@@ -148,7 +149,7 @@ class Watcher:
                 if not due(row, self._now()):
                     continue
                 try:
-                    found = self._ask(conn, row, tmdb, anilist)
+                    found = self._ask(conn, row, tmdb)
                 except WebError as error:
                     log.info("An episode list couldn't be refreshed now: %s", error)
                     self._resting_until = self._now() + AIRING_EVERY
@@ -165,9 +166,7 @@ class Watcher:
                 write_reports(conn, now=self._now())
         return asked
 
-    def _ask(
-        self, conn: sqlite3.Connection, row: sqlite3.Row, tmdb: Tmdb | None, anilist: AniList
-    ) -> bool | None:
+    def _ask(self, conn: sqlite3.Connection, row: sqlite3.Row, tmdb: Tmdb | None) -> bool | None:
         """Asks again for one title's episode list: True when it came, False when TMDB or
         AniList no longer has the show, None when there's no one to ask (a TMDB show while Kura
         has no key, or an OVA that's a film on TMDB)."""
@@ -181,7 +180,7 @@ class Watcher:
             return True
         if row["tmdb_id"] is not None or row["anilist_id"] is None:
             return None
-        entry = anilist.entry(row["anilist_id"], fresh=True)
+        entry = self._anilist.entry(row["anilist_id"], fresh=True)
         if entry is None:
             return False
         save_anilist_title(conn, entry, self._now())

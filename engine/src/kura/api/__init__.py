@@ -18,7 +18,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from kura import __version__, changes, db
+from kura.anilist import AniList
 from kura.api import health, library, review, scan, settings, system, titles, tmdb, tools
+from kura.cache import Cache
 from kura.config import DataPaths
 from kura.scan import Scanner
 from kura.tools import Tools
@@ -64,7 +66,8 @@ def create_app(
             changes.recover(conn)  # settle file moves that a crash interrupted
         scans: Scanner = running.state.scanner
         scans.recover()  # carry on a scan that an exit or a crash stopped
-        watcher = Watcher(paths, scans, transport, now=_now) if watch else None
+        anilist: AniList = running.state.anilist
+        watcher = Watcher(paths, scans, transport, now=_now, anilist=anilist) if watch else None
         running.state.watcher = watcher
         if watcher is not None:
             watcher.start()
@@ -81,7 +84,11 @@ def create_app(
     app.state.paths = paths
     app.state.transport = transport
     app.state.tools = toolbox or Tools(paths)
-    app.state.scanner = scanner or Scanner(paths, app.state.tools, transport=transport)
+    # One AniList client for the engine: its limit (about 30 requests a minute) is the engine's.
+    app.state.anilist = AniList(transport, cache=Cache(paths.cache))
+    app.state.scanner = scanner or Scanner(
+        paths, app.state.tools, transport=transport, anilist=app.state.anilist
+    )
     app.state.watcher = None  # set while it runs
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.

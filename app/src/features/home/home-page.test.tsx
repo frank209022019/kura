@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type EngineStatus, type Health, type TitleSummary } from "@/lib/engine";
@@ -106,6 +106,7 @@ function renderHome(engine: EngineStatus) {
 
 describe("HomePage", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     shell.invoke.mockReset();
   });
@@ -184,6 +185,28 @@ describe("HomePage", () => {
     // The scan is asked again a second later, finds it done, and the library is asked again.
     expect(
       await screen.findByText("3 videos · 0.4 GB · 1 folder", undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
+  });
+
+  it("notices a scan Kura started on its own", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let started = false;
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 3, size: 407_000_000, sd: 3 },
+      "/scan": () =>
+        started
+          ? { ...NO_SCAN, state: "running", stage: "finding", found: 3 }
+          : { ...NO_SCAN, state: "done", stage: "done", found: 3, toRead: 3, read: 3 },
+    });
+    renderHome(READY);
+    expect(await screen.findByRole("button", { name: "Scan again" })).toBeInTheDocument();
+
+    started = true; // a new video arrived, and the watcher started a scan
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+
+    expect(
+      await screen.findByRole("button", { name: "Scanning… see progress" }),
     ).toBeInTheDocument();
   });
 
