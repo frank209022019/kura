@@ -52,6 +52,7 @@ FunctionEnd
             Delete "$1\kura.db-shm"
             Delete "$1\credentials.json"
             Delete "$1\move.txt"
+            Delete "$1\stopping.txt"
             RMDir /r "$1\artwork"
             RMDir /r "$1\backups"
             RMDir /r "$1\cache"

@@ -4,7 +4,8 @@ started again, once, for a day."""
 import sqlite3
 from datetime import timedelta
 
-from kura.recovery import Recovery, last, note, seen
+from kura.config import DataPaths
+from kura.recovery import Recovery, asked_to_stop, last, note, seen, stopped_on_purpose
 from tests.shelf import NOW
 
 
@@ -31,3 +32,13 @@ def test_a_start_with_nothing_to_settle_tells_nothing(conn: sqlite3.Connection):
     note(conn, Recovery((NOW + timedelta(hours=1)).isoformat()))  # a clean start after
 
     assert last(conn, NOW + timedelta(hours=1)) == Recovery(NOW.isoformat(), restarted=1)
+
+
+def test_a_stop_kura_was_asked_for_is_known_once_at_the_next_start(paths: DataPaths):
+    paths.root.mkdir(parents=True)
+    assert stopped_on_purpose(paths) is False
+
+    asked_to_stop(paths)
+
+    assert stopped_on_purpose(paths) is True
+    assert stopped_on_purpose(paths) is False

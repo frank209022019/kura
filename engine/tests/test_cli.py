@@ -64,6 +64,31 @@ def test_serve_announces_its_port_and_stops_when_the_app_goes_away(tmp_path: Pat
         assert engine.wait(timeout=30) == 0
 
 
+def test_an_engine_that_cant_start_says_so_and_ends_cleanly(tmp_path: Path):
+    """Its records damaged past opening: it announced its port, then couldn't start."""
+    home = tmp_path / "Kura"
+    home.mkdir()
+    (home / "kura.db").write_bytes(b"not a database at all" * 200)
+    env = {**os.environ, "KURA_TOKEN": TOKEN, "KURA_DATA_DIR": str(home)}
+    command = [*_engine(), "serve", "--watch-stdin"]
+    with subprocess.Popen(
+        command,
+        env=env,
+        stdin=subprocess.PIPE,  # held open, as the app holds it, while the engine ends
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    ) as engine:
+        assert engine.stdout is not None
+        assert engine.stderr is not None
+        engine.stdout.read()
+        said = engine.stderr.read()
+        code = engine.wait(timeout=60)
+
+    assert code == 3  # uvicorn's for a start that failed: an ending, not a crash
+    assert "Fatal Python error" not in said
+
+
 def test_export_says_when_there_is_nothing_yet(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("KURA_DATA_DIR", str(tmp_path / "Kura"))
 

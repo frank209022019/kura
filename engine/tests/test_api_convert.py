@@ -12,10 +12,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from kura.api import create_app
+from kura.backups import ask_to_restore, back_up
 from kura.config import DataPaths
 from kura.core.standard import Method
 from kura.queue import Queue
-from kura.recovery import Recovery
+from kura.recovery import Recovery, asked_to_stop
 from kura.scan import Scanner
 from tests.conftest import TOKEN
 from tests.converting import BEST_TAG, open_elsewhere, programs, report
@@ -291,6 +292,42 @@ def test_after_a_crash_kura_says_what_it_settled_till_its_seen(
         found = client.get("/recovery").json()
         assert (found["restarted"], found["finished"], found["putBack"]) == (1, 0, 0)
         assert client.post("/recovery/seen").status_code == 204
+        assert client.get("/recovery").json() is None
+
+
+def test_after_a_stop_kura_was_asked_for_no_crash_is_told(
+    paths: DataPaths, conn: sqlite3.Connection, shelf: Path
+):
+    with conn:  # the app ended the engine while a file converted, before it could stop
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " VALUES (1, 'best', 1, 'running', 'then')"
+        )
+    asked_to_stop(paths)
+    app = create_app(TOKEN, paths, work=True)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    with TestClient(app, base_url="http://127.0.0.1", headers=headers) as client:
+        assert client.get("/recovery").json() is None
+        assert [job["fileId"] for job in client.get("/queue").json()["queued"]] == [1]
+
+
+def test_restoring_a_backup_made_mid_conversion_tells_of_no_crash(
+    paths: DataPaths, conn: sqlite3.Connection, shelf: Path
+):
+    with conn:  # tonight's backup, made while a file converted
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " VALUES (1, 'best', 1, 'running', 'then')"
+        )
+    made = back_up(paths, NOW)
+    with conn:
+        conn.execute("UPDATE jobs SET state = 'done'")
+    ask_to_restore(paths, made.name)
+    app = create_app(TOKEN, paths, work=True)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    with TestClient(app, base_url="http://127.0.0.1", headers=headers) as client:
         assert client.get("/recovery").json() is None
 
 

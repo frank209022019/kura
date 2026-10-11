@@ -57,8 +57,9 @@ the status becomes `failed` with the engine's last error lines, and the UI says 
 and "Copy details". While the window is away (Kura waiting in the tray), a Windows notification
 says so once, with the engine's own last sentence when it has one ("Kura's data is in F:\Kura,
 which isn't there…"), and the shell tries again by itself after 30 seconds, a minute, 5 minutes,
-then every 15. Both sides of this handshake are tested: `engine/tests/test_cli.py` and
-`app/src-tauri/src/engine.rs`.
+then every 15 (an engine that ends soon after its ready line, one that couldn't start after all,
+counts as failing again, not as a new run). Both sides of this handshake are tested:
+`engine/tests/test_cli.py` and `app/src-tauri/src/engine.rs`.
 
 ## Contracts
 
@@ -231,7 +232,9 @@ was converting waits in line again, and one
 whose result was taking its original's place is finished, or its original put back. A clean stop
 leaves none of these, so finding any (or a tidy-up's moves in flight) is how Kura knows it closed
 unexpectedly: `kura/recovery.py` keeps what was settled, and Home says so in a sentence, until the
-owner looks (History has each file), for a day. A file being
+owner looks (History has each file), for a day. A stop the app asked for isn't told of, even one
+the app cut short (the engine notes `stopping.txt` as it starts stopping), and nor is a start that
+restored a backup. A file being
 converted (its result waiting beside it too), and any copy of it, stays out of tidy-ups and
 deletes. History lists each conversion with what it made, and puts the original back on asking.
 Before queueing, the Convert screen shows one frame of a file before and after

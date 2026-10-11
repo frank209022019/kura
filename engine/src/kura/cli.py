@@ -18,6 +18,7 @@ from kura import __version__, events
 from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
 from kura.export import export_data
+from kura.recovery import asked_to_stop
 from kura.relocate import move_asked
 from kura.system import end_programs_with_engine
 
@@ -65,9 +66,10 @@ def serve(
     config = uvicorn.Config(app, log_config=None, access_log=False)
     server = uvicorn.Server(config)
     if watch_stdin:
-        threading.Thread(target=_stop_when_stdin_closes, args=(server,), daemon=True).start()
+        stop = threading.Thread(target=_stop_when_stdin_closes, args=(server, paths), daemon=True)
+        stop.start()
     typer.echo(json.dumps({"event": "ready", "port": sock.getsockname()[1]}))
-    server.run(sockets=[sock])
+    server.run(sockets=[sock])  # one that can't start (its records damaged) ends with 3
 
 
 @app.command()
@@ -90,8 +92,14 @@ def openapi(path: Annotated[Path, typer.Argument(help="Where to write the schema
     path.write_text(json.dumps(openapi_schema(), indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
-def _stop_when_stdin_closes(server: uvicorn.Server) -> None:
-    sys.stdin.buffer.read()  # returns once the app exits and its end of the pipe closes
+def _stop_when_stdin_closes(server: uvicorn.Server, paths: DataPaths) -> None:
+    """Stops the engine once the app exits and its end of the pipe closes, noting the stop was
+    asked for: the app may end the engine before it's done. Read straight from the pipe, with no
+    buffer between: Python can't end cleanly while a thread holds one."""
+    stdin = sys.stdin.fileno()
+    while os.read(stdin, 4096):
+        pass
+    asked_to_stop(paths)
     server.should_exit = True
 
 

@@ -187,7 +187,7 @@ def test_while_the_data_moves_the_app_is_told_the_engine_is_still_starting(
 
     move_asked(home, NOW)
 
-    assert told == ["working", "done"]
+    assert told == ["working", "done"] * 2  # as it copies, and as the old copy goes
 
 
 @contextmanager

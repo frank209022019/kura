@@ -102,7 +102,8 @@ def move_asked(home: Path, now: datetime) -> DataPaths:
         _note(paths.database, Moved(str(source), str(target), now.isoformat(), problem))
         return paths
     _switch(home, target)
-    _clear_away(source, [target / name for name in copied], home)
+    with events.working():  # the old copy can take a while to go, too
+        _clear_away(source, [target / name for name in copied], home)
     moving.unlink(missing_ok=True)
     moved = DataPaths(target)
     _note(moved.database, Moved(str(source), str(target), now.isoformat(), None))
@@ -123,7 +124,8 @@ def _settle(home: Path, now: datetime) -> None:
     kept, left = (target, source) if switched else (source, target)
     if not kept.is_dir():
         return  # its drive isn't there: settled once it's back
-    _clear_away(left, _parts(kept), home)
+    with events.working():
+        _clear_away(left, _parts(kept), home)
     moving.unlink(missing_ok=True)
     problem = None if switched else _CUT_SHORT
     if problem:

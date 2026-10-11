@@ -22,7 +22,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -41,6 +41,8 @@ const RETRY_PAUSES: [Duration; 4] = [
     Duration::from_secs(5 * 60),
     Duration::from_secs(15 * 60),
 ];
+/// How long an engine must run before ending counts as stopping, not as failing to start.
+const STAYED_UP: Duration = Duration::from_secs(120);
 /// The longest line of the engine's own that a notification carries.
 const SAID_AT_MOST: usize = 200;
 
@@ -123,11 +125,12 @@ fn run(app: AppHandle, failures: usize) {
                 token: started.token,
             },
         );
+        let ready_at = Instant::now();
 
         let _ = started.exited.recv(); // returns once the engine has exited
         if app.state::<Engine>().ended_unexpectedly(started.pid) {
             let failure = failed("It stopped unexpectedly.", started.errors.text());
-            fail(&app, failure, 0); // it ran: a new run of failures, if it fails again
+            fail(&app, failure, failed_before(ready_at.elapsed(), failures));
         }
     });
 }
@@ -162,6 +165,14 @@ fn fail(app: &AppHandle, failure: EngineStatus, failures: usize) {
             }
         }
     });
+}
+
+/// The tries in a row that failed before this one, an engine having ended `ran_for` after it was
+/// ready: one that ran a while starts a new count, but one that ended soon after (it couldn't
+/// start after all: its records damaged, say) goes on with it, so the pauses keep growing and
+/// Windows says so only once.
+fn failed_before(ran_for: Duration, failures: usize) -> usize {
+    if ran_for < STAYED_UP { failures } else { 0 }
 }
 
 /// How long to wait before trying again after this many failures in a row (0 for the first).
@@ -523,6 +534,12 @@ mod tests {
     fn a_failed_engine_is_tried_again_after_a_growing_pause() {
         let pauses: Vec<u64> = (0..6).map(|n| pause_after(n).as_secs()).collect();
         assert_eq!(pauses, [30, 60, 300, 900, 900, 900]);
+    }
+
+    #[test]
+    fn an_engine_ending_soon_after_it_was_ready_goes_on_with_the_failures() {
+        assert_eq!(failed_before(Duration::from_secs(5), 3), 3);
+        assert_eq!(failed_before(Duration::from_secs(600), 3), 0);
     }
 
     #[test]

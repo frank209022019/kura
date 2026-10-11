@@ -43,7 +43,7 @@ from kura.config import DataPaths
 from kura.events import Notify
 from kura.gpu import Gpu
 from kura.queue import Queue, programs_from
-from kura.recovery import Recovery
+from kura.recovery import Recovery, stopped_on_purpose
 from kura.recovery import note as note_recovery
 from kura.scan import Scanner
 from kura.tools import Tools
@@ -87,7 +87,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(running: FastAPI) -> AsyncGenerator[None]:
-        restore_asked(paths, _now())  # a backup the owner chose, before anything opens the database
+        restored = restore_asked(paths, _now())  # a backup chosen, before anything opens it
+        on_purpose = stopped_on_purpose(paths)  # the last engine was asked to stop
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
             moves = changes.recover(conn)  # settle file moves that a crash interrupted
@@ -97,8 +98,9 @@ def create_app(
             # A conversion a crash stopped while its result was taking the original's place is
             # finished or undone before any scan looks at the folders.
             settled = worker.recover()
-        with closing(db.connect(paths.database)) as conn:  # Home tells what a crash left
-            note_recovery(conn, replace(settled, at=_now().isoformat(), moves=moves))
+        if not (restored or on_purpose):
+            with closing(db.connect(paths.database)) as conn:  # Home tells what a crash left
+                note_recovery(conn, replace(settled, at=_now().isoformat(), moves=moves))
         scans: Scanner = running.state.scanner
         scans.recover()  # carry on a scan that an exit or a crash stopped
         anilist: AniList = running.state.anilist
