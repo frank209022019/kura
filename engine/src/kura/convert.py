@@ -44,6 +44,7 @@ from kura.upscale import UpscaleError, Upscaler, pipe, upscaled_size
 
 WORKING = ".kura-converting"  # the end of a result's name while it's being made
 _CONVERTED = (Method.REMUX, Method.REENCODE, Method.FAST, Method.BEST)
+_UPSCALES = (Method.BEST, Method.FAST, Method.REENCODE)  # heaviest first
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _PLAY_SECONDS = 5  # how much of the result a test play decodes, at each of three points
 _LOOK_TIMEOUT = 300  # seconds for idet or a test play
@@ -124,6 +125,7 @@ def convert(
     decision = decide(media, standard)
     if decision.method not in _CONVERTED or media.video is None:
         raise ConvertError("It's at your standard already, so there's nothing to convert.")
+    decision = replace(decision, method=lighter(decision.method, Method(row["method"])))
     total = _frames(media)
     report(Progress("looking", 0, total))
     made = recipe(
@@ -154,6 +156,14 @@ def convert(
     _replace(conn, row, source, work, made, result, now())
 
 
+def lighter(decided: Method, chosen: Method) -> Method:
+    """The method a file gets when the owner chose one for it: never more than suits it (the AI
+    model only for SD), and lighter when they asked (Anime4K, or only a re-encode, for speed)."""
+    if decided in _UPSCALES and chosen in _UPSCALES:
+        return max(decided, chosen, key=_UPSCALES.index)
+    return decided
+
+
 def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
     """Puts a converted file's original back in its place, and the converted copy away."""
     job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
@@ -177,8 +187,8 @@ def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
 
 def _job(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
     row = conn.execute(
-        """SELECT j.id, j.file_id, f.path, f.size, f.modified, f.probe, f.season, f.episode,
-                  t.name AS title
+        """SELECT j.id, j.file_id, j.method, f.path, f.size, f.modified, f.probe, f.season,
+                  f.episode, t.name AS title
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            LEFT JOIN titles AS t ON t.id = f.title_id
            WHERE j.id = ? AND f.gone_at IS NULL""",

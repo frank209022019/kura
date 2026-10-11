@@ -18,11 +18,12 @@ from kura.convert import (
     Progress,
     Stopped,
     convert,
+    lighter,
     restore,
     start,
 )
 from kura.core.fields import Json
-from kura.core.standard import CINEMA_1080
+from kura.core.standard import CINEMA_1080, Method
 from kura.upscale import Frame
 from tests.fake_ffprobe import REPORT
 from tests.shelf import NOW, library
@@ -223,3 +224,21 @@ def test_a_picture_ffprobe_couldnt_place_is_looked_at_for_interlacing(
 
     decoder = next(c for c in commands if c[-1] == "-" and "rawvideo" in c)
     assert "bwdif=mode=send_frame" in decoder
+
+
+def test_the_owner_can_choose_a_lighter_method_never_a_heavier_one():
+    assert lighter(Method.BEST, Method.REENCODE) is Method.REENCODE  # SD, re-encoded for speed
+    assert lighter(Method.BEST, Method.FAST) is Method.FAST
+    assert lighter(Method.FAST, Method.BEST) is Method.FAST  # the model is for SD only
+    assert lighter(Method.REMUX, Method.BEST) is Method.REMUX  # nothing to upscale
+
+
+def test_an_sd_episode_can_be_only_re_encoded(conn: sqlite3.Connection, episode: Path):
+    with conn:
+        conn.execute("UPDATE jobs SET method = 'reencode'")
+    commands: list[Sequence[str]] = []
+
+    run(conn, programs(report(1440, 1080, tag="reencode to 1080p · Kura 0.1.0"), commands))
+
+    assert episode.read_bytes().startswith(b"converted ")
+    assert not any("rawvideo" in command for command in commands)
