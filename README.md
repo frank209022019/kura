@@ -37,8 +37,8 @@ issues are turned off, and there's no support.
 ## No media, no affiliation
 
 Kura contains no anime, artwork or other media, and it never downloads or shares video: it
-organises files you already have. Titles such as Dragon Ball and Death Note appear in the docs and
-tests only as examples of file names. They, and names such as Plex, TMDB and AniList, are
+organises files you already have. Titles such as Dragon Ball and Death Note appear in the docs,
+designs and tests only as example data. They, and names such as Plex, TMDB and AniList, are
 trademarks of their owners, and Kura isn't affiliated with or endorsed by any of them.
 
 ## Working on Kura

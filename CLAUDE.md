@@ -33,7 +33,7 @@ repo is public. Next is the first build step in [What's next](#whats-next).
   list in [engine/tools/third_party_notices.py](engine/tools/third_party_notices.py) (the
   installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:
   `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
-  installer, and titles appear only as file-name examples.
+  installer, and titles appear only as example data.
 - **Latest versions.** Use the newest stable release of every tool and library, and keep them
   current (see "Updating dependencies" in [docs/development.md](docs/development.md)).
 - **Fix what you find.** A real fault found while working is fixed in the same piece of work, test
@@ -170,6 +170,7 @@ Everything decided so far. Don't ask again; change only with the owner.
 - GitHub repo `frankgrobbelaar/kura`, public under the MIT licence (the owner's call on
   2026-10-10, replacing private releases through the `gh` login). Anyone may fork; only
   collaborators can open pull requests (a repo setting) and issues are off: no contributions.
+  Secret scanning with push protection is on: GitHub refuses a push that holds a known secret.
   CI on every push to `main` (Windows runners).
 - A `v*` tag builds the NSIS installer, signs it for the updater, and publishes a public release
   with `latest.json` and `THIRD-PARTY-NOTICES.txt`. Installed copies check daily at
