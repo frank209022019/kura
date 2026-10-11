@@ -3691,6 +3691,10 @@
           "title": {
             "type": "string",
             "title": "Title"
+          },
+          "taken": {
+            "type": "boolean",
+            "title": "Taken"
           }
         },
         "type": "object",
@@ -3703,7 +3707,8 @@
           "reason",
           "category",
           "titleId",
-          "title"
+          "title",
+          "taken"
         ],
         "title": "ProposedChange"
       },

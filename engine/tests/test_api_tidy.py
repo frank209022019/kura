@@ -59,6 +59,20 @@ def test_kura_proposes_and_counts_what_waits(client: TestClient, mixed: sqlite3.
     assert (proposal["waiting"], proposal["broken"]) == (1, 0)
 
 
+def test_a_name_another_file_has_gets_2_and_the_proposal_says_so(
+    client: TestClient, mixed: sqlite3.Connection, root: Path
+):
+    [_, bebop, _] = client.get("/tidy").json()["changes"]
+    assert bebop["taken"] is False
+    there = Path(bebop["target"]).relative_to(root)
+    library(mixed, root, [str(there)])  # another file at that name, not this episode
+
+    [_, bebop, _] = client.get("/tidy").json()["changes"]
+
+    assert bebop["taken"] is True
+    assert Path(bebop["target"]).name.endswith(" (2).mkv")
+
+
 def reviewed(changes: list[dict[str, str]]) -> list[dict[str, str]]:
     """The changes as the owner saw them, which is what applying sends."""
     return [{key: change[key] for key in ("source", "kind", "target")} for change in changes]

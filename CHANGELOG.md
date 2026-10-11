@@ -80,7 +80,8 @@ shows these notes when it offers the update.
   Subtitles move with their video (and stay with one that couldn't move), emptied folders
   go, and every video keeps what it was identified as. A film in two files (CD1, CD2) is
   filed as its two parts. With "Keep my names", files move into the same folders under the
-  names they have. Applying makes
+  names they have. A name another file has already gets "(2)", and the review says so: Kura
+  never overwrites a file. Applying makes
   exactly what you reviewed, or asks you to look again if a scan changed it, and waits while a
   scan runs.
 - History: every tidy-up and scan by day, newest first. Any tidy-up can be undone there (or right

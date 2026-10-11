@@ -300,9 +300,9 @@ Everything decided so far. Don't ask again; change only with the owner.
 7. Poster and background pictures next to each show, for media servers: done (optional, off
    unless turned on; the UI never names Plex).
 8. The small-things board: done for a file open in another app, a crash or power cut, a failed
-   conversion, a finished batch and being offline. Still to build: "The new name is already
-   taken" (Compare the two, Keep both, Skip) and the overnight keep-awake note. Open with the
-   owner: "Not enough space" offers "Empty quarantine first" (deleting copies before their days
+   conversion, a finished batch, being offline, and a name that's taken (a tidy-up keeps both,
+   the new one with "(2)", and its review says so). Still to build: that state's "Compare the
+   two" and "Skip", and the overnight keep-awake note. Open with the owner: "Not enough space" offers "Empty quarantine first" (deleting copies before their days
    are up) and "Write to another drive" (results away from their originals' drive): both change
    what's decided, so they wait for the owner.
 9. Light mode, once it's designed.

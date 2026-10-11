@@ -364,6 +364,12 @@ function ChangeRow({ change }: { change: ProposedChange }) {
         <ArrowRight size={13} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-faint" />
         {quarantine ? change.target : within(change.target, change.root)}
       </span>
+      {change.taken && (
+        <span className="text-12 text-fg-muted">
+          A file with this name is already there, so this one gets (2). Kura never overwrites a
+          file.
+        </span>
+      )}
     </li>
   );
 }

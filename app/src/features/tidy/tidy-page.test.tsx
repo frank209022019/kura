@@ -29,6 +29,7 @@ function change(
     category: "mixed",
     titleId: 1,
     title: "Cowboy Bebop",
+    taken: false,
     ...more,
   };
 }
@@ -149,6 +150,24 @@ describe("TidyPage", () => {
       screen.getByText("4 changes selected. 4 files stay where they are until matched."),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Apply 4 changes" })).toHaveLength(2);
+  });
+
+  it("says when a name was another file's, so the new one gets (2)", async () => {
+    const taken = {
+      ...BEBOP_1,
+      target: BEBOP_1.target.replace("Blues.mkv", "Blues (2).mkv"),
+      taken: true,
+    };
+    fakeEngine({ "/tidy": { ...PROPOSAL, changes: [taken, DEATH_NOTE_7] } });
+    renderTidy();
+
+    const bebop = await screen.findByRole("region", { name: "Cowboy Bebop" });
+    expect(bebop).toHaveTextContent(
+      "A file with this name is already there, so this one gets (2). Kura never overwrites a file.",
+    );
+    expect(screen.getByRole("region", { name: "Death Note" })).not.toHaveTextContent(
+      "already there",
+    );
   });
 
   it("compares two copies, and keeps the other one when asked", async () => {

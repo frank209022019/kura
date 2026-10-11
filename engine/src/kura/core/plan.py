@@ -18,6 +18,7 @@ from kura.core.naming import MAX_PATH, PathTooLongError, episode_path, movie_pat
 
 _TOO_LONG = "The new name would be too long for Windows"
 DELETED = "Deleted"  # the reason of a change that set a video aside because the owner deleted it
+KEPT_BOTH = "A file with this name is already there; both are kept"  # how a "(2)" is explained
 
 
 @dataclass(frozen=True)
@@ -200,7 +201,7 @@ def _move(placed: PlacedFile, target: PurePath, used: set[str]) -> Change | None
         used.add(str(place).casefold())
     reason = "Named and filed"
     if place != target:
-        reason += ". A file with this name is already there; both are kept"
+        reason += f". {KEPT_BOTH}"
     return Change(ChangeKind.MOVE, source, place, _label(placed.identity), reason)
 
 

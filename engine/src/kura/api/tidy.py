@@ -12,7 +12,7 @@ from kura import history, tidy
 from kura.api.common import ApiModel, Database, Scans
 from kura.changes import SavedChange
 from kura.convert import ConvertError
-from kura.core.plan import ChangeKind
+from kura.core.plan import KEPT_BOTH, ChangeKind
 from kura.queue import Queue
 from kura.scan import ScanBusyError
 
@@ -46,6 +46,7 @@ class ProposedChange(ApiModel):
     category: Literal["rename", "mixed", "duplicate"]
     title_id: int
     title: str
+    taken: bool  # its name was another file's, so it gets "(2)": Kura never overwrites a file
 
 
 class SkippedFile(ApiModel):
@@ -156,6 +157,7 @@ def proposal(conn: Database, keep: Keep = []) -> TidyProposal:  # noqa: B006 - F
                 category=p.category,
                 title_id=p.title_id,
                 title=p.title,
+                taken=p.change.reason.endswith(KEPT_BOTH),
             )
             for p in found.changes
         ],

@@ -740,6 +740,8 @@ export interface ProposedChange {
   category: TidyCategory;
   titleId: number;
   title: string;
+  /** Its name was another file's, so it gets "(2)": Kura never overwrites a file. */
+  taken: boolean;
 }
 
 /** What decides between two copies of one episode. */
