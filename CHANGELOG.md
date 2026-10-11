@@ -33,8 +33,9 @@ shows these notes when it offers the update.
   of the episodes aired so far), a run of them as one range, with specials and OVAs listed apart
   and never counted as missing.
 - Kura keeps the library current while it's open: it catches up at start on what changed while it
-  was closed, notices new, removed and renamed videos in your folders and scans once copying is
-  done, and checks for new episodes every hour for shows still airing (weekly for finished ones).
+  was closed, notices videos and folders added, removed or renamed in your library (and a drive
+  plugged back in) and scans once copying is done, and checks for new episodes every hour for
+  shows still airing (weekly for finished ones).
 - Setup takes your TMDB key, for episode lists, episode titles and artwork. It's optional: Kura
   checks the key with TMDB, then keeps it on this PC only, encrypted for your Windows account and
   never in an export. Home says whether TMDB is connected, and a key added later sorts what's

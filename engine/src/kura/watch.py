@@ -10,6 +10,7 @@ Nothing here runs while a scan does, and a scan the owner paused stays paused.
 """
 
 import logging
+import sqlite3
 import threading
 import time
 from collections.abc import Callable
@@ -28,7 +29,7 @@ from kura.cache import Cache
 from kura.config import DataPaths
 from kura.core.catalog import TitleKind
 from kura.core.extensions import is_video
-from kura.identify import due, save_anilist_title, save_show
+from kura.identify import AIRING_EVERY, due, save_anilist_title, save_show
 from kura.reports import write_reports
 from kura.scan import ScanBusyError, ScanStatus
 from kura.tmdb import Tmdb
@@ -66,6 +67,7 @@ class Watcher:
         self._lock = threading.Lock()
         self._changed_at: float | None = None  # when a video last changed, not yet scanned
         self._watched: dict[str, BaseObserver] = {}
+        self._resting_until: datetime | None = None  # after a failed refresh, asked again then
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -125,7 +127,11 @@ class Watcher:
 
     def refresh(self) -> int:
         """Asks again for the episode lists that are due, of the titles the library holds a
-        video of, then refreshes the reports. Returns how many lists were asked for."""
+        video of, then refreshes the reports. Returns how many lists were asked for. Offline or
+        refused, every list waits an hour; a show TMDB or AniList no longer has waits until it's
+        due again."""
+        if self._resting_until is not None and self._now() < self._resting_until:
+            return 0
         key = credentials.load(self._paths, "tmdb")
         cache = Cache(self._paths.cache)
         tmdb = Tmdb(key, self._transport, cache=cache) if key else None
@@ -142,23 +148,44 @@ class Watcher:
                 if not due(row, self._now()):
                     continue
                 try:
-                    if row["tmdb_type"] == "tv" and tmdb is not None:
-                        show = tmdb.show(row["tmdb_id"])
-                        if show is not None:
-                            kind = TitleKind(row["kind"])
-                            save_show(conn, show, kind, row["anilist_id"], self._now())
-                            asked += 1
-                    elif row["tmdb_id"] is None and row["anilist_id"] is not None:
-                        entry = anilist.entry(row["anilist_id"], fresh=True)
-                        if entry is not None:
-                            save_anilist_title(conn, entry, self._now())
-                            asked += 1
+                    found = self._ask(conn, row, tmdb, anilist)
                 except WebError as error:
                     log.info("An episode list couldn't be refreshed now: %s", error)
+                    self._resting_until = self._now() + AIRING_EVERY
                     break  # offline or busy: everything waits for the next hour
+                if found:
+                    asked += 1
+                elif found is False:  # gone from TMDB or AniList: not again until it's due
+                    with conn:
+                        conn.execute(
+                            "UPDATE titles SET checked_at = ? WHERE id = ?",
+                            (self._now().isoformat(), row["id"]),
+                        )
             if asked:
                 write_reports(conn, now=self._now())
         return asked
+
+    def _ask(
+        self, conn: sqlite3.Connection, row: sqlite3.Row, tmdb: Tmdb | None, anilist: AniList
+    ) -> bool | None:
+        """Asks again for one title's episode list: True when it came, False when TMDB or
+        AniList no longer has the show, None when there's no one to ask (a TMDB show while Kura
+        has no key, or an OVA that's a film on TMDB)."""
+        if row["tmdb_type"] == "tv":
+            if tmdb is None:
+                return None
+            show = tmdb.show(row["tmdb_id"])
+            if show is None:
+                return False
+            save_show(conn, show, TitleKind(row["kind"]), row["anilist_id"], self._now())
+            return True
+        if row["tmdb_id"] is not None or row["anilist_id"] is None:
+            return None
+        entry = anilist.entry(row["anilist_id"], fresh=True)
+        if entry is None:
+            return False
+        save_anilist_title(conn, entry, self._now())
+        return True
 
     def _loop(self) -> None:
         while not self._stopping.wait(TICK):
@@ -175,17 +202,22 @@ class Watcher:
         return True
 
     def _follow_folders(self) -> None:
-        """Watches every library folder that's there, and stops watching forgotten ones."""
+        """Watches every library folder that's there, stops watching forgotten ones, and watches
+        a folder again when it comes back (a drive plugged in again): Windows stops telling
+        about a folder once it goes."""
         with closing(db.connect(self._paths.database)) as conn:
             wanted = {row["path"] for row in conn.execute("SELECT path FROM folders")}
-        for path in list(self._watched):
+        for path, observer in list(self._watched.items()):
             if path not in wanted:
                 self._watched.pop(path).stop()
+            elif not Path(path).is_dir() or not all(e.is_alive() for e in observer.emitters):
+                self._watched.pop(path).stop()
+                self.notice()  # its videos went with it
         for path in wanted - set(self._watched):
             if not Path(path).is_dir():
                 continue  # its drive is unplugged: watched once it's back
             observer = Observer()
-            observer.schedule(_Changes(self.notice), path, recursive=True)
+            observer.schedule(Changes(self.notice, self._holds), path, recursive=True)
             try:
                 observer.start()
             except OSError as error:
@@ -193,16 +225,48 @@ class Watcher:
                 continue
             self._watched[path] = observer
 
+    def _holds(self, path: str) -> bool:
+        """Whether the library has a video at this path, or in a folder there."""
+        folder = path.rstrip("\\/") + "\\"
+        with closing(db.connect(self._paths.database)) as conn:
+            row = conn.execute(
+                """SELECT 1 FROM files
+                   WHERE gone_at IS NULL
+                     AND (lower(path) = lower(?) OR lower(substr(path, 1, ?)) = lower(?))
+                   LIMIT 1""",
+                (path, len(folder), folder),
+            ).fetchone()
+        return row is not None
 
-class _Changes(FileSystemEventHandler):
-    """Tells the watcher when a video, or a folder that may hold videos, comes or goes."""
 
-    def __init__(self, notice: Callable[[], None]) -> None:
+class Changes(FileSystemEventHandler):
+    """Tells the watcher when a video, or a folder that holds or may hold videos, comes or goes.
+    Something written inside a folder (Kura's own report, say) isn't a change: files tell for
+    themselves. Windows tells of a folder moved out or deleted as a file gone, so a gone
+    path counts when the library has videos there (`holds`)."""
+
+    def __init__(self, notice: Callable[[], None], holds: Callable[[str], bool]) -> None:
         self._notice = notice
+        self._holds = holds
 
     def on_any_event(self, event: FileSystemEvent) -> None:
-        if event.event_type in ("opened", "closed_no_write"):
-            return
-        names = [str(event.src_path), str(event.dest_path)]
-        if event.is_directory or any(is_video(name) for name in names if name):
+        source = str(event.src_path)
+        target = str(event.dest_path) if event.dest_path else ""
+        match event.event_type:
+            case "created":
+                changed = event.is_directory or is_video(source)
+            case "modified" | "closed":
+                changed = not event.is_directory and is_video(source)
+            case "deleted":
+                changed = is_video(source) or self._holds(source)
+            case "moved":
+                changed = (
+                    event.is_directory
+                    or is_video(source)
+                    or is_video(target)
+                    or self._holds(source)
+                )
+            case _:
+                changed = False  # opened, or closed without writing
+        if changed:
             self._notice()
