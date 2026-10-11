@@ -299,11 +299,8 @@ def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
     original = set_aside.source
     probe = json.loads(job["source_probe"])
     _record(conn, job["file_id"], original, job["source_size"], job["source_modified"], probe, now)
-    with conn:
-        conn.execute(
-            "UPDATE jobs SET state = 'restored', finished_at = ? WHERE id = ?",
-            (now.isoformat(), job_id),
-        )
+    with conn:  # it keeps when it finished: History says how long converting took
+        conn.execute("UPDATE jobs SET state = 'restored' WHERE id = ?", (job_id,))
 
 
 def settle(

@@ -4,6 +4,7 @@ import json
 import sqlite3
 import subprocess
 from collections.abc import Callable, Sequence
+from datetime import timedelta
 from pathlib import Path
 from typing import cast
 
@@ -84,14 +85,18 @@ def test_restoring_puts_the_original_back(conn: sqlite3.Connection, episode: Pat
     original = episode.read_bytes()
     run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
 
-    restore(conn, 1, now=NOW)
+    finished = conn.execute("SELECT finished_at FROM jobs").fetchone()[0]
+
+    restore(conn, 1, now=NOW + timedelta(hours=3))
 
     assert episode.read_bytes() == original
     assert not list(episode.parent.glob(f"*{WORKING}"))
     file = conn.execute("SELECT path, probe FROM files").fetchone()
     assert Path(file["path"]) == episode
     assert json.loads(file["probe"])["streams"][0]["height"] == 6  # the original's
-    assert conn.execute("SELECT state FROM jobs").fetchone()[0] == "restored"
+    job = conn.execute("SELECT state, finished_at FROM jobs").fetchone()
+    # History still says how long converting took, not how long till it was put back.
+    assert (job["state"], job["finished_at"]) == ("restored", finished)
 
 
 def test_a_720p_episode_is_made_in_one_command(conn: sqlite3.Connection, episode: Path):
