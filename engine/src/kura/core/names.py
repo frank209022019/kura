@@ -144,11 +144,11 @@ _GENERAL_FOLDERS = frozenset(
 def _folder_context(path: PurePath) -> tuple[str | None, int | None, int | None]:
     """The show folder's title and year, and the season folder's number."""
     folder = path.parent
-    season = _season_of(folder.name)
+    season = season_of_folder(folder.name)
     if season is not None:
         folder = folder.parent
     name = folder.name  # empty at the top of a drive
-    if not name or name.casefold() in _GENERAL_FOLDERS or _season_of(name) is not None:
+    if not name or name.casefold() in _GENERAL_FOLDERS or season_of_folder(name) is not None:
         return None, None, season
     if match := _TITLE_AND_YEAR.match(name):
         return match["title"], int(match["year"]), season
@@ -165,7 +165,9 @@ def _title_and_part(stem: str, episode_title: str | None) -> tuple[str | None, i
     return episode_title, int(found[1]) if found else None
 
 
-def _season_of(folder: str) -> int | None:
+def season_of_folder(folder: str) -> int | None:
+    """The season a folder's name gives: "Season 02", "S02" or "Season_02" is 2, "Specials" is
+    0. None for any other folder."""
     if _SPECIALS_FOLDER.match(folder):
         return 0
     if match := _SEASON_FOLDER.match(folder):

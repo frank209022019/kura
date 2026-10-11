@@ -15,6 +15,7 @@ from pathlib import Path, PureWindowsPath
 from kura.core.catalog import Show
 from kura.core.episodes import EpisodeNumber
 from kura.core.estimate import Estimate, estimate, total
+from kura.core.names import season_of_folder
 from kura.core.report import (
     GAP_ANALYSIS_FILE,
     EpisodeState,
@@ -29,8 +30,6 @@ from kura.preferences import library_standard
 from kura.titles import episode_statuses, show_of
 
 log = logging.getLogger(__name__)
-
-_SEASON_FOLDER = ("season ", "specials")
 
 
 @dataclass(frozen=True)
@@ -135,10 +134,8 @@ _REPORTED = {
 
 
 def _show_folder(folder: Path) -> Path:
-    """A "Season 02" or "Specials" folder belongs to the show folder above it."""
-    if folder.name.casefold().startswith(_SEASON_FOLDER):
-        return folder.parent
-    return folder
+    """A season's folder ("Season 02", "S02", "Specials") belongs to the show folder above it."""
+    return folder.parent if season_of_folder(folder.name) is not None else folder
 
 
 def _write(path: Path, text: str) -> bool:

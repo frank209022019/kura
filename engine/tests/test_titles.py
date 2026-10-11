@@ -136,6 +136,27 @@ def test_no_report_goes_into_a_library_folder_or_a_shared_one(
     assert not list(root.rglob(GAP_ANALYSIS_FILE))
 
 
+def test_season_folders_named_any_way_belong_to_their_show(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(
+        conn,
+        root,
+        [
+            "Dragon Ball Z (1989)/S01/Dragon Ball Z - 001.mkv",
+            "Dragon Ball Z (1989)/Season_02/Dragon Ball Z - 040.mkv",
+            "Dragon Ball Z (1989)/Season03/Dragon Ball Z - 075.mkv",
+        ],
+    )
+    identify(paths, conn, internet())
+
+    assert write_reports(conn, now=NOW).reports == 1
+    assert [p.relative_to(root) for p in root.rglob(GAP_ANALYSIS_FILE)] == [
+        Path("Dragon Ball Z (1989)") / GAP_ANALYSIS_FILE
+    ]
+
+
 def test_an_unchanged_report_isnt_written_again(identified: sqlite3.Connection, root: Path):
     write_reports(identified, now=NOW)
     report = root / "Dragon Ball Z (1989)" / GAP_ANALYSIS_FILE
