@@ -1,0 +1,170 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EngineProvider, type LibraryFolder, type Settings, type Tool } from "@/lib/engine";
+import { fakeEngine, NO_SCAN, READY, SETTINGS } from "@/test/engine";
+import { SetupPage } from "./setup-page";
+
+const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: shell.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+
+const DATA_DIR = "C:\\Users\\you\\AppData\\Local\\Kura";
+const ANIME: LibraryFolder = {
+  id: 1,
+  path: "D:\\Anime",
+  addedAt: "2026-10-11T09:30:00+00:00",
+  available: true,
+  files: 0,
+  unread: 0,
+  problems: 0,
+};
+const FFMPEG: Tool = {
+  id: "ffmpeg",
+  name: "ffmpeg",
+  version: "9.0.2",
+  purpose: "Reads what each video holds, and converts it.",
+  licence: "LGPL-2.1-or-later",
+  size: 76_972_461,
+  state: "missing",
+  done: 0,
+  problem: null,
+};
+
+/** A first run: no folders yet, recommended settings, ffmpeg still to fetch. */
+function firstRun(overrides: Record<string, unknown> = {}) {
+  const library = { folders: [] as LibraryFolder[], settings: { ...SETTINGS, setUp: false } };
+  return fakeEngine({
+    "/health": { status: "ok", version: "0.1.0", dataDir: DATA_DIR, schemaVersion: 3 },
+    "/folders": () => library.folders,
+    "POST /folders": (init?: RequestInit) => {
+      const { path } = JSON.parse(String(init?.body)) as { path: string };
+      library.folders = [{ ...ANIME, path }];
+      return library.folders[0];
+    },
+    "/settings": () => library.settings,
+    "PUT /settings": (init?: RequestInit) => {
+      library.settings = JSON.parse(String(init?.body)) as Settings;
+      return library.settings;
+    },
+    "/tools": [FFMPEG],
+    "POST /tools/ffmpeg/download": { ...FFMPEG, state: "downloading" },
+    "/system": { graphicsCard: "NVIDIA GeForce GTX 1660 SUPER" },
+    "/scan": NO_SCAN,
+    "POST /scan": { ...NO_SCAN, state: "running", stage: "finding" },
+    ...overrides,
+  });
+}
+
+function renderSetup(step?: string) {
+  shell.invoke.mockImplementation(async (command: string) => {
+    if (command === "engine_status") return READY;
+    if (command === "pick_folder") return "D:\\Anime";
+    return undefined;
+  });
+  const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queries}>
+      <EngineProvider>
+        <MemoryRouter initialEntries={[step ? `/setup?step=${step}` : "/setup"]}>
+          <Routes>
+            <Route path="/setup" element={<SetupPage />} />
+            <Route path="/scan" element={<p>The scan</p>} />
+          </Routes>
+        </MemoryRouter>
+      </EngineProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function sent(fetch: ReturnType<typeof firstRun>, method: string, path: string) {
+  return fetch.mock.calls.filter(
+    ([input, init]) => (init?.method ?? "GET") === method && String(input).endsWith(path),
+  );
+}
+
+describe("SetupPage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    shell.invoke.mockReset();
+  });
+
+  it("walks through the data folder, the anime folders and the standard", async () => {
+    const fetch = firstRun();
+    renderSetup();
+
+    expect(screen.getByRole("heading", { name: "Welcome to Kura" })).toBeInTheDocument();
+    expect(await screen.findByText(DATA_DIR)).toBeInTheDocument();
+    screen.getByRole("button", { name: "Continue" }).click();
+
+    expect(await screen.findByRole("heading", { name: "Your anime folders" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    screen.getByRole("button", { name: "Add a folder" }).click();
+    expect(await screen.findByRole("button", { name: "Remove D:\\Anime" })).toBeInTheDocument();
+    expect(shell.invoke).toHaveBeenCalledWith("pick_folder", {
+      title: "Choose a folder with anime in it",
+    });
+    screen.getByRole("button", { name: "Continue" }).click();
+
+    expect(
+      await screen.findByRole("heading", { name: "Choose your standard" }),
+    ).toBeInTheDocument();
+    const compact = screen.getByRole("radio", { name: /Compact 720p/ });
+    compact.click();
+    await waitFor(() => expect(compact).toBeChecked());
+    const keep = screen.getByRole("radio", { name: "Keep my names" });
+    keep.click();
+    await waitFor(() => expect(keep).toBeChecked());
+    expect(screen.getByText(/Files keep their names/)).toBeInTheDocument();
+    screen.getByRole("button", { name: "Continue" }).click();
+
+    // The tools step is on screen once its own button is.
+    expect(await screen.findByRole("button", { name: "Start the first scan" })).toBeInTheDocument();
+    const [[, put]] = sent(fetch, "PUT", "/settings") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(put.body))).toMatchObject({
+      standard: "compact-720",
+      naming: "keep",
+      setUp: false,
+    });
+  });
+
+  it("says why a folder can't be added", async () => {
+    firstRun({
+      "POST /folders": () =>
+        Response.json({ detail: "D:\\Anime is already in your library." }, { status: 400 }),
+    });
+    renderSetup("folders");
+
+    (await screen.findByRole("button", { name: "Add a folder" })).click();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "D:\\Anime is already in your library.",
+    );
+  });
+
+  it("downloads ffmpeg, then starts the first scan", async () => {
+    const fetch = firstRun();
+    renderSetup("tools");
+
+    expect(await screen.findByText(/NVIDIA GeForce GTX 1660 SUPER/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start the first scan" })).toBeDisabled();
+    (await screen.findByRole("button", { name: "Download" })).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/tools/ffmpeg/download")).toHaveLength(1));
+  });
+
+  it("starts the first scan once the tools are ready, and remembers setup is done", async () => {
+    const fetch = firstRun({ "/tools": [{ ...FFMPEG, state: "ready", done: FFMPEG.size }] });
+    renderSetup("tools");
+
+    const start = await screen.findByRole("button", { name: "Start the first scan" });
+    await waitFor(() => expect(start).toBeEnabled());
+    start.click();
+
+    expect(await screen.findByText("The scan")).toBeInTheDocument();
+    const [[, put]] = sent(fetch, "PUT", "/settings") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(put.body))).toMatchObject({ setUp: true });
+    expect(sent(fetch, "POST", "/scan")).toHaveLength(1);
+  });
+});

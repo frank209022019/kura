@@ -322,6 +322,93 @@
           }
         ]
       }
+    },
+    "/settings": {
+      "get": {
+        "summary": "Settings",
+        "operationId": "settings_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Save Settings",
+        "operationId": "save_settings_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Settings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/system": {
+      "get": {
+        "summary": "This Pc",
+        "operationId": "this_pc_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/System"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -589,6 +676,46 @@
         ],
         "title": "Scan"
       },
+      "Settings": {
+        "properties": {
+          "standard": {
+            "type": "string",
+            "enum": [
+              "cinema-1080",
+              "compact-720"
+            ],
+            "title": "Standard",
+            "default": "cinema-1080"
+          },
+          "naming": {
+            "type": "string",
+            "enum": [
+              "plex",
+              "jellyfin",
+              "keep"
+            ],
+            "title": "Naming",
+            "default": "plex"
+          },
+          "upscaleSd": {
+            "type": "boolean",
+            "title": "Upscalesd",
+            "default": true
+          },
+          "upscale720": {
+            "type": "boolean",
+            "title": "Upscale720",
+            "default": true
+          },
+          "setUp": {
+            "type": "boolean",
+            "title": "Setup",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "Settings"
+      },
       "Stage": {
         "type": "string",
         "enum": [
@@ -596,6 +723,26 @@
           "reading",
           "done"
         ]
+      },
+      "System": {
+        "properties": {
+          "graphicsCard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graphicscard"
+          }
+        },
+        "type": "object",
+        "required": [
+          "graphicsCard"
+        ],
+        "title": "System"
       },
       "Tool": {
         "properties": {

@@ -64,6 +64,8 @@ the person, so write it as a sentence.
   the newest release's `latest.json`, the public key, and passive install mode. Kura drives it
   from Rust (`updater.rs`), so the window needs no updater permission and the downloaded
   installer waits in the shell until "Restart and update". See [../releasing.md](../releasing.md).
+- **dialog**: Windows' folder picker, for "Add a folder". Kura opens it from Rust too
+  (`dialogs.rs`, `pick_folder`), so the window needs no dialog permission.
 - **opener**: opens web pages in the default browser. Kura drives it from Rust too (`links.rs`):
   the window asks for a page by name (`open_downloads_page`), so it needs no opener permission and
   can't be steered to any other address.

@@ -102,7 +102,10 @@ export function useEngineQuery<T>(path: string, poll?: (data: T | undefined) => 
  * A change sent to the engine: `send(path, body?)` posts it, then refreshes the queries for
  * `refreshes` so the screen shows the result.
  */
-export function useEngineAction<T>(refreshes: string[], method: "POST" | "DELETE" = "POST") {
+export function useEngineAction<T>(
+  refreshes: string[],
+  method: "POST" | "PUT" | "DELETE" = "POST",
+) {
   const engine = useEngine();
   const queries = useQueryClient();
   return useMutation({
@@ -217,3 +220,25 @@ export const useAddFolder = () => useEngineAction<LibraryFolder>(LIBRARY);
 export const useForgetFolder = () => useEngineAction<void>(LIBRARY, "DELETE");
 /** Starts, pauses or resumes the scan: `/scan`, `/scan/pause` or `/scan/resume`. */
 export const useScanAction = () => useEngineAction<Scan>(LIBRARY);
+
+/** Kura's preferences, chosen during setup. */
+export interface Settings {
+  standard: "cinema-1080" | "compact-720";
+  naming: "plex" | "jellyfin" | "keep";
+  upscaleSd: boolean;
+  upscale720: boolean;
+  /** The first-run steps are done. */
+  setUp: boolean;
+}
+
+export const useSettings = () => useEngineQuery<Settings>("/settings");
+/** Saves the preferences: `save.mutate({ path: "/settings", body: settings })`. */
+export const useSaveSettings = () => useEngineAction<Settings>(["/settings"], "PUT");
+
+/** What this PC has to work with. */
+export interface System {
+  /** As Windows names it; null when Windows wouldn't say. */
+  graphicsCard: string | null;
+}
+
+export const useSystem = () => useEngineQuery<System>("/system");

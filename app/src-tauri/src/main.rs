@@ -2,6 +2,7 @@
 // See docs/stack/tauri.md.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod dialogs;
 mod engine;
 mod links;
 mod process;
@@ -21,6 +22,7 @@ fn main() {
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(engine::Engine::default())
         .manage(updater::PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
@@ -29,6 +31,7 @@ fn main() {
             updater::prepare_update,
             updater::install_update,
             links::open_downloads_page,
+            dialogs::pick_folder,
         ])
         .setup(|app| {
             engine::start(app.handle().clone());

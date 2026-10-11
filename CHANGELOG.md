@@ -9,6 +9,17 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- First-run setup in four steps: where Kura keeps its data, your anime folders, your standard and
+  how files are named, and the tools Kura needs, with a quick check of the graphics card.
+- Kura downloads ffmpeg (77 MB) the first time it needs it, and uses it only after checking it
+  matches what Kura expects.
+- Scanning: Kura finds every video in your folders, whatever their layout, and reads each one's
+  length and quality. A scan can pause, carries on after a restart, and later scans only read
+  what's new or changed. Nothing in your folders is renamed or moved.
+- Home shows your library at a glance: how many videos, how big, and how many are SD, 720p, 1080p
+  or larger.
+- The export now includes a list of every video in your library.
+- A screen that fails to draw says so and offers to reload, instead of going blank.
 - Kura's window in the Cinema design, with its own title bar. Starting Kura a second time brings
   the open window forward.
 - The engine that does Kura's work starts and stops with the window, and Kura notices if it stops

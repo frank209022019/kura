@@ -7,13 +7,13 @@ import { KuraLogo } from "@/components/kura-logo";
  * Kura draws its own title bar (the window has no Windows frame). Drag it to
  * move the window; double-click it to maximise.
  */
-export function TitleBar() {
+export function TitleBar({ title = "Kura" }: { title?: string }) {
   return (
     <header data-tauri-drag-region className="flex min-h-13 shrink-0 items-center pl-5 select-none">
       <div data-tauri-drag-region className="flex flex-1 items-center gap-2.5">
         <span className="pointer-events-none flex items-center gap-2.5">
           <KuraLogo />
-          <span className="font-extrabold text-14">Kura</span>
+          <span className="font-extrabold text-14">{title}</span>
         </span>
       </div>
       <div className="flex">
