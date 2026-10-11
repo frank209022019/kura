@@ -123,15 +123,20 @@ function MatchFile(props: {
 
   function confirm() {
     if (!chosen) return;
-    const also = together ? file.alike : [];
     // The number goes only when the owner gave one its name doesn't.
     const given = number !== "" && (kind === "special" || number !== named);
     const episode = given ? Number(number) : undefined;
+    // A whole title goes at once, each file keeping its kind; or the file, with its alike.
+    const which = forTitle ? { title: forTitle.id } : { also: together ? file.alike : [] };
     choose.mutate(
-      { path: `/review/${file.id}`, body: { anilistId: chosen.anilistId, kind, also, episode } },
+      {
+        path: `/review/${file.id}`,
+        body: { anilistId: chosen.anilistId, kind, episode, ...which },
+      },
       {
         onSuccess: (answer) => {
-          if (forTitle && answer.titleId !== null) void navigate(`/titles/${answer.titleId}`);
+          if (forTitle && answer.titleId !== null)
+            void navigate(`/titles/${answer.titleId}`, { state: { waiting: answer.waiting } });
           else props.onSettled(answer.placed);
         },
       },

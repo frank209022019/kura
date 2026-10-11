@@ -112,9 +112,12 @@ or film is found on TMDB, whose episode lists say where each file sits. An OVA o
 into its show's season 0 when the library has the show and TMDB lists it among the show's
 specials on the day it first aired; otherwise it's a title of its own. Titles AniList ties
 together by story (sequels, prequels, alternative versions, films, side stories) make a franchise
-(`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own. A file Kura isn't sure
-about waits for the owner, whose choice is pinned (an episode Kura can't place asks for its
-number); offline, identification waits for the next scan and the scan says so.
+(`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own. A file
+Kura isn't sure about waits for the owner, whose choice is pinned (an episode Kura can't place
+asks for its number); offline, identification waits for the next scan and the scan says so. A
+title's match can be changed for all its files at once (`Identifier.rematch`), chosen for its
+first episode: files of that kind take the owner's choice, the others keep theirs (a series'
+specials stay specials), and any that doesn't fit the new anime waits for the owner.
 Last, the scan checks the library: each series with a folder of its own gets its
 `Kura - Gap analysis.md` (`kura/reports.py`), rewritten only when its news changes. The missing
 episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`), or without a

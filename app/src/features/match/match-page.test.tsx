@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useParams } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type Guess, type WaitingFile } from "@/lib/engine";
 import { fakeEngine, READY } from "@/test/engine";
@@ -79,7 +79,13 @@ function renderMatch(at = "/match") {
 }
 
 function ShownTitle() {
-  return <p>Title {useParams().id}</p>;
+  const waiting = (useLocation().state as { waiting?: number } | null)?.waiting;
+  return (
+    <p>
+      Title {useParams().id}
+      {waiting !== undefined && `, ${waiting} waiting`}
+    </p>
+  );
 }
 
 describe("MatchPage", () => {
@@ -218,7 +224,7 @@ describe("MatchPage", () => {
     const fetch = fakeEngine({
       "/review": [{ ...waiting(3, 1, [4, 5]), guesses: [BEBOP, TRIGUN] }],
       "/titles/1": { name: "Cowboy Bebop" },
-      "POST /review/3": { placed: 3, titleId: 8 },
+      "POST /review/3": { placed: 2, waiting: 1, titleId: 8 },
     });
     renderMatch("/match?title=1");
 
@@ -232,7 +238,13 @@ describe("MatchPage", () => {
     fireEvent.keyDown(window, { key: "2" });
     (await screen.findByRole("button", { name: "Confirm Trigun, episode 1" })).click();
 
-    expect(await screen.findByText("Title 8")).toBeInTheDocument();
+    expect(await screen.findByText("Title 8, 1 waiting")).toBeInTheDocument();
+    const [[, init]] = sent(fetch, "POST", "/review/3") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({
+      anilistId: TRIGUN.anilistId,
+      kind: "episode",
+      title: 1,
+    });
   });
 
   it("says when every file is matched", async () => {

@@ -16,7 +16,7 @@ from kura.config import DataPaths
 from kura.core.catalog import TitleKind
 from kura.core.identify import Guess as FoundGuess
 from kura.core.names import Kind
-from kura.identify import Identifier, UnplacedError
+from kura.identify import Identifier, Placed, UnplacedError
 from kura.web import Send, WebError
 
 router = APIRouter()
@@ -59,10 +59,14 @@ class Choice(ApiModel):
     also: list[int] = Field(default_factory=list[int])
     # The file's number, when its name has none Kura can use.
     episode: int | None = None
+    # The title whose match this changes, for every file of it (instead of `also`): the files
+    # of this one's kind take `kind`, the others keep theirs.
+    title: int | None = None
 
 
 class Chosen(ApiModel):
     placed: int
+    waiting: int  # files that didn't fit the choice, waiting for the owner now
     title_id: int | None  # where the file went
 
 
@@ -113,29 +117,37 @@ def search_anilist(
 def choose(
     file_id: int, body: Choice, conn: Database, paths: Paths, web: Web, anilist: AniListClient
 ) -> Chosen:
-    """The owner's choice for this file, and for the others that are the same anime. An
-    episode Kura can't place is 422: the owner gives its number."""
+    """The owner's choice for this file, and for the others that are the same anime (or, with
+    `title`, every file of that title). An episode Kura can't place is 422: the owner gives its
+    number."""
+    identifier = _identifier(paths, web, anilist)
     try:
-        placed = _identifier(paths, web, anilist).choose(
-            conn,
-            file_id,
-            body.anilist_id,
-            Kind(body.kind),
-            also=body.also,
-            episode=body.episode,
-        )
+        if body.title is not None:
+            done = identifier.rematch(
+                conn, body.title, file_id, body.anilist_id, Kind(body.kind), episode=body.episode
+            )
+        else:
+            placed = identifier.choose(
+                conn,
+                file_id,
+                body.anilist_id,
+                Kind(body.kind),
+                also=body.also,
+                episode=body.episode,
+            )
+            done = Placed(placed, 0)
     except UnplacedError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
-    except LookupError:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "AniList doesn't have that entry any more."
-        ) from None
+    except LookupError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, _lost(error)) from None
     except WebError as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, _offline(error)) from None
-    if placed == 0:
+    if done.placed == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That file isn't in the library any more.")
     row = conn.execute("SELECT title_id FROM files WHERE id = ?", (file_id,)).fetchone()
-    return Chosen(placed=placed, title_id=row["title_id"] if row else None)
+    return Chosen(
+        placed=done.placed, waiting=done.waiting, title_id=row["title_id"] if row else None
+    )
 
 
 @router.get(
@@ -181,6 +193,12 @@ def _guess(guess: FoundGuess) -> Guess:
         confidence=guess.confidence,
         reasons=list(guess.reasons),
     )
+
+
+def _lost(error: LookupError) -> str:
+    if str(error).startswith("AniList"):
+        return "AniList doesn't have that entry any more."
+    return "That file isn't one of the title's any more. Look at the title again."
 
 
 def _offline(error: WebError) -> str:

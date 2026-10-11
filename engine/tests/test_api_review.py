@@ -144,8 +144,7 @@ def test_a_titles_match_changes_for_all_its_files_at_once(
 
     [first] = client.get("/review", params={"title": bebop}).json()
     answer = client.post(
-        f"/review/{first['id']}",
-        json={"anilistId": 813, "kind": "episode", "also": first["alike"]},
+        f"/review/{first['id']}", json={"anilistId": 813, "kind": "episode", "title": bebop}
     )
 
     assert (first["episode"], len(first["alike"]), first["guesses"][0]["title"]) == (
@@ -153,7 +152,7 @@ def test_a_titles_match_changes_for_all_its_files_at_once(
         2,
         "Cowboy Bebop",
     )
-    assert answer.json()["placed"] == 3
+    assert (answer.json()["placed"], answer.json()["waiting"]) == (3, 0)
     moved_to = answer.json()["titleId"]
     rows = conn.execute("SELECT title_id, season, episode, pinned FROM files ORDER BY episode")
     assert [tuple(row) for row in rows] == [(moved_to, 1, n, 1) for n in (1, 2, 3)]
@@ -191,3 +190,55 @@ def _entry_or_search(asked: Asked) -> object:
     if variables.get("id") == 1:
         return {"data": {"Media": SERIES}}
     return COWBOY_BEBOP
+
+
+def test_a_titles_specials_keep_their_kind_and_files_that_dont_fit_wait(
+    client: TestClient, paths: DataPaths, conn: sqlite3.Connection, root: Path, web: FakeWeb
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    names = ["Cowboy Bebop - SP02.mkv", "Cowboy Bebop - 01.mkv", "Cowboy Bebop - 02.mkv"]
+    library(conn, root, [f"Bebop/{name}" for name in names])
+    identify(paths, conn, internet())
+    web.answers.update(internet().answers)
+    bebop = conn.execute("SELECT title_id FROM files WHERE path LIKE '%- 01.mkv'").fetchone()[0]
+    with conn:  # the special, placed by the owner earlier
+        conn.execute(
+            """UPDATE files SET title_id = ?, season = 0, episode = 2, matched = 'sure',
+                      pinned = 1
+               WHERE path LIKE '%SP02.mkv'""",
+            (bebop,),
+        )
+
+    [first] = client.get("/review", params={"title": bebop}).json()
+    answer = client.post(
+        f"/review/{first['id']}", json={"anilistId": 813, "kind": "episode", "title": bebop}
+    ).json()
+
+    assert (first["kind"], first["episode"], len(first["alike"])) == ("episode", 1, 2)
+    assert (answer["placed"], answer["waiting"]) == (2, 1)
+    rows = conn.execute("SELECT path, title_id, season, episode, matched FROM files ORDER BY path")
+    assert [(Path(row[0]).name, *tuple(row)[1:]) for row in rows] == [
+        ("Cowboy Bebop - 01.mkv", answer["titleId"], 1, 1, "sure"),
+        ("Cowboy Bebop - 02.mkv", answer["titleId"], 1, 2, "sure"),
+        ("Cowboy Bebop - SP02.mkv", None, None, None, "unsure"),  # not a second episode 2
+    ]
+    [waiting] = client.get("/review").json()
+    assert Path(waiting["path"]).name == "Cowboy Bebop - SP02.mkv"
+
+
+def test_a_file_from_another_title_cant_change_this_ones_match(
+    client: TestClient, paths: DataPaths, conn: sqlite3.Connection, root: Path, web: FakeWeb
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Bebop/Cowboy Bebop - 01.mkv", "DBZ/Dragon Ball Z - 001.mkv"])
+    identify(paths, conn, internet())
+    web.answers.update(internet().answers)
+    [(bebop, _), (_, dbz_file)] = conn.execute(
+        "SELECT title_id, id FROM files ORDER BY path"
+    ).fetchall()
+
+    answer = client.post(
+        f"/review/{dbz_file}", json={"anilistId": 813, "kind": "episode", "title": bebop}
+    )
+
+    assert answer.status_code == 404

@@ -53,12 +53,13 @@ def waiting(conn: sqlite3.Connection) -> list[Waiting]:
 
 
 def of_title(conn: sqlite3.Connection, title_id: int) -> list[Waiting]:
-    """A title's files as one choice, to change what it's matched to: its first file, with all
-    the others alike. Empty when the library holds none."""
+    """A title's files as one choice, to change what it's matched to: its first episode (or
+    its first file, when it has none), with all the others alike. Empty when the library holds
+    none."""
     rows = conn.execute(
         """SELECT id, path, size, duration, height, codec, probe, guesses FROM files
            WHERE title_id = ? AND gone_at IS NULL
-           ORDER BY season, episode, path""",
+           ORDER BY season IS NULL, season = 0, season, episode, path""",
         (title_id,),
     ).fetchall()
     if not rows:

@@ -11,7 +11,7 @@ import json
 import logging
 import sqlite3
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import PureWindowsPath
@@ -46,6 +46,14 @@ class Identified:
 
 class UnplacedError(ValueError):
     """The owner's choice for a file Kura can't place as an episode: it needs the number."""
+
+
+@dataclass(frozen=True)
+class Placed:
+    """What the owner's choice did."""
+
+    placed: int  # files placed as chosen
+    waiting: int  # files that didn't fit it, waiting for the owner now
 
 
 @dataclass(frozen=True)
@@ -140,27 +148,79 @@ class Identifier:
         Raises UnplacedError when the file is an episode Kura can't place, LookupError when AniList
         has no such entry, and WebError when a service can't be asked right now.
         """
+        ids = [file_id, *(other for other in also if other != file_id)]
+        return self._place(conn, file_id, anilist_id, dict.fromkeys(ids, as_kind), episode).placed
+
+    def rematch(
+        self,
+        conn: sqlite3.Connection,
+        title_id: int,
+        file_id: int,
+        anilist_id: int,
+        as_kind: Kind,
+        *,
+        episode: int | None = None,
+    ) -> Placed:
+        """The owner's new match for a whole title, chosen for one of its files (`file_id`, its
+        first episode as kura/review.py shows it): every file of the title is this AniList entry.
+        The files of that file's kind become `as_kind`; the others keep theirs, so a series'
+        specials stay specials. A file that doesn't fit the entry waits for the owner.
+
+        Raises LookupError when the file isn't the title's, and otherwise as `choose` does.
+        """
+        rows = conn.execute(
+            """SELECT f.id, f.season, t.kind FROM files AS f
+               JOIN titles AS t ON t.id = f.title_id
+               WHERE f.title_id = ? AND f.gone_at IS NULL""",
+            (title_id,),
+        ).fetchall()
+        now = {row["id"]: _kind_of(row) for row in rows}
+        if file_id not in now:
+            raise LookupError("That file isn't one of the title's.")
+        shown = now[file_id]
+        kept = {other for other, kind in now.items() if kind is not shown}
+        kinds = {file_id: as_kind} | {
+            other: kind if other in kept else as_kind for other, kind in now.items()
+        }
+        return self._place(conn, file_id, anilist_id, kinds, episode, kept=kept)
+
+    def _place(
+        self,
+        conn: sqlite3.Connection,
+        file_id: int,
+        anilist_id: int,
+        kinds: dict[int, Kind],
+        episode: int | None,
+        *,
+        kept: Collection[int] = (),
+    ) -> Placed:
+        """Places the files (`kinds`, the owner's file first) in an AniList entry, pinned. An
+        episode Kura can't place keeps waiting, or waits now; so does a file that keeps its own
+        kind (`kept`, in a whole title's change) and doesn't fit."""
         entry = self._anilist.entry(anilist_id)
         if entry is None:
             raise LookupError(f"AniList has no entry {anilist_id}.")
         home = self._title_for(conn, entry, self._tmdb())
-        film = home.film or entry.kind is TitleKind.MOVIE or as_kind is Kind.MOVIE
-        chosen: list[tuple[FileFacts, Placement | None]] = []
-        for facts in _facts(conn, [file_id, *(other for other in also if other != file_id)]):
+        film = home.film or entry.kind is TitleKind.MOVIE or kinds[file_id] is Kind.MOVIE
+        chosen: list[tuple[FileFacts, Placement | None, Kind]] = []
+        unfit: list[int] = []
+        for facts in _facts(conn, list(kinds)):
+            as_kind = kinds[facts.id]
             parsed = replace(facts.parsed, kind=as_kind)
             if facts.id == file_id and episode is not None:
                 parsed = replace(parsed, episode=episode, episode_end=None)
                 if as_kind is Kind.SPECIAL:
                     parsed = replace(parsed, season=0)
             where = None if film else _placement(parsed, entry, home)
-            if where is None and not film and as_kind is Kind.EPISODE:
+            if where is None and not film and (as_kind is Kind.EPISODE or facts.id in kept):
                 if facts.id == file_id:
                     raise UnplacedError(_which_episode(entry, parsed.episode))
-                continue  # it keeps waiting
-            chosen.append((facts, where))
+                unfit.append(facts.id)
+                continue
+            chosen.append((facts, where, as_kind))
         stamp = self._now().isoformat()
         with conn:
-            for facts, where in chosen:
+            for facts, where, as_kind in chosen:
                 conn.execute(
                     """UPDATE files SET title_id = ?, anilist_id = ?, season = ?, episode = ?,
                               episode_end = ?, matched = 'sure', confidence = 100,
@@ -176,7 +236,15 @@ class Identifier:
                         facts.id,
                     ),
                 )
-        return len(chosen)
+            for unplaced in unfit:  # one placed before (in a title changed whole) waits now
+                conn.execute(
+                    """UPDATE files SET title_id = NULL, season = NULL, episode = NULL,
+                              episode_end = NULL, matched = 'unsure', pinned = 0,
+                              identified_at = ?
+                       WHERE id = ? AND matched = 'sure'""",
+                    (stamp, unplaced),
+                )
+        return Placed(len(chosen), len(unfit))
 
     def ignore(self, conn: sqlite3.Connection, file_id: int) -> None:
         """The owner says it isn't anime: Kura leaves it out, and no rescan asks again."""
@@ -209,10 +277,7 @@ class Identifier:
                  AND f.gone_at IS NULL AND f.anilist_id IS NOT NULL"""
         ).fetchall()
         for row in rows:
-            if row["kind"] == "movie" or row["season"] is None:
-                kind = Kind.MOVIE
-            else:
-                kind = Kind.SPECIAL if row["season"] == 0 else Kind.EPISODE
+            kind = _kind_of(row)
             named = parse_name(PureWindowsPath(row["path"])).episode
             episode = row["episode"] if row["episode"] != named else None
             try:
@@ -517,6 +582,14 @@ def _parent_show(conn: sqlite3.Connection, entry: Anime) -> _Home | None:
         if show is not None and lists_special(show, entry.start):
             return _Home(row["id"], show, specials=True)
     return None
+
+
+def _kind_of(row: sqlite3.Row) -> Kind:
+    """What a placed file is now, from its record and its title's (`season` and `kind`): a film,
+    a special (season 0), or an episode."""
+    if row["kind"] == "movie" or row["season"] is None:
+        return Kind.MOVIE
+    return Kind.SPECIAL if row["season"] == 0 else Kind.EPISODE
 
 
 def _placement(parsed: ParsedName, entry: Anime, home: _Home) -> Placement | None:

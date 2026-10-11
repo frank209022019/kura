@@ -75,7 +75,7 @@ const DBZ: TitleDetail = {
   ],
 };
 
-function renderTitle(title: TitleDetail, report: unknown = undefined) {
+function renderTitle(title: TitleDetail, report: unknown = undefined, state: unknown = null) {
   fakeEngine({ [`/titles/${title.id}`]: title, [`/titles/${title.id}/report`]: report });
   shell.invoke.mockImplementation(async (command: string) =>
     command === "engine_status" ? READY : undefined,
@@ -84,7 +84,7 @@ function renderTitle(title: TitleDetail, report: unknown = undefined) {
   render(
     <QueryClientProvider client={queries}>
       <EngineProvider>
-        <MemoryRouter initialEntries={[`/titles/${title.id}`]}>
+        <MemoryRouter initialEntries={[{ pathname: `/titles/${title.id}`, state }]}>
           <Routes>
             <Route path="/titles/:id" element={<TitlePage />} />
             <Route path="/match" element={<MatchSearch />} />
@@ -116,6 +116,17 @@ describe("TitlePage", () => {
     expect(screen.getByText("1989 · 2 seasons · 72 episodes")).toBeInTheDocument();
     expect(screen.getByText("97%")).toBeInTheDocument();
     expect(screen.getByText("70 of 72 episodes")).toBeInTheDocument();
+  });
+
+  it("says when files didn't fit its new match, and leads to them", async () => {
+    renderTitle(DBZ, undefined, { waiting: 2 });
+
+    expect(
+      await screen.findByText("2 files didn't fit this match. They wait for you in Need a match."),
+    ).toBeInTheDocument();
+    screen.getByRole("button", { name: "Match them" }).click();
+
+    expect(await screen.findByText("Match")).toBeInTheDocument();
   });
 
   it("says which franchise it's part of, and leads back to it", async () => {

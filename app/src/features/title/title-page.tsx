@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
@@ -23,6 +23,8 @@ export function TitlePage() {
   const { id } = useParams();
   const titleId = Number(id);
   const title = useTitle(titleId);
+  // Files that didn't fit the match the owner just gave it.
+  const unfit = (useLocation().state as { waiting?: number } | null)?.waiting ?? 0;
 
   if (!title.data) {
     return (
@@ -47,6 +49,7 @@ export function TitlePage() {
         current={found.name}
       />
       <Header title={found} />
+      {unfit > 0 && <Unfit count={unfit} />}
       <EngineProblem queries={[title]} />
       {found.seasons.length > 0 && (
         <div className="flex flex-wrap items-start gap-5">
@@ -63,6 +66,24 @@ export function TitlePage() {
       )}
       <Videos title={found} />
     </>
+  );
+}
+
+function Unfit({ count }: { count: number }) {
+  const navigate = useNavigate();
+  return (
+    <section
+      aria-label="Files that didn't fit"
+      className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-20 border border-edge bg-glass px-5 py-4"
+    >
+      <span className="text-13">
+        {count === 1 ? "1 file didn't" : `${count} files didn't`} fit this match.{" "}
+        {count === 1 ? "It waits" : "They wait"} for you in Need a match.
+      </span>
+      <Button size="sm" onClick={() => void navigate("/match")}>
+        Match {count === 1 ? "it" : "them"}
+      </Button>
+    </section>
   );
 }
 

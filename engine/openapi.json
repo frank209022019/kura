@@ -946,7 +946,7 @@
     "/review/{file_id}": {
       "post": {
         "summary": "Choose",
-        "description": "The owner's choice for this file, and for the others that are the same anime. An\nepisode Kura can't place is 422: the owner gives its number.",
+        "description": "The owner's choice for this file, and for the others that are the same anime (or, with\n`title`, every file of that title). An episode Kura can't place is 422: the owner gives its\nnumber.",
         "operationId": "choose_review__file_id__post",
         "security": [
           {
@@ -1307,6 +1307,17 @@
               }
             ],
             "title": "Episode"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "type": "object",
@@ -1320,6 +1331,10 @@
           "placed": {
             "type": "integer",
             "title": "Placed"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
           },
           "titleId": {
             "anyOf": [
@@ -1336,6 +1351,7 @@
         "type": "object",
         "required": [
           "placed",
+          "waiting",
           "titleId"
         ],
         "title": "Chosen"

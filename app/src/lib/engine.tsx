@@ -515,15 +515,20 @@ export const useMatchSearch = (fileId: number, text: string) =>
     text.trim().length >= 2,
     true,
   );
-/** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also, episode } })`. */
+/** What the owner's choice did: files placed, files that didn't fit it and wait now, and where
+ * the file went. */
+export interface Chosen {
+  placed: number;
+  waiting: number;
+  titleId: number | null;
+}
+
+/**
+ * The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also, episode } })`,
+ * or with `title` instead of `also`, a whole title's new match (each file keeps its kind).
+ */
 export const useChooseMatch = () =>
-  useEngineAction<{ placed: number; titleId: number | null }>([
-    "/review",
-    "/titles",
-    "/franchises",
-    "/scan",
-    "/library",
-  ]);
+  useEngineAction<Chosen>(["/review", "/titles", "/franchises", "/scan", "/library"]);
 /** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
 export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan"]);
 
