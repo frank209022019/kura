@@ -261,6 +261,15 @@ const LIBRARY = ["/folders", "/library", "/scan"];
 export const useFolders = () => useEngineQuery<LibraryFolder[]>("/folders");
 export const useLibrary = () => useEngineQuery<Library>("/library");
 
+/** What the engine changes by itself: a batch converted, the queue paused, files moved in. */
+const CHANGED_ON_ITS_OWN = ["/queue", "/history", "/library", "/titles", "/franchises", "/convert"];
+
+/** Asks again for what the engine may have changed by itself, once it tells of something. */
+export function useEngineChanged(): () => void {
+  const refresh = useRefresh();
+  return useCallback(() => void refresh(CHANGED_ON_ITS_OWN), [refresh]);
+}
+
 /**
  * The latest scan, asked again every second while it runs. A scan fills in the library, so when
  * one stops, the library, its folders and what Kura proposes from them are asked again too.

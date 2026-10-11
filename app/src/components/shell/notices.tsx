@@ -1,7 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { useEngineChanged } from "@/lib/engine";
 
 /** A note from the engine. Mirrors `Notice` in app/src-tauri/src/tray.rs. */
 interface Notice {
@@ -16,13 +17,20 @@ const SHOWN_FOR = 12_000; // milliseconds a note stays
 /**
  * What the engine tells while the window is open (a batch done, the queue paused), one note at a
  * time at the foot of the window, for a few seconds. Away from the window, Windows shows them.
+ * What the engine changed by itself is asked again, so the screen behind shows it too.
  */
 export function Notices() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const navigate = useNavigate();
+  const engineChanged = useEngineChanged();
+  const changed = useRef(engineChanged); // the listener, set up once, calls the latest
+  changed.current = engineChanged;
 
   useEffect(() => {
-    const stopListening = listen<Notice>("notice", (event) => setNotice(event.payload));
+    const stopListening = listen<Notice>("notice", (event) => {
+      setNotice(event.payload);
+      changed.current();
+    });
     return () => {
       stopListening.then((unlisten) => unlisten());
     };
