@@ -284,10 +284,10 @@ Everything decided so far. Don't ask again; change only with the owner.
 7. Plex poster and fanart files next to each show (optional, as decided).
 8. Light mode, once it's designed.
 
-Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), Real-ESRGAN's
-model (BSD-3-Clause) and Anime4K's shaders (MIT), which ship with their notices, the attribution
-TMDB's terms require inside the app, and AniList's terms (free for non-commercial use, within its
-rate limit).
+Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), the attribution
+TMDB's terms require inside the app (its logo is open with the owner), and AniList's terms (free
+for non-commercial use, within its rate limit). Real-ESRGAN's model (BSD-3-Clause) and Anime4K's
+shaders (MIT) are in `engine/src/kura/assets` with their licences, which the notices carry.
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.

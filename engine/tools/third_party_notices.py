@@ -3,7 +3,8 @@
 `pnpm build:installer` runs this once the engine and the UI are built. The installer puts the file
 next to Kura, and every release carries it (see docs/releasing.md). It lists what actually ships:
 
-- the engine: every file PyInstaller bundled, traced to the package it came from, and Python;
+- the engine: every file PyInstaller bundled, traced to the package it came from, Python, and
+  the AI model and shader it carries (engine/src/kura/assets);
 - the shell: the Rust standard library and the crates Cargo links into kura.exe on Windows;
 - the interface: the packages Vite bundled (from its licence report), the styles and the fonts;
 - the installer's own parts.
@@ -31,6 +32,7 @@ from typing import Any, cast
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "app/src-tauri/target/THIRD-PARTY-NOTICES.txt"
 ENGINE_RECORDS = ROOT / "engine/build/kura-engine"  # PyInstaller's records of what it bundled
+ASSETS = ROOT / "engine/src/kura/assets"  # what the engine ships beside its code
 UI_REPORT = ROOT / "app/dist/.vite/licenses.json"  # Vite's report of the packages it bundled
 NODE_MODULES = ROOT / "app/node_modules"
 SHELL = ROOT / "app/src-tauri"
@@ -203,7 +205,27 @@ def engine_parts() -> list[Part]:
             sys.exit(f"The engine bundle holds {file}, and it isn't clear where that comes from.")
     shipped.pop("kura", None)
     packages = [_python_package(shipped[name]) for name in sorted(shipped)]
-    return [_python(), *packages]
+    return [_python(), *packages, *_assets()]
+
+
+def _assets() -> list[Part]:
+    """The AI model and the shader the engine carries (see engine/src/kura/assets/README.md)."""
+    return [
+        Part(
+            "Real-ESRGAN anime video model (realesr-animevideov3)",
+            "0.2.5.0",
+            "BSD-3-Clause",
+            "https://github.com/xinntao/Real-ESRGAN",
+            _read([ASSETS / "realesr-animevideov3.LICENSE.txt"]),
+        ),
+        Part(
+            "Anime4K shaders (Mode A, HQ)",
+            "4.0",
+            "MIT",
+            "https://github.com/bloc97/Anime4K",
+            _read([ASSETS / "anime4k.LICENSE.txt"]),
+        ),
+    ]
 
 
 def _bundled_files() -> Iterator[Path]:

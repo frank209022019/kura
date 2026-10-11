@@ -7,6 +7,8 @@ license = "MIT"
 dependencies = [
     "anitopy>=2.1.1",
     "fastapi>=0.143.0",
+    "numpy>=2.5.4",
+    "onnxruntime-directml>=1.24.4",
     "typer>=0.27.3",
     "uvicorn>=0.54.0",
     "watchdog>=6.0.0",
@@ -62,6 +64,7 @@ allowed-confusables = ["–"]
 
 [tool.pyright]
 include = ["src", "tests", "tools"]
+exclude = ["tools/export_model.py"]  # needs PyTorch, which the engine doesn't install
 extraPaths = ["src", "tools"]  # src is the default; tools so tests can import them
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
