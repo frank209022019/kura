@@ -95,10 +95,15 @@ function engineKey(engine: EngineStatus, path: string) {
 }
 
 /**
- * A query for one engine endpoint. It waits until the engine is ready. `poll` asks again every
- * that many milliseconds while it returns a number for the latest answer (a job in progress).
+ * A query for one engine endpoint. It waits until the engine is ready (and `enabled`). `poll`
+ * asks again every that many milliseconds while it returns a number for the latest answer (a job
+ * in progress).
  */
-export function useEngineQuery<T>(path: string, poll?: (data: T | undefined) => number | false) {
+export function useEngineQuery<T>(
+  path: string,
+  poll?: (data: T | undefined) => number | false,
+  enabled = true,
+) {
   const engine = useEngine();
   return useQuery({
     queryKey: engineKey(engine, path),
@@ -106,20 +111,32 @@ export function useEngineQuery<T>(path: string, poll?: (data: T | undefined) => 
       if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
       return callEngine<T>(engine, path);
     },
-    enabled: engine.state === "ready",
+    enabled: engine.state === "ready" && enabled,
     refetchInterval: poll ? (query) => poll(query.state.data) : false,
   });
 }
 
-/** Asks the engine again for what these paths' queries show, so screens catch up with a change. */
+/**
+ * Asks the engine again for what these paths' queries show, so screens catch up with a change.
+ * A path covers everything under it: "/titles" also refreshes "/titles?sort=name" and "/titles/3".
+ */
 function useRefresh() {
   const engine = useEngine();
   const queries = useQueryClient();
   return useCallback(
-    (paths: string[]) =>
-      Promise.all(
-        paths.map((path) => queries.invalidateQueries({ queryKey: engineKey(engine, path) })),
-      ),
+    (paths: string[]) => {
+      const url = engine.state === "ready" ? engine.url : null;
+      return queries.invalidateQueries({
+        predicate: ({ queryKey: [scope, address, asked] }) =>
+          scope === "engine" &&
+          address === url &&
+          typeof asked === "string" &&
+          paths.some(
+            (path) =>
+              asked === path || asked.startsWith(`${path}?`) || asked.startsWith(`${path}/`),
+          ),
+      });
+    },
     [engine, queries],
   );
 }
@@ -232,6 +249,8 @@ export interface Scan {
   waiting: number;
   /** What the scan couldn't do, though it finished (offline, say). */
   note: string | null;
+  /** Folders holding more than one anime. */
+  mixed: number;
 }
 
 const LIBRARY = ["/folders", "/library", "/scan"];
@@ -249,7 +268,8 @@ export function useScan() {
   const running = scan.data?.state === "running";
   const wasRunning = useRef(running);
   useEffect(() => {
-    if (wasRunning.current && !running) void refresh(["/library", "/folders"]);
+    if (wasRunning.current && !running)
+      void refresh(["/library", "/folders", "/titles", "/review"]);
     wasRunning.current = running;
   }, [running, refresh]);
   return scan;
@@ -296,3 +316,158 @@ export interface System {
 }
 
 export const useSystem = () => useEngineQuery<System>("/system");
+
+/** What a title is, in the words Kura shows: a TV series, a movie, an OVA or a special. */
+export type TitleKind = "series" | "movie" | "ova" | "special";
+
+/** The orders a list of titles can take; release date is the default everywhere. */
+export type TitleSort = "released" | "name" | "added" | "missing";
+
+/** An anime or film in the library, with how much of it is there. */
+export interface TitleSummary {
+  id: number;
+  kind: TitleKind;
+  name: string;
+  year: number | null;
+  /** The first episode, or the film's release (ISO date): lists sort by it. */
+  released: string | null;
+  airing: boolean;
+  hasPoster: boolean;
+  /** Videos in the library. */
+  files: number;
+  added: string | null;
+  /** Numbered episodes out so far; 0 for a film. */
+  aired: number;
+  present: number;
+  missing: number;
+  /** Specials and OVAs the library lacks: listed apart, never counted as missing. */
+  specialsMissing: number;
+  upcoming: number;
+}
+
+export interface SeasonCount {
+  season: number;
+  present: number;
+  aired: number;
+  total: number;
+}
+
+export interface EpisodeRef {
+  season: number;
+  number: number;
+  name: string | null;
+  aired: string | null;
+}
+
+export interface TitleFile {
+  id: number;
+  path: string;
+  season: number | null;
+  episode: number | null;
+  episodeEnd: number | null;
+  problem: string | null;
+  height: number | null;
+  codec: string | null;
+  duration: number | null;
+}
+
+/** One title in full: its seasons, what it's missing, and its videos. */
+export interface TitleDetail extends TitleSummary {
+  seasons: SeasonCount[];
+  missingEpisodes: EpisodeRef[];
+  missingSpecials: EpisodeRef[];
+  upcomingEpisodes: EpisodeRef[];
+  videos: TitleFile[];
+}
+
+/** The library's titles in `sort` order, asked again every two seconds while `poll`. */
+export const useTitles = (sort: TitleSort = "released", poll = false) =>
+  useEngineQuery<TitleSummary[]>(`/titles?sort=${sort}`, () => (poll ? 2000 : false));
+export const useTitle = (id: number) => useEngineQuery<TitleDetail>(`/titles/${id}`);
+
+/** One of Kura's guesses for a file it couldn't place surely. */
+export interface Guess {
+  anilistId: number;
+  title: string;
+  kind: TitleKind | null;
+  year: number | null;
+  episodes: number | null;
+  minutes: number | null;
+  cover: string | null;
+  /** 0 to 100. */
+  confidence: number;
+  reasons: string[];
+}
+
+/** A file waiting for the owner to say which anime it is. */
+export interface WaitingFile {
+  id: number;
+  path: string;
+  size: number;
+  minutes: number | null;
+  height: number | null;
+  codec: string | null;
+  audio: string[];
+  subtitles: string[];
+  group: string | null;
+  title: string | null;
+  season: number | null;
+  episode: number | null;
+  kind: "episode" | "special" | "movie" | "extra" | "dvd";
+  guesses: Guess[];
+  /** Other waiting files beside it from the same release. */
+  alike: number[];
+}
+
+export const useReview = () => useEngineQuery<WaitingFile[]>("/review");
+/** AniList's entries for `text`, scored against one file; asked only for two letters or more. */
+export const useMatchSearch = (fileId: number, text: string) =>
+  useEngineQuery<Guess[]>(
+    `/review/${fileId}/search?q=${encodeURIComponent(text.trim())}`,
+    undefined,
+    text.trim().length >= 2,
+  );
+/** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also } })`. */
+export const useChooseMatch = () =>
+  useEngineAction<{ placed: number }>(["/review", "/titles", "/scan", "/library"]);
+/** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
+export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan"]);
+
+/**
+ * A picture the engine serves (a poster, a cover, a still) as an address the page can show (an
+ * object URL), or null while there's none. Fetched with this launch's token, since the engine
+ * answers nothing without it.
+ */
+export function useEngineImage(path: string | null): string | null {
+  const engine = useEngine();
+  const [shown, setShown] = useState<{ path: string; address: string } | null>(null);
+  useEffect(() => {
+    if (path === null || engine.state !== "ready") return;
+    let address: string | null = null;
+    let cancelled = false;
+    const headers = { Authorization: `Bearer ${engine.token}` };
+    fetch(new URL(path, engine.url), { headers })
+      .then((response) => (response.ok ? response.blob() : null))
+      .then((blob) => {
+        if (!blob || cancelled) return;
+        address = URL.createObjectURL(blob);
+        setShown({ path, address });
+      })
+      .catch(() => {}); // no picture: the placeholder stays
+    return () => {
+      cancelled = true;
+      if (address) URL.revokeObjectURL(address);
+    };
+  }, [engine, path]);
+  return shown !== null && shown.path === path ? shown.address : null;
+}
+
+/** A title's poster, when it has one. */
+export const usePoster = (titleId: number, has: boolean) =>
+  useEngineImage(has ? `/titles/${titleId}/poster` : null);
+/** A guess's cover from AniList, through the engine. */
+export const useCover = (address: string | null) =>
+  useEngineImage(address ? `/artwork?address=${encodeURIComponent(address)}` : null);
+/** One of a waiting file's three stills (0, 1 or 2). */
+export const useStill = (fileId: number, index: number) =>
+  useEngineImage(`/review/${fileId}/stills/${index}`);

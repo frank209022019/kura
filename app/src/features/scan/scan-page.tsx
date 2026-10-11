@@ -2,11 +2,13 @@ import { Check, FolderTree, Pause, Play, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
+import { Poster } from "@/components/poster";
 import { Button } from "@/components/ui/button";
-import { type Scan, useFolders, useScan, useScanAction } from "@/lib/engine";
+import { type Scan, useFolders, useScan, useScanAction, useTitles } from "@/lib/engine";
+import { files, kindWord } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
 
-/** The scan: finding every video, then reading each one. Nothing is renamed or moved. */
+/** The scan: finding every video, reading it, identifying it, then checking. Nothing is moved. */
 export function ScanPage() {
   const scan = useScan();
   const folders = useFolders();
@@ -57,12 +59,18 @@ export function ScanPage() {
               Scan again
             </Button>
           )}
-          <Button
-            variant={now.state === "paused" ? "secondary" : "primary"}
-            onClick={() => void navigate("/")}
-          >
-            {now.state === "running" ? "Keep using Kura" : "Go to Home"}
-          </Button>
+          {now.state === "done" && now.waiting > 0 ? (
+            <Button variant="primary" onClick={() => void navigate("/match")}>
+              Match {files(now.waiting)}
+            </Button>
+          ) : (
+            <Button
+              variant={now.state === "paused" ? "secondary" : "primary"}
+              onClick={() => void navigate("/")}
+            >
+              {now.state === "running" ? "Keep using Kura" : "Go to Home"}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -85,13 +93,22 @@ export function ScanPage() {
           files stay as they were.
         </p>
       ))}
+      {now.state === "done" && now.note && (
+        <p
+          role="status"
+          className="animate-fade-up rounded-18 border border-edge bg-glass px-4.5 py-3.5 text-14"
+        >
+          {now.note}
+        </p>
+      )}
 
       <Progress scan={now} />
+      <FoundSoFar running={now.state === "running"} />
 
       <div className="grid animate-fade-up grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 [animation-delay:200ms]">
         <Note icon={<FolderTree size={18} />} title="Any folder layout works">
-          One folder per anime, franchises with sub-folders, or everything mixed in Downloads. Kura
-          finds every video wherever it is.
+          One folder per anime, franchises with sub-folders, or everything mixed in Downloads. Each
+          file is identified on its own, then grouped by anime.
         </Note>
         <Note icon={<Timer size={18} />} title="Stop any time">
           A paused or interrupted scan carries on where it stopped. Later scans only read new and
@@ -102,15 +119,19 @@ export function ScanPage() {
   );
 }
 
+const STAGES = ["finding", "reading", "identifying", "checking", "done"] as const;
+
 function Progress({ scan }: { scan: Scan }) {
   const percent =
     scan.stage === "finding" || scan.toRead === 0
-      ? scan.stage === "done"
-        ? 100
-        : 0
+      ? scan.stage === "finding" || scan.stage === null
+        ? 0
+        : 100
       : Math.round((scan.read / scan.toRead) * 100);
+  const at = STAGES.indexOf(scan.stage ?? "finding");
+  const step = (index: number) => (index < at ? "done" : index === at ? "now" : "later");
   const finding = scan.stage === "finding";
-  const reading = scan.stage === "reading";
+  const settled = scan.state === "done";
 
   return (
     <section
@@ -121,7 +142,7 @@ function Progress({ scan }: { scan: Scan }) {
         <Ring percent={percent} read={scan.read} toRead={scan.toRead} />
         <ol className="flex flex-[1_1_280px] flex-col gap-4">
           <StepLine
-            state={finding ? "now" : "done"}
+            state={step(0)}
             title="Find every file"
             text={
               scan.found
@@ -130,16 +151,37 @@ function Progress({ scan }: { scan: Scan }) {
             }
           />
           <StepLine
-            state={reading ? "now" : finding ? "later" : "done"}
+            state={step(1)}
             title="Read length and quality"
             text="Resolution, codecs, audio and subtitle languages"
           />
+          <StepLine
+            state={step(2)}
+            title="Identify each anime and episode"
+            text="Names, runtimes and numbering, checked against TMDB and AniList"
+          />
+          <StepLine
+            state={step(3)}
+            title="Check health and gaps"
+            text="Missing episodes, broken files, mixed folders"
+          />
+          <StepLine
+            state={settled ? "done" : "later"}
+            title="Write the reports"
+            text="A gap analysis file next to each title"
+          />
         </ol>
-        <div className="grid flex-[1_1_300px] grid-cols-2 gap-3">
-          <Tile value={scan.found} label="videos found" />
-          <Tile value={scan.read} label={scan.state === "done" ? "read" : "read so far"} />
-          <Tile value={scan.toRead - scan.read} label="still to read" />
-          <Tile value={scan.problems} label="couldn't be read" />
+        <div className="grid flex-[1_1_260px] grid-cols-2 gap-2.5">
+          <Tile value={scan.titles} label={settled ? "anime found" : "anime found so far"} />
+          <Tile
+            value={scan.waiting}
+            label={scan.waiting === 1 ? "file needs a match" : "files need a match"}
+          />
+          <Tile
+            value={scan.mixed}
+            label={scan.mixed === 1 ? "folder with mixed anime" : "folders with mixed anime"}
+          />
+          <Tile value={scan.problems} label={settled ? "broken files" : "broken files so far"} />
         </div>
       </div>
       <div className="flex flex-col gap-2.5">
@@ -155,11 +197,46 @@ function Progress({ scan }: { scan: Scan }) {
               aria-hidden="true"
               className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent"
             />
-            {finding ? "Looking at" : "Reading"}
+            {finding ? "Looking at" : scan.stage === "identifying" ? "Looking up" : "Reading"}
             <span className="truncate font-mono text-fg-soft">{scan.current}</span>
           </p>
         )}
       </div>
+    </section>
+  );
+}
+
+/** The anime identified so far, oldest release first, artwork and all. */
+function FoundSoFar({ running }: { running: boolean }) {
+  const titles = useTitles("released", running);
+  if (!titles.data?.length) return null;
+
+  return (
+    <section
+      aria-labelledby="found-title"
+      className="flex animate-fade-up flex-col gap-3.5 [animation-delay:160ms]"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="found-title" className="font-extrabold text-20 tracking-[-0.01em]">
+          {running ? "Found so far" : "Found"}
+        </h2>
+        <span className="text-13 text-fg-muted">
+          {running ? "Artwork appears as each anime is recognised" : "Oldest release first"}
+        </span>
+      </div>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-x-4 gap-y-4.5">
+        {titles.data.map((title) => (
+          <li key={title.id} className="flex animate-pop flex-col gap-2">
+            <Poster title={title} />
+            <span className="flex flex-col gap-px px-0.5">
+              <span className="truncate font-bold text-13">{title.name}</span>
+              <span className="text-12 text-fg-muted">
+                {kindWord(title.kind, true)} · {files(title.files)}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -191,9 +268,11 @@ function Ring({ percent, read, toRead }: { percent: number; read: number; toRead
         className="absolute inset-0 flex flex-col items-center justify-center"
       >
         <span className="font-extrabold text-36 tracking-[-0.02em]">{percent}%</span>
-        <span className="font-mono text-11 text-fg-muted">
-          {count(read)} / {count(toRead)}
-        </span>
+        {toRead > 0 && (
+          <span className="font-mono text-11 text-fg-muted">
+            {count(read)} / {count(toRead)}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -293,6 +372,9 @@ function subtitle(scan: Scan): string {
   const started = scan.startedAt ? `Started ${clock(scan.startedAt)}` : "Not scanned yet";
   switch (scan.state) {
     case "running":
+      if (scan.stage === "identifying") {
+        return `${started} · looking up each anime · nothing is renamed or moved`;
+      }
       return `${started} · ${timeLeft(scan.secondsLeft)} · nothing is renamed or moved`;
     case "paused":
       return `Paused · ${count(scan.read)} of ${count(scan.toRead)} read · nothing is renamed or moved`;

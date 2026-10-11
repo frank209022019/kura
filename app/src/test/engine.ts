@@ -44,6 +44,7 @@ export const NO_SCAN: Scan = {
   titles: 0,
   waiting: 0,
   note: null,
+  mixed: 0,
 };
 
 type Answer = unknown | ((init: RequestInit | undefined) => unknown);

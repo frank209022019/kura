@@ -12,6 +12,14 @@ shows these notes when it offers the update.
 - Scans identify every video: which anime, movie, OVA or special it is and, with a TMDB key,
   which season and episode, numbered as Plex shows them. Files Kura isn't sure about wait for you
   instead of being guessed. Offline, the scan still finishes and identifies them next time.
+- The scan screen follows every stage: finding, reading, identifying each anime, checking for
+  gaps and writing the reports, with the anime found so far (artwork and all, oldest release
+  first), the files that need a match, folders with mixed anime and broken files.
+- "Which anime is this?": for each file Kura couldn't place surely, its stills, length, picture,
+  languages and group tag beside Kura's best guesses (press 1, 2 or 3), a search for another, and
+  whether it's an episode, a movie or a special. One choice can cover the other files from the
+  same release, and it's remembered, so a rescan never undoes it. "Not anime" leaves a file out
+  for good.
 - A gap analysis next to each anime that has a folder of its own (`Kura - Gap analysis.md`): the
   episodes TMDB lists as aired that the library doesn't hold, with specials and OVAs listed apart
   and never counted as missing.

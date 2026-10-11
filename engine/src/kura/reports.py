@@ -122,7 +122,8 @@ def _analysis(
     for (season, first), file in files.items():
         for number in range(first, (file["episode_end"] or first) + 1):
             covering[(season, number)] = file
-    gaps = find_gaps(show, held(conn, row["id"]), now.date())
+    local = now.astimezone()  # the report is read in the time of this PC
+    gaps = find_gaps(show, held(conn, row["id"]), local.date())
     states: list[EpisodeState] = []
     to_convert: list[Estimate] = []
     heights: list[int] = []
@@ -152,7 +153,7 @@ def _analysis(
     return GapAnalysis(
         show=name,
         library=PureWindowsPath(root),
-        updated=now,
+        updated=local,
         episodes=tuple(states),
         conversion=conversion_summary(heights, standard) if heights else None,
         to_convert=total(to_convert),

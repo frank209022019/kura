@@ -7,8 +7,10 @@ review it, and everything stays on your PC: no accounts, no cloud.
 
 ![Kura's library home, from the design](docs/design/preview.png)
 
-Kura is built in the open and isn't ready to use yet: today it is the app's shell and the engine's
-core. [What's next](CLAUDE.md#whats-next) says where it stands.
+Kura is built in the open and isn't ready for everyday use yet: today it scans a library in any
+layout, identifies every anime, movie, OVA and special with AniList and TMDB, and reports what's
+missing; tidying up and converting come next. [What's next](CLAUDE.md#whats-next) says where it
+stands.
 
 ## Download
 
@@ -64,5 +66,5 @@ cd ../app; pnpm install; pnpm tauri dev
 | `app/` | The desktop app: React UI in `src/`, Tauri shell in `src-tauri/` |
 | `engine/` | The Python engine: local API, command line, database; build tools in `tools/` |
 | `docs/` | How it works, how to work on it, and the designs |
-| `scripts/` | Setting the version, refreshing the design snapshot |
+| `scripts/` | Releasing (versions, notes, the downloads page), the installer's first page, the design snapshot |
 | `.github/` | CI and the release workflow |

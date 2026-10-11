@@ -168,3 +168,12 @@ def test_a_picture_from_anywhere_else_is_refused_unasked(client: TestClient, web
 
     assert answer.status_code == 404
     assert web.asked == []
+
+
+def test_a_report_says_the_time_on_this_pc(identified: sqlite3.Connection, root: Path):
+    # The scan's clock is UTC; the report is read by a person, in their own time.
+    write_reports(identified, now=NOW)
+
+    report = (root / "Dragon Ball Z (1989)" / GAP_ANALYSIS_FILE).read_text(encoding="utf-8")
+    local = NOW.astimezone()
+    assert f"_Updated {local.day} Oct {local.year}, {local:%H:%M} · library" in report

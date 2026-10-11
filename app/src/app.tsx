@@ -5,6 +5,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { sections } from "@/components/shell/sections";
 import { UpdateCard } from "@/components/shell/update-card";
 import { HomePage } from "@/features/home/home-page";
+import { MatchPage } from "@/features/match/match-page";
 import { NotBuiltPage } from "@/features/not-built-page";
 import { ScanPage } from "@/features/scan/scan-page";
 import { SetupPage } from "@/features/setup/setup-page";
@@ -29,6 +30,7 @@ export function App() {
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
               <Route path="/scan" element={<ScanPage />} />
+              <Route path="/match" element={<MatchPage />} />
               {sections
                 .filter((section) => section.path !== "/")
                 .map((section) => (

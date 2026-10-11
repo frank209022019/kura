@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type EngineStatus, type Scan } from "@/lib/engine";
+import { EngineProvider, type EngineStatus, type Scan, type TitleSummary } from "@/lib/engine";
 import { fakeEngine, NO_SCAN, READY } from "@/test/engine";
 import { ScanPage } from "./scan-page";
 
@@ -33,10 +33,11 @@ const RUNNING: Scan = {
   secondsLeft: 240,
 };
 
-function engineWith(scan: Scan) {
+function engineWith(scan: Scan, titles: TitleSummary[] = []) {
   return fakeEngine({
     "/scan": scan,
     "/folders": [FOLDER],
+    "/titles": titles,
     "POST /scan": { ...scan, state: "running" },
     "POST /scan/pause": { ...scan, state: "paused" },
     "POST /scan/resume": { ...scan, state: "running" },
@@ -66,6 +67,35 @@ function renderScan(engine: EngineStatus = READY) {
     </QueryClientProvider>,
   );
 }
+
+const DBZ: TitleSummary = {
+  id: 1,
+  kind: "series",
+  name: "Dragon Ball Z",
+  year: 1989,
+  released: "1989-04-26",
+  airing: false,
+  hasPoster: false,
+  files: 287,
+  added: "2026-10-11T09:44:00+00:00",
+  aired: 291,
+  present: 287,
+  missing: 4,
+  specialsMissing: 0,
+  upcoming: 0,
+};
+const BEBOP_MOVIE: TitleSummary = {
+  ...DBZ,
+  id: 2,
+  kind: "movie",
+  name: "Cowboy Bebop: The Movie",
+  year: 2001,
+  released: "2001-09-01",
+  files: 1,
+  aired: 0,
+  present: 0,
+  missing: 0,
+};
 
 describe("ScanPage", () => {
   afterEach(() => {
@@ -181,6 +211,68 @@ describe("ScanPage", () => {
         new URL("http://127.0.0.1:5000/scan"),
         expect.objectContaining({ method: "POST" }),
       ),
+    );
+  });
+
+  it("looks up each anime after reading, and shows what it found so far", async () => {
+    engineWith(
+      {
+        ...RUNNING,
+        stage: "identifying",
+        read: 2941,
+        current: "Dragon Ball Z",
+        titles: 31,
+        waiting: 9,
+        mixed: 1,
+      },
+      [DBZ, BEBOP_MOVIE],
+    );
+    renderScan();
+
+    expect(await screen.findByText("Identify each anime and episode")).toHaveTextContent(
+      "Identify each anime and episode, in progress",
+    );
+    expect(screen.getByText("Read length and quality")).toHaveTextContent(", done");
+    expect(screen.getByText("anime found so far").previousSibling).toHaveTextContent("31");
+    expect(screen.getByText("files need a match").previousSibling).toHaveTextContent("9");
+    expect(screen.getByText("folder with mixed anime").previousSibling).toHaveTextContent("1");
+    expect(screen.getByText(/Looking up/)).toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: "Found so far" })).toBeInTheDocument();
+    expect(screen.getByText("TV · 287 files")).toBeInTheDocument();
+    expect(screen.getByText("Movie · 1 file")).toBeInTheDocument();
+  });
+
+  it("offers to match the files it couldn't place, once it's done", async () => {
+    engineWith({
+      ...RUNNING,
+      state: "done",
+      stage: "done",
+      read: 2941,
+      current: null,
+      finishedAt: "2026-10-11T09:49:00+00:00",
+      titles: 31,
+      waiting: 2,
+    });
+    renderScan();
+
+    (await screen.findByRole("button", { name: "Match 2 files" })).click();
+
+    expect(await screen.findByText("/match")).toBeInTheDocument();
+  });
+
+  it("says what it couldn't do though it finished", async () => {
+    engineWith({
+      ...RUNNING,
+      state: "done",
+      stage: "done",
+      current: null,
+      note: "Titles wait for the next scan: AniList couldn't be asked (no internet).",
+    });
+    renderScan();
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Titles wait for the next scan: AniList couldn't be asked",
     );
   });
 });
