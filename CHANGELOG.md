@@ -37,7 +37,8 @@ shows these notes when it offers the update.
   done, and checks for new episodes every hour for shows still airing (weekly for finished ones).
 - Setup takes your TMDB key, for episode lists, episode titles and artwork. It's optional: Kura
   checks the key with TMDB, then keeps it on this PC only, encrypted for your Windows account and
-  never in an export. Home says whether TMDB is connected.
+  never in an export. Home says whether TMDB is connected, and a key added later sorts what's
+  already matched into TMDB's seasons.
 - First-run setup in four steps: where Kura keeps its data, your anime folders, your standard and
   how files are named, and the tools Kura needs, with a quick check of the graphics card.
 - Kura downloads ffmpeg (77 MB) the first time it needs it, and uses it only after checking it

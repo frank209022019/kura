@@ -13,7 +13,7 @@ from kura.anilist import API as ANILIST
 from kura.config import DataPaths
 from kura.core.catalog import anime_list
 from kura.core.names import Kind
-from kura.identify import Identifier, UnplacedError, save_anilist_title
+from kura.identify import Identifier, UnplacedError, identify_again, save_anilist_title
 from kura.library import find_files, folders, read_file, unread
 from kura.titles import title
 from tests.fake_ffprobe import REPORT
@@ -149,6 +149,45 @@ def test_a_list_anilist_cant_count_now_is_kept_as_it_was(conn: sqlite3.Connectio
     save_anilist_title(conn, replace(one_piece, next_episode=None), NOW)
 
     assert conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == 1180
+
+
+def test_a_key_added_later_moves_what_anilist_alone_matched_into_tmdbs_seasons(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["Dragon Ball Z/Dragon Ball Z - 150.mkv", "Old DVDs/VTS_01_1.VOB"])
+    identify(paths, conn, internet(tmdb=False))
+    [dvd] = [row[0] for row in conn.execute("SELECT id FROM files WHERE path LIKE '%.VOB'")]
+    owner = Identifier(paths, internet(tmdb=False), now=lambda: NOW)
+    owner.choose(conn, dvd, 813, Kind.EPISODE, episode=151)
+    assert placed(conn)["VTS_01_1.VOB"] == ("sure", "Dragon Ball Z", "series", 1, 151)
+    credentials.save(paths, "tmdb", "a-test-key")
+
+    assert identify_again(conn) == 2
+    identify(paths, conn, internet())
+
+    assert placed(conn) == {
+        "Dragon Ball Z - 150.mkv": ("sure", "Dragon Ball Z", "series", 5, 11),
+        "VTS_01_1.VOB": ("sure", "Dragon Ball Z", "series", 5, 12),  # the owner's choice
+    }
+    homes = conn.execute(
+        "SELECT DISTINCT t.tmdb_id, f.pinned FROM files f JOIN titles t ON t.id = f.title_id"
+    ).fetchall()
+    assert sorted(tuple(row) for row in homes) == [(12971, 0), (12971, 1)]
+
+
+def test_without_the_key_new_files_join_the_title_their_anime_has(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Dragon Ball Z/Dragon Ball Z - 001.mkv"])
+    identify(paths, conn, internet())
+    credentials.forget(paths, "tmdb")
+    library(conn, root, ["Dragon Ball Z/Dragon Ball Z - 150.mkv"])
+
+    identify(paths, conn, internet(tmdb=False))
+
+    assert placed(conn)["Dragon Ball Z - 150.mkv"] == ("sure", "Dragon Ball Z", "series", 5, 11)
+    assert conn.execute("SELECT COUNT(*) FROM titles").fetchone()[0] == 1
 
 
 def test_a_name_kura_cant_match_waits_for_the_owner(

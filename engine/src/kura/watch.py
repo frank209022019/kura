@@ -124,8 +124,8 @@ class Watcher:
             self.refresh()
 
     def refresh(self) -> int:
-        """Asks again for the episode lists that are due, then refreshes the reports. Returns
-        how many lists were asked for."""
+        """Asks again for the episode lists that are due, of the titles the library holds a
+        video of, then refreshes the reports. Returns how many lists were asked for."""
         key = credentials.load(self._paths, "tmdb")
         cache = Cache(self._paths.cache)
         tmdb = Tmdb(key, self._transport, cache=cache) if key else None
@@ -133,7 +133,10 @@ class Watcher:
         asked = 0
         with closing(db.connect(self._paths.database)) as conn:
             rows = conn.execute(
-                "SELECT * FROM titles WHERE kind != 'movie' AND checked_at IS NOT NULL"
+                """SELECT * FROM titles AS t
+                   WHERE kind != 'movie' AND checked_at IS NOT NULL
+                     AND EXISTS (SELECT 1 FROM files AS f
+                                 WHERE f.title_id = t.id AND f.gone_at IS NULL)"""
             ).fetchall()
             for row in rows:
                 if not due(row, self._now()):

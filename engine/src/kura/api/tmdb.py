@@ -1,11 +1,12 @@
 """TMDB's key: whether Kura has one, and adding or removing it. A key is kept only once TMDB has
 accepted it."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from kura import credentials
-from kura.api.common import ApiModel, Paths, Web
+from kura.api.common import ApiModel, Database, Paths, Web, scan_soon
 from kura.config import DataPaths
+from kura.identify import identify_again
 from kura.tmdb import Tmdb
 from kura.web import WebError
 
@@ -33,8 +34,11 @@ def tmdb(paths: Paths) -> TmdbStatus:
 
 
 @router.put("/tmdb")
-def connect_tmdb(body: NewKey, paths: Paths, web: Web) -> TmdbStatus:
-    """Checks the key with TMDB, then keeps it on this PC."""
+def connect_tmdb(
+    body: NewKey, request: Request, paths: Paths, conn: Database, web: Web
+) -> TmdbStatus:
+    """Checks the key with TMDB, then keeps it on this PC. What AniList alone matched is then
+    identified again, by TMDB's lists."""
     key = body.key.strip()
     if not key:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, _WHERE)
@@ -54,6 +58,8 @@ def connect_tmdb(body: NewKey, paths: Paths, web: Web) -> TmdbStatus:
             )
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, reason) from None
     credentials.save(paths, "tmdb", key)
+    if identify_again(conn):
+        scan_soon(request)
     return _status(paths)
 
 

@@ -307,8 +307,11 @@ export interface TmdbStatus {
 }
 
 export const useTmdb = () => useEngineQuery<TmdbStatus>("/tmdb");
-/** Checks a key with TMDB, then keeps it: `connect.mutate({ path: "/tmdb", body: { key } })`. */
-export const useConnectTmdb = () => useEngineAction<TmdbStatus>(["/tmdb"], "PUT");
+/**
+ * Checks a key with TMDB, then keeps it: `connect.mutate({ path: "/tmdb", body: { key } })`. A
+ * scan then places what AniList alone matched by TMDB's lists, so the scan is asked about again.
+ */
+export const useConnectTmdb = () => useEngineAction<TmdbStatus>(["/tmdb", "/scan"], "PUT");
 /** Forgets the key: `forget.mutate({ path: "/tmdb" })`. */
 export const useForgetTmdb = () => useEngineAction<TmdbStatus>(["/tmdb"], "DELETE");
 

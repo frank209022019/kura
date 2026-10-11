@@ -435,7 +435,7 @@
       },
       "put": {
         "summary": "Connect Tmdb",
-        "description": "Checks the key with TMDB, then keeps it on this PC.",
+        "description": "Checks the key with TMDB, then keeps it on this PC. What AniList alone matched is then\nidentified again, by TMDB's lists.",
         "operationId": "connect_tmdb_tmdb_put",
         "requestBody": {
           "content": {

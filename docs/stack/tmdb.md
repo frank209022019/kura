@@ -17,7 +17,11 @@ A free TMDB account has two under **Settings › API**; Kura takes either:
 
 Setup's Tools step and later Settings have the box for it (`app/src/components/tmdb-key.tsx`).
 `PUT /tmdb` checks the key with TMDB (`GET /3/authentication`) and keeps it only if TMDB accepts
-it; offline, nothing is kept and Kura says to try again online. `DELETE /tmdb` forgets it.
+it; offline, nothing is kept and Kura says to try again online. A key added after the library was
+scanned has every file AniList alone matched identified again (`identify_again`), by a scan Kura
+starts then, so they land in TMDB's seasons; the owner's own choices keep their anime.
+`DELETE /tmdb` forgets the key: titles found on TMDB keep their lists, and new files of their
+anime still join them.
 
 [kura/credentials.py](../../engine/src/kura/credentials.py) keeps it in the data folder's
 `credentials.json`, encrypted by Windows for the signed-in user (DPAPI, `CryptProtectData`): it is

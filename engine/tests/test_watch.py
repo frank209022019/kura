@@ -198,6 +198,21 @@ def test_a_show_from_anilist_is_asked_about_afresh_every_hour(
     assert len(web.asked) == 2  # never answered from the week-long cache
 
 
+def test_a_title_whose_files_all_went_isnt_asked_about(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    library(conn, tmp_path / "Anime", ["One Piece/One Piece - 1000.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    with conn:
+        conn.execute("UPDATE files SET gone_at = ?", (NOW.isoformat(),))
+    web = internet(tmdb=False)
+
+    later = Watcher(paths, Scans(), web, now=lambda: NOW + timedelta(days=8), clock=clock)
+
+    assert later.refresh() == 0
+    assert web.asked == []
+
+
 def test_offline_the_lists_wait_for_the_next_hour(
     paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
 ):

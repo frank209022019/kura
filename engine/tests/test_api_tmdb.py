@@ -1,11 +1,19 @@
 """The TMDB key through the API: checked with TMDB before Kura keeps it."""
 
+import sqlite3
+from pathlib import Path
+from typing import cast
+
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from kura import credentials
 from kura.config import DataPaths
+from kura.scan import Scanner
 from kura.tmdb import API
 from tests.fake_web import FakeWeb, reply
+from tests.services import internet
+from tests.shelf import identify, library
 
 KEY = "kura-test-token.a-read-access-token.signature"
 
@@ -26,6 +34,30 @@ def test_a_key_tmdb_accepts_is_kept(client: TestClient, web: FakeWeb, paths: Dat
     assert answer.json() == {"connected": True, "keyEnd": "ture"}
     assert credentials.load(paths, "tmdb") == KEY
     assert web.asked[0].headers["Authorization"] == f"Bearer {KEY}"
+
+
+def test_a_key_added_after_a_scan_places_the_library_by_tmdbs_lists(
+    client: TestClient, web: FakeWeb, paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    library(conn, tmp_path / "Anime", ["Dragon Ball Z/Dragon Ball Z - 150.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    web.answers.update(internet().answers)
+    web.answers[f"GET {API}/authentication"] = {"success": True}
+
+    client.put("/tmdb", json={"key": KEY})
+    scanner: Scanner = cast("FastAPI", client.app).state.scanner
+    scanner.wait(10)
+
+    row = conn.execute("SELECT season, episode FROM files").fetchone()
+    assert tuple(row) == (5, 11)
+
+
+def test_a_key_given_in_setup_starts_no_scan(client: TestClient, web: FakeWeb):
+    web.answers[f"GET {API}/authentication"] = {"success": True}
+
+    client.put("/tmdb", json={"key": KEY})
+
+    assert client.get("/scan").json()["state"] == "idle"
 
 
 def test_a_key_tmdb_refuses_isnt_kept(client: TestClient, web: FakeWeb, paths: DataPaths):

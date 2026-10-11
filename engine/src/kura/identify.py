@@ -81,6 +81,11 @@ class Identifier:
         looking_at: Callable[[str], None] = lambda _: None,
     ) -> Identified | None:
         """Identifies every file still to identify. None when `stop` asked to stop."""
+        try:
+            self._choose_again(conn)
+        except WebError as error:
+            log.warning("The owner's choices couldn't be placed again: %s", error)
+            return Identified(0, 0, _waiting("AniList or TMDB", error))
         files, others = _to_identify(conn)
         stamp = self._now().isoformat()
         _mark_unlookable(conn, others, stamp)
@@ -191,6 +196,35 @@ class Identifier:
         )
         return guesses(group, self._anilist.search(text.strip()))
 
+    def _choose_again(self, conn: sqlite3.Connection) -> None:
+        """The owner's choices made before Kura had TMDB's lists, placed again by them (see
+        identify_again), with the same anime and kind. One that doesn't fit them waits for the
+        owner again."""
+        rows = conn.execute(
+            """SELECT f.id, f.path, f.anilist_id, f.season, f.episode, t.kind
+               FROM files AS f JOIN titles AS t ON t.id = f.title_id
+               WHERE f.pinned = 1 AND f.identified_at IS NULL AND f.matched = 'sure'
+                 AND f.gone_at IS NULL AND f.anilist_id IS NOT NULL"""
+        ).fetchall()
+        for row in rows:
+            if row["kind"] == "movie" or row["season"] is None:
+                kind = Kind.MOVIE
+            else:
+                kind = Kind.SPECIAL if row["season"] == 0 else Kind.EPISODE
+            named = parse_name(PureWindowsPath(row["path"])).episode
+            episode = row["episode"] if row["episode"] != named else None
+            try:
+                self.choose(conn, row["id"], row["anilist_id"], kind, episode=episode)
+            except UnplacedError, LookupError:
+                with conn:
+                    conn.execute(
+                        """UPDATE files SET title_id = NULL, season = NULL, episode = NULL,
+                                  episode_end = NULL, matched = 'unsure', pinned = 0,
+                                  identified_at = ?
+                           WHERE id = ?""",
+                        (self._now().isoformat(), row["id"]),
+                    )
+
     def _tmdb(self) -> Tmdb | None:
         key = credentials.load(self._paths, "tmdb")
         return Tmdb(key, self._transport, cache=self._cache) if key else None
@@ -247,18 +281,20 @@ class Identifier:
         return sure, unsure
 
     def _title_for(self, conn: sqlite3.Connection, entry: Anime, tmdb: Tmdb | None) -> _Home:
-        """The library's title for an AniList entry, made or refreshed, with its TMDB show."""
-        if tmdb is not None:
-            if entry.kind in (TitleKind.OVA, TitleKind.SPECIAL):
-                parent = _parent_show(conn, entry)
-                if parent is not None:
-                    return parent  # the show's specials hold it, in season 0
-            media = "movie" if entry.kind is TitleKind.MOVIE else "tv"
-            hit = _find(tmdb, entry, media)
-            if hit is None and media == "tv" and entry.kind is not TitleKind.SERIES:
-                hit = _find(tmdb, entry, "movie")  # a one-off OVA is often a film on TMDB
-            if hit is not None:
-                return self._tmdb_title(conn, entry, hit, tmdb)
+        """The library's title for an AniList entry, made or refreshed, with its TMDB show.
+        Without a key, an entry whose files already sit in a TMDB title joins them there."""
+        if tmdb is None:
+            return _known_home(conn, entry) or self._anilist_title(conn, entry)
+        if entry.kind in (TitleKind.OVA, TitleKind.SPECIAL):
+            parent = _parent_show(conn, entry)
+            if parent is not None:
+                return parent  # the show's specials hold it, in season 0
+        media = "movie" if entry.kind is TitleKind.MOVIE else "tv"
+        hit = _find(tmdb, entry, media)
+        if hit is None and media == "tv" and entry.kind is not TitleKind.SERIES:
+            hit = _find(tmdb, entry, "movie")  # a one-off OVA is often a film on TMDB
+        if hit is not None:
+            return self._tmdb_title(conn, entry, hit, tmdb)
         return self._anilist_title(conn, entry)
 
     def _anilist_title(self, conn: sqlite3.Connection, entry: Anime) -> _Home:
@@ -418,6 +454,35 @@ def _aired(entry: Anime) -> int | None:
     if not entry.airing:
         return entry.episodes
     return entry.next_episode - 1 if entry.next_episode else None
+
+
+def identify_again(conn: sqlite3.Connection) -> int:
+    """With a TMDB key just added: every file matched on AniList alone is identified again by
+    the next scan, so it lands in TMDB's seasons (the owner's own choices keep their anime).
+    Returns how many files that is."""
+    with conn:
+        return conn.execute(
+            """UPDATE files SET identified_at = NULL
+               WHERE gone_at IS NULL AND matched = 'sure'
+                 AND title_id IN (SELECT id FROM titles WHERE tmdb_id IS NULL)"""
+        ).rowcount
+
+
+def _known_home(conn: sqlite3.Connection, entry: Anime) -> _Home | None:
+    """The TMDB title an entry's files already sit in, with the episode list Kura kept."""
+    row = conn.execute(
+        """SELECT * FROM titles
+           WHERE tmdb_id IS NOT NULL
+             AND (anilist_id = ? OR id IN (SELECT title_id FROM files WHERE anilist_id = ?))
+           ORDER BY id LIMIT 1""",
+        (entry.id, entry.id),
+    ).fetchone()
+    if row is None:
+        return None
+    if row["tmdb_type"] == "movie":
+        return _Home(row["id"], film=True)
+    part = entry.kind in (TitleKind.OVA, TitleKind.SPECIAL) and row["kind"] == "series"
+    return _Home(row["id"], show_of(conn, row["id"]), specials=part)
 
 
 def _parent_show(conn: sqlite3.Connection, entry: Anime) -> _Home | None:

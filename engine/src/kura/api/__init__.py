@@ -65,6 +65,7 @@ def create_app(
         scans: Scanner = running.state.scanner
         scans.recover()  # carry on a scan that an exit or a crash stopped
         watcher = Watcher(paths, scans, transport, now=_now) if watch else None
+        running.state.watcher = watcher
         if watcher is not None:
             watcher.start()
         yield
@@ -81,6 +82,7 @@ def create_app(
     app.state.transport = transport
     app.state.tools = toolbox or Tools(paths)
     app.state.scanner = scanner or Scanner(paths, app.state.tools, transport=transport)
+    app.state.watcher = None  # set while it runs
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)

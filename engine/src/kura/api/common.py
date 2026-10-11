@@ -11,8 +11,9 @@ from pydantic.alias_generators import to_camel
 
 from kura import db
 from kura.config import DataPaths
-from kura.scan import Scanner
+from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
+from kura.watch import Watcher
 from kura.web import Send
 
 
@@ -24,6 +25,20 @@ class ApiModel(BaseModel):
         validate_by_name=True,
         serialize_by_alias=True,
     )
+
+
+def scan_soon(request: Request) -> None:
+    """Scans the library now or, while a scan runs, has the watcher start one once it's done. A
+    paused scan sees to it when the owner resumes it."""
+    scanner: Scanner = request.app.state.scanner
+    if scanner.status().state == "paused":
+        return
+    try:
+        scanner.start()
+    except ScanBusyError:
+        watcher: Watcher | None = request.app.state.watcher
+        if watcher is not None:
+            watcher.notice()
 
 
 def _paths(request: Request) -> DataPaths:
