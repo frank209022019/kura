@@ -369,8 +369,12 @@ class Queue:
             if job is None:
                 raise LookupError("That file didn't fail.")
             conn.execute(
-                "UPDATE files SET problem = ? WHERE id = ?",
-                (job["problem"] or "Kura couldn't convert it.", job["file_id"]),
+                "UPDATE files SET problem = ?, marked_at = ? WHERE id = ?",
+                (
+                    job["problem"] or "Kura couldn't convert it.",
+                    self._now().isoformat(),
+                    job["file_id"],
+                ),
             )
 
     def restore(self, job_id: int) -> None:

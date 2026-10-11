@@ -25,6 +25,7 @@ from kura.queue import Queue
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
 from tests.converting import BEST_TAG, open_elsewhere, programs, report
+from tests.fake_web import FakeWeb
 from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
@@ -163,6 +164,35 @@ def test_a_failed_file_keeps_what_ffmpeg_said_and_can_be_marked_broken(
     assert queue.add([1]) == 0  # broken: it isn't converted again
     with pytest.raises(LookupError):
         queue.mark_broken(failed.id)  # only a file that failed
+
+
+def test_a_file_marked_broken_stays_so_through_scans_till_it_changes(
+    queue: Queue,
+    paths: DataPaths,
+    shows: Path,
+    conn: sqlite3.Connection,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    queue.add([1])
+    monkeypatch.setenv("KURA_FAKE_FAIL", "encode")
+    queue.work_once()
+    [failed] = queue.status().today
+    queue.mark_broken(failed.id)
+    scanner = Scanner(
+        paths,
+        Tools(paths, items=()),
+        read=lambda path: report(8, 6, codec="h264"),  # ffprobe reads it fine: it's the picture
+        transport=FakeWeb(),
+    )
+
+    scanner.start()
+    scanner.wait(30)
+    assert conn.execute("SELECT problem FROM files WHERE id = 1").fetchone()[0] == failed.problem
+
+    (shows / "Trigun (1998) - S01E01.mkv").write_bytes(b"a better copy, saved over it")
+    scanner.start()
+    scanner.wait(30)
+    assert conn.execute("SELECT problem FROM files WHERE id = 1").fetchone()[0] is None
 
 
 def test_a_paused_queue_converts_nothing_until_resumed(

@@ -210,4 +210,8 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     """
     ALTER TABLE jobs ADD COLUMN log TEXT;
     """,
+    # 13. When the owner marked a file broken: a scan leaves it so till the file changes.
+    """
+    ALTER TABLE files ADD COLUMN marked_at TEXT;
+    """,
 )

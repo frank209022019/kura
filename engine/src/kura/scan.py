@@ -125,10 +125,11 @@ class Scanner:
             self._pause.clear()
             started = self._now().isoformat()
             with closing(db.connect(self._paths.database)) as conn, conn:
-                # Files that couldn't be read get another try: the cause may have passed.
+                # Files that couldn't be read get another try: the cause may have passed. One
+                # the owner marked broken stays so till it changes.
                 conn.execute(
                     "UPDATE files SET probed_at = NULL"
-                    " WHERE problem IS NOT NULL AND gone_at IS NULL"
+                    " WHERE problem IS NOT NULL AND gone_at IS NULL AND marked_at IS NULL"
                 )
                 scan_id: int = conn.execute(
                     "INSERT INTO scans (started_at, state, stage) VALUES (?, 'running', 'finding') "
