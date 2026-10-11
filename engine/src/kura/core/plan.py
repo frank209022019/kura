@@ -121,7 +121,7 @@ def plan_tidy(
             reason = f"Kept {kept.copy.path.name} instead: {why}"
             for dropped in group:
                 if dropped is not kept:
-                    place = unique_path(_quarantine_place(dropped.copy.path, day), used)
+                    place = unique_path(quarantine_place(dropped.copy.path, day), used)
                     used.add(str(place).casefold())
                     label = f"{_label(dropped.identity)} · duplicate"
                     quarantines.append(
@@ -210,7 +210,7 @@ def _same(identity: Identity) -> tuple[object, ...]:
             return ("movie", movie.title.casefold(), movie.year)
 
 
-def _quarantine_place(source: PurePath, day: date) -> PurePath:
+def quarantine_place(source: PurePath, day: date) -> PurePath:
     r"""D:\Kura quarantine\2026-10-10\name.mkv: on the file's own drive, so moving is instant."""
     return type(source)(source.anchor) / QUARANTINE_FOLDER / day.isoformat() / source.name
 

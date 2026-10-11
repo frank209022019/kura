@@ -524,3 +524,23 @@ def test_a_record_a_scan_made_at_the_new_place_gives_way(
 
     rows = conn.execute("SELECT id, path, pinned FROM files").fetchall()
     assert [tuple(row) for row in rows] == [(1, str(library / "a.mkv"), 1)]
+
+
+def test_putting_back_copies_set_aside_on_one_day_leaves_no_empty_quarantine(
+    conn: sqlite3.Connection, downloads: Path, tmp_path: Path
+):
+    day = tmp_path / "Kura quarantine" / "2026-10-10"
+    first, second = video(downloads / "a.avi"), video(downloads / "b.avi")
+    plans = [
+        saved(conn, Change(ChangeKind.QUARANTINE, file, day / file.name, "Copy", "Kept the other"))
+        for file in (first, second)
+    ]
+    for plan_id in plans:
+        apply_plan(conn, plan_id, now=NOW)
+
+    for plan_id in plans:  # the first made the folders, and is put back first
+        undo_plan(conn, plan_id, now=NOW)
+
+    assert first.exists()
+    assert second.exists()
+    assert not (tmp_path / "Kura quarantine").exists()

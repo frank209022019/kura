@@ -24,6 +24,7 @@ WORK = PureWindowsPath(
     r"D:\Anime\TV\Dragon Ball Z (1989)\Season 01\Dragon Ball Z (1989) - S01E05.kura-converting"
 )
 FFMPEG = "ffmpeg.exe"
+FF = [FFMPEG]  # the command that runs it
 TAG = "best · Kura 0.1.0 · 2026-10-11"
 
 
@@ -81,9 +82,7 @@ def test_a_720p_episode_is_upscaled_with_anime4k_in_one_command():
     )
     made = recipe(SOURCE, media, decide(media, CINEMA_1080), tag=TAG)
 
-    command = one_command(
-        FFMPEG, SOURCE, WORK, made, shader=PureWindowsPath(r"C:\Kura\modeA_hq.glsl")
-    )
+    command = one_command(FF, SOURCE, WORK, made, shader=PureWindowsPath(r"C:\Kura\modeA_hq.glsl"))
 
     assert made.method is Method.FAST
     assert command[:7] == [
@@ -120,7 +119,7 @@ def test_an_interlaced_picture_is_deinterlaced_before_anything_else():
     )
     made = recipe(SOURCE, media, decide(media, CINEMA_1080), tag=TAG)
 
-    command = one_command(FFMPEG, SOURCE, WORK, made, shader=None)
+    command = one_command(FF, SOURCE, WORK, made, shader=None)
 
     assert made.method is Method.REENCODE
     assert command[command.index("-vf") + 1] == (
@@ -138,7 +137,7 @@ def test_a_remux_copies_the_picture():
     )
     made = recipe(SOURCE.with_suffix(".mp4"), media, decide(media, CINEMA_1080), tag=TAG)
 
-    command = one_command(FFMPEG, SOURCE.with_suffix(".mp4"), WORK, made, shader=None)
+    command = one_command(FF, SOURCE.with_suffix(".mp4"), WORK, made, shader=None)
 
     assert made.method is Method.REMUX
     assert "-vf" not in command
@@ -148,8 +147,8 @@ def test_a_remux_copies_the_picture():
 def test_the_ai_model_reads_raw_frames_and_the_encoder_takes_them_with_the_sound():
     made = recipe(SOURCE, sd(), Decision(Method.BEST, 1440, 1080), tag=TAG)
 
-    decoder = decoder_command(FFMPEG, SOURCE, made)
-    encoder = encoder_command(FFMPEG, SOURCE, WORK, made, upscaled=(1440, 960))
+    decoder = decoder_command(FF, SOURCE, made)
+    encoder = encoder_command(FF, SOURCE, WORK, made, upscaled=(1440, 960))
 
     assert decoder == [
         FFMPEG,
@@ -197,7 +196,7 @@ def test_the_ai_model_reads_raw_frames_and_the_encoder_takes_them_with_the_sound
 
 
 def test_interlacing_is_told_from_a_look_at_the_picture():
-    command = interlace_command(FFMPEG, SOURCE, at=600.0)
+    command = interlace_command(FF, SOURCE, at=600.0)
     report = (
         "[Parsed_idet_0 @ 0000] Single frame detection: TFF: 280 BFF: 0 Progressive: 300\n"
         "[Parsed_idet_0 @ 0000] Multi frame detection: TFF: 420 BFF: 2 Progressive: 150"

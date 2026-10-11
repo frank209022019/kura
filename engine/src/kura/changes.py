@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from itertools import takewhile
 from pathlib import Path
+from typing import Literal
 
 from kura.core.plan import ChangeKind, Plan
 
@@ -64,12 +65,20 @@ class Outcome:
     problems: tuple[SavedChange, ...]  # changes that couldn't be, each with its problem
 
 
-def save_plan(conn: sqlite3.Connection, plan: Plan, title: str, *, now: datetime) -> int:
-    """Store a plan for review and return its id. Nothing on disk changes."""
+def save_plan(
+    conn: sqlite3.Connection,
+    plan: Plan,
+    title: str,
+    *,
+    now: datetime,
+    kind: Literal["tidy", "convert"] = "tidy",
+) -> int:
+    """Store a plan for review and return its id. Nothing on disk changes. `kind` says what it's
+    for: tidying up, or putting a converted file in its original's place."""
     with conn:
         row = conn.execute(
-            "INSERT INTO plans (title, created_at) VALUES (?, ?) RETURNING id",
-            (title, _stamp(now)),
+            "INSERT INTO plans (title, created_at, kind) VALUES (?, ?, ?) RETURNING id",
+            (title, _stamp(now), kind),
         ).fetchone()
         plan_id: int = row["id"]
         conn.executemany(
@@ -146,6 +155,10 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
             else:
                 undone += 1
                 _remove_empty(change.created_dirs)
+                if change.kind is ChangeKind.QUARANTINE:
+                    # The day's folder and the quarantine itself are Kura's own: whichever change
+                    # made them, they go once nothing is left in them.
+                    _remove_empty([change.target.parent, change.target.parent.parent])
                 _record(conn, change, ChangeState.UNDONE, problem=problem)
                 _follow(conn, change, forward=False, stamp=_stamp(now))
                 continue

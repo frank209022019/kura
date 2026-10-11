@@ -145,4 +145,31 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         PRIMARY KEY (anilist_id, related_id)
     ) STRICT, WITHOUT ROWID;
     """,
+    # 6. The conversion queue: each file waiting, converting or converted, in the owner's order,
+    #    with what it takes to put the original back. A plan says whether it tidied or converted.
+    """
+    CREATE TABLE jobs (
+        id              INTEGER PRIMARY KEY,
+        file_id         INTEGER NOT NULL REFERENCES files (id) ON DELETE CASCADE,
+        method          TEXT NOT NULL CHECK (method IN ('remux', 'reencode', 'fast', 'best')),
+        position        INTEGER NOT NULL,  -- the order the queue takes them in
+        state           TEXT NOT NULL DEFAULT 'queued' CHECK (
+                            state IN ('queued', 'running', 'replacing', 'done', 'failed',
+                                      'skipped', 'restored')),
+        added_at        TEXT NOT NULL,
+        started_at      TEXT,
+        finished_at     TEXT,
+        problem         TEXT,              -- why it failed, in words
+        plan_id         INTEGER REFERENCES plans (id),  -- the original set aside, the result put
+                                                        -- in its place
+        source_size     INTEGER,           -- the original as it was, to put it back
+        source_modified INTEGER,
+        source_probe    TEXT,
+        output_size     INTEGER
+    ) STRICT;
+    CREATE INDEX jobs_by_state ON jobs (state, position);
+
+    ALTER TABLE plans ADD COLUMN kind TEXT NOT NULL DEFAULT 'tidy'
+        CHECK (kind IN ('tidy', 'convert'));
+    """,
 )

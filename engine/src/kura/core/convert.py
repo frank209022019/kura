@@ -87,7 +87,12 @@ def recipe(source: PurePath, media: MediaInfo, decision: Decision, *, tag: str) 
 
 
 def one_command(
-    ffmpeg: str, source: PurePath, work: PurePath, made: Recipe, *, shader: PurePath | None
+    ffmpeg: Sequence[str],
+    source: PurePath,
+    work: PurePath,
+    made: Recipe,
+    *,
+    shader: PurePath | None,
 ) -> list[str]:
     """The whole conversion in one ffmpeg command, for every method but the AI model's. FAST
     needs Anime4K's shader; progress goes to standard output, as ffmpeg's key=value lines."""
@@ -112,7 +117,7 @@ def one_command(
             pass  # REMUX copies the picture
     picture = ["-c:v", "copy"] if made.method is Method.REMUX else [*NVENC]
     return [
-        ffmpeg,
+        *ffmpeg,
         "-v",
         "error",
         "-y",
@@ -132,10 +137,10 @@ def one_command(
     ]
 
 
-def decoder_command(ffmpeg: str, source: PurePath, made: Recipe) -> list[str]:
+def decoder_command(ffmpeg: Sequence[str], source: PurePath, made: Recipe) -> list[str]:
     """For the AI model: the picture as raw frames of planar float RGB on standard output."""
     return [
-        ffmpeg,
+        *ffmpeg,
         "-v",
         "error",
         "-i",
@@ -152,13 +157,18 @@ def decoder_command(ffmpeg: str, source: PurePath, made: Recipe) -> list[str]:
 
 
 def encoder_command(
-    ffmpeg: str, source: PurePath, work: PurePath, made: Recipe, *, upscaled: tuple[int, int]
+    ffmpeg: Sequence[str],
+    source: PurePath,
+    work: PurePath,
+    made: Recipe,
+    *,
+    upscaled: tuple[int, int],
 ) -> list[str]:
     """For the AI model: its frames on standard input (`upscaled` big), scaled to the standard's
     size and encoded, with the original's sound, subtitles, fonts and chapters."""
     width, height = upscaled
     return [
-        ffmpeg,
+        *ffmpeg,
         "-v",
         "error",
         "-y",
@@ -185,11 +195,11 @@ def encoder_command(
     ]
 
 
-def interlace_command(ffmpeg: str, source: PurePath, *, at: float) -> list[str]:
+def interlace_command(ffmpeg: Sequence[str], source: PurePath, *, at: float) -> list[str]:
     """ffmpeg's idet looking at a stretch of the picture from `at` seconds; it reports how many
     frames look interlaced (see `interlaced`)."""
     return [
-        ffmpeg,
+        *ffmpeg,
         "-v",
         "info",
         "-nostats",
