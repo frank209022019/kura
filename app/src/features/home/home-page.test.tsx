@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type EngineStatus, type Health } from "@/lib/engine";
+import { EngineProvider, type EngineStatus, type Health, type TitleSummary } from "@/lib/engine";
 import { fakeEngine, NO_LIBRARY, NO_SCAN, READY, SETTINGS } from "@/test/engine";
 import { HomePage } from "./home-page";
 
@@ -28,6 +28,46 @@ const FOLDER = {
   problems: 1,
 };
 
+const DBZ: TitleSummary = {
+  id: 1,
+  kind: "series",
+  name: "Dragon Ball Z",
+  year: 1989,
+  released: "1989-04-26",
+  airing: false,
+  hasPoster: false,
+  files: 287,
+  added: "2026-10-11T09:44:00+00:00",
+  aired: 291,
+  present: 287,
+  missing: 4,
+  specialsMissing: 0,
+  upcoming: 0,
+};
+const BEBOP: TitleSummary = {
+  ...DBZ,
+  id: 2,
+  name: "Cowboy Bebop",
+  year: 1998,
+  released: "1998-04-03",
+  files: 26,
+  aired: 26,
+  present: 26,
+  missing: 0,
+};
+const MOVIE: TitleSummary = {
+  ...DBZ,
+  id: 3,
+  kind: "movie",
+  name: "Cowboy Bebop: The Movie",
+  year: 2001,
+  released: "2001-09-01",
+  files: 1,
+  aired: 0,
+  present: 0,
+  missing: 0,
+};
+
 /** The engine's answers for a library that's empty and already set up. */
 function engineWith(answers: Record<string, unknown> = {}) {
   return fakeEngine({
@@ -37,6 +77,7 @@ function engineWith(answers: Record<string, unknown> = {}) {
     "/library": NO_LIBRARY,
     "/scan": NO_SCAN,
     "/tmdb": { connected: false, keyEnd: null },
+    "/titles": [],
     ...answers,
   });
 }
@@ -54,6 +95,8 @@ function renderHome(engine: EngineStatus) {
             <Route index element={<HomePage />} />
             <Route path="/setup" element={<p>Setup</p>} />
             <Route path="/scan" element={<p>Scan</p>} />
+            <Route path="/match" element={<p>Match</p>} />
+            <Route path="/titles/:id" element={<p>A title</p>} />
           </Routes>
         </MemoryRouter>
       </EngineProvider>
@@ -216,5 +259,59 @@ describe("HomePage", () => {
     (await screen.findByRole("button", { name: "Every version and what changed" })).click();
 
     expect(shell.invoke).toHaveBeenCalledWith("open_downloads_page");
+  });
+
+  it("lists the anime and films oldest release first, each saying what it is", async () => {
+    const fetch = engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 314, size: 9e10 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done" },
+      "/titles": (init?: RequestInit) => {
+        void init;
+        return [DBZ, BEBOP, MOVIE];
+      },
+    });
+    renderHome(READY);
+
+    expect(await screen.findByRole("heading", { name: "Anime and films" })).toBeInTheDocument();
+    expect(screen.getByText("3 titles · oldest release first")).toBeInTheDocument();
+    expect(screen.getByText("TV series · 1989 · 291 episodes")).toBeInTheDocument();
+    expect(screen.getByText("Movie · 2001")).toBeInTheDocument();
+    expect(screen.getByText("4 missing")).toBeInTheDocument();
+    expect(screen.getByText("287 of 291 · 98%")).toBeInTheDocument();
+    expect(screen.getByText("3 anime · 314 videos · 90.0 GB · 1 folder")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Release date" })).toBeChecked();
+    expect(
+      fetch.mock.calls.some(([input]) => String(input).endsWith("/titles?sort=released")),
+    ).toBe(true);
+
+    screen.getByRole("radio", { name: "Name" }).click();
+    await waitFor(() =>
+      expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/titles?sort=name"))).toBe(
+        true,
+      ),
+    );
+
+    (await screen.findByRole("link", { name: /Cowboy Bebop: The Movie/ })).click();
+    expect(await screen.findByText("A title")).toBeInTheDocument();
+  });
+
+  it("says what needs attention, and leads to it", async () => {
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 314, problems: 9 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done", waiting: 12, mixed: 1 },
+      "/titles": [DBZ, BEBOP],
+    });
+    renderHome(READY);
+
+    expect(await screen.findByText("12 files need a match")).toBeInTheDocument();
+    expect(screen.getByText("4 episodes missing")).toBeInTheDocument();
+    expect(screen.getByText("Across 1 anime · gap reports updated")).toBeInTheDocument();
+    expect(screen.getByText("9 files won't play")).toBeInTheDocument();
+    expect(screen.getByText("1 folder holds mixed anime")).toBeInTheDocument();
+
+    screen.getByRole("button", { name: /12 files need a match/ }).click();
+    expect(await screen.findByText("Match")).toBeInTheDocument();
   });
 });

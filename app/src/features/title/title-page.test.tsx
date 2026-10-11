@@ -1,0 +1,167 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EngineProvider, type EpisodeState, type TitleDetail } from "@/lib/engine";
+import { fakeEngine, READY } from "@/test/engine";
+import { TitlePage } from "./title-page";
+
+const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
+
+vi.mock("@tauri-apps/api/core", () => ({ invoke: shell.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+
+function episodes(season: number, size: number, state: (n: number) => EpisodeState["state"]) {
+  return Array.from({ length: size }, (_, index) => ({
+    season,
+    number: index + 1,
+    name: index === 10 && season === 4 ? "The Ginyu Force" : `Episode ${index + 1}`,
+    aired: "1991-01-01",
+    state: state(index + 1),
+    fileId: null,
+  }));
+}
+
+const DBZ: TitleDetail = {
+  id: 1,
+  kind: "series",
+  name: "Dragon Ball Z",
+  year: 1989,
+  released: "1989-04-26",
+  airing: false,
+  hasPoster: false,
+  files: 70,
+  added: null,
+  aired: 72,
+  present: 70,
+  missing: 2,
+  specialsMissing: 1,
+  upcoming: 0,
+  source: "tmdb",
+  folder: "D:\\Anime\\TV\\Dragon Ball Z (1989)",
+  seasons: [
+    { season: 1, present: 39, aired: 39, total: 39 },
+    { season: 4, present: 30, aired: 32, total: 32 },
+  ],
+  missingEpisodes: [],
+  missingSpecials: [],
+  upcomingEpisodes: [],
+  episodes: [
+    ...episodes(1, 39, () => "to convert"),
+    ...episodes(4, 32, (n) => (n === 11 || n === 12 ? "missing" : n === 5 ? "broken" : "ready")),
+    { season: 0, number: 1, name: "Bardock", aired: "1990-10-17", state: "ready", fileId: 9 },
+    {
+      season: 0,
+      number: 2,
+      name: "Plan to Eradicate",
+      aired: "1993-08-06",
+      state: "missing",
+      fileId: null,
+    },
+  ],
+  videos: [
+    {
+      id: 1,
+      path: "D:\\Anime\\TV\\Dragon Ball Z (1989)\\Season 01\\Dragon Ball Z - S01E01.mkv",
+      season: 1,
+      episode: 1,
+      episodeEnd: null,
+      problem: null,
+      height: 480,
+      codec: "h264",
+      duration: 1440,
+    },
+  ],
+};
+
+function renderTitle(title: TitleDetail, report: unknown = undefined) {
+  fakeEngine({ [`/titles/${title.id}`]: title, [`/titles/${title.id}/report`]: report });
+  shell.invoke.mockImplementation(async (command: string) =>
+    command === "engine_status" ? READY : undefined,
+  );
+  const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queries}>
+      <EngineProvider>
+        <MemoryRouter initialEntries={[`/titles/${title.id}`]}>
+          <Routes>
+            <Route path="/titles/:id" element={<TitlePage />} />
+          </Routes>
+        </MemoryRouter>
+      </EngineProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe("TitlePage", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    shell.invoke.mockReset();
+  });
+
+  it("says what the title is and how much of it is there", async () => {
+    renderTitle(DBZ);
+
+    expect(
+      await screen.findByRole("heading", { name: "Dragon Ball Z", level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("TV series")).toBeInTheDocument();
+    expect(screen.getByText("Matched on TMDB and AniList")).toBeInTheDocument();
+    expect(screen.getByText("1989 · 2 seasons · 72 episodes")).toBeInTheDocument();
+    expect(screen.getByText("97%")).toBeInTheDocument();
+    expect(screen.getByText("70 of 72 episodes")).toBeInTheDocument();
+  });
+
+  it("lists the seasons, the map, and the missing and broken episodes", async () => {
+    renderTitle(DBZ);
+
+    expect(await screen.findByText("2 missing")).toBeInTheDocument();
+    expect(screen.getByText("complete")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "Episode map: 39 to convert, 29 ready, 1 broken, 2 missing",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Episode 51 · missing/)).toBeInTheDocument();
+    expect(screen.getByText(/Episode 50 · The Ginyu Force · missing/)).toBeInTheDocument();
+    expect(screen.getByText(/Episode 44 · won't play/)).toBeInTheDocument();
+  });
+
+  it("keeps the specials and OVAs apart", async () => {
+    renderTitle(DBZ);
+
+    expect(await screen.findByRole("heading", { name: "Specials and OVAs" })).toBeInTheDocument();
+    expect(screen.getByText("1 not in the library · never counted as missing")).toBeInTheDocument();
+    expect(screen.getByText(/Plan to Eradicate/)).toBeInTheDocument();
+  });
+
+  it("shows the gap analysis next to the show, or when it comes", async () => {
+    renderTitle(DBZ, {
+      path: "D:\\Anime\\TV\\Dragon Ball Z (1989)\\Kura - Gap analysis.md",
+      text: "# Dragon Ball Z (1989) — gap analysis\n",
+    });
+
+    expect(await screen.findByText(/# Dragon Ball Z \(1989\) — gap analysis/)).toBeInTheDocument();
+  });
+
+  it("a film shows its file, without seasons", async () => {
+    renderTitle({
+      ...DBZ,
+      id: 3,
+      kind: "movie",
+      name: "Cowboy Bebop: The Movie",
+      year: 2001,
+      files: 1,
+      aired: 0,
+      present: 0,
+      missing: 0,
+      seasons: [],
+      episodes: [],
+    });
+
+    expect(await screen.findByText("Movie")).toBeInTheDocument();
+    expect(screen.getByText("2001 · 1 file")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Seasons" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Its file" })).toBeInTheDocument();
+  });
+});

@@ -593,6 +593,51 @@
         }
       }
     },
+    "/titles/{title_id}/report": {
+      "get": {
+        "summary": "Title Report",
+        "description": "The gap analysis Kura wrote next to the title, as it is on disk.",
+        "operationId": "title_report_titles__title_id__report_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/titles/{title_id}/poster": {
       "get": {
         "summary": "Title Poster",
@@ -994,6 +1039,65 @@
         ],
         "title": "EpisodeRef"
       },
+      "EpisodeState": {
+        "properties": {
+          "season": {
+            "type": "integer",
+            "title": "Season"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "aired": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aired"
+          },
+          "state": {
+            "$ref": "#/components/schemas/kura__titles__State"
+          },
+          "fileId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fileid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "season",
+          "number",
+          "name",
+          "aired",
+          "state",
+          "fileId"
+        ],
+        "title": "EpisodeState",
+        "description": "One episode and how it stands, for the episode map: status by shape."
+      },
       "Guess": {
         "properties": {
           "anilistId": {
@@ -1257,6 +1361,24 @@
           "added",
           "missing"
         ]
+      },
+      "Report": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "text"
+        ],
+        "title": "Report"
       },
       "Scan": {
         "properties": {
@@ -1572,6 +1694,25 @@
             "type": "integer",
             "title": "Upcoming"
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "tmdb",
+              "anilist"
+            ],
+            "title": "Source"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
           "seasons": {
             "items": {
               "$ref": "#/components/schemas/SeasonCount"
@@ -1600,6 +1741,13 @@
             "type": "array",
             "title": "Upcomingepisodes"
           },
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeState"
+            },
+            "type": "array",
+            "title": "Episodes"
+          },
           "videos": {
             "items": {
               "$ref": "#/components/schemas/TitleFile"
@@ -1624,10 +1772,13 @@
           "missing",
           "specialsMissing",
           "upcoming",
+          "source",
+          "folder",
           "seasons",
           "missingEpisodes",
           "missingSpecials",
           "upcomingEpisodes",
+          "episodes",
           "videos"
         ],
         "title": "TitleDetail"
@@ -2126,6 +2277,16 @@
           "paused",
           "done",
           "failed"
+        ]
+      },
+      "kura__titles__State": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "to convert",
+          "broken",
+          "missing",
+          "upcoming"
         ]
       },
       "kura__tools__State": {

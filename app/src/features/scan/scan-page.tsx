@@ -1,6 +1,6 @@
 import { Check, FolderTree, Pause, Play, Timer } from "lucide-react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
 import { Button } from "@/components/ui/button";
@@ -226,14 +226,16 @@ function FoundSoFar({ running }: { running: boolean }) {
       </div>
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-x-4 gap-y-4.5">
         {titles.data.map((title) => (
-          <li key={title.id} className="flex animate-pop flex-col gap-2">
-            <Poster title={title} />
-            <span className="flex flex-col gap-px px-0.5">
-              <span className="truncate font-bold text-13">{title.name}</span>
-              <span className="text-12 text-fg-muted">
-                {kindWord(title.kind, true)} · {files(title.files)}
+          <li key={title.id} className="animate-pop">
+            <Link to={`/titles/${title.id}`} className="lift flex flex-col gap-2 rounded-14">
+              <Poster title={title} />
+              <span className="flex flex-col gap-px px-0.5">
+                <span className="truncate font-bold text-13">{title.name}</span>
+                <span className="text-12 text-fg-muted">
+                  {kindWord(title.kind, true)} · {files(title.files)}
+                </span>
               </span>
-            </span>
+            </Link>
           </li>
         ))}
       </ul>

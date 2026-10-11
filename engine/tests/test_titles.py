@@ -177,3 +177,30 @@ def test_a_report_says_the_time_on_this_pc(identified: sqlite3.Connection, root:
     report = (root / "Dragon Ball Z (1989)" / GAP_ANALYSIS_FILE).read_text(encoding="utf-8")
     local = NOW.astimezone()
     assert f"_Updated {local.day} Oct {local.year}, {local:%H:%M} · library" in report
+
+
+def test_one_title_has_every_episode_with_its_state_for_the_map(
+    client: TestClient, identified: sqlite3.Connection, root: Path
+):
+    [dbz_id] = [t["id"] for t in client.get("/titles").json() if t["name"] == "Dragon Ball Z"]
+
+    detail = client.get(f"/titles/{dbz_id}").json()
+
+    states = {(e["season"], e["number"]): e["state"] for e in detail["episodes"]}
+    assert len(states) == 291
+    assert states[(5, 11)] == "missing"
+    assert states[(1, 1)] == "to convert"  # 720x540 HEVC isn't the 1080p standard yet
+    assert (detail["source"], detail["folder"]) == ("tmdb", str(root / "Dragon Ball Z (1989)"))
+
+
+def test_a_titles_report_can_be_read_once_its_written(
+    client: TestClient, identified: sqlite3.Connection, root: Path
+):
+    [dbz_id] = [t["id"] for t in client.get("/titles").json() if t["name"] == "Dragon Ball Z"]
+    assert client.get(f"/titles/{dbz_id}/report").status_code == 404  # not written yet
+
+    write_reports(identified, now=NOW)
+    report = client.get(f"/titles/{dbz_id}/report").json()
+
+    assert report["path"] == str(root / "Dragon Ball Z (1989)" / GAP_ANALYSIS_FILE)
+    assert report["text"].startswith("# Dragon Ball Z (1989) — gap analysis")

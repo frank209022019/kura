@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -97,12 +97,14 @@ function engineKey(engine: EngineStatus, path: string) {
 /**
  * A query for one engine endpoint. It waits until the engine is ready (and `enabled`). `poll`
  * asks again every that many milliseconds while it returns a number for the latest answer (a job
- * in progress).
+ * in progress). `keep` shows the last answer while a changed question loads (a list re-sorting),
+ * instead of nothing.
  */
 export function useEngineQuery<T>(
   path: string,
   poll?: (data: T | undefined) => number | false,
   enabled = true,
+  keep = false,
 ) {
   const engine = useEngine();
   return useQuery({
@@ -113,6 +115,7 @@ export function useEngineQuery<T>(
     },
     enabled: engine.state === "ready" && enabled,
     refetchInterval: poll ? (query) => poll(query.state.data) : false,
+    placeholderData: keep ? keepPreviousData : undefined,
   });
 }
 
@@ -371,19 +374,44 @@ export interface TitleFile {
   duration: number | null;
 }
 
-/** One title in full: its seasons, what it's missing, and its videos. */
+/** How an episode stands; on screen each has its shape (see the status-* utilities). */
+export type EpisodeStateName = "ready" | "to convert" | "broken" | "missing" | "upcoming";
+
+export interface EpisodeState {
+  /** 0 for the specials. */
+  season: number;
+  number: number;
+  name: string | null;
+  aired: string | null;
+  state: EpisodeStateName;
+  fileId: number | null;
+}
+
+/** One title in full: its seasons, every episode's state, what it's missing, and its videos. */
 export interface TitleDetail extends TitleSummary {
+  /** Where its episode list comes from. */
+  source: "tmdb" | "anilist";
+  /** Its own folder, when its videos have one. */
+  folder: string | null;
   seasons: SeasonCount[];
   missingEpisodes: EpisodeRef[];
   missingSpecials: EpisodeRef[];
   upcomingEpisodes: EpisodeRef[];
+  episodes: EpisodeState[];
   videos: TitleFile[];
+}
+
+/** The gap analysis Kura wrote next to a title. */
+export interface Report {
+  path: string;
+  text: string;
 }
 
 /** The library's titles in `sort` order, asked again every two seconds while `poll`. */
 export const useTitles = (sort: TitleSort = "released", poll = false) =>
-  useEngineQuery<TitleSummary[]>(`/titles?sort=${sort}`, () => (poll ? 2000 : false));
+  useEngineQuery<TitleSummary[]>(`/titles?sort=${sort}`, () => (poll ? 2000 : false), true, true);
 export const useTitle = (id: number) => useEngineQuery<TitleDetail>(`/titles/${id}`);
+export const useReport = (id: number) => useEngineQuery<Report>(`/titles/${id}/report`);
 
 /** One of Kura's guesses for a file it couldn't place surely. */
 export interface Guess {

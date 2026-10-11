@@ -9,6 +9,7 @@ import { MatchPage } from "@/features/match/match-page";
 import { NotBuiltPage } from "@/features/not-built-page";
 import { ScanPage } from "@/features/scan/scan-page";
 import { SetupPage } from "@/features/setup/setup-page";
+import { TitlePage } from "@/features/title/title-page";
 import { EngineProvider } from "@/lib/engine";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ export function App() {
               <Route index element={<HomePage />} />
               <Route path="/scan" element={<ScanPage />} />
               <Route path="/match" element={<MatchPage />} />
+              <Route path="/titles/:id" element={<TitlePage />} />
               {sections
                 .filter((section) => section.path !== "/")
                 .map((section) => (

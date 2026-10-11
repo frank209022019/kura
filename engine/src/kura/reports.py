@@ -6,18 +6,15 @@ folder that holds another anime's videos (a mixed Downloads folder gets none; on
 show has its folder and its report). A report whose news hasn't changed isn't rewritten.
 """
 
-import json
 import logging
 import sqlite3
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
 
 from kura.core.catalog import Show
 from kura.core.episodes import EpisodeNumber
 from kura.core.estimate import Estimate, estimate, total
-from kura.core.gaps import find_gaps
-from kura.core.media import media_from_ffprobe
 from kura.core.report import (
     GAP_ANALYSIS_FILE,
     EpisodeState,
@@ -27,8 +24,9 @@ from kura.core.report import (
     conversion_summary,
     gap_analysis_markdown,
 )
-from kura.core.standard import CINEMA_1080, COMPACT_720, Method, Standard, decide
-from kura.titles import held, show_of
+from kura.core.standard import Standard
+from kura.preferences import library_standard
+from kura.titles import episode_statuses, show_of
 
 log = logging.getLogger(__name__)
 
@@ -89,19 +87,6 @@ def own_folder(conn: sqlite3.Connection, title_id: int, roots: list[Path]) -> Pa
     return folder
 
 
-def library_standard(conn: sqlite3.Connection) -> Standard:
-    """The standard the owner chose in setup, with their upscaling choices."""
-    stored = {
-        row["key"]: json.loads(row["value"]) for row in conn.execute("SELECT * FROM settings")
-    }
-    base = COMPACT_720 if stored.get("standard") == "compact-720" else CINEMA_1080
-    return replace(
-        base,
-        ai_for_sd=stored.get("upscale_sd", True) is not False,
-        fast_for_hd=stored.get("upscale_720", True) is not False,
-    )
-
-
 def _analysis(
     conn: sqlite3.Connection,
     row: sqlite3.Row,
@@ -110,45 +95,24 @@ def _analysis(
     standard: Standard,
     now: datetime,
 ) -> GapAnalysis:
-    files = {
-        (f["season"], f["episode"]): f
-        for f in conn.execute(
-            """SELECT season, episode, episode_end, problem, probe FROM files
-               WHERE title_id = ? AND gone_at IS NULL AND season IS NOT NULL""",
-            (row["id"],),
-        )
-    }
-    covering: dict[tuple[int, int], sqlite3.Row] = {}
-    for (season, first), file in files.items():
-        for number in range(first, (file["episode_end"] or first) + 1):
-            covering[(season, number)] = file
     local = now.astimezone()  # the report is read in the time of this PC
-    gaps = find_gaps(show, held(conn, row["id"]), local.date())
+    statuses = episode_statuses(conn, row["id"], show, standard, local.date())
     states: list[EpisodeState] = []
     to_convert: list[Estimate] = []
     heights: list[int] = []
     absolute = 0
-    for number in show.seasons:
-        for episode in show.season(number):
-            if episode in gaps.upcoming:
-                continue
-            absolute += 1
-            where = EpisodeNumber(number, episode.number, absolute)
-            file = covering.get((number, episode.number))
-            if file is None:
-                states.append(EpisodeState(where, Status.MISSING))
-            elif file["problem"] or not file["probe"]:
-                states.append(EpisodeState(where, Status.BROKEN, file["problem"]))
-            else:
-                media = media_from_ffprobe(json.loads(file["probe"]))
-                decision = decide(media, standard)
-                if decision.method is Method.RENAME:
-                    states.append(EpisodeState(where, Status.READY))
-                else:
-                    states.append(EpisodeState(where, Status.TO_CONVERT))
-                    to_convert.append(estimate(media, decision, standard))
-                    if media.video:
-                        heights.append(media.video.height)
+    for status in statuses:
+        episode = status.episode
+        if episode.season == 0 or status.state == "upcoming":
+            continue
+        absolute += 1
+        where = EpisodeNumber(episode.season, episode.number, absolute)
+        states.append(EpisodeState(where, _REPORTED[status.state], status.problem))
+        if status.state == "to convert" and status.media and status.decision:
+            to_convert.append(estimate(status.media, status.decision, standard))
+            if status.media.video:
+                heights.append(status.media.video.height)
+    specials = [s.episode for s in statuses if s.episode.season == 0 and s.state == "missing"]
     name = f"{row['name']} ({row['year']})" if row["year"] else row["name"]
     return GapAnalysis(
         show=name,
@@ -157,8 +121,17 @@ def _analysis(
         episodes=tuple(states),
         conversion=conversion_summary(heights, standard) if heights else None,
         to_convert=total(to_convert),
-        specials=tuple(SpecialState(e.number, e.title, e.aired) for e in gaps.specials_missing),
+        specials=tuple(SpecialState(e.number, e.title, e.aired) for e in specials),
     )
+
+
+_REPORTED = {
+    "ready": Status.READY,
+    "to convert": Status.TO_CONVERT,
+    "broken": Status.BROKEN,
+    "missing": Status.MISSING,
+    "upcoming": Status.MISSING,  # never reported: left out above
+}
 
 
 def _show_folder(folder: Path) -> Path:

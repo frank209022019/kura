@@ -2,6 +2,7 @@
 release date and files, and for a series, its seasons and what's missing (kura/core/gaps.py).
 """
 
+import json
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -10,8 +11,24 @@ from typing import Literal
 
 from kura.core.catalog import Episode, Show, TitleKind
 from kura.core.gaps import Gaps, find_gaps
+from kura.core.media import MediaInfo, media_from_ffprobe
+from kura.core.standard import Decision, Method, Standard, decide
 
 type Order = Literal["released", "name", "added", "missing"]
+type State = Literal["ready", "to convert", "broken", "missing", "upcoming"]
+
+
+@dataclass(frozen=True)
+class EpisodeStatus:
+    """One episode of a title and how it stands: at the standard (ready), still to convert,
+    broken (it couldn't be read), missing, or still to air. Status by shape on screen."""
+
+    episode: Episode
+    state: State
+    file_id: int | None
+    problem: str | None  # why a broken file couldn't be read
+    media: MediaInfo | None
+    decision: Decision | None  # what converting it to the standard takes
 
 
 @dataclass(frozen=True)
@@ -87,6 +104,38 @@ def show_of(conn: sqlite3.Connection, title_id: int) -> Show | None:
         poster=row["poster"],
         episodes=episodes,
     )
+
+
+def episode_statuses(
+    conn: sqlite3.Connection, title_id: int, show: Show, standard: Standard, today: date
+) -> list[EpisodeStatus]:
+    """Every episode of the show, specials (season 0) included, with how it stands."""
+    covering: dict[tuple[int, int], sqlite3.Row] = {}
+    for file in conn.execute(
+        """SELECT id, season, episode, episode_end, problem, probe FROM files
+           WHERE title_id = ? AND gone_at IS NULL AND season IS NOT NULL
+             AND episode IS NOT NULL
+           ORDER BY problem IS NOT NULL, id""",  # a copy that plays counts first
+        (title_id,),
+    ):
+        for number in range(file["episode"], (file["episode_end"] or file["episode"]) + 1):
+            covering.setdefault((file["season"], number), file)
+    gaps = find_gaps(show, held(conn, title_id), today)
+    upcoming = set(gaps.upcoming)
+    found: list[EpisodeStatus] = []
+    for episode in show.episodes:
+        file = covering.get((episode.season, episode.number))
+        if file is None:
+            state: State = "upcoming" if episode in upcoming else "missing"
+            found.append(EpisodeStatus(episode, state, None, None, None, None))
+        elif file["problem"] or not file["probe"]:
+            found.append(EpisodeStatus(episode, "broken", file["id"], file["problem"], None, None))
+        else:
+            media = media_from_ffprobe(json.loads(file["probe"]))
+            decision = decide(media, standard)
+            state = "ready" if decision.method is Method.RENAME else "to convert"
+            found.append(EpisodeStatus(episode, state, file["id"], None, media, decision))
+    return found
 
 
 def held(conn: sqlite3.Connection, title_id: int) -> list[tuple[int, int, int | None]]:

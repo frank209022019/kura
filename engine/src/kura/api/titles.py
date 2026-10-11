@@ -2,7 +2,8 @@
 title in full with its seasons, the episodes it's missing, and its videos."""
 
 from datetime import date, datetime
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import FileResponse
@@ -10,7 +11,10 @@ from fastapi.responses import FileResponse
 from kura import artwork, titles
 from kura.api.common import ApiModel, Database, Paths, Web
 from kura.core.catalog import Episode, TitleKind
-from kura.titles import Order, Title
+from kura.core.report import GAP_ANALYSIS_FILE
+from kura.preferences import library_standard
+from kura.reports import own_folder
+from kura.titles import Order, State, Title
 
 router = APIRouter()
 
@@ -58,11 +62,25 @@ class TitleFile(ApiModel):
     duration: float | None
 
 
+class EpisodeState(ApiModel):
+    """One episode and how it stands, for the episode map: status by shape."""
+
+    season: int  # 0 for the specials
+    number: int
+    name: str | None
+    aired: str | None
+    state: State
+    file_id: int | None
+
+
 class TitleDetail(TitleSummary):
+    source: Literal["tmdb", "anilist"]  # where its episode list comes from
+    folder: str | None  # its own folder, when its videos have one
     seasons: list[SeasonCount]
     missing_episodes: list[EpisodeRef]
     missing_specials: list[EpisodeRef]
     upcoming_episodes: list[EpisodeRef]
+    episodes: list[EpisodeState]  # every episode with its state, specials included
     videos: list[TitleFile]
 
 
@@ -87,8 +105,29 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
            ORDER BY season, episode, path""",
         (title_id,),
     )
+    show = titles.show_of(conn, title_id)
+    statuses = (
+        titles.episode_statuses(conn, title_id, show, library_standard(conn), _today())
+        if show
+        else []
+    )
+    roots = [Path(row["path"]) for row in conn.execute("SELECT path FROM folders")]
+    own = own_folder(conn, title_id, roots)
     return TitleDetail(
         **_summary(found).model_dump(by_alias=False),
+        source="tmdb" if found.tmdb else "anilist",
+        folder=str(own) if own else None,
+        episodes=[
+            EpisodeState(
+                season=s.episode.season,
+                number=s.episode.number,
+                name=s.episode.title,
+                aired=s.episode.aired.isoformat() if s.episode.aired else None,
+                state=s.state,
+                file_id=s.file_id,
+            )
+            for s in statuses
+        ],
         seasons=[
             SeasonCount(season=s.season, present=s.present, aired=s.aired, total=s.total)
             for s in (gaps.seasons if gaps else ())
@@ -98,6 +137,30 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
         upcoming_episodes=[_episode(e) for e in (gaps.upcoming if gaps else ())],
         videos=[TitleFile.model_validate(dict(row)) for row in videos],
     )
+
+
+class Report(ApiModel):
+    path: str
+    text: str
+
+
+@router.get("/titles/{title_id}/report")
+def title_report(title_id: int, conn: Database) -> Report:
+    """The gap analysis Kura wrote next to the title, as it is on disk."""
+    roots = [Path(row["path"]) for row in conn.execute("SELECT path FROM folders")]
+    folder = own_folder(conn, title_id, roots)
+    report = folder / GAP_ANALYSIS_FILE if folder else None
+    try:
+        text = report.read_text(encoding="utf-8") if report else None
+    except OSError:
+        text = None
+    if report is None or text is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "There's no gap analysis for this title yet: it gets one once its videos have a "
+            "folder of their own.",
+        )
+    return Report(path=str(report), text=text)
 
 
 @router.get(

@@ -8,6 +8,7 @@ import { pickFolder } from "@/lib/dialogs";
 import {
   type Library,
   type Scan,
+  type TitleSort,
   useAddFolder,
   useEngine,
   useFolders,
@@ -16,10 +17,13 @@ import {
   useScan,
   useScanAction,
   useSettings,
+  useTitles,
   useTmdb,
 } from "@/lib/engine";
 import { openDownloadsPage } from "@/lib/links";
 import { useReadyUpdate } from "@/lib/updates";
+import { Attention } from "./attention";
+import { TitlesGrid } from "./titles-grid";
 
 export function HomePage() {
   const engine = useEngine();
@@ -27,17 +31,25 @@ export function HomePage() {
   const folders = useFolders();
   const library = useLibrary();
   const scan = useScan();
+  const titles = useTitles();
   const navigate = useNavigate();
+  const [sort, setSort] = useState<TitleSort>("released");
 
   const empty = folders.data?.length === 0;
   if (empty && settings.data && !settings.data.setUp) return <Navigate to="/setup" replace />;
+  const working = engine.state !== "failed";
+  const missing = (titles.data ?? []).filter((title) => title.missing > 0);
 
   return (
     <>
       <header className="flex animate-fade-up flex-col gap-1.5">
         <h1 className="type-title">Library</h1>
         <p className="text-14 text-fg-muted">
-          {empty ? "No folders yet." : library.data ? summary(library.data) : "…"}
+          {empty
+            ? "No folders yet."
+            : library.data
+              ? summary(library.data, titles.data?.length)
+              : "…"}
         </p>
       </header>
 
@@ -55,7 +67,22 @@ export function HomePage() {
           Add a folder with anime in it. Any layout, even everything in one folder.
         </EmptyState>
       )}
-      {engine.state !== "failed" && library.data && scan.data && !empty && (
+      {working && scan.data && library.data && !empty && (
+        <Attention
+          waiting={scan.data.waiting}
+          missing={missing.reduce((total, title) => total + title.missing, 0)}
+          missingIn={missing.length}
+          broken={library.data.problems}
+          mixed={scan.data.mixed}
+          onMatch={() => void navigate("/match")}
+          onMissing={() => {
+            setSort("missing");
+            document.getElementById("titles")?.scrollIntoView({ behavior: "smooth" });
+          }}
+        />
+      )}
+      {working && !empty && <TitlesGrid sort={sort} onSort={setSort} />}
+      {working && library.data && scan.data && !empty && (
         <Overview library={library.data} scan={scan.data} />
       )}
 
@@ -158,15 +185,13 @@ function Overview({ library, scan }: { library: Library; scan: Scan }) {
           {(add.error ?? action.error)?.message}
         </p>
       )}
-      <p className="text-12 text-fg-faint">
-        Titles, episodes and gaps come next: Kura identifies each file after reading it.
-      </p>
     </section>
   );
 }
 
-function summary(library: Library): string {
-  const videos = `${library.files.toLocaleString("en-GB")} ${library.files === 1 ? "video" : "videos"}`;
+function summary(library: Library, titles: number | undefined): string {
+  const anime = titles ? `${titles.toLocaleString("en-GB")} anime · ` : "";
+  const videos = `${anime}${library.files.toLocaleString("en-GB")} ${library.files === 1 ? "video" : "videos"}`;
   const size =
     library.size >= 1e12
       ? `${(library.size / 1e12).toFixed(1)} TB`

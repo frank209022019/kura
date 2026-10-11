@@ -9,6 +9,14 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Home lists every anime and film as poster cards, oldest release first, or by name, newest
+  added or most missing. Each says whether it's a TV series, movie, OVA or special, and how much
+  of it is there.
+- Home's "Needs your attention": files that need a match, episodes missing, files that won't play
+  and folders holding mixed anime, each leading to what to do.
+- A page for each anime: how much of it is there, its seasons and episode map with every
+  episode's state by shape, the missing and broken episodes, its specials and OVAs apart, its
+  videos, and the gap analysis written next to it.
 - Scans identify every video: which anime, movie, OVA or special it is and, with a TMDB key,
   which season and episode, numbered as Plex shows them. Files Kura isn't sure about wait for you
   instead of being guessed. Offline, the scan still finishes and identifies them next time.
