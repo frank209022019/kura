@@ -295,16 +295,19 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
     connected: dict[str, bool] = {}
     videos: list[_Video] = []
     skipped: list[tuple[Path, str]] = []
+    converting: set[tuple[object, ...]] = set()  # what the videos being converted are
     for row in rows:
         if row["root"] not in connected:
             connected[row["root"]] = Path(row["root"]).is_dir()
         if not connected[row["root"]]:
             skipped.append((Path(row["path"]), "Its library folder isn't connected"))
             continue
+        identity = _identity(row, names, parted)
         if row["converting"]:
             skipped.append((Path(row["path"]), "It's being converted"))
+            if identity is not None:
+                converting.add(copy_key(identity))
             continue
-        identity = _identity(row, names, parted)
         if identity is None:
             skipped.append((Path(row["path"]), "Kura doesn't know which episode it is"))
             continue
@@ -320,7 +323,15 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
             root=PureWindowsPath(row["root"]),
         )
         videos.append(_Video(row["id"], row["title_id"], row["name"], placed))
-    return videos, skipped
+    # Copies of a video being converted wait for it: its result may take the name they'd be
+    # filed under, and once it's in place the next tidy-up chooses between them.
+    held = {video.id for video in videos if copy_key(video.placed.identity) in converting}
+    skipped += [
+        (Path(video.placed.copy.path), "A copy of it is being converted")
+        for video in videos
+        if video.id in held
+    ]
+    return [video for video in videos if video.id not in held], skipped
 
 
 def _identity(

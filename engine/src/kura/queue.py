@@ -4,13 +4,15 @@ that converts them one at a time on a background thread (kura/convert.py convert
 Jobs live in the jobs table (migration 6): queued, running, replacing (the result taking its
 original's place), then done, failed, skipped or restored. The worker takes the first queued job
 while the queue isn't paused, and on the nights-only schedule only between 23:00 and 07:00 (a
-file started before 07:00 finishes). Pausing or skipping stops the file at once (ffmpeg is
-stopped, and the original is as it was); paused, the file is first in line again and starts over
-when the queue resumes. An exit does the same. A file whose drive isn't connected waits while
-the others go; a drive without room for a result pauses the queue, saying so. While a result
-takes its original's place no scan runs (Scanner.hold): the worker waits for one that's running.
-While a file converts, Windows doesn't put the PC to sleep. After a crash, `recover` puts a job
-that was converting back in line and settles one whose result was taking its original's place.
+file started before 07:00 finishes). Pausing or skipping stops a file being made at once (ffmpeg
+is stopped, and the original is as it was); paused, the file is first in line again and starts
+over when the queue resumes. An exit does the same. A file made already is checked and put in
+place though the queue pauses, and thrown away when it's skipped. A file whose drive isn't
+connected waits while the others go; a drive without room for a result pauses the queue, saying
+so. While a result takes its original's place no scan runs (Scanner.hold): the worker waits for
+one that's running. While a file converts, Windows doesn't put the PC to sleep. After a crash,
+`recover` puts a job that was converting back in line and settles one whose result was taking
+its original's place.
 """
 
 import ctypes
@@ -171,7 +173,11 @@ class Queue:
                    WHERE j.state = 'running'"""
             ).fetchall():
                 path = Path(row["path"])
-                path.with_name(path.stem + WORKING).unlink(missing_ok=True)
+                unfinished = path.with_name(path.stem + WORKING)
+                try:
+                    unfinished.unlink(missing_ok=True)
+                except OSError:  # still open: converting the file again takes it away
+                    log.warning("Couldn't remove %s", unfinished)
             with conn:
                 conn.execute(
                     "UPDATE jobs SET state = 'queued', started_at = NULL WHERE state = 'running'"
@@ -398,6 +404,7 @@ class Queue:
                     now=self._now,
                     report=self._heard,
                     stop=self._stop_asked,
+                    discard=self._discard_asked,
                     hold=self._hold,
                 )
         except Stopped:
@@ -478,6 +485,12 @@ class Queue:
         with self._lock:
             return self._stop_for is not None or self._stopping.is_set()
 
+    def _discard_asked(self) -> bool:
+        """Whether a result made already is thrown away: skipped, or Kura is closing. Paused,
+        it's put in place."""
+        with self._lock:
+            return self._stop_for == "skip" or self._stopping.is_set()
+
     @contextmanager
     def _hold(self) -> Generator[None]:
         """Holds scans off while a result takes its original's place, waiting while one runs
@@ -488,7 +501,7 @@ class Queue:
                     held.enter_context(self._scanner.hold())
                     break
                 except ScanBusyError:
-                    if self._stop_asked():
+                    if self._discard_asked():
                         raise Stopped from None
                     self._stopping.wait(_HOLD_RETRY)
             yield

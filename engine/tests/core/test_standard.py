@@ -5,7 +5,7 @@ from fractions import Fraction
 import pytest
 
 from kura.core.media import Audio, MediaInfo, Video
-from kura.core.standard import CINEMA_1080, COMPACT_720, Method, Standard, decide
+from kura.core.standard import CINEMA_1080, COMPACT_720, Method, Standard, decide, deinterlaced
 
 AAC = Audio("aac", 2, "jpn", lossless=False)
 FLAC = Audio("flac", 2, "jpn", lossless=True)
@@ -90,6 +90,28 @@ class TestCinema1080:
 
         assert decision.method == Method.REENCODE
         assert (decision.width, decision.height) == (1920, 1080)
+
+    def test_an_interlaced_picture_at_the_standard_is_made_anew_not_copied(self):
+        decision = decide(
+            media(1920, 1080, codec="hevc", bit_depth=10, container="mp4", interlaced=True),
+            CINEMA_1080,
+        )
+
+        assert (decision.method, decision.deinterlace) == (Method.REENCODE, True)
+        assert decision.reasons == ("Interlaced: deinterlaced first", "MP4 becomes MKV")
+
+
+def test_a_picture_found_interlaced_later_is_deinterlaced_and_made_anew():
+    remux = decide(
+        media(1920, 1080, codec="hevc", bit_depth=10, container="mp4", interlaced=None),
+        CINEMA_1080,
+    )
+    sd = decide(media(720, 480, aspect=FOUR_THREE, interlaced=None), CINEMA_1080)
+
+    assert remux.method == Method.REMUX
+    assert (deinterlaced(remux).method, deinterlaced(remux).deinterlace) == (Method.REENCODE, True)
+    assert deinterlaced(remux).reasons == ("Interlaced: deinterlaced first", "MP4 becomes MKV")
+    assert (deinterlaced(sd).method, deinterlaced(sd).deinterlace) == (Method.BEST, True)
 
 
 class TestChoices:

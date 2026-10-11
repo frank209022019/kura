@@ -164,17 +164,16 @@ describe("ConvertPage", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       files: [1, 2, 3],
       method: "reencode",
-      start: true,
+      when: "now",
     });
   });
 
-  it("can queue for the night instead", async () => {
+  it("can queue for the night instead, in one step", async () => {
     const fetch = fakeEngine({
       "/convert": OPTIONS,
       "/franchises": FRANCHISES,
       "/queue": QUEUE,
       "POST /queue": { added: 2 },
-      "PUT /queue/schedule": { ...QUEUE, schedule: "nights" },
     });
     renderConvert();
 
@@ -182,9 +181,28 @@ describe("ConvertPage", () => {
     (await screen.findByRole("radio", { name: /Nights only/ })).click();
     (await screen.findByRole("button", { name: "Add 2 episodes to the queue" })).click();
 
-    await waitFor(() => expect(sent(fetch, "PUT", "/queue/schedule")).toHaveLength(1));
+    expect(await screen.findByText("The queue")).toBeInTheDocument();
     const [[, init]] = sent(fetch, "POST", "/queue") as [[unknown, RequestInit]];
-    expect(JSON.parse(String(init.body))).toMatchObject({ start: false });
+    expect(JSON.parse(String(init.body))).toMatchObject({ when: "nights" });
+    expect(sent(fetch, "PUT", "/queue/schedule")).toHaveLength(0);
+  });
+
+  it("warns of a drive without room, though another has plenty", async () => {
+    fakeEngine({
+      "/convert": {
+        ...OPTIONS,
+        files: [convertible(1), convertible(2, { drive: "F:" })],
+        free: { "D:": 931_000_000_000, "F:": 200_000_000 },
+      },
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+    });
+    renderConvert();
+
+    (await screen.findByRole("checkbox", { name: /Dragon Ball Z\s*2 left/ })).click();
+
+    expect(await screen.findByText("Space on F:")).toBeInTheDocument();
+    expect(screen.getByText("free: not enough, this needs 563 MB")).toBeInTheDocument();
   });
 
   it("shows a frame before and after, at three points of the file", async () => {

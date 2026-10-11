@@ -38,8 +38,10 @@ engine, where it is easy to test.
    `{"event": "ready", "port": 51234}`.
 3. The shell sends the UI an `engine-status` event with the address and token.
 4. The UI calls the API with `Authorization: Bearer <token>`.
-5. On exit the shell closes the engine's stdin and the engine shuts down. If Kura crashes, Windows
-   closes the pipe anyway, so the engine never outlives the window.
+5. On exit the shell closes the engine's stdin and the engine shuts down (the shell ends it
+   after 3 seconds if it hasn't). If Kura crashes, Windows closes the pipe anyway, so the engine
+   never outlives the window. The engine puts itself in a Windows job that ends every program it
+   starts (ffmpeg) when it ends, however it ends.
 
 If no ready line arrives within a minute, the engine exits first, or it stops on its own later,
 the status becomes `failed` with the engine's last error lines, and the UI says so with "Try again"
@@ -181,10 +183,12 @@ original's place, journaled like a tidy-up, the original going to quarantine; no
 meanwhile. The queue (`kura/queue.py`) holds the files waiting, in the owner's order, and its
 worker converts them one at a time while Kura is open; on the nights-only schedule it starts
 files only between 23:00 and 07:00. Pausing or skipping stops ffmpeg at once and leaves the
-original as it was (a paused file starts over), and Windows doesn't sleep while a file converts.
+original as it was (a paused file starts over); a result made already is still checked and put in
+place when the queue pauses, and thrown away when it's skipped. A file whose result would take a
+name that's taken fails before anything is made, and Windows doesn't sleep while a file converts.
 After a crash, a file that was converting waits in line again, and one whose result was taking
-its original's place is finished, or its original put back. A file being converted stays out of
-tidy-ups. History lists each conversion with what it made, and puts the original back on asking.
+its original's place is finished, or its original put back. A file being converted, and any
+copy of it, stays out of tidy-ups. History lists each conversion with what it made, and puts the original back on asking.
 Before queueing, the Convert screen shows one frame of a file before and after
 (`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the cache.
 

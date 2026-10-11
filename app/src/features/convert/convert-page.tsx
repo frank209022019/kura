@@ -23,7 +23,6 @@ import {
   useConvertOptions,
   useFranchises,
   useQueue,
-  useQueueSchedule,
   useSystem,
   type Way,
 } from "@/lib/engine";
@@ -62,7 +61,6 @@ export function ConvertPage() {
   const franchises = useFranchises();
   const queue = useQueue();
   const add = useAddToQueue();
-  const schedule = useQueueSchedule();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [way, setWay] = useState<Way>("best");
   const [when, setWhen] = useState<When | null>(null);
@@ -116,18 +114,8 @@ export function ConvertPage() {
   }
 
   function queueChosen() {
-    const body = { files: chosen.map((file) => file.fileId), method: way, start: timing === "now" };
-    add.mutate(
-      { path: "/queue", body },
-      {
-        onSuccess: () => {
-          if (timing === "nights") {
-            schedule.mutate({ path: "/queue/schedule", body: { schedule: "nights" } });
-          }
-          void navigate("/convert/queue");
-        },
-      },
-    );
+    const body = { files: chosen.map((file) => file.fileId), method: way, when: timing };
+    add.mutate({ path: "/queue", body }, { onSuccess: () => void navigate("/convert/queue") });
   }
 
   return (
@@ -427,15 +415,15 @@ function perFile(files: Convertible[], way: Way): number | null {
   return timed.reduce((sum, file) => sum + (file.ways[way]?.gpuSeconds ?? 0), 0) / timed.length;
 }
 
+/** Free space wanted on a drive, over the results' size there (the engine wants the same). */
+const ROOM = 1.25;
+
 function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string, number> }) {
   const system = useSystem();
   const sum = totals(props.chosen, props.way);
-  const [drive, needed] = Object.entries(sum.byDrive).sort((a, b) => b[1] - a[1])[0] ?? [
-    Object.keys(props.free)[0] ?? "",
-    0,
-  ];
+  const [drive, needed] = spaceToShow(sum.byDrive, props.free);
   const free = props.free[drive] ?? null;
-  const enough = free === null || free >= needed * 1.25;
+  const enough = free === null || free >= needed * ROOM;
   const card = system.data?.graphicsCard ?? "";
   return (
     <Step
@@ -471,13 +459,29 @@ function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string,
               ? "the drive isn't connected"
               : enough
                 ? "free, plenty for this"
-                : `free: not enough, this needs ${size(needed * 1.25)}`
+                : `free: not enough, this needs ${size(needed * ROOM)}`
           }
           warn={!enough}
         />
         <Tile label="Originals" value="Kept 30 days" note="in quarantine, after each check" />
       </div>
     </Step>
+  );
+}
+
+/**
+ * The drive the space tile speaks for, and what its results take: one without room for them,
+ * else one that isn't connected, else the one taking the most.
+ */
+function spaceToShow(
+  byDrive: Record<string, number>,
+  free: Record<string, number>,
+): [string, number] {
+  const drives = Object.entries(byDrive).sort((a, b) => b[1] - a[1]);
+  return (
+    drives.find(([drive, needed]) => (free[drive] ?? Infinity) < needed * ROOM) ??
+    drives.find(([drive]) => free[drive] === undefined) ??
+    drives[0] ?? [Object.keys(free)[0] ?? "", 0]
   );
 }
 

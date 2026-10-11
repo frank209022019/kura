@@ -1376,7 +1376,7 @@
       },
       "post": {
         "summary": "Add To Queue",
-        "description": "Puts files at the end of the queue; with `start`, the queue converts now.",
+        "description": "Puts files at the end of the queue, to convert now, at night, or after what waits.",
         "operationId": "add_to_queue_queue_post",
         "requestBody": {
           "content": {
@@ -1795,10 +1795,15 @@
               }
             ]
           },
-          "start": {
-            "type": "boolean",
-            "title": "Start",
-            "default": false
+          "when": {
+            "type": "string",
+            "enum": [
+              "now",
+              "nights",
+              "after"
+            ],
+            "title": "When",
+            "default": "after"
           }
         },
         "type": "object",

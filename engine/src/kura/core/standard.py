@@ -4,7 +4,7 @@ Every file is brought to the standard, even a 720p file going to 720p. A file th
 exactly at the standard (the right picture, MKV, no lossless sound) is only renamed.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from fractions import Fraction
 
@@ -68,11 +68,23 @@ def decide(media: MediaInfo, standard: Standard) -> Decision:
     elif not _picture_matches(video, standard):
         method, reason = Method.REENCODE, f"{_codec_name(video)} becomes {_target_name(standard)}"
     elif extras:
-        return Decision(Method.REMUX, width, height, deinterlace, extras)
+        # A deinterlaced picture is a new one: a remux would copy the old one as it is.
+        method = Method.REENCODE if deinterlace else Method.REMUX
+        return Decision(method, width, height, deinterlace, extras)
     else:
         already = f"Already {standard.height}p {_target_name(standard)} in MKV: only renamed"
         return Decision(Method.RENAME, width, height, reasons=(already,))
     return Decision(method, width, height, deinterlace, (reason, *extras))
+
+
+def deinterlaced(decision: Decision) -> Decision:
+    """A decision for a picture found to be interlaced once converting began (ffprobe couldn't
+    tell, idet could): deinterlaced first, and so made anew where it was only to be remuxed."""
+    if decision.deinterlace:
+        return decision
+    method = Method.REENCODE if decision.method is Method.REMUX else decision.method
+    reasons = ("Interlaced: deinterlaced first", *decision.reasons)
+    return replace(decision, method=method, deinterlace=True, reasons=reasons)
 
 
 def _upscale(video: Video, standard: Standard) -> tuple[Method, str]:

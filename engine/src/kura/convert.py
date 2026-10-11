@@ -49,7 +49,7 @@ from kura.core.fields import Json
 from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
-from kura.core.standard import Decision, Method, Standard, decide
+from kura.core.standard import Decision, Method, Standard, decide, deinterlaced
 from kura.probe import ProbeError, ProbeToolError
 from kura.upscale import UpscaleError, Upscaler, pipe, upscaled_size
 
@@ -136,11 +136,13 @@ def convert(
     now: Callable[[], datetime],
     report: Callable[[Progress], None],
     stop: Callable[[], bool],
+    discard: Callable[[], bool],
     hold: Callable[[], AbstractContextManager[None]] = nullcontext,
 ) -> None:
     """Converts a job's file and puts the result in its place, `hold` holding scans off while
-    it moves. Raises ConvertError when it can't (the original stays as it was), or Stopped when
-    `stop` asked."""
+    it moves. `stop` stops it while the file is being made; once it's made, it's checked and put
+    in place unless `discard` says to throw it away (the owner skipped it, say). Raises
+    ConvertError when it can't (the original stays as it was), or Stopped when asked."""
     row = _job(conn, job_id)
     source = Path(row["path"])
     _still_as_read(source, row["size"], row["modified"])
@@ -151,14 +153,15 @@ def convert(
     decision = replace(decision, method=lighter(decision.method, Method(row["method"])))
     total = _frames(media)
     report(Progress("looking", 0, total))
+    if media.video.interlaced is None and _looks_interlaced(programs, source, media):
+        decision = deinterlaced(decision)
     made = recipe(
         source, media, decision, tag=f"{decision.method} to {standard.height}p · Kura {__version__}"
     )
-    if media.video.interlaced is None:
-        made = replace(made, deinterlace=_looks_interlaced(programs, source, media))
+    _name_free(source, Path(made.output))
     _enough_space(source, media, decision, standard)
     work = source.with_name(source.stem + WORKING)
-    work.unlink(missing_ok=True)
+    _clear(work)
     try:
         if made.method is Method.BEST:
             _with_model(programs, source, work, made, media.video, total, report, stop)
@@ -182,6 +185,8 @@ def convert(
     with ExitStack() as held:
         try:
             held.enter_context(hold())
+            if discard():
+                raise Stopped
         except BaseException:
             work.unlink(missing_ok=True)  # never put in place: nothing to keep
             raise
@@ -339,6 +344,27 @@ def _looks_interlaced(programs: Programs, source: Path, media: MediaInfo) -> boo
     return interlaced(done.stderr.decode("utf-8", "replace"))
 
 
+def _name_free(source: Path, output: Path) -> None:
+    """The result takes the original's name as an MKV: a file there already (an MKV beside an
+    MP4 of the same name) would only be found once it's made, so it's looked for first."""
+    if str(output).casefold() != str(source).casefold() and output.exists():
+        raise ConvertError(
+            f"{output.name} is beside it already, and the converted file would take that name. "
+            "Tidy up first, or move one of them."
+        )
+
+
+def _clear(work: Path) -> None:
+    """Takes away what an earlier try left of the result (a crash, say)."""
+    try:
+        work.unlink(missing_ok=True)
+    except OSError:
+        raise ConvertError(
+            "Its unfinished copy from an earlier try is still in use, so it can't start over yet."
+            " Try again in a minute."
+        ) from None
+
+
 def _enough_space(source: Path, media: MediaInfo, decision: Decision, standard: Standard) -> None:
     needed = estimate(media, decision, standard).output_bytes * _SPACE_MARGIN
     free = shutil.disk_usage(source.parent).free
@@ -422,8 +448,6 @@ def _in_one_command(
             report(Progress("converting", frames, total))
     if process.wait() != 0:
         raise ConvertError(f"ffmpeg couldn't convert it: {said.last() or 'it stopped'}.")
-    if stop():
-        raise Stopped
 
 
 def _play(programs: Programs, work: Path, duration: float) -> list[str]:
@@ -472,9 +496,7 @@ def _replace(
     """The original to quarantine and the result into its place, journaled; then the library's
     record of the file describes the result, keeping what it was identified as."""
     label = label_of(row)
-    place = Path(quarantine_place(source, now.date()))
-    if place.exists():
-        place = Path(unique_path(place, {str(place)}))
+    place = _free_place(source, now)
     plan = Plan(
         (
             Change(
@@ -508,6 +530,17 @@ def _replace(
             )
         raise ConvertError(f"Kura couldn't put it in place, so the original is back: {problem}")
     finish(conn, row["id"], result, now)
+
+
+def _free_place(source: Path, now: datetime) -> Path:
+    """Where the original is set aside: today's quarantine folder on its drive, under its name,
+    or with (2), (3)… when copies set aside earlier today have those names."""
+    place = Path(quarantine_place(source, now.date()))
+    try:
+        taken = {str(path) for path in place.parent.iterdir()}
+    except OSError:  # not there yet: the first today
+        taken = set[str]()
+    return Path(unique_path(place, taken))
 
 
 def finish(conn: sqlite3.Connection, job_id: int, result: Json, now: datetime) -> None:

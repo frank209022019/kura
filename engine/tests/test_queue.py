@@ -4,7 +4,8 @@ reordered, tried again, put back, and settled after a crash."""
 import json
 import sqlite3
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ from kura import changes
 from kura.changes import changes_of
 from kura.config import DataPaths
 from kura.convert import WORKING, ConvertError, Programs
+from kura.core.fields import Json
 from kura.core.standard import Method
 from kura.queue import Queue
 from kura.scan import ScanBusyError, Scanner
@@ -188,6 +190,73 @@ def test_skipping_the_file_converting_goes_on_to_the_next(
     assert states(conn) == [(1, "skipped"), (2, "queued")]
 
 
+def owner_asks_while_checking(paths: DataPaths, ask: Callable[[Queue, int], None]) -> Queue:
+    """A queue whose owner does `ask` (given the job's id) while a result is being checked."""
+    queue: Queue | None = None
+
+    def read(path: Path) -> Json:
+        assert queue is not None
+        running = queue.status().running
+        assert running is not None
+        assert running.stage == "checking"
+        ask(queue, running.job.id)
+        return RESULT
+
+    queue = make_queue(paths, replace(programs(RESULT), read=read))
+    return queue
+
+
+def test_a_file_skipped_while_its_result_is_checked_isnt_put_in_place(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    episode = shows / "Trigun (1998) - S01E01.mkv"
+    original = episode.read_bytes()
+    queue = owner_asks_while_checking(paths, Queue.skip)
+    queue.add([1, 2])
+
+    queue.work_once()
+
+    assert states(conn) == [(1, "skipped"), (2, "queued")]
+    assert episode.read_bytes() == original
+    assert not list(shows.glob(f"*{WORKING}"))
+
+
+def test_a_file_paused_while_its_result_is_checked_still_goes_in(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    queue = owner_asks_while_checking(paths, lambda queue, _job: queue.pause())
+    queue.add([1, 2])
+
+    queue.work_once()
+
+    assert states(conn) == [(1, "done"), (2, "queued")]  # it was made: only the next waits
+    assert queue.status().paused is True
+    assert queue.work_once() is False
+
+
+def test_a_file_paused_while_it_waits_for_a_scan_goes_in_once_the_scan_is_done(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr("kura.queue._HOLD_RETRY", 0.05)
+    scanner = Scanner(paths, Tools(paths, items=()))
+    queue = make_queue(paths, programs(RESULT), scanner)
+    queue.add([1])
+    with scanner.hold():  # a scan running as the result is ready to go in
+        worker = threading.Thread(target=queue.work_once)
+        worker.start()
+        for _ in range(200):
+            running = queue.status().running
+            if running is not None and running.stage == "replacing":
+                break
+            threading.Event().wait(0.05)
+        queue.pause()
+        worker.join(timeout=0.3)
+        assert worker.is_alive()  # waiting for the scan, paused or not
+    worker.join(timeout=20)
+
+    assert states(conn) == [(1, "done")]
+
+
 def test_files_waiting_can_be_skipped_moved_and_removed(queue: Queue, conn: sqlite3.Connection):
     queue.add([1, 2, 3])
     first, second, third = (job.id for job in queue.status().queued)
@@ -252,6 +321,24 @@ def test_after_a_crash_a_file_converting_waits_again_and_its_result_goes(
 
     assert states(conn) == [(1, "queued")]
     assert not unfinished.exists()
+
+
+def test_at_start_a_copy_still_open_doesnt_keep_kura_from_starting(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+    with conn:
+        conn.execute("UPDATE jobs SET state = 'running'")
+
+    def open_still(path: Path, missing_ok: bool = False) -> None:  # an ffmpeg a crash left
+        raise PermissionError(13, "The process cannot access the file", str(path))
+
+    monkeypatch.setattr(Path, "unlink", open_still)
+
+    queue.recover()
+
+    assert states(conn) == [(1, "queued")]
 
 
 def test_after_a_crash_a_result_half_in_place_is_finished(

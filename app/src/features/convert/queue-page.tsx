@@ -90,11 +90,7 @@ export function QueuePage() {
     <>
       {header}
       <EngineProblem queries={[queue]} />
-      {action.isError && (
-        <p role="alert" className="text-13 text-broken-fg">
-          {action.error.message}
-        </p>
-      )}
+      <Problem error={action.error} />
       {status.problem && (
         <p
           role="alert"
@@ -141,15 +137,18 @@ function StatusLine({ status }: { status: QueueStatus }) {
   const waiting = status.queued.length;
   const left = status.gpuSeconds > 0 ? `about ${gpuTime(status.gpuSeconds)} of GPU time` : null;
   const queued = `${waiting} in the queue`;
+  const missing = drivesMissing(status.queued);
   const [dot, words] = status.paused
     ? ["bg-fg-faint", ["Paused", queued]]
     : status.running
       ? ["animate-pulse bg-accent", ["Running", queued, left]]
       : status.waitsForNight && waiting > 0
         ? ["bg-convert", ["Waiting for the night", queued, "starts at 23:00"]]
-        : waiting > 0
-          ? ["animate-pulse bg-accent", ["Starting", queued]]
-          : ["bg-fg-faint", ["Nothing waiting"]];
+        : missing
+          ? ["bg-fg-faint", [`Waiting for ${either(missing) || "a drive"}`, queued]]
+          : waiting > 0
+            ? ["animate-pulse bg-accent", ["Starting", queued]]
+            : ["bg-fg-faint", ["Nothing waiting"]];
   return (
     <span className="inline-flex items-center gap-2 text-14 text-fg-muted">
       <span aria-hidden="true" className={cn("size-2 rounded-full", dot)} />
@@ -261,6 +260,7 @@ function NowConverting(props: { running: RunningJob; gpu: QueueStatus["gpu"]; pa
             Skip this file
           </FeaturedButton>
         </div>
+        <Problem error={action.error} />
       </div>
       <div className="relative grid min-w-60 flex-[0_1_300px] grid-cols-2 gap-2.5">
         {props.gpu && (
@@ -412,14 +412,20 @@ function FeaturedButton(props: React.ComponentProps<"button">) {
   );
 }
 
-/** Files wait, but none converts: paused, waiting for the night, or about to start. */
+/**
+ * Files wait, but none converts: paused, waiting for the night or for a drive, or about to
+ * start.
+ */
 function Waiting({ status }: { status: QueueStatus }) {
   const action = useQueueAction();
+  const missing = drivesMissing(status.queued);
   const words = status.paused
     ? "The queue is paused. A file that was converting starts again from its beginning."
     : status.waitsForNight
       ? "Files convert tonight, from 23:00 to 07:00."
-      : "The next file starts in a moment.";
+      : missing
+        ? unpluggedWords(missing)
+        : "The next file starts in a moment.";
   return (
     <section
       aria-label="Waiting"
@@ -436,8 +442,31 @@ function Waiting({ status }: { status: QueueStatus }) {
           Resume
         </Button>
       )}
+      <Problem error={action.error} className="basis-full" />
     </section>
   );
+}
+
+/** When every file waiting is on a drive that isn't connected: those drives ("D:"), else null. */
+function drivesMissing(jobs: Job[]): string[] | null {
+  if (jobs.length === 0 || jobs.some((job) => !job.driveMissing)) return null;
+  const drives = jobs.map((job) => /^[a-z]:/i.exec(job.path)?.[0].toUpperCase() ?? "");
+  return [...new Set(drives)].filter(Boolean);
+}
+
+/** "D:", "D: or F:", "D:, E: or F:"; empty when there are none. */
+function either(drives: string[]): string {
+  if (drives.length < 2) return drives[0] ?? "";
+  return `${drives.slice(0, -1).join(", ")} or ${drives.at(-1)}`;
+}
+
+function unpluggedWords(drives: string[]): string {
+  if (drives.length === 0) {
+    return "Every file waiting is on a drive that isn't connected. Plug it in to carry on.";
+  }
+  return drives.length === 1
+    ? `Every file waiting is on ${either(drives)}, which isn't connected. Plug it in to carry on.`
+    : `Every file waiting is on ${either(drives)}, which aren't connected. Plug one in to carry on.`;
 }
 
 function UpNext({ jobs }: { jobs: Job[] }) {
@@ -499,57 +528,60 @@ function JobRow({ job, first, top }: { job: Job; first: number | null; top: bool
   const remove = useRemoveFromQueue();
   const [name] = split(job.path);
   return (
-    <li className="flex min-h-13 items-center gap-3 border-white/6 border-b px-1.5 text-13 last:border-b-0">
-      <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
-      <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
-      <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
-      {job.driveMissing ? (
-        <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
-          Its drive isn't connected
+    <li className="flex flex-col border-white/6 border-b px-1.5 text-13 last:border-b-0">
+      <div className="flex min-h-13 items-center gap-3">
+        <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
+        <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
+        <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
+        {job.driveMissing ? (
+          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+            Its drive isn't connected
+          </span>
+        ) : (
+          <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
+            {METHOD_NAMES[job.method]}
+          </span>
+        )}
+        <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
+          ≈ {gpuTimeShort(job.gpuSeconds)}
         </span>
-      ) : (
-        <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
-          {METHOD_NAMES[job.method]}
-        </span>
-      )}
-      <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
-        ≈ {gpuTimeShort(job.gpuSeconds)}
-      </span>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger
-          aria-label={`More for ${job.label}`}
-          className="press inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-fg-muted"
-        >
-          <EllipsisVertical size={16} aria-hidden="true" />
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="end"
-            sideOffset={4}
-            className="z-50 flex min-w-44 flex-col rounded-16 border border-edge bg-dialog p-1.5 text-13 shadow-float"
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            aria-label={`More for ${job.label}`}
+            className="press inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-fg-muted"
           >
-            {!top && first !== null && (
+            <EllipsisVertical size={16} aria-hidden="true" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={4}
+              className="z-50 flex min-w-44 flex-col rounded-16 border border-edge bg-dialog p-1.5 text-13 shadow-float"
+            >
+              {!top && first !== null && (
+                <MenuItem
+                  onSelect={() =>
+                    action.mutate({ path: `/queue/${job.id}/move`, body: { before: first } })
+                  }
+                >
+                  Convert next
+                </MenuItem>
+              )}
               <MenuItem
                 onSelect={() =>
-                  action.mutate({ path: `/queue/${job.id}/move`, body: { before: first } })
+                  action.mutate({ path: `/queue/${job.id}/move`, body: { before: null } })
                 }
               >
-                Convert next
+                Move to the end
               </MenuItem>
-            )}
-            <MenuItem
-              onSelect={() =>
-                action.mutate({ path: `/queue/${job.id}/move`, body: { before: null } })
-              }
-            >
-              Move to the end
-            </MenuItem>
-            <MenuItem onSelect={() => remove.mutate({ path: `/queue/${job.id}` })}>
-              Take out of the queue
-            </MenuItem>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+              <MenuItem onSelect={() => remove.mutate({ path: `/queue/${job.id}` })}>
+                Take out of the queue
+              </MenuItem>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      </div>
+      <Problem error={action.error ?? remove.error} className="pb-3" />
     </li>
   );
 }
@@ -603,6 +635,7 @@ function Schedule({ status }: { status: QueueStatus }) {
           </span>
         </span>
       </div>
+      <Problem error={schedule.error} />
       <p className="text-12 text-fg-muted">
         Kura keeps the PC awake while a file converts; Windows' sleep settings come back when it's
         done.
@@ -669,9 +702,22 @@ function Today({ jobs }: { jobs: Job[] }) {
           >
             Try again
           </Button>
+          <Problem
+            error={action.variables?.path === `/queue/${job.id}/retry` ? action.error : null}
+          />
         </div>
       ))}
     </section>
+  );
+}
+
+/** Why something asked of the queue didn't happen, when it didn't. */
+function Problem({ error, className }: { error: Error | null; className?: string }) {
+  if (!error) return null;
+  return (
+    <p role="alert" className={cn("text-13 text-broken-fg", className)}>
+      {error.message}
+    </p>
   );
 }
 

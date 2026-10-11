@@ -338,6 +338,27 @@ def test_a_video_being_converted_stays_where_it_is_till_its_done(
     }
 
 
+def test_copies_of_a_video_being_converted_wait_for_it_too(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Bebop/Cowboy Bebop - 01.mp4", "Downloads/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet())
+    with conn:  # the MP4 becomes an MKV of the name the other copy would be filed under
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " SELECT id, 'best', 1, 'running', 'now' FROM files WHERE path LIKE '%.mp4'"
+        )
+
+    proposal = propose(conn, day=NOW.date())
+
+    assert [p.change.source.name for p in proposal.changes] == []
+    assert {(path.name, why) for path, why in proposal.skipped} == {
+        ("Cowboy Bebop - 01.mp4", "It's being converted"),
+        ("Cowboy Bebop - 01.mkv", "A copy of it is being converted"),
+    }
+
+
 def test_with_names_kept_a_video_moves_into_its_folder_under_its_own_name(
     downloads: sqlite3.Connection, root: Path
 ):

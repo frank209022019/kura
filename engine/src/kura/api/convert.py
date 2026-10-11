@@ -114,7 +114,9 @@ class QueueStatus(ApiModel):
 class AddRequest(ApiModel):
     files: list[int]
     method: Chosen | None = None  # the owner's choice; else what suits each file
-    start: bool = False  # convert now: the queue resumes if it was paused
+    # When they convert: "now" or "nights" set the schedule and resume the queue if it was
+    # paused; "after" leaves the queue as it is, so they go after what waits.
+    when: Literal["now", "nights", "after"] = "after"
 
 
 class Added(ApiModel):
@@ -246,11 +248,11 @@ def queue_status(queue: Queue, card: Card) -> QueueStatus:
 
 @router.post("/queue")
 def add_to_queue(body: AddRequest, queue: Queue) -> Added:
-    """Puts files at the end of the queue; with `start`, the queue converts now."""
-    added = queue.add(body.files, Method(body.method) if body.method else None)
-    if body.start:
-        queue.plan("now")
+    """Puts files at the end of the queue, to convert now, at night, or after what waits."""
+    if body.when != "after":
+        queue.plan(body.when)  # before they join: the worker never sees the old schedule
         queue.resume()
+    added = queue.add(body.files, Method(body.method) if body.method else None)
     return Added(added=added)
 
 

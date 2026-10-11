@@ -227,6 +227,50 @@ describe("QueuePage", () => {
     );
   });
 
+  it("says so when every file waiting is on a drive that isn't connected", async () => {
+    fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        queued: [job(6, { driveMissing: true }), job(7, { driveMissing: true })],
+      },
+    });
+    renderQueue();
+
+    expect(
+      await screen.findByText(
+        "Every file waiting is on D:, which isn't connected. Plug it in to carry on.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Waiting for D: · 2 in the queue")).toBeInTheDocument();
+    expect(screen.queryByText(/in a moment/)).not.toBeInTheDocument();
+  });
+
+  it("says why skipping, taking out or trying again didn't work", async () => {
+    const refused = (detail: string) => () => Response.json({ detail }, { status: 404 });
+    fakeEngine({
+      "/queue": RUNNING,
+      "POST /queue/5/skip": refused("That file isn't waiting or converting."),
+      "DELETE /queue/7": refused("That file isn't waiting in the queue."),
+      "POST /queue/9/retry": refused("That file didn't fail and wasn't skipped."),
+    });
+    renderQueue();
+
+    (await screen.findByRole("button", { name: "Skip this file" })).click();
+    expect(await screen.findByText("That file isn't waiting or converting.")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "More for Dragon Ball Z · S01E07" }), {
+      key: "Enter",
+    });
+    (await screen.findByRole("menuitem", { name: "Take out of the queue" })).click();
+    expect(await screen.findByText("That file isn't waiting in the queue.")).toBeInTheDocument();
+
+    screen.getByRole("button", { name: "Try again" }).click();
+    expect(
+      await screen.findByText("That file didn't fail and wasn't skipped."),
+    ).toBeInTheDocument();
+  });
+
   it("says why nothing converts without ffmpeg", async () => {
     const problem = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step.";
     fakeEngine({ "/queue": { ...RUNNING, running: null, problem } });

@@ -17,6 +17,7 @@ from kura import __version__
 from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
 from kura.export import export_data
+from kura.system import end_programs_with_engine
 
 app = typer.Typer(help="Kura's engine.", no_args_is_help=True, add_completion=False)
 
@@ -46,6 +47,7 @@ def serve(
         raise typer.Exit(2)
     paths = DataPaths.default()
     _log_to_file(paths)
+    end_programs_with_engine()  # no ffmpeg it starts outlives it, however it ends
 
     sock = socket.socket()
     sock.bind(("127.0.0.1", port))

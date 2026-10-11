@@ -891,7 +891,10 @@ export const useQueue = () =>
   useEngineQuery<QueueStatus>("/queue", (now) => (now?.running ? 2000 : 10_000));
 
 const QUEUED = ["/queue", "/convert", "/history", "/library", "/titles"];
-/** Adds files: `add.mutate({ path: "/queue", body: { files, method, start } })`. */
+/**
+ * Adds files: `add.mutate({ path: "/queue", body: { files, method, when } })`, `when` being
+ * "now", "nights" (both resume a paused queue) or "after" (the queue goes on as it is).
+ */
 export const useAddToQueue = () => useEngineAction<{ added: number }>(QUEUED);
 /**
  * Changes the queue: `/queue/pause`, `/queue/resume`, `/queue/7/skip`, `/queue/7/retry`,

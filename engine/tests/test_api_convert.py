@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
 from typing import cast
 
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from kura.api import create_app
 from kura.config import DataPaths
+from kura.core.standard import Method
 from kura.queue import Queue
 from kura.scan import Scanner
 from tests.conftest import TOKEN
@@ -105,9 +107,31 @@ def test_the_queue_pauses_resumes_and_waits_for_night(client: TestClient, shelf:
 
     assert planned["schedule"] == "nights"
     client.post("/queue/pause")
-    client.post("/queue", json={"files": [1], "start": True})
+    client.post("/queue", json={"files": [2], "when": "after"})
+    assert client.get("/queue").json()["paused"] is True  # after the rest: it goes on as it was
+    client.post("/queue", json={"files": [1], "when": "now"})
     status = client.get("/queue").json()
     assert (status["paused"], status["schedule"]) == (False, "now")  # start now, it said
+
+
+def test_files_added_for_the_night_never_start_by_day(
+    client: TestClient, shelf: Path, monkeypatch: pytest.MonkeyPatch
+):
+    schedules: list[str] = []
+    add = Queue.add
+
+    def noting(queue: Queue, file_ids: Iterable[int], method: Method | None = None) -> int:
+        schedules.append(queue.status().schedule)
+        return add(queue, file_ids, method)
+
+    monkeypatch.setattr(Queue, "add", noting)
+    client.post("/queue/pause")
+
+    client.post("/queue", json={"files": [1], "when": "nights"})
+
+    assert schedules == ["nights"]  # set before they joined: the worker never saw "now"
+    status = client.get("/queue").json()
+    assert (status["paused"], status["schedule"]) == (False, "nights")  # so it runs tonight
 
 
 def test_waiting_files_can_be_moved_skipped_removed_and_tried_again(
