@@ -1,0 +1,74 @@
+"""Settings > Your data: where Kura keeps its data and how big each part is, and the export."""
+
+from datetime import datetime
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, status
+
+from kura import data
+from kura.api.common import ApiModel, Database, Paths
+from kura.export import export_data
+
+router = APIRouter()
+
+
+class Quarantined(ApiModel):
+    folder: str  # D:\Kura quarantine
+    bytes: int
+    files: int
+
+
+class DataSizes(ApiModel):
+    folder: str  # the data folder
+    database: int
+    artwork: int
+    cache: int  # answers from TMDB and AniList, stills and comparison frames
+    logs: int
+    backups: int
+    tools: int
+    quarantine: list[Quarantined]  # on each drive the library is on
+
+
+class ExportRequest(ApiModel):
+    folder: str  # where the zip goes
+
+
+class Exported(ApiModel):
+    path: str
+    size: int
+
+
+@router.get("/data")
+def your_data(conn: Database, paths: Paths) -> DataSizes:
+    """How big each part of Kura's data is, and the quarantine on each drive."""
+    folders = [Path(row["path"]) for row in conn.execute("SELECT path FROM folders")]
+    found = data.sizes(paths, folders)
+    return DataSizes(
+        folder=str(found.folder),
+        database=found.database,
+        artwork=found.artwork,
+        cache=found.cache,
+        logs=found.logs,
+        backups=found.backups,
+        tools=found.tools,
+        quarantine=[
+            Quarantined(folder=str(q.folder), bytes=q.bytes, files=q.files)
+            for q in found.quarantine
+        ],
+    )
+
+
+@router.post("/export")
+def export(body: ExportRequest, paths: Paths) -> Exported:
+    """Writes the export zip (the database, settings, file changes and a manifest) into a
+    folder, never over another file."""
+    try:
+        written = export_data(paths, Path(body.folder), now=datetime.now().astimezone())
+    except OSError as error:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Kura couldn't write the export there: {error.strerror or error}.",
+        ) from None
+    if written is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no data to export yet.")
+    return Exported(path=str(written), size=written.stat().st_size)

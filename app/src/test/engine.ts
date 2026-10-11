@@ -22,6 +22,8 @@ export const SETTINGS: Settings = {
   upscaleSd: true,
   upscale720: true,
   setUp: true,
+  reports: true,
+  quarantineDays: 30,
 };
 
 export const NO_LIBRARY: Library = {

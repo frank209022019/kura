@@ -45,6 +45,7 @@ from kura.core.plan import (
     sidecars_of,
 )
 from kura.core.report import GAP_ANALYSIS_FILE
+from kura.preferences import names_kept
 from kura.reports import write_reports
 
 type Category = Literal["rename", "mixed", "duplicate"]
@@ -137,6 +138,7 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
         day=day,
         taken=taken + _set_aside(videos, day),
         keep=[PureWindowsPath(path) for path in keep],
+        keep_names=names_kept(conn),
     )
     of: dict[str, _Video] = {}
     for video in videos:

@@ -90,6 +90,7 @@ kura/
   credentials.py  the TMDB key, encrypted for the Windows user, outside the database
   system.py       the graphics card
   export.py       the export zip
+  data.py         how big each part of the data folder and each drive's quarantine is
 ```
 
 The core is the heart and stays pure: it takes plain values (file facts, titles, settings) and
@@ -196,10 +197,14 @@ Before queueing, the Convert screen shows one frame of a file before and after
   Development uses `engine/.dev-data`, so it never touches the real folder.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
   A database written by a newer Kura is refused, not damaged.
-- **With the anime**: `Kura - Gap analysis.md` and `Kura - History.md` per anime, a tag inside each
+- **With the anime**: `Kura - Gap analysis.md` per anime (the owner can turn these off in
+  Settings, which takes them out of the folders), later `Kura - History.md`, a tag inside each
   converted MKV, optional Plex artwork. These survive a reinstall, and Kura can rebuild its
   library from the tags.
-- **Export**: one zip, readable without Kura. It grows with the schema.
+- **Export**: one zip, readable without Kura, written to a folder the owner picks in Settings (or
+  with `kura export`). It grows with the schema.
+- **Quarantine**: `Kura quarantine\<day>\` on each drive the library is on, holding copies set
+  aside and converted files' originals; Settings shows its size and how long it's kept.
 
 ## Safety on a shared PC
 

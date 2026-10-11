@@ -7,6 +7,19 @@ from dataclasses import replace
 from kura.core.standard import CINEMA_1080, COMPACT_720, Standard
 
 
+def names_kept(conn: sqlite3.Connection) -> bool:
+    """Whether files keep their own names when they're filed ("Keep my names"); Plex and
+    Jellyfin both read Kura's names."""
+    row = conn.execute("SELECT value FROM settings WHERE key = 'naming'").fetchone()
+    return row is not None and json.loads(row["value"]) == "keep"
+
+
+def reports_wanted(conn: sqlite3.Connection) -> bool:
+    """Whether Kura writes a gap analysis next to each anime (the owner can turn it off)."""
+    row = conn.execute("SELECT value FROM settings WHERE key = 'reports'").fetchone()
+    return row is None or json.loads(row["value"]) is not False
+
+
 def library_standard(conn: sqlite3.Connection) -> Standard:
     """The standard the owner chose in setup, with their upscaling choices."""
     stored = {

@@ -303,11 +303,43 @@ export interface Settings {
   upscale720: boolean;
   /** The first-run steps are done. */
   setUp: boolean;
+  /** A gap analysis next to each anime that has a folder of its own. */
+  reports: boolean;
+  /** Days copies set aside and converted files' originals are kept, or null: for good. */
+  quarantineDays: 7 | 30 | 90 | null;
 }
 
 export const useSettings = () => useEngineQuery<Settings>("/settings");
-/** Saves the preferences: `save.mutate({ path: "/settings", body: settings })`. */
-export const useSaveSettings = () => useEngineAction<Settings>(["/settings"], "PUT");
+/** Saves the preferences: `save.mutate({ path: "/settings", body: settings })`. The standard
+ * decides what's left to convert, so the Convert screen is asked again too. */
+export const useSaveSettings = () =>
+  useEngineAction<Settings>(["/settings", "/convert", "/queue", "/data"], "PUT");
+
+/** A drive's quarantine folder: copies set aside and converted files' originals. */
+export interface Quarantined {
+  folder: string;
+  bytes: number;
+  files: number;
+}
+
+/** How big each part of Kura's data is (Settings > Your data). */
+export interface DataSizes {
+  /** The data folder. */
+  folder: string;
+  database: number;
+  artwork: number;
+  /** Answers from TMDB and AniList, stills and comparison frames. */
+  cache: number;
+  logs: number;
+  backups: number;
+  tools: number;
+  /** On each drive the library is on. */
+  quarantine: Quarantined[];
+}
+
+export const useDataSizes = () => useEngineQuery<DataSizes>("/data");
+/** Writes the export zip: `exporting.mutate({ path: "/export", body: { folder } })`. */
+export const useExport = () => useEngineAction<{ path: string; size: number }>(["/data"]);
 
 /** Whether Kura has a TMDB key, for episode lists, episode titles and artwork. */
 export interface TmdbStatus {

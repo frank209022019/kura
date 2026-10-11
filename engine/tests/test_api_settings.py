@@ -17,6 +17,8 @@ def test_a_new_kura_starts_from_the_recommended_choices(client: TestClient):
         "upscaleSd": True,
         "upscale720": True,
         "setUp": False,
+        "reports": True,
+        "quarantineDays": 30,
     }
 
 
@@ -27,6 +29,8 @@ def test_choices_are_kept(client: TestClient, conn: sqlite3.Connection):
         "upscaleSd": True,
         "upscale720": False,
         "setUp": True,
+        "reports": True,
+        "quarantineDays": None,
     }
 
     saved = client.put("/settings", json=chosen)

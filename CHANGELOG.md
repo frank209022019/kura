@@ -9,6 +9,10 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Settings: your anime folders, the standard and how files are named (changed at once), the
+  TMDB key, where Kura's data lives and how big each part is, the export to a folder you pick,
+  whether a gap report goes next to each anime, how long copies set aside are kept, updates, and
+  what Kura is made of.
 - Convert: choose what to convert (a franchise, a title, or some of its seasons) and how: Best
   quality with the AI model for SD, Fast with Anime4K, or only a re-encode. See it first: a frame
   of one file before and after, at three points, with a handle to drag between them. Before
@@ -27,7 +31,8 @@ shows these notes when it offers the update.
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the
   two compared with a swap if you'd rather keep the other. Leave out any title, then apply.
   Subtitles move with their video, emptied folders go, and every video keeps what it was
-  identified as. A film in two files (CD1, CD2) is filed as its two parts. Applying makes
+  identified as. A film in two files (CD1, CD2) is filed as its two parts. With "Keep my
+  names", files move into the same folders under the names they have. Applying makes
   exactly what you reviewed, or asks you to look again if a scan changed it, and waits while a
   scan runs.
 - History: every tidy-up and scan by day, newest first. Any tidy-up can be undone there (or right

@@ -21,10 +21,12 @@ export function clockLength(minutes: number): string {
   return whole >= 60 ? `${Math.floor(whole / 60)} h ${whole % 60} min` : `${whole} min`;
 }
 
-/** "233 MB", or "1.1 GB" from a billion bytes. */
+/** "233 MB", "1.1 GB" from a billion bytes, "16 GB" from ten billion, "320 KB" under a million. */
 export function size(bytes: number): string {
-  if (bytes >= 1e10) return `${Math.round(bytes / 1e9)} GB`; // "931 GB", "16 GB"
-  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
+  if (bytes >= 1e10) return `${Math.round(bytes / 1e9)} GB`;
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`;
+  return `${bytes > 0 ? Math.max(1, Math.round(bytes / 1e3)) : 0} KB`;
 }
 
 const CODECS: Record<string, string> = {

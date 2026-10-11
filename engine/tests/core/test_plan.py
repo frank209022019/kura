@@ -399,3 +399,17 @@ def test_a_folder_scans_never_look_into_is_never_a_place_to_file():
 
     assert plan.changes == ()
     assert plan.skipped == ((LIBRARY / "x" / "a.mkv", "Scans never look in a folder named so"),)
+
+
+def test_kept_names_go_into_the_shows_folders_as_they_are():
+    files = [
+        placed(r"Downloads\[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv", BEBOP_1),
+        placed(r"Movies\cowboy bebop movie.mkv", BEBOP_MOVIE),
+    ]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY, keep_names=True).changes
+
+    assert [str(c.target) for c in changes] == [
+        r"D:\Anime\Movies\Cowboy Bebop - The Movie (2001)\cowboy bebop movie.mkv",
+        r"D:\Anime\TV\Cowboy Bebop (1998)\Season 01\[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv",
+    ]

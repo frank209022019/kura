@@ -12,6 +12,7 @@ import { HomePage } from "@/features/home/home-page";
 import { MatchPage } from "@/features/match/match-page";
 import { NotBuiltPage } from "@/features/not-built-page";
 import { ScanPage } from "@/features/scan/scan-page";
+import { SettingsPage } from "@/features/settings/settings-page";
 import { SetupPage } from "@/features/setup/setup-page";
 import { TidyPage } from "@/features/tidy/tidy-page";
 import { TitlePage } from "@/features/title/title-page";
@@ -20,7 +21,7 @@ import { EngineProvider } from "@/lib/engine";
 const queryClient = new QueryClient();
 
 /** The sections with a screen of their own; the rest say they're coming. */
-const BUILT = ["/", "/tidy", "/convert", "/history"];
+const BUILT = ["/", "/tidy", "/convert", "/history", "/settings"];
 
 export function App() {
   return (
@@ -46,6 +47,8 @@ export function App() {
               <Route path="/convert" element={<ConvertPage />} />
               <Route path="/convert/queue" element={<QueuePage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/:section" element={<SettingsPage />} />
               {sections
                 .filter((section) => !BUILT.includes(section.path))
                 .map((section) => (

@@ -21,6 +21,7 @@ from kura import __version__, changes, db
 from kura.anilist import AniList
 from kura.api import (
     convert,
+    data,
     health,
     library,
     review,
@@ -135,6 +136,7 @@ def create_app(
     app.include_router(review.router)
     app.include_router(tidy.router)
     app.include_router(convert.router)
+    app.include_router(data.router)
     return app
 
 

@@ -97,13 +97,15 @@ def plan_tidy(
     day: date,
     taken: Iterable[str] = (),
     keep: Iterable[PurePath] = (),
+    keep_names: bool = False,
 ) -> Plan:
     """The changes that put `files` in Plex's layout under their library folder (`library`, unless
     a file names its own).
 
     `taken` holds the paths already in use on disk. Every file's current path counts as taken
     too, so a new name never lands on a file that is still there. `keep` holds copies the owner
-    chose to keep over the others of the same episode or movie.
+    chose to keep over the others of the same episode or movie. With `keep_names`, files go into
+    the same folders under the names they have.
     """
     chosen = {str(path).casefold() for path in keep}
     used = {path.casefold() for path in taken} | {str(f.copy.path).casefold() for f in files}
@@ -140,6 +142,8 @@ def plan_tidy(
         root = kept.root or library
         try:
             target = _target(kept, root)
+            if keep_names:
+                target = target.with_name(kept.copy.path.stem + target.suffix)
         except PathTooLongError:
             skipped.append((kept.copy.path, _TOO_LONG))
             continue

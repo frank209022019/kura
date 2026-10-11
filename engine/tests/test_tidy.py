@@ -336,3 +336,17 @@ def test_a_video_being_converted_stays_where_it_is_till_its_done(
     assert ("[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv", "It's being converted") in {
         (path.name, why) for path, why in proposal.skipped
     }
+
+
+def test_with_names_kept_a_video_moves_into_its_folder_under_its_own_name(
+    downloads: sqlite3.Connection, root: Path
+):
+    with downloads:
+        downloads.execute("INSERT INTO settings (key, value) VALUES ('naming', '\"keep\"')")
+
+    proposal = propose(downloads, day=NOW.date())
+
+    bebop = next(p for p in proposal.changes if p.change.source.name.startswith("[Hi10]"))
+    assert str(bebop.change.target.relative_to(root)) == (
+        r"TV\Cowboy Bebop (1998)\Season 01\[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv"
+    )

@@ -347,6 +347,7 @@
       },
       "put": {
         "summary": "Save Settings",
+        "description": "Keeps the owner's choices. Turning the reports off takes them out of the anime folders at\nonce; turning them on writes them again.",
         "operationId": "save_settings_settings_put",
         "requestBody": {
           "content": {
@@ -1703,6 +1704,74 @@
           }
         }
       }
+    },
+    "/data": {
+      "get": {
+        "summary": "Your Data",
+        "description": "How big each part of Kura's data is, and the quarantine on each drive.",
+        "operationId": "your_data_data_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataSizes"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/export": {
+      "post": {
+        "summary": "Export",
+        "description": "Writes the export zip (the database, settings, file changes and a manifest) into a\nfolder, never over another file.",
+        "operationId": "export_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Exported"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2117,6 +2186,57 @@
         ],
         "title": "CopyFacts"
       },
+      "DataSizes": {
+        "properties": {
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          },
+          "database": {
+            "type": "integer",
+            "title": "Database"
+          },
+          "artwork": {
+            "type": "integer",
+            "title": "Artwork"
+          },
+          "cache": {
+            "type": "integer",
+            "title": "Cache"
+          },
+          "logs": {
+            "type": "integer",
+            "title": "Logs"
+          },
+          "backups": {
+            "type": "integer",
+            "title": "Backups"
+          },
+          "tools": {
+            "type": "integer",
+            "title": "Tools"
+          },
+          "quarantine": {
+            "items": {
+              "$ref": "#/components/schemas/Quarantined"
+            },
+            "type": "array",
+            "title": "Quarantine"
+          }
+        },
+        "type": "object",
+        "required": [
+          "folder",
+          "database",
+          "artwork",
+          "cache",
+          "logs",
+          "backups",
+          "tools",
+          "quarantine"
+        ],
+        "title": "DataSizes"
+      },
       "Duplicate": {
         "properties": {
           "label": {
@@ -2271,6 +2391,37 @@
           "gpuSeconds"
         ],
         "title": "Estimate"
+      },
+      "ExportRequest": {
+        "properties": {
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          }
+        },
+        "type": "object",
+        "required": [
+          "folder"
+        ],
+        "title": "ExportRequest"
+      },
+      "Exported": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "size"
+        ],
+        "title": "Exported"
       },
       "FranchiseRef": {
         "properties": {
@@ -3111,6 +3262,29 @@
         ],
         "title": "ProposedChange"
       },
+      "Quarantined": {
+        "properties": {
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "folder",
+          "bytes",
+          "files"
+        ],
+        "title": "Quarantined"
+      },
       "QueueStatus": {
         "properties": {
           "paused": {
@@ -3573,6 +3747,28 @@
             "type": "boolean",
             "title": "Setup",
             "default": false
+          },
+          "reports": {
+            "type": "boolean",
+            "title": "Reports",
+            "default": true
+          },
+          "quarantineDays": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  7,
+                  30,
+                  90
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quarantinedays",
+            "default": 30
           }
         },
         "type": "object",

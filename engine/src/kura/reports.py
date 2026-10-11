@@ -26,7 +26,7 @@ from kura.core.report import (
     gap_analysis_markdown,
 )
 from kura.core.standard import Standard
-from kura.preferences import library_standard
+from kura.preferences import library_standard, reports_wanted
 from kura.titles import episode_statuses, show_of
 
 log = logging.getLogger(__name__)
@@ -39,13 +39,18 @@ class Written:
 
 
 def write_reports(conn: sqlite3.Connection, *, now: datetime) -> Written:
-    """Writes or refreshes the gap analysis of every series that has a folder of its own."""
+    """Writes or refreshes the gap analysis of every series that has a folder of its own, or,
+    when the owner turned the reports off, takes Kura's out of those folders."""
     standard = library_standard(conn)
+    wanted = reports_wanted(conn)
     roots = [Path(row["path"]) for row in conn.execute("SELECT path FROM folders")]
     written = 0
     problems: list[str] = []
     for row in conn.execute("SELECT id, name, year FROM titles WHERE kind != 'movie'").fetchall():
         folder = own_folder(conn, row["id"], roots)
+        if folder is not None and not wanted:
+            _remove(folder / GAP_ANALYSIS_FILE)
+            continue
         show = show_of(conn, row["id"])
         if folder is None or show is None:
             continue
@@ -60,6 +65,13 @@ def write_reports(conn: sqlite3.Connection, *, now: datetime) -> Written:
                 f"Kura couldn't write the report in {folder}: {error.strerror or error}."
             )
     return Written(written, tuple(problems))
+
+
+def _remove(report: Path) -> None:
+    try:
+        report.unlink(missing_ok=True)
+    except OSError as error:
+        log.warning("Kura couldn't take its report out of %s: %s", report.parent, error)
 
 
 def own_folder(conn: sqlite3.Connection, title_id: int, roots: list[Path]) -> Path | None:
