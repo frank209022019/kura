@@ -29,6 +29,7 @@ class ParsedName:
     folder_title: str | None = None  # from the show's folder
     season: int | None = None  # from the file name
     folder_season: int | None = None  # from a "Season 03" or "Specials" folder
+    part: int | None = None  # "Season 3 Part 2": a part numbered from 1 again
     episode: int | None = None  # within its season, or absolute when there is none
     episode_end: int | None = None  # the last episode, when a file holds several
     episode_title: str | None = None
@@ -63,15 +64,17 @@ def parse_name(path: PurePath) -> ParsedName:
 
     season = _number(_first(found, "anime_season"))
     episode = numbers[0] if numbers else None
+    episode_title, part = _title_and_part(stem, _first(found, "episode_title"))
     return ParsedName(
         kind=_kind(types, season if season is not None else folder_season, episode),
         title=title,
         folder_title=folder_title,
         season=season,
         folder_season=folder_season,
+        part=part,
         episode=episode,
         episode_end=numbers[-1] if len(numbers) > 1 else None,
-        episode_title=_episode_title(_first(found, "episode_title")),
+        episode_title=_episode_title(episode_title),
         year=_number(_first(found, "anime_year")) or folder_year,
         group=_first(found, "release_group"),
         height=_height(_first(found, "video_resolution")),
@@ -89,6 +92,9 @@ _COPY_MARKER = re.compile(
 )
 _SEASON_FOLDER = re.compile(r"^(?:season|series|s)[\s._-]*0*(\d{1,3})$", re.IGNORECASE)
 _SPECIALS_FOLDER = re.compile(r"^specials?$", re.IGNORECASE)
+# "S3 Part 2", "Season 3 Part 2": anitopy drops the part, which numbers its episodes from 1 again.
+_PART = re.compile(r"\b(?:s\d{1,2}|season\s*\d{1,2})\s*[-:]?\s*part\s*(\d)\b", re.IGNORECASE)
+_PART_ALONE = re.compile(r"part\s*(\d)", re.IGNORECASE)
 _TITLE_AND_YEAR = re.compile(r"^(?P<title>.+?)\s*\((?P<year>(?:19|20)\d{2})\)$")
 _CODEC_WORDS = re.compile(r"\b(?:x26[45]|h\.?26[45]|hevc|avc|xvid|divx)\b", re.IGNORECASE)
 _EPISODE_WORDS = frozenset({"session", "episode", "ep", "eps"})
@@ -147,6 +153,16 @@ def _folder_context(path: PurePath) -> tuple[str | None, int | None, int | None]
     if match := _TITLE_AND_YEAR.match(name):
         return match["title"], int(match["year"]), season
     return name, None, season
+
+
+def _title_and_part(stem: str, episode_title: str | None) -> tuple[str | None, int | None]:
+    """The episode title and the part number. anitopy takes "S3 Part 2 - 03" to have the episode
+    title "Part 2"; a real title with "part" in it ("Part of It") is no part."""
+    if episode_title and (alone := _PART_ALONE.fullmatch(episode_title.strip())):
+        return None, int(alone[1])
+    before = stem[: stem.find(episode_title)] if episode_title and episode_title in stem else stem
+    found = _PART.search(before)
+    return episode_title, int(found[1]) if found else None
 
 
 def _season_of(folder: str) -> int | None:

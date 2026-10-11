@@ -22,9 +22,13 @@ def tv_details(
     status: str = "Ended",
     titles: Mapping[tuple[int, int], str] | None = None,
     special_dates: Sequence[date] = (),
+    aired: Mapping[tuple[int, int], date] | None = None,
 ) -> dict[str, object]:
-    """/tv/{id} with every season appended: `seasons` are the sizes of seasons 1, 2, …"""
+    """/tv/{id} with every season appended: `seasons` are the sizes of seasons 1, 2, …
+
+    Episodes air weekly; `aired` sets an episode's date, and the weeks run on from there."""
     named = titles or {}
+    dated = aired or {}
     answer: dict[str, object] = {
         "id": show_id,
         "name": name,
@@ -39,12 +43,13 @@ def tv_details(
             if number > 0 or specials
         ],
     }
-    aired = first_aired
+    day = first_aired
     for number, size in enumerate(seasons, start=1):
         episodes: list[Json] = []
         for episode in range(1, size + 1):
-            episodes.append(_episode(number, episode, aired, named.get((number, episode))))
-            aired += timedelta(days=7)
+            day = dated.get((number, episode), day)
+            episodes.append(_episode(number, episode, day, named.get((number, episode))))
+            day += timedelta(days=7)
         answer[f"season/{number}"] = {"season_number": number, "episodes": episodes}
     if specials:
         days = list(special_dates) or [first_aired] * specials

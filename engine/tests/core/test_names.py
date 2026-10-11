@@ -127,6 +127,20 @@ def test_two_episodes_in_one_file():
     assert (result.episode, result.episode_end) == (1, 2)
 
 
+def test_a_part_number_is_kept_though_anitopy_drops_it():
+    # Season 3 Part 2 numbers its episodes from 1 again, so "Part 2" decides where they go.
+    result = parsed(r"D:\Anime\[SubsPlease] Shingeki no Kyojin S3 Part 2 - 03 (1080p).mkv")
+
+    assert (result.title, result.season, result.part, result.episode) == (
+        "Shingeki no Kyojin",
+        3,
+        2,
+        3,
+    )
+    assert parsed(r"D:\Anime\Shingeki no Kyojin S3 - 03.mkv").part is None
+    assert parsed(r"D:\Anime\Cowboy Bebop\Cowboy Bebop - Session 05 - Part of It.mkv").part is None
+
+
 def test_words_like_session_are_not_part_of_the_title():
     result = parsed(
         r"D:\Anime\Cowboy Bebop\Cowboy Bebop - Session 05 - Ballad of Fallen Angels.mkv"
