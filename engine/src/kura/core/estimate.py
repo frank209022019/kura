@@ -1,8 +1,8 @@
 """How long converting takes on the graphics card, and how much space the results need.
 
-Speeds are frames per second for each method. Until Kura has measured this PC's card, it uses
-the figures the design assumed for a GTX 1660 Super: about an hour per 24-minute episode with
-the best model, 12 minutes with the fast one, 3 minutes to re-encode.
+Until Kura has measured this PC's card, it uses what the owner's GTX 1660 Super managed in the
+upscaling test (2026-10-11): about an hour per 24-minute SD episode with the AI model, 10 minutes
+for a 720p episode with the fast upscale, 3 minutes to re-encode a 1080p one.
 """
 
 from collections.abc import Iterable
@@ -13,15 +13,20 @@ from kura.core.media import MediaInfo
 from kura.core.standard import Decision, Method, Standard
 
 FILM = Fraction(24000, 1001)  # assumed when a file doesn't say its frame rate
+_MEASURED_ON = 720 * 540  # the SD picture the AI model's speed was measured on
 
 
 @dataclass(frozen=True)
 class Speeds:
-    """Frames per second on this PC's graphics card, for each method that uses it."""
+    """What this PC's graphics card manages for each method that uses it.
 
-    best: float = 9.6
-    fast: float = 48.0
-    reencode: float = 192.0
+    The AI model's work grows with the source picture, so its speed is in megapixels of source
+    per second; the other methods are in frames per second.
+    """
+
+    best: float = 3.2  # Real-ESRGAN: 8.2 frames a second from 720x540
+    fast: float = 56.5  # Anime4K, 720p to 1080p
+    reencode: float = 175.0  # 1080p, decoded on the processor
 
 
 @dataclass(frozen=True)
@@ -44,7 +49,7 @@ def estimate(
         case Method.RENAME | Method.REMUX:
             return Estimate(0.0, media.size or 0)  # streams are copied, not encoded
         case Method.BEST:
-            fps = speeds.best
+            fps = speeds.best * 1e6 / _pixels(media)
         case Method.FAST:
             fps = speeds.fast
         case Method.REENCODE:
@@ -60,3 +65,8 @@ def total(estimates: Iterable[Estimate]) -> Estimate:
         gpu_seconds += part.gpu_seconds
         output_bytes += part.output_bytes
     return Estimate(gpu_seconds, output_bytes)
+
+
+def _pixels(media: MediaInfo) -> int:
+    video = media.video
+    return video.width * video.height if video and video.width and video.height else _MEASURED_ON

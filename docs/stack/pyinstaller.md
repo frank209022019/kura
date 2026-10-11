@@ -49,8 +49,9 @@ whole package with `collect_submodules("name")`, then rebuild and run
 `dist\kura-engine\kura-engine.exe serve` with `KURA_TOKEN` set to check. Data files a package
 reads at run time go in `datas`.
 
-The ONNX models and ffmpeg won't go in this bundle: Kura downloads them on first setup (the "Tools"
-step in the setup screen), which keeps the installer and every update small.
+ffmpeg won't go in this bundle: Kura downloads it on first setup (the "Tools" step in the setup
+screen), which keeps the installer and every update smaller. ONNX Runtime with DirectML, the
+upscaling model and the Anime4K shaders are small and will ship inside Kura.
 
 ## Upgrading
 

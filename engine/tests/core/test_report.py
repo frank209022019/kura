@@ -28,6 +28,8 @@ SD_EPISODE = MediaInfo(
     Video("h264", 720, 480, Fraction(4, 3), Fraction(24000, 1001), 8, False),
 )
 
+# The board says 11.7 GPU days, from the speed the design assumed; the speed measured on the
+# GTX 1660 Super on 2026-10-11 gives 12.1.
 BOARD_TEXT = """\
 # Dragon Ball Z (1989) — gap analysis
 _Updated 10 Oct 2026, 14:20 · library D:\\Anime_
@@ -49,7 +51,7 @@ _Updated 10 Oct 2026, 14:20 · library D:\\Anime_
 
 ## To convert
 - 281 episodes · SD 480p → 1080p HEVC 10-bit
-- About 11.7 GPU days and 130 GB
+- About 12.1 GPU days and 130 GB
 """
 
 

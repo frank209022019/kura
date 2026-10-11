@@ -8,9 +8,10 @@ licence: anyone may fork it, but the repo takes no contributions.
 
 **Where it stands (2026-10-11):** design language chosen, repo, CI, installer and updater pipeline
 set up, the engine's pure core (names, Plex naming, standards, estimates, gap reports, tidy
-plans) and the tidy-up journal (apply, undo, crash recovery) built test first. No library
-features in the app yet: the engine serves `/health` and exports, the app shows its shell. The
-repo is public. Next is the first build step in [What's next](#whats-next).
+plans) and the tidy-up journal (apply, undo, crash recovery) built test first, and the upscaling
+test settled how each source is converted. No library features in the app yet: the engine serves
+`/health` and exports, the app shows its shell. The repo is public. Next is the first build step
+in [What's next](#whats-next).
 
 ## Ground rules
 
@@ -142,10 +143,20 @@ Everything decided so far. Don't ask again; change only with the owner.
   to TMDB IDs, low confidence goes to a review screen, and manual fixes are pinned so a rescan
   never undoes them.
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs
-  the AI model with ONNX Runtime (DirectML or CUDA), ffmpeg resizes and encodes NVENC HEVC 10-bit.
-  The fast tier is ffmpeg with libplacebo and Anime4K. Kura's own final mux handles the audio
-  policy, subtitles, fonts, chapters and a "processed" tag. Every output is verified (length,
-  streams, a test play) before it replaces the original, which goes to quarantine for 30 days.
+  the AI model with ONNX Runtime on DirectML, ffmpeg resizes and encodes NVENC HEVC 10-bit. Kura's
+  own final mux handles the audio policy, subtitles, fonts, chapters and a "processed" tag. Every
+  output is verified (length, streams, a test play) before it replaces the original, which goes
+  to quarantine for 30 days.
+- Upscaling by source, the owner's pick after the test on 2026-10-11:
+  - SD (480p, 576p): Real-ESRGAN's anime video model (`realesr-animevideov3`, BSD-3-Clause) as
+    ONNX in full precision: about an hour per episode on the GTX 1660 Super.
+  - 720p: Anime4K's high-quality mode A through ffmpeg's libplacebo: about 10 minutes.
+  - 1080p: no upscaling; re-encoded only when it isn't HEVC 10-bit already (about 3 minutes),
+    otherwise just renamed. Anything bigger comes down to 1080p.
+  - DirectML, not CUDA: CUDA was no faster and adds more than a gigabyte to download, and half
+    precision is slower on GTX 16 cards. Real-ESRGAN's bigger anime model ran at 0.6 frames a
+    second, far too slow. ONNX Runtime, the model (2.5 MB) and the shaders (0.4 MB) ship inside
+    Kura; the measured speeds are the defaults in `engine/src/kura/core/estimate.py`.
 
 **Data**
 - `%LOCALAPPDATA%\Kura`: kura.db, artwork cache, nightly backups (keep 7), logs (30 days). The
@@ -181,8 +192,8 @@ Everything decided so far. Don't ask again; change only with the owner.
   a licence that isn't allowed.
 - **Every download is listed in the installer** (the owner, 2026-10-11: "really important"). No
   one installs anything by hand except a graphics driver, which Kura checks and links to. What
-  isn't inside the installer (WebView2 on a PC without it; later ffmpeg, the AI models, manami's
-  database) goes in one manifest in the repo: what it's for, version, size, licence, source and
+  isn't inside the installer (WebView2 on a PC without it; later ffmpeg and manami's database)
+  goes in one manifest in the repo: what it's for, version, size, licence, source and
   checksum. The installer shows that list before it installs, the first-run Tools step downloads
   it, Settings shows it, and Kura downloads nothing that isn't on it. Built with the first
   download, ffmpeg.
@@ -193,24 +204,22 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 **The owner's PC**
 - GTX 1660 Super 6 GB (Turing NVENC, no AV1 encode), i5-9600K (6 cores), 24 GB RAM, about 1.7 TB
-  free on D: and F:. No ffmpeg yet. GitHub CLI signed in as frankgrobbelaar.
+  free on D: and F:. Graphics driver 617.42 (fine as it is; never install drivers). No ffmpeg
+  installed: the upscaling test's tools and results live in `D:\KuraSpike`, outside the repo.
+  GitHub CLI signed in as frankgrobbelaar.
 - Its Windows SDK registry entry points at the wrong folder, so the user variable `RC` names
   rc.exe for Rust builds (see docs/development.md, "Troubleshooting").
 
 ## What's next
 
-1. A one-day spike: measure AI upscaling fps on the GTX 1660 Super (ONNX Runtime with DirectML and
-   CUDA, Real-ESRGAN anime model vs Anime4K) to settle the conversion pipeline and the estimates.
-   Whatever wins reaches other PCs through the download list: DirectML ships inside Kura, CUDA
-   would add more than a gigabyte to every NVIDIA PC's downloads. The spike's own tools (PyTorch
-   to convert a model, CUDA) are for measuring only and never ship.
-2. Scanning: the download manifest and the installer's list, with ffmpeg first; add folders, find
+1. Scanning: the download manifest and the installer's list, with ffmpeg first; add folders, find
    files, read them with ffprobe, the first-scan screen.
-3. Identification and the library home, then tidy-up plans, then conversion.
+2. Identification and the library home, then tidy-up plans, then conversion.
 
-Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), each AI
-model's licence, manami's offline database (ODbL: downloaded rather than shipped, and credited),
-and the attribution TMDB's terms require inside the app.
+Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), Real-ESRGAN's
+model (BSD-3-Clause) and Anime4K's shaders (MIT), which ship with their notices, manami's
+offline database (ODbL: downloaded rather than shipped, and credited), and the attribution
+TMDB's terms require inside the app.
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.

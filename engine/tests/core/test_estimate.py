@@ -1,4 +1,7 @@
-"""Time and space estimates. The board figures are the design's numbers for a GTX 1660 Super."""
+"""Time and space estimates, from speeds measured on the owner's GTX 1660 Super (2026-10-11).
+
+The convert board's figures (35 SD episodes, about 35 hours and 16 GB) still hold.
+"""
 
 from fractions import Fraction
 
@@ -11,8 +14,10 @@ from kura.core.standard import CINEMA_1080, COMPACT_720, Decision, Method
 NTSC_FILM = Fraction(24000, 1001)
 
 
-def episode(seconds: float = 1406.0, size: int = 240_000_000) -> MediaInfo:
-    video = Video("h264", 720, 480, Fraction(4, 3), NTSC_FILM, 8, False)
+def episode(
+    seconds: float = 1406.0, size: int = 240_000_000, width: int = 720, height: int = 480
+) -> MediaInfo:
+    video = Video("h264", width, height, Fraction(4, 3), NTSC_FILM, 8, False)
     return MediaInfo("mkv", seconds, size, video, (Audio("aac", 2, "jpn", False),))
 
 
@@ -25,23 +30,41 @@ def test_the_convert_boards_35_sd_episodes_take_about_35_hours_and_16_gb():
 
 
 @pytest.mark.parametrize(
-    ("method", "minutes_per_episode"),
-    [(Method.BEST, 60), (Method.FAST, 12), (Method.REENCODE, 3)],
+    ("method", "width", "height", "minutes_per_episode"),
+    [
+        (Method.BEST, 720, 480, 62),  # Real-ESRGAN, SD to 1080p
+        (Method.FAST, 1280, 720, 10.2),  # Anime4K, 720p to 1080p
+        (Method.REENCODE, 1920, 1080, 3.3),  # NVENC, 1080p to 1080p
+    ],
 )
-def test_each_method_takes_about_what_the_design_says(method: Method, minutes_per_episode: int):
-    result = estimate(episode(seconds=1440.0), Decision(method, 1440, 1080), CINEMA_1080)
+def test_each_method_takes_about_what_was_measured(
+    method: Method, width: int, height: int, minutes_per_episode: float
+):
+    source = episode(seconds=1440.0, width=width, height=height)
 
-    assert result.gpu_seconds / 60 == pytest.approx(minutes_per_episode, rel=0.05)
+    result = estimate(source, Decision(method, 1440, 1080), CINEMA_1080)
+
+    assert result.gpu_seconds / 60 == pytest.approx(minutes_per_episode, rel=0.03)
 
 
-def test_measured_speeds_replace_the_design_figures():
-    measured = Speeds(best=19.2)
+def test_the_ai_model_takes_longer_the_more_pixels_the_source_has():
+    best = Decision(Method.BEST, 1440, 1080)
 
-    result = estimate(
-        episode(seconds=1440.0), Decision(Method.BEST, 1440, 1080), CINEMA_1080, measured
+    pal = estimate(episode(width=720, height=576), best, CINEMA_1080)
+    small = estimate(episode(width=640, height=480), best, CINEMA_1080)
+
+    assert pal.gpu_seconds / small.gpu_seconds == pytest.approx(720 * 576 / (640 * 480))
+
+
+def test_a_measured_card_replaces_the_default_speeds():
+    best = Decision(Method.BEST, 1440, 1080)
+    twice_as_fast = Speeds(best=Speeds().best * 2)
+
+    measured = estimate(episode(), best, CINEMA_1080, twice_as_fast)
+
+    assert measured.gpu_seconds == pytest.approx(
+        estimate(episode(), best, CINEMA_1080).gpu_seconds / 2
     )
-
-    assert result.gpu_seconds / 60 == pytest.approx(30, rel=0.05)
 
 
 def test_a_compact_720p_episode_is_about_250_mb():
@@ -62,12 +85,12 @@ def test_a_skipped_file_costs_nothing():
 
 
 def test_an_unknown_frame_rate_counts_as_film():
-    video = Video("h264", 720, 480, Fraction(4, 3), None, 8, False)
+    video = Video("h264", 1920, 1080, Fraction(16, 9), None, 8, False)
     unknown = MediaInfo("avi", 1440.0, 1, video)
 
-    result = estimate(unknown, Decision(Method.REENCODE, 1440, 1080), CINEMA_1080)
+    result = estimate(unknown, Decision(Method.REENCODE, 1920, 1080), CINEMA_1080)
 
-    assert result.gpu_seconds / 60 == pytest.approx(3, rel=0.05)
+    assert result.gpu_seconds / 60 == pytest.approx(3.3, rel=0.03)
 
 
 def test_total_of_nothing_is_nothing():
