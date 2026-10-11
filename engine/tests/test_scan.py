@@ -369,3 +369,24 @@ def test_offline_a_scan_still_finishes_and_says_titles_wait(
     assert (status.note or "").startswith(
         "Titles wait for the next scan: AniList couldn't be asked"
     )
+
+
+def test_a_folder_holding_two_anime_is_counted_as_mixed(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    root = tmp_path / "Library"
+    for name in (
+        "Downloads/Dragon Ball Z - 001.mkv",
+        "Downloads/Cowboy Bebop - 01.mkv",
+        "Cowboy Bebop/Cowboy Bebop - 02.mkv",
+    ):
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_bytes(name.encode())
+    add_folder(conn, root, now=NOW)
+    scan = scanner(paths, web=internet(tmdb=False))
+
+    scan.start()
+    finished(scan)
+
+    status = scan.status()
+    assert (status.titles, status.mixed) == (2, 1)  # Downloads holds both

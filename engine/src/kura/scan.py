@@ -62,6 +62,7 @@ class ScanStatus:
     titles: int = 0  # anime and films identified in the library
     waiting: int = 0  # files that need the owner to say which anime they are
     note: str | None = None  # what the scan couldn't do, though it finished
+    mixed: int = 0  # folders holding more than one anime
 
 
 def _utc_now() -> datetime:
@@ -317,10 +318,21 @@ class Scanner:
             titles=titles,
             waiting=waiting_owner,
             note=latest["note"],
+            mixed=_mixed_folders(conn),
         )
 
 
 _NEEDS_FFMPEG = "Kura needs ffmpeg to read the files it found. Download it, then scan again."
+
+
+def _mixed_folders(conn: sqlite3.Connection) -> int:
+    """Folders whose videos belong to more than one anime, as a mixed Downloads folder does."""
+    titles_in: dict[str, set[int]] = {}
+    for row in conn.execute(
+        "SELECT path, title_id FROM files WHERE title_id IS NOT NULL AND gone_at IS NULL"
+    ):
+        titles_in.setdefault(str(PureWindowsPath(row["path"]).parent), set()).add(row["title_id"])
+    return sum(1 for titles in titles_in.values() if len(titles) > 1)
 
 
 def _ffprobe_broke(error: ProbeToolError) -> str:

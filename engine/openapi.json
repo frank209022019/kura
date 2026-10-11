@@ -635,6 +635,48 @@
         }
       }
     },
+    "/artwork": {
+      "get": {
+        "summary": "Artwork At",
+        "description": "A picture from TMDB's or AniList's image server, such as a guess's cover, fetched once and\nkept. Any other address is refused.",
+        "operationId": "artwork_at_artwork_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Address"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/review": {
       "get": {
         "summary": "Files To Review",
@@ -761,6 +803,56 @@
                   "$ref": "#/components/schemas/Chosen"
                 }
               }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/{file_id}/stills/{index}": {
+      "get": {
+        "summary": "File Still",
+        "description": "One of three stills from the file (0, 1 or 2: 15%, 50% and 80% of the way in).",
+        "operationId": "file_still_review__file_id__stills__index__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Index"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {}
             }
           },
           "422": {
@@ -1277,6 +1369,10 @@
               }
             ],
             "title": "Note"
+          },
+          "mixed": {
+            "type": "integer",
+            "title": "Mixed"
           }
         },
         "type": "object",
@@ -1295,7 +1391,8 @@
           "problem",
           "titles",
           "waiting",
-          "note"
+          "note",
+          "mixed"
         ],
         "title": "Scan"
       },

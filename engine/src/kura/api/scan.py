@@ -24,6 +24,7 @@ class Scan(ApiModel):
     titles: int  # anime and films identified in the library
     waiting: int  # files that need the owner to say which anime they are
     note: str | None  # what the scan couldn't do, though it finished
+    mixed: int  # folders holding more than one anime
 
 
 def _scan(now: ScanStatus) -> Scan:
@@ -43,6 +44,7 @@ def _scan(now: ScanStatus) -> Scan:
         titles=now.titles,
         waiting=now.waiting,
         note=now.note,
+        mixed=now.mixed,
     )
 
 

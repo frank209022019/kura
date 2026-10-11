@@ -114,6 +114,20 @@ def title_poster(title_id: int, conn: Database, paths: Paths, web: Web) -> FileR
     return FileResponse(kept, media_type=artwork.media_type(kept))
 
 
+@router.get(
+    "/artwork",
+    response_class=FileResponse,
+    responses={200: {"content": {"image/jpeg": {}, "image/png": {}}}},
+)
+def artwork_at(address: str, paths: Paths, web: Web) -> FileResponse:
+    """A picture from TMDB's or AniList's image server, such as a guess's cover, fetched once and
+    kept. Any other address is refused."""
+    kept = artwork.poster(paths, address, web)
+    if kept is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no picture at that address.")
+    return FileResponse(kept, media_type=artwork.media_type(kept))
+
+
 def _summary(found: Title) -> TitleSummary:
     gaps = found.gaps
     return TitleSummary(

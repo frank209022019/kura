@@ -145,3 +145,26 @@ def test_an_unchanged_report_isnt_written_again(identified: sqlite3.Connection, 
 
     assert again.reports == 0
     assert report.stat().st_mtime_ns == before
+
+
+def test_a_cover_from_anilist_is_fetched_once_then_kept(client: TestClient, web: FakeWeb):
+    cover = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1-cover.png"
+    web.answers[f"GET {cover}"] = Reply(200, {}, b"png bytes")
+
+    first = client.get("/artwork", params={"address": cover})
+    again = client.get("/artwork", params={"address": cover})
+
+    assert (first.status_code, first.content, first.headers["content-type"]) == (
+        200,
+        b"png bytes",
+        "image/png",
+    )
+    assert again.content == b"png bytes"
+    assert web.paths().count(f"GET {cover}") == 1
+
+
+def test_a_picture_from_anywhere_else_is_refused_unasked(client: TestClient, web: FakeWeb):
+    answer = client.get("/artwork", params={"address": "https://example.org/tracker.png"})
+
+    assert answer.status_code == 404
+    assert web.asked == []

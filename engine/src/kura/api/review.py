@@ -2,13 +2,15 @@
 and the owner's choice (pinned, so a rescan never undoes it) or "not anime"."""
 
 from datetime import datetime
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import Field
 
-from kura import review
-from kura.api.common import ApiModel, Database, Paths, Web
+from kura import review, stills
+from kura.api.common import ApiModel, Database, Paths, Toolbox, Web
 from kura.config import DataPaths
 from kura.core.catalog import TitleKind
 from kura.core.identify import Guess as FoundGuess
@@ -115,6 +117,26 @@ def choose(file_id: int, body: Choice, conn: Database, paths: Paths, web: Web) -
     if placed == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That file isn't in the library any more.")
     return Chosen(placed=placed)
+
+
+@router.get(
+    "/review/{file_id}/stills/{index}",
+    response_class=FileResponse,
+    responses={200: {"content": {"image/jpeg": {}}}},
+)
+def file_still(
+    file_id: int, index: int, conn: Database, paths: Paths, toolbox: Toolbox
+) -> FileResponse:
+    """One of three stills from the file (0, 1 or 2: 15%, 50% and 80% of the way in)."""
+    row = conn.execute("SELECT path, duration FROM files WHERE id = ?", (file_id,)).fetchone()
+    picture = (
+        stills.still(paths, toolbox.path("ffmpeg"), Path(row["path"]), row["duration"], index)
+        if row is not None
+        else None
+    )
+    if picture is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "There's no still from this file.")
+    return FileResponse(picture, media_type="image/jpeg")
 
 
 @router.post("/review/{file_id}/ignore", status_code=status.HTTP_204_NO_CONTENT)
