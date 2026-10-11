@@ -306,7 +306,9 @@ Everything decided so far. Don't ask again; change only with the owner.
    the new one with "(2)", and its review says so). Still to build: that state's "Compare the
    two" and "Skip", and the overnight keep-awake note. Open with the owner: "Not enough space" offers "Empty quarantine first" (deleting copies before their days
    are up) and "Write to another drive" (results away from their originals' drive): both change
-   what's decided, so they wait for the owner.
+   what's decided, so they wait for the owner. Also open: a `kura.db` damaged past opening stops
+   the engine starting, so Settings' restore can't be reached; a way back (offering the last
+   backup as the engine starts) is the owner's call.
 9. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), the attribution
