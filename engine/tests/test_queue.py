@@ -7,6 +7,7 @@ import threading
 from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -301,3 +302,41 @@ def test_on_nights_only_files_start_between_23_and_7(
     at[0] = NOW.replace(hour=23, minute=30)
     assert queue.work_once() is True
     assert queue.status().waits_for_night is False
+
+
+def test_a_file_on_a_drive_that_isnt_connected_waits_and_the_next_goes(
+    queue: Queue, conn: sqlite3.Connection
+):
+    with conn:  # the first file's library folder is on a drive that's unplugged now
+        conn.execute("INSERT INTO folders (path, added_at) VALUES ('Z:\\Anime', 'now')")
+        conn.execute(
+            "UPDATE files SET folder_id = 2, path = 'Z:\\Anime\\Trigun - 01.mkv' WHERE id = 1"
+        )
+    queue.add([1, 2])
+
+    assert queue.work_once() is True
+
+    assert states(conn) == [(1, "queued"), (2, "done")]
+    [waiting] = queue.status().queued
+    assert (waiting.file_id, waiting.drive_missing) == (1, True)
+    assert queue.work_once() is False  # nothing else it can take
+
+
+def test_a_full_drive_pauses_the_queue_and_says_so(
+    queue: Queue, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    queue.add([1, 2])
+
+    def full(path: object) -> SimpleNamespace:
+        return SimpleNamespace(total=10**12, used=10**12 - 10**6, free=10**6)  # a megabyte left
+
+    monkeypatch.setattr("kura.convert.shutil.disk_usage", full)
+
+    assert queue.work_once() is True
+
+    status = queue.status()
+    assert states(conn) == [(1, "queued"), (2, "queued")]
+    assert [job.file_id for job in status.queued] == [1, 2]  # still first in line
+    assert status.paused is True
+    assert status.problem is not None
+    assert status.problem.startswith("There isn't room on")

@@ -2721,6 +2721,10 @@
               }
             ],
             "title": "Height"
+          },
+          "driveMissing": {
+            "type": "boolean",
+            "title": "Drivemissing"
           }
         },
         "type": "object",
@@ -2743,7 +2747,8 @@
           "sourceSize",
           "outputSize",
           "width",
-          "height"
+          "height",
+          "driveMissing"
         ],
         "title": "Job"
       },

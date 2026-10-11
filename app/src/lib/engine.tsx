@@ -821,6 +821,8 @@ export interface Job {
   /** The result's picture, for a file still to finish. */
   width: number | null;
   height: number | null;
+  /** Waiting, and its drive isn't connected: it goes when the drive is back. */
+  driveMissing: boolean;
 }
 
 /** The file converting now, and how it's going. */

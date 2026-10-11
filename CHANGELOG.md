@@ -19,8 +19,9 @@ shows these notes when it offers the update.
   temperature. Pause it (Space), skip a file, move one up, take one out, or run it on nights only
   (23:00 to 07:00). Each result is checked (length, streams, a test play) before it takes its
   original's place; the original waits in quarantine for 30 days and can be put back from
-  History, which lists every conversion with what it made. Kura keeps the PC awake while a file
-  converts.
+  History, which lists every conversion with what it made. A file whose drive isn't connected
+  waits while the others go, a drive without room for the result pauses the queue and says so,
+  and Kura keeps the PC awake while a file converts.
 - Tidy up: Kura proposes where every identified video goes for Plex (`TV\Show (Year)\Season 01`,
   `Movies\Title (Year)`), title by title: moves out of folders holding several anime, renames in
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the

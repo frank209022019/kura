@@ -76,6 +76,10 @@ class ConvertError(Exception):
     """The file couldn't be converted, and the original is as it was. The message says why."""
 
 
+class NoRoomError(ConvertError):
+    """There isn't room on the file's drive for the result: no file there can go till there is."""
+
+
 class Stopped(Exception):  # noqa: N818 - not an error: the owner paused or skipped it
     """Converting stopped because the owner asked; nothing changed."""
 
@@ -303,7 +307,7 @@ def _enough_space(source: Path, media: MediaInfo, decision: Decision, standard: 
     free = shutil.disk_usage(source.parent).free
     if free < needed:
         drive = source.anchor or str(source.parent)
-        raise ConvertError(
+        raise NoRoomError(
             f"There isn't room on {drive}: {free / 1e9:.1f} GB free, and the result needs about"
             f" {needed / 1e9:.1f} GB."
         )

@@ -6,10 +6,11 @@ original's place), then done, failed, skipped or restored. The worker takes the 
 while the queue isn't paused, and on the nights-only schedule only between 23:00 and 07:00 (a
 file started before 07:00 finishes). Pausing or skipping stops the file at once (ffmpeg is
 stopped, and the original is as it was); paused, the file is first in line again and starts over
-when the queue resumes. An exit does the same. While a result takes its original's place no scan
-runs (Scanner.hold): the worker waits for one that's running. While a file converts, Windows
-doesn't put the PC to sleep. After a crash, `recover` puts a job that was converting back in
-line and settles one whose result was taking its original's place.
+when the queue resumes. An exit does the same. A file whose drive isn't connected waits while
+the others go; a drive without room for a result pauses the queue, saying so. While a result
+takes its original's place no scan runs (Scanner.hold): the worker waits for one that's running.
+While a file converts, Windows doesn't put the PC to sleep. After a crash, `recover` puts a job
+that was converting back in line and settles one whose result was taking its original's place.
 """
 
 import ctypes
@@ -35,6 +36,7 @@ from kura.convert import (
     SHADER,
     WORKING,
     ConvertError,
+    NoRoomError,
     Programs,
     Progress,
     Stopped,
@@ -64,6 +66,7 @@ _HOLD_RETRY = 2.0  # seconds between asks for scans to hold off
 _SPEED_WINDOW = 600.0  # seconds of frames the speed is measured over, as the queue board shows
 _PAUSED = "queue_paused"  # the settings rows that keep the queue's state across restarts
 _SCHEDULE = "queue_schedule"
+_HELD_UP = "queue_problem"  # why the queue paused itself (a full drive), till it's resumed
 NIGHT = (clock_time(23, 0), clock_time(7, 0))  # when the nights-only schedule converts
 NO_FFMPEG = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step."
 
@@ -90,6 +93,7 @@ class Job:
     output_size: int | None  # the result, once there
     width: int | None = None  # the result's picture, for a file still to finish
     height: int | None = None
+    drive_missing: bool = False  # waiting, and its library folder's drive isn't connected
 
 
 @dataclass(frozen=True)
@@ -221,6 +225,8 @@ class Queue:
 
     def resume(self) -> None:
         self._set_paused(paused=False)
+        with closing(db.connect(self._paths.database)) as conn, conn:
+            conn.execute("DELETE FROM settings WHERE key = ?", (_HELD_UP,))
         self._wake.set()
 
     def plan(self, schedule: Schedule) -> None:
@@ -300,6 +306,7 @@ class Queue:
             standard = library_standard(conn)
             paused = _paused(conn)
             schedule = _schedule(conn)
+            held_up = _saved(conn, _HELD_UP)
             start_of_day = self._now().replace(hour=0, minute=0, second=0, microsecond=0)
             rows = conn.execute(
                 f"""{_JOBS}
@@ -307,7 +314,13 @@ class Queue:
                     ORDER BY j.position, j.id""",
                 (start_of_day.isoformat(),),
             ).fetchall()
-        jobs = [_job(row, standard) for row in rows]
+        connected = _Drives()
+        jobs = [
+            replace(_job(row, standard), drive_missing=not connected(row["root"]))
+            if row["state"] == "queued"
+            else _job(row, standard)
+            for row in rows
+        ]
         with self._lock:
             progress, running_id = self._progress, self._job_id
             fps = self._fps()
@@ -325,6 +338,8 @@ class Queue:
         if running is not None:
             left += running.seconds_left if running.seconds_left is not None else 0.0
         problem = self._problem if queued and not paused else None
+        if isinstance(held_up, str):
+            problem = held_up
         day = not _at_night(self._now())
         return QueueStatus(
             paused,
@@ -347,16 +362,24 @@ class Queue:
             self._problem = None if programs else NO_FFMPEG
             if programs is None:
                 return False
-            # Taken in one step, under the lock skip and remove take too: a file skipped or
-            # taken out a moment before never converts.
+            # Taken under the lock skip and remove take too, so a file skipped or taken out a
+            # moment before never converts; one whose drive isn't connected waits.
             with self._lock:
+                connected = _Drives()
+                waiting = conn.execute(
+                    """SELECT j.id, d.path AS root FROM jobs AS j
+                       JOIN files AS f ON f.id = j.file_id
+                       JOIN folders AS d ON d.id = f.folder_id
+                       WHERE j.state = 'queued' ORDER BY j.position, j.id"""
+                ).fetchall()
+                first = next((job["id"] for job in waiting if connected(job["root"])), None)
+                if first is None:
+                    return False
                 with conn:
                     row = conn.execute(
                         """UPDATE jobs SET state = 'running', started_at = ?, problem = NULL
-                           WHERE id = (SELECT id FROM jobs WHERE state = 'queued'
-                                       ORDER BY position, id LIMIT 1)
-                           RETURNING id""",
-                        (self._now().isoformat(),),
+                           WHERE id = ? AND state = 'queued' RETURNING id""",
+                        (self._now().isoformat(), first),
                     ).fetchone()
                 if row is None:
                     return False
@@ -380,6 +403,11 @@ class Queue:
                 )
         except Stopped:
             self._stopped(conn, job_id)
+        except NoRoomError as error:
+            self._back_in_line(conn, job_id)  # it, and the rest, wait for room
+            with conn:
+                _save(conn, _PAUSED, True)
+                _save(conn, _HELD_UP, f"{error} Make room, then resume the queue.")
         except ConvertError as error:
             self._finished(conn, job_id, "failed", str(error))
         except Exception:
@@ -396,6 +424,10 @@ class Queue:
         if skipped:
             self._finished(conn, job_id, "skipped", None)
             return
+        self._back_in_line(conn, job_id)
+
+    def _back_in_line(self, conn: sqlite3.Connection, job_id: int) -> None:
+        """A file that stopped goes back to the queue, first in line."""
         with conn:
             first: int = conn.execute(
                 "SELECT COALESCE(MIN(position), 1) FROM jobs WHERE state = 'queued'"
@@ -493,9 +525,22 @@ def programs_from(tools: Tools) -> Programs | None:
 
 
 _JOBS = """SELECT j.*, f.path, f.probe, f.size, f.season, f.episode, f.title_id,
-                  t.name AS title
+                  t.name AS title, d.path AS root
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+           JOIN folders AS d ON d.id = f.folder_id
            LEFT JOIN titles AS t ON t.id = f.title_id"""
+
+
+class _Drives:
+    """Whether library folders are there (a drive plugged in), each looked at once."""
+
+    def __init__(self) -> None:
+        self._seen: dict[str, bool] = {}
+
+    def __call__(self, folder: str) -> bool:
+        if folder not in self._seen:
+            self._seen[folder] = Path(folder).is_dir()
+        return self._seen[folder]
 
 
 def _job(row: sqlite3.Row, standard: Standard) -> Job:

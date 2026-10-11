@@ -82,6 +82,7 @@ class Job(ApiModel):
     output_size: int | None
     width: int | None  # the result's picture, for a file still to finish
     height: int | None
+    drive_missing: bool  # waiting, and its drive isn't connected
 
 
 class Running(ApiModel):

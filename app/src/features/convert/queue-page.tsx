@@ -503,9 +503,15 @@ function JobRow({ job, first, top }: { job: Job; first: number | null; top: bool
       <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
       <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
       <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
-      <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
-        {METHOD_NAMES[job.method]}
-      </span>
+      {job.driveMissing ? (
+        <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+          Its drive isn't connected
+        </span>
+      ) : (
+        <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
+          {METHOD_NAMES[job.method]}
+        </span>
+      )}
       <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
         ≈ {gpuTimeShort(job.gpuSeconds)}
       </span>

@@ -33,6 +33,7 @@ function job(id: number, more: Partial<Job> = {}): Job {
     outputSize: null,
     width: 1440,
     height: 1080,
+    driveMissing: false,
     ...more,
   };
 }
@@ -205,6 +206,25 @@ describe("QueuePage", () => {
     expect(await screen.findByRole("heading", { name: "Nothing waiting" })).toBeInTheDocument();
     screen.getByRole("link", { name: "Choose what to convert" }).click();
     expect(await screen.findByText("The choosing screen")).toBeInTheDocument();
+  });
+
+  it("says which files wait for their drive, and why a full drive paused it all", async () => {
+    const full = "There isn't room on D:\\: 0.0 GB free. Make room, then resume the queue.";
+    fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        paused: true,
+        problem: full,
+        queued: [job(6, { driveMissing: true }), job(7)],
+      },
+    });
+    renderQueue();
+
+    expect(await screen.findByText(full)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Up next" })).toHaveTextContent(
+      "S01E06Dragon Ball Z (1989) - S01E06.mkvIts drive isn't connected",
+    );
   });
 
   it("says why nothing converts without ffmpeg", async () => {
