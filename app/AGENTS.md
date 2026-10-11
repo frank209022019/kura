@@ -17,6 +17,10 @@ and [../CLAUDE.md](../CLAUDE.md).
   handled globally; don't work around it.
 - Accessible as built: real `<button>` and `<a>`, labels on icon-only buttons, visible focus, a
   keyboard path for everything, `role="alert"` or `role="status"` for messages that appear.
+- Only the page scrolls. A page starts with its top, its header or a breadcrumb, carrying
+  `page-top`, so it stays put while the rest scrolls under it.
+- Say what a thing does, never which media server reads it: no "Plex" anywhere in the UI.
+- Markdown (Kura's reports) shows through `components/markdown.tsx`, as a reader sees it.
 
 ## Where things go
 

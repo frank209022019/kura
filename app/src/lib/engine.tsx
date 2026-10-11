@@ -678,7 +678,7 @@ export const useStill = (fileId: number, index: number) =>
  * or a second copy of an episode set aside. */
 export type TidyCategory = "rename" | "mixed" | "duplicate";
 
-/** One change Kura proposes for Plex. Nothing moves until the owner applies it. */
+/** One change Kura proposes. Nothing moves until the owner applies it. */
 export interface ProposedChange {
   kind: "move" | "quarantine";
   source: string;
@@ -737,7 +737,7 @@ export interface TidyResult {
   problems: { label: string; source: string; problem: string }[];
 }
 
-/** Where every video would go, filed for Plex; `keep` holds copies the owner keeps instead. */
+/** Where every video would go; `keep` holds copies the owner keeps instead. */
 export const useTidy = (keep: string[] = []) =>
   useEngineQuery<TidyProposal>(
     `/tidy${keep.length ? `?${keep.map((path) => `keep=${encodeURIComponent(path)}`).join("&")}` : ""}`,
@@ -776,7 +776,7 @@ export interface Conversion {
 export interface PlanDone {
   id: number;
   kind: "tidy" | "convert";
-  /** "Renamed 26 Cowboy Bebop files for Plex", "Converted Trigun · S01E03". */
+  /** "Renamed 26 Cowboy Bebop files", "Converted Trigun · S01E03". */
   title: string;
   appliedAt: string;
   undoneAt: string | null;

@@ -27,6 +27,8 @@ progress. And no struggling with small things: every error, empty state and reco
    as a before and after, applied on approval, logged, and undoable. Duplicates go to quarantine.
 6. **Fits every window size.** Compact under 900 px, standard 900 to 1440, wide above. Layouts
    reflow on their own: the nav rail folds into a row on top, panels stack, grids change columns.
+   Only the page scrolls: the nav rail and the page's top (`page-top`: its title or breadcrumb)
+   stay where they are.
 7. **Light and dark, designed together.** Surfaces lift with lighter greys rather than inverting.
    Body text keeps 4.5:1 contrast. (Kura runs dark until light mode is designed.)
 8. **Keyboard first, mouse friendly.** Every action has a shortcut (Ctrl K search, arrows through

@@ -5,7 +5,7 @@ import type { Section } from "@/components/shell/sections";
 export function NotBuiltPage({ section }: { section: Section }) {
   return (
     <>
-      <h1 className="type-title animate-fade-up">{section.label}</h1>
+      <h1 className="page-top type-title animate-fade-up">{section.label}</h1>
       <EmptyState title="Not built yet">{section.summary}</EmptyState>
     </>
   );

@@ -41,7 +41,7 @@ export function HistoryPage() {
   const events = history.data ? eventsOf(history.data, shown) : [];
   return (
     <>
-      <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+      <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
         <div className="flex max-w-xl flex-col gap-1.5">
           <h1 className="type-title">History</h1>
           <p className="text-14 text-fg-muted">

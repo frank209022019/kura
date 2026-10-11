@@ -42,7 +42,7 @@ export function HomePage() {
 
   return (
     <>
-      <header className="flex animate-fade-up flex-col gap-1.5">
+      <header className="page-top flex animate-fade-up flex-col gap-1.5">
         <h1 className="type-title">Library</h1>
         <p className="text-14 text-fg-muted">
           {empty

@@ -20,7 +20,8 @@ export const sections: Section[] = [
     path: "/tidy",
     label: "Tidy up",
     icon: ListChecks,
-    summary: "Sort mixed folders, rename for Plex, settle duplicates and unknown files.",
+    summary:
+      "Sort mixed folders, give every file a clean name, settle duplicates and unknown files.",
   },
   {
     path: "/convert",

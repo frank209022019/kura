@@ -23,9 +23,10 @@ export const STANDARDS = [
   },
 ] as const;
 
+// Clean names are the layout media servers read ("plex" in the settings, as before; "jellyfin"
+// names files the same way).
 export const NAMING = [
-  { value: "plex", label: "Plex" },
-  { value: "jellyfin", label: "Jellyfin" },
+  { value: "plex", label: "Clean names" },
   { value: "keep", label: "Keep my names" },
 ] as const;
 
@@ -98,10 +99,10 @@ export function StandardChoices({
 
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="font-extrabold text-15">Name files for</span>
+          <span className="font-extrabold text-15">File names</span>
           <Segmented
-            label="Name files for"
-            value={settings.naming}
+            label="File names"
+            value={settings.naming === "keep" ? "keep" : "plex"}
             options={NAMING}
             onChange={(naming) => change({ naming })}
           />

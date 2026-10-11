@@ -34,7 +34,7 @@ class Conversion:
 class PlanDone:
     id: int
     kind: Literal["tidy", "convert"]
-    title: str  # "Renamed 26 Cowboy Bebop files for Plex", "Converted Trigun · S01E03"
+    title: str  # "Renamed 26 Cowboy Bebop files", "Converted Trigun · S01E03"
     applied_at: str
     undone_at: str | None
     moved: int  # videos and subtitles filed, and still there

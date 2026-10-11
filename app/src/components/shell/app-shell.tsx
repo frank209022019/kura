@@ -4,21 +4,26 @@ import { NavRail } from "./nav-rail";
 import { TitleBar } from "./title-bar";
 import { UpdateCard } from "./update-card";
 
-/** The window: title bar on top, nav rail and the current page below. */
+/**
+ * The window: title bar on top, the nav rail and the current page below. Only the page scrolls:
+ * the title bar and the nav rail stay where they are.
+ */
 export function AppShell() {
   const location = useLocation();
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar />
-      <div className="flex flex-1 flex-wrap content-start items-start overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col standard:flex-row">
         <NavRail />
+        {/* A fresh start on every screen: it opens at its top, and one that failed to draw
+            doesn't follow you around. */}
         <main
+          key={location.pathname}
           id="main"
-          className="flex min-w-0 flex-[999_1_640px] flex-col gap-8 pt-1.5 pr-8 pb-14 pl-3.5"
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-y-auto pr-8 pb-14 pl-3.5"
         >
-          {/* A fresh start on every screen: one that failed to draw doesn't follow you around. */}
-          <ScreenError key={location.pathname}>
+          <ScreenError>
             <Outlet />
           </ScreenError>
         </main>

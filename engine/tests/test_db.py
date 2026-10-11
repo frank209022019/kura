@@ -73,3 +73,23 @@ def test_identification_keeps_every_scan_and_file_from_before(tmp_path: Path):
             "INSERT INTO scans (started_at, state, stage)"
             " VALUES ('later', 'running', 'identifying')"
         )
+
+
+def test_earlier_tidy_ups_stop_naming_a_media_server(tmp_path: Path):
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:8]))
+        conn.execute("PRAGMA user_version = 8")
+        conn.execute(
+            "INSERT INTO plans (title, created_at) VALUES (?, 'then')",
+            ("Renamed 3 Trigun files for Plex",),
+        )
+        conn.execute(
+            "INSERT INTO changes (plan_id, position, kind, source, target, label, reason, state)"
+            " VALUES (1, 0, 'move', 'a.mkv', 'b.mkv', 'Trigun · S01E01', 'Named for Plex', 'done')"
+        )
+        conn.commit()
+
+        db.migrate(conn)
+
+        assert conn.execute("SELECT title FROM plans").fetchone()[0] == "Renamed 3 Trigun files"
+        assert conn.execute("SELECT reason FROM changes").fetchone()[0] == "Named and filed"

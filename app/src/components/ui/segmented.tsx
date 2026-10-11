@@ -10,7 +10,7 @@ interface SegmentedProps<T extends string> {
 }
 
 /**
- * One choice from a few, shown side by side (Plex, Jellyfin, Keep my names). Built on Radix's
+ * One choice from a few, shown side by side (Clean names, Keep my names). Built on Radix's
  * ToggleGroup, so arrow keys move between the choices.
  */
 export function Segmented<T extends string>({

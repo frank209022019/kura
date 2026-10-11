@@ -10,7 +10,10 @@ export function Breadcrumb({
   current: string;
 }) {
   return (
-    <nav aria-label="Breadcrumb" className="flex animate-fade-up items-center gap-2 text-13">
+    <nav
+      aria-label="Breadcrumb"
+      className="page-top flex animate-fade-up items-center gap-2 text-13"
+    >
       {trail.map((step) => (
         <Fragment key={step.to}>
           <Link

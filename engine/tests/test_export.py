@@ -70,7 +70,7 @@ def test_the_export_lists_every_change_kura_made(paths: DataPaths, tmp_path: Pat
     target = tmp_path / "Anime" / "デスノート (2006)" / "デスノート (2006) - S01E07.mkv"
     with closing(db.connect(paths.database)) as conn:
         db.migrate(conn)
-        change = Change(ChangeKind.MOVE, source, target, "デスノート · S01E07", "Named for Plex")
+        change = Change(ChangeKind.MOVE, source, target, "デスノート · S01E07", "Named and filed")
         plan_id = save_plan(conn, Plan((change,)), "Tidy up: デスノート", now=NOW)
         apply_plan(conn, plan_id, now=NOW)
 
@@ -93,7 +93,7 @@ def test_the_export_lists_every_change_kura_made(paths: DataPaths, tmp_path: Pat
             "source": str(source),
             "target": str(target),
             "label": "デスノート · S01E07",
-            "reason": "Named for Plex",
+            "reason": "Named and filed",
             "problem": "",
         }
     ]

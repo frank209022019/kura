@@ -25,7 +25,7 @@ function change(
     target: `${ROOT}\\${target}`,
     root: ROOT,
     label,
-    reason: "Named for Plex",
+    reason: "Named and filed",
     category: "mixed",
     titleId: 1,
     title: "Cowboy Bebop",
@@ -143,7 +143,7 @@ describe("TidyPage", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /2 Mixed folders/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /1 Renames for Plex/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /1 Renames/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /4 Need a match/ })).toBeInTheDocument();
     expect(
       screen.getByText("4 changes selected. 4 files stay where they are until matched."),
@@ -184,9 +184,7 @@ describe("TidyPage", () => {
     );
     screen.getAllByRole("button", { name: "Apply 3 changes" })[0]?.click();
 
-    expect(
-      await screen.findByText("Done: 2 files filed for Plex, 1 copy set aside."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Done: 2 files filed, 1 copy set aside.")).toBeInTheDocument();
     const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
     expect(JSON.parse(String(init.body))).toEqual({
       changes: [DUPLICATE, BEBOP_1, DEATH_NOTE_7].map(reviewed),
@@ -204,7 +202,7 @@ describe("TidyPage", () => {
     });
     renderTidy();
 
-    (await screen.findByRole("button", { name: /1 Renames for Plex/ })).click();
+    (await screen.findByRole("button", { name: /1 Renames/ })).click();
     (await screen.findAllByRole("button", { name: "Apply 1 change" }))[0]?.click();
 
     await waitFor(() => expect(sent(fetch, "POST", "/tidy")).toHaveLength(1));

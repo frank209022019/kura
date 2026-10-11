@@ -283,7 +283,7 @@ ${previous(older)}
 <footer>
   <p>Kura is free software under the <a href="${repository}/blob/main/LICENSE">MIT licence</a>.
   Each release carries the third-party notices for everything inside it.</p>
-  <p>Kura contains no anime or artwork and isn't affiliated with Plex, TMDB, AniList or any show's owners.</p>
+  <p>Kura contains no anime or artwork and isn't affiliated with TMDB, AniList or any show's owners.</p>
 </footer>
 </body>
 </html>

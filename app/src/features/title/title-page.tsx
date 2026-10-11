@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
+import { Markdown } from "@/components/markdown";
 import { Poster } from "@/components/poster";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,7 @@ function Header({ title }: { title: TitleDetail }) {
 
 function Seasons({ seasons, episodes }: { seasons: SeasonCount[]; episodes: EpisodeState[] }) {
   return (
-    <Panel id="seasons-title" title="Seasons" note="Plex folders and order, as TMDB numbers them">
+    <Panel id="seasons-title" title="Seasons" note="Season folders and order, as TMDB numbers them">
       <ul className="flex flex-col">
         {seasons.map((season) => {
           const mine = episodes.filter((episode) => episode.season === season.season);
@@ -318,15 +319,15 @@ function ReportPanel({ titleId }: { titleId: number }) {
   return (
     <Panel
       id="report-title"
-      title="Gap analysis.md"
-      note="Rewritten after every scan · Plex ignores .md files"
+      title="Gap Analysis"
+      note="Rewritten after every scan"
       icon={<FileText size={16} />}
     >
       {report.data ? (
         <>
-          <pre className="max-h-80 overflow-auto rounded-12 bg-inset px-3.5 py-3 font-mono text-11 text-fg-soft leading-[1.7] whitespace-pre-wrap">
-            {report.data.text}
-          </pre>
+          <div className="max-h-[28rem] overflow-auto rounded-12 bg-inset px-4 py-3.5">
+            <Markdown text={report.data.text} />
+          </div>
           <span className="font-mono text-11 text-fg-muted [overflow-wrap:anywhere]">
             {report.data.path}
           </span>

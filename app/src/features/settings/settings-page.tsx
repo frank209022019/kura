@@ -46,9 +46,14 @@ export function SettingsPage() {
   if (!known) return <Navigate to="/settings/libraries" replace />;
   return (
     <>
-      <h1 className="type-title animate-fade-up">Settings</h1>
-      <div className="flex flex-wrap items-start gap-5">
-        <nav aria-label="Settings" className="flex flex-[0_1_220px] animate-fade-up flex-col gap-1">
+      <h1 className="page-top type-title animate-fade-up">Settings</h1>
+      <div className="@container flex flex-wrap items-start gap-5">
+        {/* Beside the sections (not above them), it stays put while they scroll: under the
+            page's title (6 px, the title's 35.2 px and the 32 px gap). */}
+        <nav
+          aria-label="Settings"
+          className="flex flex-[0_1_220px] animate-fade-up flex-col gap-1 @min-[800px]:sticky @min-[800px]:top-[4.575rem]"
+        >
           {SECTIONS.map(({ key, label }) => (
             <NavLink
               key={key}
@@ -186,7 +191,7 @@ function Titles() {
   return (
     <Panel
       title="Titles and artwork"
-      note="Kura names each anime with AniList, and with a TMDB key also its seasons, episode titles and posters, as Plex shows them."
+      note="Kura names each anime with AniList, and with a TMDB key also its seasons, episode titles and posters."
     >
       <TmdbKey />
       <p className="text-12 text-fg-faint">

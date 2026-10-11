@@ -45,7 +45,7 @@ export function MatchPage() {
   if (!review.data) {
     return (
       <>
-        <h1 className="type-title animate-fade-up">Which anime is this?</h1>
+        <h1 className="page-top type-title animate-fade-up">Which anime is this?</h1>
         <EngineProblem queries={[review]} />
       </>
     );
@@ -145,7 +145,7 @@ function MatchFile(props: {
 
   return (
     <>
-      <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+      <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="font-extrabold text-32 leading-[1.1] tracking-[-0.02em]">
             Which anime is this?
@@ -514,7 +514,7 @@ function AllMatched() {
   const navigate = useNavigate();
   return (
     <>
-      <h1 className="type-title animate-fade-up">Which anime is this?</h1>
+      <h1 className="page-top type-title animate-fade-up">Which anime is this?</h1>
       <EmptyState
         title="Every file is matched"
         illustration={<ShelfIllustration />}

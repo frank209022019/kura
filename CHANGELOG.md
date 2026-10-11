@@ -9,6 +9,11 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Only the page scrolls: the nav rail and the page's title (or where it sits) stay where they
+  are, and so does Settings' list of sections.
+- A title's gap analysis reads like a document (headings, lists and tables), under the title Gap
+  Analysis.
+- Files are named "Clean names" or "Keep my names": Kura's words don't name a media server.
 - Backups: every night at 03:00 (or the first chance after), Kura backs up its records, keeping
   the last 7, each checked as it's made. Settings shows the last one, makes one now, and restores
   one: Kura's records go back to then, your files stay as they are, and what Kura knew till then
@@ -36,7 +41,7 @@ shows these notes when it offers the update.
   converting. Paused once its result is made, a file is still checked and put in place. Kura
   keeps the PC awake while a file converts, and nothing it starts keeps running once it's
   closed.
-- Tidy up: Kura proposes where every identified video goes for Plex (`TV\Show (Year)\Season 01`,
+- Tidy up: Kura proposes where every identified video goes (`TV\Show (Year)\Season 01`,
   `Movies\Title (Year)`), title by title: moves out of folders holding several anime, renames in
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the
   two compared with a swap if you'd rather keep the other. Leave out any title, then apply.
@@ -60,7 +65,7 @@ shows these notes when it offers the update.
   and "Change match" picks another anime for all its files at once: specials stay specials, and a
   file that doesn't fit the new anime waits for you, the title page says how many.
 - Scans identify every video: which anime, movie, OVA or special it is and, with a TMDB key,
-  which season and episode, numbered as Plex shows them. Files Kura isn't sure about wait for you
+  which season and episode, numbered as TMDB lists them. Files Kura isn't sure about wait for you
   instead of being guessed. Offline, the scan still finishes and identifies them next time.
 - The scan screen follows every stage: finding, reading, identifying each anime, checking for
   gaps and writing the reports, with the anime found so far (artwork and all, oldest release

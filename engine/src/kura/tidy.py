@@ -424,13 +424,13 @@ def _facts(copy: Copy) -> CopyFacts:
 
 
 def _plan_title(chosen: Sequence[Proposed]) -> str:
-    """ "Renamed 26 Cowboy Bebop files for Plex", or "Tidied 30 files: Cowboy Bebop, Death Note
+    """ "Renamed 26 Cowboy Bebop files", or "Tidied 30 files: Cowboy Bebop, Death Note
     and 2 more", as History lists it."""
     count = len(chosen)
     titles = list(dict.fromkeys(p.title for p in chosen))
     files = "file" if count == 1 else "files"
     if len(titles) == 1 and all(p.category == "rename" for p in chosen):
-        return f"Renamed {count} {titles[0]} {files} for Plex"
+        return f"Renamed {count} {titles[0]} {files}"
     named = titles[:2]
     more = len(titles) - len(named)
     listed = f"{', '.join(named)} and {more} more" if more else " and ".join(named)

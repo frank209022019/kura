@@ -28,7 +28,7 @@ def test_health_reports_version_data_folder_and_schema(client: TestClient, paths
 def test_starting_settles_file_moves_a_crash_interrupted(paths: DataPaths, tmp_path: Path):
     source = tmp_path / "a.mkv"
     source.write_text("video", encoding="utf-8")
-    change = Change(ChangeKind.MOVE, source, tmp_path / "Anime" / "a.mkv", "A", "Named for Plex")
+    change = Change(ChangeKind.MOVE, source, tmp_path / "Anime" / "a.mkv", "A", "Named and filed")
     with closing(db.connect(paths.database)) as conn:
         db.migrate(conn)
         plan_id = save_plan(conn, Plan((change,)), "Tidy up", now=datetime.now(UTC))

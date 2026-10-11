@@ -26,7 +26,7 @@ def set_aside(conn: sqlite3.Connection, tmp_path: Path, name: str, days_ago: int
     plan = Plan(
         (
             Change(ChangeKind.QUARANTINE, copy, place, f"{name} · duplicate", "Kept the other"),
-            Change(ChangeKind.MOVE, kept, tmp_path / "Filed" / kept.name, name, "Named for Plex"),
+            Change(ChangeKind.MOVE, kept, tmp_path / "Filed" / kept.name, name, "Named and filed"),
         )
     )
     plan_id = save_plan(conn, plan, f"Tidied {name}", now=NOW)

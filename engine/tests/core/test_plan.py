@@ -144,7 +144,8 @@ def test_a_name_another_file_already_has_gets_2():
 
     assert changes[0].target.name == "Trigun (1998) - S01E03 - Peace Maker (2).mp4"
     assert (
-        changes[0].reason == "Named for Plex. A file with this name is already there; both are kept"
+        changes[0].reason
+        == "Named and filed. A file with this name is already there; both are kept"
     )
 
 
@@ -204,7 +205,7 @@ def test_subtitles_beside_a_video_move_and_rename_with_it():
             "Death Note 01.avi",
             season + r"\Death Note (2006) - S01E01 - Rebirth.avi",
             "Death Note · S01E01",
-            "Named for Plex",
+            "Named and filed",
         ),
         (
             "Death Note 01.en.srt",

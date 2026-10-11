@@ -53,7 +53,7 @@ def video(path: Path, content: str = "video") -> Path:
 
 
 def move(source: Path, target: Path) -> Change:
-    return Change(ChangeKind.MOVE, source, target, "Death Note · S01E07", "Named for Plex")
+    return Change(ChangeKind.MOVE, source, target, "Death Note · S01E07", "Named and filed")
 
 
 def saved(conn: sqlite3.Connection, *planned: Change) -> int:

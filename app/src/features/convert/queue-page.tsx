@@ -54,7 +54,7 @@ export function QueuePage() {
   }, []);
 
   const header = (
-    <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+    <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1.5">
         <h1 className="type-title">Queue</h1>
         {status && <StatusLine status={status} />}

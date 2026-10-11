@@ -3,12 +3,15 @@ import { cn } from "@/lib/utils";
 import { sections } from "./sections";
 
 /**
- * The main navigation. A column of tiles beside the page; when the window is too
- * narrow for both, the page wraps below and the tiles flow into a row on top.
+ * The main navigation. A column of tiles beside the page; in a compact window (under 900 px) the
+ * tiles flow into a row on top. It never scrolls with the page.
  */
 export function NavRail() {
   return (
-    <nav aria-label="Main" className="flex flex-[1_1_96px] flex-col px-2.5 pt-2 pb-5">
+    <nav
+      aria-label="Main"
+      className="flex shrink-0 flex-col px-2.5 pt-2 pb-3 standard:w-24 standard:pb-5"
+    >
       <div className="flex flex-wrap gap-1.5">
         {sections.map(({ path, label, icon: Icon }) => (
           <NavLink

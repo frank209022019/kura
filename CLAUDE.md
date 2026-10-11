@@ -126,6 +126,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   offers an export first.
 - The pilot library is the whole Dragon Ball franchise (not on the PC yet).
 - Plex naming. Watched mostly on the PC; Plex or a phone maybe later.
+- Kura's words never name Plex (the owner, 2026-10-11): the files keep the layout media servers
+  read, but the app calls it "clean names" and says what it does, not who reads it. The naming
+  choice is "Clean names" or "Keep my names".
 - Picture: crisp and clean; 720p or 1080p are both fine. **Every** file goes to the library standard,
   even 720p to 720p; a file already exactly at the standard is only renamed.
 - Everything ends up neatly filed (the owner, 2026-10-11): seasons, specials and OVAs (Season 00)
@@ -135,6 +138,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   `Movies\Title (Year)\Title (Year).mkv`, never release groups, resolutions or codecs. Folders a
   tidy-up leaves empty are removed (and come back on undo), and subtitle files beside a video move
   and rename with it.
+- Only the page scrolls (the owner, 2026-10-11): the nav rail and the page's top (its title, or
+  its breadcrumb) stay where they are, and so does a page's own section list beside it.
+- The gap analysis shows in the app as a reader sees it, as an editor's Markdown preview would,
+  under the title "Gap Analysis" (the owner, 2026-10-11).
 - Lists sort by release date by default, oldest first, on every page that lists series, movies,
   OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11).
 - Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word

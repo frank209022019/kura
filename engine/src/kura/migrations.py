@@ -181,4 +181,11 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     """
     ALTER TABLE changes ADD COLUMN cleared_at TEXT;
     """,
+    # 9. Kura's words never name a media server (the owner, 2026-10-11): what earlier tidy-ups
+    #    said is put the way it says it now.
+    """
+    UPDATE plans SET title = REPLACE(title, ' for Plex', '') WHERE title LIKE '% for Plex';
+    UPDATE changes SET reason = REPLACE(reason, 'Named for Plex', 'Named and filed')
+        WHERE reason LIKE 'Named for Plex%';
+    """,
 )

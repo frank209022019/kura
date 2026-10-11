@@ -49,7 +49,7 @@ const CONVERTED: PlanDone = {
 const RENAMED: PlanDone = {
   ...TIDIED,
   id: 12,
-  title: "Renamed 287 Dragon Ball Z files for Plex",
+  title: "Renamed 287 Dragon Ball Z files",
   appliedAt: today(10, 58),
   moved: 287,
   quarantined: 0,
@@ -57,7 +57,7 @@ const RENAMED: PlanDone = {
 const UNDONE: PlanDone = {
   ...TIDIED,
   id: 9,
-  title: "Renamed 3 Sailor Moon files for Plex",
+  title: "Renamed 3 Sailor Moon files",
   appliedAt: "2026-10-08T18:30:00+00:00",
   undoneAt: "2026-10-08T19:02:00+00:00",
   moved: 0,
@@ -108,10 +108,10 @@ describe("HistoryPage", () => {
     expect(todayList).toHaveTextContent(
       "11:40MovedTidied 30 files: Cowboy Bebop, Death Note and 2 more29 files moved · 1 copy set aside · plan 13",
     );
-    expect(todayList).toHaveTextContent("10:58RenamedRenamed 287 Dragon Ball Z files for Plex");
+    expect(todayList).toHaveTextContent("10:58RenamedRenamed 287 Dragon Ball Z files");
     expect(todayList).toHaveTextContent("10:51ScannedYour library folders");
     expect(screen.getByRole("region", { name: "8 October" })).toHaveTextContent(
-      "UndoneRenamed 3 Sailor Moon files for PlexYou put 3 files back",
+      "UndoneRenamed 3 Sailor Moon filesYou put 3 files back",
     );
     expect(screen.getAllByRole("button", { name: "Undo" })).toHaveLength(2);
   });

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const SHOWN = 5; // changes listed per title before "Show more"
 
-/** Tidy up: Kura proposes where every video goes for Plex, the owner keeps what they want and
+/** Tidy up: Kura proposes where every video goes, the owner keeps what they want and
  * applies it. Nothing changes until then, and History can undo it all. */
 export function TidyPage() {
   const navigate = useNavigate();
@@ -110,7 +110,7 @@ export function TidyPage() {
       />
       {found.changes.length === 0 ? (
         <EmptyState title="Everything is filed" illustration={<ShelfIllustration />}>
-          Every video Kura knows is where Plex expects it. New ones are proposed here when they
+          Every video Kura knows is filed where it belongs. New ones are proposed here when they
           arrive.
         </EmptyState>
       ) : (
@@ -174,7 +174,7 @@ export function TidyPage() {
 
 function Header({ action }: { action?: React.ReactNode }) {
   return (
-    <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+    <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
       <div className="flex max-w-xl flex-col gap-1.5">
         <h1 className="type-title">Tidy up</h1>
         <p className="text-14 text-fg-muted">
@@ -195,7 +195,7 @@ function Done(props: {
 }) {
   const { result } = props;
   const parts = [
-    `${result.moved} ${result.moved === 1 ? "file" : "files"} filed for Plex`,
+    `${result.moved} ${result.moved === 1 ? "file" : "files"} filed`,
     result.quarantined > 0 &&
       `${result.quarantined} ${result.quarantined === 1 ? "copy" : "copies"} set aside`,
   ].filter(Boolean);
@@ -235,7 +235,7 @@ function Done(props: {
 
 const TILES: { category: TidyCategory; label: string }[] = [
   { category: "mixed", label: "Mixed folders" },
-  { category: "rename", label: "Renames for Plex" },
+  { category: "rename", label: "Renames" },
   { category: "duplicate", label: "Duplicates" },
 ];
 

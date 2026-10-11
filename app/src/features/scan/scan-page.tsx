@@ -18,7 +18,7 @@ export function ScanPage() {
   if (!scan.data || !folders.data) {
     return (
       <>
-        <h1 className="type-title animate-fade-up">Scan</h1>
+        <h1 className="page-top type-title animate-fade-up">Scan</h1>
         <EngineProblem queries={[scan, folders]} />
       </>
     );
@@ -29,7 +29,7 @@ export function ScanPage() {
 
   return (
     <>
-      <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+      <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <span className="type-eyebrow">{eyebrow(now)}</span>
           <h1 className="type-title">

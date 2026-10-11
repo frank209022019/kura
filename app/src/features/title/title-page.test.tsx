@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type EpisodeState, type TitleDetail } from "@/lib/engine";
@@ -227,13 +227,33 @@ describe("TitlePage", () => {
     expect(screen.getByText(/Plan to Eradicate/)).toBeInTheDocument();
   });
 
-  it("shows the gap analysis next to the show, or when it comes", async () => {
+  it("shows the gap analysis as a reader sees it, not its Markdown", async () => {
     renderTitle(DBZ, {
       path: "D:\\Anime\\TV\\Dragon Ball Z (1989)\\Kura - Gap analysis.md",
-      text: "# Dragon Ball Z (1989) — gap analysis\n",
+      text: [
+        "# Dragon Ball Z (1989) — gap analysis",
+        "_Updated 10 Oct 2026, 14:20 · library D:\\Anime_",
+        "",
+        "## Summary",
+        "- Present: **289 of 291** episodes (99%)",
+        "",
+        "## Missing",
+        "| Episode | Absolute | Folder |",
+        "| --- | --- | --- |",
+        "| S01E51 | 51 | Season 01 |",
+        "",
+      ].join("\n"),
     });
 
-    expect(await screen.findByText(/# Dragon Ball Z \(1989\) — gap analysis/)).toBeInTheDocument();
+    const report = await screen.findByRole("region", { name: "Gap Analysis" });
+    expect(
+      await within(report).findByRole("heading", { name: "Dragon Ball Z (1989) — gap analysis" }),
+    ).toBeInTheDocument();
+    expect(within(report).getByRole("heading", { name: "Missing" })).toBeInTheDocument();
+    expect(within(report).getByRole("cell", { name: "S01E51" })).toBeInTheDocument();
+    expect(within(report).getByText("289 of 291").tagName).toBe("STRONG");
+    expect(report).not.toHaveTextContent("##");
+    expect(report).not.toHaveTextContent("Plex");
   });
 
   it("a film shows its file, without seasons", async () => {

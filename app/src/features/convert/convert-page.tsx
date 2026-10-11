@@ -66,7 +66,7 @@ export function ConvertPage() {
   const [when, setWhen] = useState<When | null>(null);
 
   const header = (
-    <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+    <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
       <div className="flex max-w-xl flex-col gap-1.5">
         <h1 className="type-title">Convert</h1>
         <p className="text-14 text-fg-muted">

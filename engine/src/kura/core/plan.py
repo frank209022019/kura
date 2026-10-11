@@ -181,7 +181,7 @@ def _move(placed: PlacedFile, target: PurePath, used: set[str]) -> Change | None
     else:
         place = unique_path(target, used)
         used.add(str(place).casefold())
-    reason = "Named for Plex"
+    reason = "Named and filed"
     if place != target:
         reason += ". A file with this name is already there; both are kept"
     return Change(ChangeKind.MOVE, source, place, _label(placed.identity), reason)

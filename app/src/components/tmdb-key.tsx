@@ -7,7 +7,7 @@ import { openTmdbApiPage } from "@/lib/links";
 
 /**
  * The TMDB key: where to find it, pasting it in (Kura checks it with TMDB before keeping it), and
- * removing it. Kura works without it, but then has no episode titles or Plex's seasons.
+ * removing it. Kura works without it, but then has no episode titles or TMDB's seasons.
  */
 export function TmdbKey() {
   const tmdb = useTmdb();
@@ -31,8 +31,8 @@ export function TmdbKey() {
             TMDB <span className="font-normal text-fg-muted">optional</span>
           </span>
           <span className="text-13 text-fg-muted">
-            Episode lists, episode titles and artwork, as Plex shows them. Without a key, Kura still
-            identifies each anime with AniList.
+            Episode lists, episode titles and artwork. Without a key, Kura still identifies each
+            anime with AniList.
           </span>
         </div>
         {connected && (
