@@ -1,7 +1,8 @@
 import { Check, Search } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
+import { Breadcrumb } from "@/components/breadcrumb";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ export function MatchPage() {
 
   return (
     <>
-      <Breadcrumb />
+      <Breadcrumb trail={[{ label: "Tidy up", to: "/tidy" }]} current="Need a match" />
       <MatchFile
         key={file.id}
         file={file}
@@ -274,22 +275,6 @@ function useSettled(value: string, delay: number): string {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return settled;
-}
-
-function Breadcrumb() {
-  return (
-    <nav aria-label="Breadcrumb" className="flex animate-fade-up items-center gap-2 text-13">
-      <Link to="/tidy" className="text-fg-muted underline-offset-3 hover:text-fg hover:underline">
-        Tidy up
-      </Link>
-      <span aria-hidden="true" className="text-fg-faint">
-        ›
-      </span>
-      <span aria-current="page" className="font-bold">
-        Need a match
-      </span>
-    </nav>
-  );
 }
 
 /** The file itself: its name, folder, three stills and what reading it showed. */

@@ -15,3 +15,17 @@ export function SortControl(props: { value: TitleSort; onChange: (sort: TitleSor
     <Segmented label="Sort by" value={props.value} options={SORTS} onChange={props.onChange} />
   );
 }
+
+/** The order in words, under a list's heading: "oldest release first". */
+export function sortWords(sort: TitleSort): string {
+  switch (sort) {
+    case "released":
+      return "oldest release first";
+    case "name":
+      return "by name";
+    case "added":
+      return "newest added first";
+    case "missing":
+      return "most missing first";
+  }
+}

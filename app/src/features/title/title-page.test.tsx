@@ -37,6 +37,7 @@ const DBZ: TitleDetail = {
   missing: 2,
   specialsMissing: 1,
   upcoming: 0,
+  franchise: null,
   source: "tmdb",
   folder: "D:\\Anime\\TV\\Dragon Ball Z (1989)",
   seasons: [
@@ -110,6 +111,18 @@ describe("TitlePage", () => {
     expect(screen.getByText("1989 · 2 seasons · 72 episodes")).toBeInTheDocument();
     expect(screen.getByText("97%")).toBeInTheDocument();
     expect(screen.getByText("70 of 72 episodes")).toBeInTheDocument();
+  });
+
+  it("says which franchise it's part of, and leads back to it", async () => {
+    renderTitle({ ...DBZ, franchise: { id: 7, name: "Dragon Ball" } });
+
+    expect(
+      await screen.findByText("1989 · 2 seasons · 72 episodes · part of Dragon Ball"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dragon Ball" })).toHaveAttribute(
+      "href",
+      "/franchises/7",
+    );
   });
 
   it("lists the seasons, the map, and the missing and broken episodes", async () => {

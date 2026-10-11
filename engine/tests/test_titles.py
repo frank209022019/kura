@@ -75,6 +75,51 @@ def test_one_title_lists_its_seasons_and_the_episode_it_lacks(
     assert len(detail["videos"]) == 290
 
 
+def test_a_franchise_gathers_what_anilist_ties_together(
+    client: TestClient, identified: sqlite3.Connection
+):
+    found = client.get("/franchises").json()
+
+    assert [(f["name"], [t["name"] for t in f["titles"]]) for f in found] == [
+        ("Dragon Ball Z", ["Dragon Ball Z"]),
+        ("Cowboy Bebop", ["Cowboy Bebop", "Cowboy Bebop: The Movie"]),
+    ]
+    bebop = found[1]
+    assert bebop["id"] == bebop["titles"][0]["id"]  # led by its first series
+    assert bebop["kinds"] == {"series": 1, "movie": 1, "ova": 0, "special": 0}
+    assert (bebop["released"], bebop["files"], bebop["aired"], bebop["present"]) == (
+        "1998-04-03",
+        2,
+        26,
+        1,
+    )
+    assert bebop["missing"] == 25
+
+
+def test_franchises_sort_like_titles(client: TestClient, identified: sqlite3.Connection):
+    found = client.get("/franchises", params={"sort": "missing"}).json()
+
+    assert [f["name"] for f in found] == ["Cowboy Bebop", "Dragon Ball Z"]
+
+
+def test_a_franchise_lists_its_titles_and_a_title_names_its_franchise(
+    client: TestClient, identified: sqlite3.Connection
+):
+    ids = {t["name"]: t["id"] for t in client.get("/titles").json()}
+
+    franchise = client.get(f"/franchises/{ids['Cowboy Bebop: The Movie']}", params={"sort": "name"})
+
+    assert franchise.json()["name"] == "Cowboy Bebop"
+    assert [t["name"] for t in franchise.json()["titles"]] == [
+        "Cowboy Bebop",
+        "Cowboy Bebop: The Movie",
+    ]
+    movie = client.get(f"/titles/{ids['Cowboy Bebop: The Movie']}").json()
+    assert movie["franchise"] == {"id": ids["Cowboy Bebop"], "name": "Cowboy Bebop"}
+    assert client.get(f"/titles/{ids['Dragon Ball Z']}").json()["franchise"] is None
+    assert client.get("/franchises/999").status_code == 404
+
+
 def test_an_unknown_title_is_404(client: TestClient, conn: sqlite3.Connection):
     assert client.get("/titles/999").status_code == 404
 

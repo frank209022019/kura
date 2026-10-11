@@ -4,6 +4,7 @@ import { ScreenError } from "@/components/screen-error";
 import { AppShell } from "@/components/shell/app-shell";
 import { sections } from "@/components/shell/sections";
 import { UpdateCard } from "@/components/shell/update-card";
+import { FranchisePage } from "@/features/franchise/franchise-page";
 import { HomePage } from "@/features/home/home-page";
 import { MatchPage } from "@/features/match/match-page";
 import { NotBuiltPage } from "@/features/not-built-page";
@@ -33,6 +34,7 @@ export function App() {
               <Route path="/scan" element={<ScanPage />} />
               <Route path="/match" element={<MatchPage />} />
               <Route path="/titles/:id" element={<TitlePage />} />
+              <Route path="/franchises/:id" element={<FranchisePage />} />
               {sections
                 .filter((section) => section.path !== "/")
                 .map((section) => (

@@ -12,18 +12,18 @@ import {
   useAddFolder,
   useEngine,
   useFolders,
+  useFranchises,
   useHealth,
   useLibrary,
   useScan,
   useScanAction,
   useSettings,
-  useTitles,
   useTmdb,
 } from "@/lib/engine";
 import { openDownloadsPage } from "@/lib/links";
 import { useReadyUpdate } from "@/lib/updates";
 import { Attention } from "./attention";
-import { TitlesGrid } from "./titles-grid";
+import { Shelf } from "./shelf";
 
 export function HomePage() {
   const engine = useEngine();
@@ -31,14 +31,14 @@ export function HomePage() {
   const folders = useFolders();
   const library = useLibrary();
   const scan = useScan();
-  const titles = useTitles();
+  const franchises = useFranchises();
   const navigate = useNavigate();
   const [sort, setSort] = useState<TitleSort>("released");
 
   const empty = folders.data?.length === 0;
   if (empty && settings.data && !settings.data.setUp) return <Navigate to="/setup" replace />;
   const working = engine.state !== "failed";
-  const missing = (titles.data ?? []).filter((title) => title.missing > 0);
+  const missing = (franchises.data ?? []).filter((franchise) => franchise.missing > 0);
 
   return (
     <>
@@ -48,7 +48,7 @@ export function HomePage() {
           {empty
             ? "No folders yet."
             : library.data
-              ? summary(library.data, titles.data?.length)
+              ? summary(library.data, franchises.data?.length)
               : "…"}
         </p>
       </header>
@@ -70,18 +70,18 @@ export function HomePage() {
       {working && scan.data && library.data && !empty && (
         <Attention
           waiting={scan.data.waiting}
-          missing={missing.reduce((total, title) => total + title.missing, 0)}
+          missing={missing.reduce((total, franchise) => total + franchise.missing, 0)}
           missingIn={missing.length}
           broken={library.data.problems}
           mixed={scan.data.mixed}
           onMatch={() => void navigate("/match")}
           onMissing={() => {
             setSort("missing");
-            document.getElementById("titles")?.scrollIntoView({ behavior: "smooth" });
+            document.getElementById("shelf")?.scrollIntoView({ behavior: "smooth" });
           }}
         />
       )}
-      {working && !empty && <TitlesGrid sort={sort} onSort={setSort} />}
+      {working && !empty && <Shelf sort={sort} onSort={setSort} />}
       {working && library.data && scan.data && !empty && (
         <Overview library={library.data} scan={scan.data} />
       )}

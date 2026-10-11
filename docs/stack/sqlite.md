@@ -51,6 +51,7 @@ tables, give every table a primary key, and add the new data to the export.
 | `scans` | 3, 4 | Each scan: when it started and finished, its state (`running`, `paused`, `done`, `failed`), its stage (`finding`, `reading`, `identifying`, `checking`, `done`), any problem, and a note on what it couldn't do though it finished |
 | `titles` | 4 | Each anime and film in the library: its kind (`series`, `movie`, `ova`, `special`), name, year and release date (lists sort by it), its TMDB show or film and the AniList entry it was found by, whether it's airing, its poster, and when its episode list was last asked for |
 | `episodes` | 4 | Each title's episode list, from TMDB (or AniList's count without a key): season (0 for the specials), number, name, air date and length |
+| `anilist_links` | 5 | How AniList relates each entry the library matched to others (`SEQUEL`, `PREQUEL`, `PARENT`, `SIDE_STORY`, `ALTERNATIVE`, ...): what ties a franchise together |
 
 The queue and history come with the features that need them.
 

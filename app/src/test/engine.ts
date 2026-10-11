@@ -1,5 +1,13 @@
 import { vi } from "vitest";
-import type { EngineStatus, Library, Scan, Settings } from "@/lib/engine";
+import type {
+  EngineStatus,
+  FranchiseSummary,
+  Library,
+  Scan,
+  Settings,
+  TitleKind,
+  TitleSummary,
+} from "@/lib/engine";
 
 /** The engine as tests see it: ready, on a made-up address. */
 export const READY: EngineStatus = {
@@ -68,4 +76,36 @@ export function fakeEngine(answers: Record<string, Answer>) {
   });
   vi.stubGlobal("fetch", fetch);
   return fetch;
+}
+
+/** A franchise as the engine sends it, made of these titles; its first series (or else its
+ * first title) leads it. */
+export function franchiseOf(titles: TitleSummary[], name?: string): FranchiseSummary {
+  const lead = titles.find((title) => title.kind === "series") ?? titles[0];
+  if (!lead) throw new Error("A franchise has a title at least.");
+  type Counted = "files" | "aired" | "present" | "missing" | "specialsMissing" | "upcoming";
+  const sum = (key: Counted) => titles.reduce((total, title) => total + title[key], 0);
+  const count = (kind: TitleKind) => titles.filter((title) => title.kind === kind).length;
+  const dates = titles.map((title) => title.released).filter((date) => date !== null);
+  return {
+    id: lead.id,
+    name: name ?? lead.name,
+    released: dates.sort()[0] ?? null,
+    kinds: {
+      series: count("series"),
+      movie: count("movie"),
+      ova: count("ova"),
+      special: count("special"),
+    },
+    hasPoster: lead.hasPoster,
+    airing: titles.some((title) => title.airing),
+    files: sum("files"),
+    added: lead.added,
+    aired: sum("aired"),
+    present: sum("present"),
+    missing: sum("missing"),
+    specialsMissing: sum("specialsMissing"),
+    upcoming: sum("upcoming"),
+    titles,
+  };
 }

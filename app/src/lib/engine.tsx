@@ -274,7 +274,7 @@ export function useScan() {
   const wasRunning = useRef(running);
   useEffect(() => {
     if (wasRunning.current && !running)
-      void refresh(["/library", "/folders", "/titles", "/review"]);
+      void refresh(["/library", "/folders", "/titles", "/franchises", "/review"]);
     wasRunning.current = running;
   }, [running, refresh]);
   return scan;
@@ -394,6 +394,8 @@ export interface EpisodeState {
 
 /** One title in full: its seasons, every episode's state, what it's missing, and its videos. */
 export interface TitleDetail extends TitleSummary {
+  /** The franchise it's one of, when it's one of several. */
+  franchise: FranchiseRef | null;
   /** Where its episode list comes from. */
   source: "tmdb" | "anilist";
   /** Its own folder, when its videos have one. */
@@ -417,6 +419,41 @@ export const useTitles = (sort: TitleSort = "released", poll = false) =>
   useEngineQuery<TitleSummary[]>(`/titles?sort=${sort}`, () => (poll ? 2000 : false), true, true);
 export const useTitle = (id: number) => useEngineQuery<TitleDetail>(`/titles/${id}`);
 export const useReport = (id: number) => useEngineQuery<Report>(`/titles/${id}/report`);
+
+export interface FranchiseRef {
+  /** Its lead title's. */
+  id: number;
+  name: string;
+}
+
+/**
+ * Titles AniList ties together by story: a franchise's series, films, OVAs and specials. A title
+ * on its own is a franchise of one.
+ */
+export interface FranchiseSummary extends FranchiseRef {
+  /** Its first release (ISO date). */
+  released: string | null;
+  kinds: Record<TitleKind, number>;
+  /** Its lead's. */
+  hasPoster: boolean;
+  airing: boolean;
+  files: number;
+  added: string | null;
+  aired: number;
+  present: number;
+  missing: number;
+  specialsMissing: number;
+  upcoming: number;
+  /** In the order asked for. */
+  titles: TitleSummary[];
+}
+
+/** Every franchise with its titles, in `sort` order: Home's shelf. */
+export const useFranchises = (sort: TitleSort = "released") =>
+  useEngineQuery<FranchiseSummary[]>(`/franchises?sort=${sort}`, undefined, true, true);
+/** The franchise a title belongs to (any of its titles finds it), its titles in `sort` order. */
+export const useFranchise = (id: number, sort: TitleSort = "released") =>
+  useEngineQuery<FranchiseSummary>(`/franchises/${id}?sort=${sort}`, undefined, true, true);
 
 /** One of Kura's guesses for a file it couldn't place surely. */
 export interface Guess {
@@ -466,7 +503,7 @@ export const useMatchSearch = (fileId: number, text: string) =>
   );
 /** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also, episode } })`. */
 export const useChooseMatch = () =>
-  useEngineAction<{ placed: number }>(["/review", "/titles", "/scan", "/library"]);
+  useEngineAction<{ placed: number }>(["/review", "/titles", "/franchises", "/scan", "/library"]);
 /** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
 export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan"]);
 

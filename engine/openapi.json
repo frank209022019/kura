@@ -549,6 +549,113 @@
         }
       }
     },
+    "/franchises": {
+      "get": {
+        "summary": "List Franchises",
+        "description": "Every franchise with its titles, oldest release first unless asked otherwise: Home's\nshelf. A title on its own is a franchise of one.",
+        "operationId": "list_franchises_franchises_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Order",
+              "description": "released (the default), name, added or missing",
+              "default": "released"
+            },
+            "description": "released (the default), name, added or missing"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FranchiseSummary"
+                  },
+                  "title": "Response List Franchises Franchises Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/franchises/{title_id}": {
+      "get": {
+        "summary": "One Franchise",
+        "description": "The franchise a title belongs to, found by any of its titles.",
+        "operationId": "one_franchise_franchises__title_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Title Id"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Order",
+              "description": "released (the default), name, added or missing",
+              "default": "released"
+            },
+            "description": "released (the default), name, added or missing"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FranchiseSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/titles/{title_id}": {
       "get": {
         "summary": "One Title",
@@ -1109,6 +1216,119 @@
         "title": "EpisodeState",
         "description": "One episode and how it stands, for the episode map: status by shape."
       },
+      "FranchiseRef": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "FranchiseRef"
+      },
+      "FranchiseSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "released": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released"
+          },
+          "kinds": {
+            "$ref": "#/components/schemas/KindCounts"
+          },
+          "hasPoster": {
+            "type": "boolean",
+            "title": "Hasposter"
+          },
+          "airing": {
+            "type": "boolean",
+            "title": "Airing"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          },
+          "added": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
+          "aired": {
+            "type": "integer",
+            "title": "Aired"
+          },
+          "present": {
+            "type": "integer",
+            "title": "Present"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          },
+          "specialsMissing": {
+            "type": "integer",
+            "title": "Specialsmissing"
+          },
+          "upcoming": {
+            "type": "integer",
+            "title": "Upcoming"
+          },
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/TitleSummary"
+            },
+            "type": "array",
+            "title": "Titles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "released",
+          "kinds",
+          "hasPoster",
+          "airing",
+          "files",
+          "added",
+          "aired",
+          "present",
+          "missing",
+          "specialsMissing",
+          "upcoming",
+          "titles"
+        ],
+        "title": "FranchiseSummary",
+        "description": "Titles AniList ties together by story. A title on its own is a franchise of one."
+      },
       "Guess": {
         "properties": {
           "anilistId": {
@@ -1240,6 +1460,34 @@
           "schemaVersion"
         ],
         "title": "Health"
+      },
+      "KindCounts": {
+        "properties": {
+          "series": {
+            "type": "integer",
+            "title": "Series"
+          },
+          "movie": {
+            "type": "integer",
+            "title": "Movie"
+          },
+          "ova": {
+            "type": "integer",
+            "title": "Ova"
+          },
+          "special": {
+            "type": "integer",
+            "title": "Special"
+          }
+        },
+        "type": "object",
+        "required": [
+          "series",
+          "movie",
+          "ova",
+          "special"
+        ],
+        "title": "KindCounts"
       },
       "Library": {
         "properties": {
@@ -1705,6 +1953,16 @@
             "type": "integer",
             "title": "Upcoming"
           },
+          "franchise": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FranchiseRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "source": {
             "type": "string",
             "enum": [
@@ -1783,6 +2041,7 @@
           "missing",
           "specialsMissing",
           "upcoming",
+          "franchise",
           "source",
           "folder",
           "seasons",

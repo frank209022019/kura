@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type EngineStatus, type Health, type TitleSummary } from "@/lib/engine";
-import { fakeEngine, NO_LIBRARY, NO_SCAN, READY, SETTINGS } from "@/test/engine";
+import { fakeEngine, franchiseOf, NO_LIBRARY, NO_SCAN, READY, SETTINGS } from "@/test/engine";
 import { HomePage } from "./home-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -77,7 +77,7 @@ function engineWith(answers: Record<string, unknown> = {}) {
     "/library": NO_LIBRARY,
     "/scan": NO_SCAN,
     "/tmdb": { connected: false, keyEnd: null },
-    "/titles": [],
+    "/franchises": [],
     ...answers,
   });
 }
@@ -97,6 +97,7 @@ function renderHome(engine: EngineStatus) {
             <Route path="/scan" element={<p>Scan</p>} />
             <Route path="/match" element={<p>Match</p>} />
             <Route path="/titles/:id" element={<p>A title</p>} />
+            <Route path="/franchises/:id" element={<p>A franchise</p>} />
           </Routes>
         </MemoryRouter>
       </EngineProvider>
@@ -284,38 +285,52 @@ describe("HomePage", () => {
     expect(shell.invoke).toHaveBeenCalledWith("open_downloads_page");
   });
 
-  it("lists the anime and films oldest release first, each saying what it is", async () => {
+  it("lists the franchises and series oldest release first, each saying what it is", async () => {
     const fetch = engineWith({
       "/folders": [FOLDER],
       "/library": { ...NO_LIBRARY, folders: 1, files: 314, size: 9e10 },
       "/scan": { ...NO_SCAN, state: "done", stage: "done" },
-      "/titles": (init?: RequestInit) => {
-        void init;
-        return [DBZ, BEBOP, MOVIE];
-      },
+      "/franchises": [franchiseOf([DBZ]), franchiseOf([BEBOP, MOVIE])],
     });
     renderHome(READY);
 
-    expect(await screen.findByRole("heading", { name: "Anime and films" })).toBeInTheDocument();
-    expect(screen.getByText("3 titles · oldest release first")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Franchises and series" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 anime · oldest release first")).toBeInTheDocument();
     expect(screen.getByText("TV series · 1989 · 291 episodes")).toBeInTheDocument();
-    expect(screen.getByText("Movie · 2001")).toBeInTheDocument();
     expect(screen.getByText("4 missing")).toBeInTheDocument();
     expect(screen.getByText("287 of 291 · 99%")).toBeInTheDocument();
-    expect(screen.getByText("3 anime · 314 videos · 90.0 GB · 1 folder")).toBeInTheDocument();
+    expect(screen.getByText("TV series · 26 episodes · 1 movie")).toBeInTheDocument();
+    expect(screen.getByText("26 of 26 · complete")).toBeInTheDocument();
+    expect(screen.getByText("2 anime · 314 videos · 90.0 GB · 1 folder")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Release date" })).toBeChecked();
     expect(
-      fetch.mock.calls.some(([input]) => String(input).endsWith("/titles?sort=released")),
+      fetch.mock.calls.some(([input]) => String(input).endsWith("/franchises?sort=released")),
     ).toBe(true);
 
     screen.getByRole("radio", { name: "Name" }).click();
     await waitFor(() =>
-      expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/titles?sort=name"))).toBe(
-        true,
-      ),
+      expect(
+        fetch.mock.calls.some(([input]) => String(input).endsWith("/franchises?sort=name")),
+      ).toBe(true),
     );
 
-    (await screen.findByRole("link", { name: /Cowboy Bebop: The Movie/ })).click();
+    (await screen.findByRole("link", { name: /Cowboy Bebop/ })).click();
+    expect(await screen.findByText("A franchise")).toBeInTheDocument();
+  });
+
+  it("leads a title on its own to its page", async () => {
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 287, size: 9e10 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done" },
+      "/franchises": [franchiseOf([DBZ])],
+    });
+    renderHome(READY);
+
+    (await screen.findByRole("link", { name: /Dragon Ball Z/ })).click();
+
     expect(await screen.findByText("A title")).toBeInTheDocument();
   });
 
@@ -324,7 +339,7 @@ describe("HomePage", () => {
       "/folders": [FOLDER],
       "/library": { ...NO_LIBRARY, folders: 1, files: 314, problems: 9 },
       "/scan": { ...NO_SCAN, state: "done", stage: "done", waiting: 12, mixed: 1 },
-      "/titles": [DBZ, BEBOP],
+      "/franchises": [franchiseOf([DBZ]), franchiseOf([BEBOP, MOVIE])],
     });
     renderHome(READY);
 

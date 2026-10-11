@@ -13,9 +13,10 @@ pipeline set up, with semantic versions, a changelog and a downloads page; the e
 converted. Scanning works end to end: first-run setup, ffmpeg fetched from the list the installer
 shows, library folders, the scan (find, read with ffprobe, identify on AniList and TMDB, check for
 gaps and write the reports), "Which anime is this?" for the files Kura isn't sure about, the
-watcher that keeps the library current, Home's poster grid with "Needs your attention", and a
-page per title with its seasons, episode map and gap analysis. No release has been tagged yet.
-Next is finishing the library home (franchises, changing a match), in
+watcher that keeps the library current, Home's shelf of franchises and series with "Needs your
+attention", a page per franchise, and a page per title with its seasons, episode map and gap
+analysis. No release has been tagged yet.
+Next is finishing the title page (changing a match, opening its folder), in
 [What's next](#whats-next).
 
 ## Ground rules
@@ -269,9 +270,8 @@ Everything decided so far. Don't ask again; change only with the owner.
 1. Identification and missing episodes: done (AniList and TMDB, the review screen, the gap
    check and its reports, the watcher, the scan's last three stages). Open with the owner: TMDB's
    logo next to the credit line (the repo ships no media).
-2. The library home and a page per title: the poster grid sorted by release date, "Needs your
-   attention" and the title page are done. Left: franchises (Home groups a franchise's series,
-   films, OVAs and specials into one card with a page of its own, as the home board shows),
+2. The library home and a page per title: the shelf of franchises and series sorted by release
+   date, a page per franchise, "Needs your attention" and the title page are done. Left:
    "Change match" and "Open folder" on the title page.
 3. Tidy-up in the app (the planner and journal exist): review, apply, undo, quarantine, History.
 4. Conversion, with the queue: upscaling, the encode, Kura's mux, checking each output, estimates,

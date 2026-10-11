@@ -285,6 +285,7 @@ class Identifier:
     def _title_for(self, conn: sqlite3.Connection, entry: Anime, tmdb: Tmdb | None) -> _Home:
         """The library's title for an AniList entry, made or refreshed, with its TMDB show.
         Without a key, an entry whose files already sit in a TMDB title joins them there."""
+        save_links(conn, entry)
         if tmdb is None:
             return _known_home(conn, entry) or self._anilist_title(conn, entry)
         if entry.kind in (TitleKind.OVA, TitleKind.SPECIAL):
@@ -456,6 +457,18 @@ def _aired(entry: Anime) -> int | None:
     if not entry.airing:
         return entry.episodes
     return entry.next_episode - 1 if entry.next_episode else None
+
+
+def save_links(conn: sqlite3.Connection, entry: Anime) -> None:
+    """Remembers how AniList relates an entry to others: what ties a franchise together
+    (kura/core/franchise.py)."""
+    with conn:
+        conn.execute("DELETE FROM anilist_links WHERE anilist_id = ?", (entry.id,))
+        conn.executemany(
+            """INSERT OR IGNORE INTO anilist_links (anilist_id, related_id, relation)
+               VALUES (?, ?, ?)""",
+            [(entry.id, related.id, related.relation) for related in entry.related],
+        )
 
 
 def identify_again(conn: sqlite3.Connection) -> int:

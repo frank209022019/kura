@@ -10,12 +10,29 @@ from datetime import date
 from typing import Literal
 
 from kura.core.catalog import Episode, Show, TitleKind
+from kura.core.franchise import Link
+from kura.core.franchise import franchises as group_franchises
 from kura.core.gaps import Gaps, find_gaps
 from kura.core.media import MediaInfo, media_from_ffprobe
 from kura.core.standard import Decision, Method, Standard, decide
 
 type Order = Literal["released", "name", "added", "missing"]
 type State = Literal["ready", "to convert", "broken", "missing", "upcoming"]
+
+
+@dataclass(frozen=True)
+class Franchise:
+    """Titles AniList ties together by story (kura/core/franchise.py). A title on its own is a
+    franchise of one."""
+
+    id: int  # its lead's: the first series to air, or else the first title
+    name: str  # its lead's
+    titles: tuple[Title, ...]  # in the order asked for
+
+    @property
+    def released(self) -> date | None:
+        dated = [t.released for t in self.titles if t.released]
+        return min(dated) if dated else None
 
 
 @dataclass(frozen=True)
@@ -80,6 +97,59 @@ def sort_titles(found: Sequence[Title], order: Order) -> list[Title]:
             return sorted(by_name, key=lambda t: t.added or "", reverse=True)
         case "missing":
             return sorted(by_name, key=lambda t: len(t.gaps.missing) if t.gaps else 0, reverse=True)
+
+
+def franchises(conn: sqlite3.Connection, today: date, order: Order = "released") -> list[Franchise]:
+    """Every franchise the library holds a video of, in the order asked for, each with its titles
+    in that order too."""
+    found = titles(conn, today, "released")  # so a franchise's first series leads it
+    entries: dict[int, set[int]] = {t.id: {t.anilist_id} if t.anilist_id else set() for t in found}
+    for row in conn.execute(
+        """SELECT DISTINCT title_id, anilist_id FROM files
+           WHERE gone_at IS NULL AND title_id IS NOT NULL AND anilist_id IS NOT NULL"""
+    ):
+        entries.setdefault(row["title_id"], set()).add(row["anilist_id"])
+    links = [
+        Link(row["anilist_id"], row["related_id"], row["relation"])
+        for row in conn.execute("SELECT * FROM anilist_links")
+    ]
+    by_id = {t.id: t for t in found}
+    grouped = group_franchises({t.id: entries[t.id] for t in found}, links)
+    made = [_franchise([by_id[title_id] for title_id in group], order) for group in grouped]
+    return sort_franchises(made, order)
+
+
+def franchise_of(
+    conn: sqlite3.Connection, title_id: int, today: date, order: Order = "released"
+) -> Franchise | None:
+    """The franchise a title belongs to, found by any of its titles."""
+    return next(
+        (f for f in franchises(conn, today, order) if any(t.id == title_id for t in f.titles)),
+        None,
+    )
+
+
+def sort_franchises(found: Sequence[Franchise], order: Order) -> list[Franchise]:
+    """As titles sort (sort_titles): by first release, name, newest added or most missing."""
+    by_name = sorted(found, key=lambda f: f.name.casefold())
+    match order:
+        case "released":
+            return sorted(by_name, key=lambda f: (f.released is None, f.released or date.max))
+        case "name":
+            return by_name
+        case "added":
+            return sorted(by_name, key=lambda f: max(t.added or "" for t in f.titles), reverse=True)
+        case "missing":
+            return sorted(
+                by_name,
+                key=lambda f: sum(len(t.gaps.missing) for t in f.titles if t.gaps),
+                reverse=True,
+            )
+
+
+def _franchise(members: list[Title], order: Order) -> Franchise:
+    lead = next((t for t in members if t.kind is TitleKind.SERIES), members[0])
+    return Franchise(lead.id, lead.name, tuple(sort_titles(members, order)))
 
 
 def show_of(conn: sqlite3.Connection, title_id: int) -> Show | None:

@@ -29,7 +29,7 @@ from kura.cache import Cache
 from kura.config import DataPaths
 from kura.core.catalog import TitleKind
 from kura.core.extensions import is_video
-from kura.identify import AIRING_EVERY, due, save_anilist_title, save_show
+from kura.identify import AIRING_EVERY, due, save_anilist_title, save_links, save_show
 from kura.reports import write_reports
 from kura.scan import ScanBusyError, ScanStatus
 from kura.tmdb import Tmdb
@@ -184,6 +184,7 @@ class Watcher:
         if entry is None:
             return False
         save_anilist_title(conn, entry, self._now())
+        save_links(conn, entry)
         return True
 
     def _loop(self) -> None:

@@ -33,7 +33,10 @@ title { romaji english native } synonyms coverImage { large } nextAiringEpisode
 relations { edges { relationType node { … } } }`.
 [kura/core/catalog.py](../../engine/src/kura/core/catalog.py) reads them into `Anime` and
 `Related` values, with Kura's kinds: TV, TV short and web series (ONA) are a series, MOVIE a
-movie, OVA an OVA, SPECIAL and MUSIC a special. Relations to manga and novels are dropped.
+movie, OVA an OVA, SPECIAL and MUSIC a special. Relations to manga and novels are dropped. The
+relations of every entry the library matched are kept (`anilist_links`), and they tie franchises
+together: sequels, prequels, alternative versions, films and side stories do, crossovers
+(`CHARACTER`) and loose links (`OTHER`) don't.
 
 Answers are kept a week in the data folder's `cache/`, so a rescan asks nothing again. A show
 still airing is the exception: whenever its episode list is due (every hour), a scan or the hourly

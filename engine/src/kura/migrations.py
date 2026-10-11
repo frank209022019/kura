@@ -135,4 +135,14 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     DROP TABLE scans;
     ALTER TABLE scans_next RENAME TO scans;
     """,
+    # 5. How AniList relates the entries the library has to others (sequel, prequel, film,
+    #    side story...): what ties a franchise together.
+    """
+    CREATE TABLE anilist_links (
+        anilist_id INTEGER NOT NULL,  -- an entry Kura matched files to
+        related_id INTEGER NOT NULL,  -- an entry AniList relates it to
+        relation   TEXT NOT NULL,     -- SEQUEL, PREQUEL, PARENT, SIDE_STORY, ALTERNATIVE, ...
+        PRIMARY KEY (anilist_id, related_id)
+    ) STRICT, WITHOUT ROWID;
+    """,
 )

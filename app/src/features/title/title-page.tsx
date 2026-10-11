@@ -1,6 +1,7 @@
 import { FileText } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
@@ -24,7 +25,7 @@ export function TitlePage() {
   if (!title.data) {
     return (
       <>
-        <Breadcrumb name="…" />
+        <Breadcrumb trail={[LIBRARY]} current="…" />
         <EngineProblem queries={[title]} />
       </>
     );
@@ -35,7 +36,14 @@ export function TitlePage() {
 
   return (
     <>
-      <Breadcrumb name={found.name} />
+      <Breadcrumb
+        trail={
+          found.franchise
+            ? [LIBRARY, { label: found.franchise.name, to: `/franchises/${found.franchise.id}` }]
+            : [LIBRARY]
+        }
+        current={found.name}
+      />
       <Header title={found} />
       <EngineProblem queries={[title]} />
       {found.seasons.length > 0 && (
@@ -56,22 +64,6 @@ export function TitlePage() {
   );
 }
 
-function Breadcrumb({ name }: { name: string }) {
-  return (
-    <nav aria-label="Breadcrumb" className="flex animate-fade-up items-center gap-2 text-13">
-      <Link to="/" className="text-fg-muted underline-offset-3 hover:text-fg hover:underline">
-        Library
-      </Link>
-      <span aria-hidden="true" className="text-fg-faint">
-        ›
-      </span>
-      <span aria-current="page" className="font-bold">
-        {name}
-      </span>
-    </nav>
-  );
-}
-
 function Header({ title }: { title: TitleDetail }) {
   const seasons = title.seasons.length;
   const facts = [
@@ -79,6 +71,7 @@ function Header({ title }: { title: TitleDetail }) {
     seasons > 0 ? `${seasons} ${seasons === 1 ? "season" : "seasons"}` : null,
     title.aired > 0 ? `${title.aired} episodes` : null,
     title.kind === "movie" || title.aired === 0 ? files(title.files) : null,
+    title.franchise ? `part of ${title.franchise.name}` : null,
   ].filter(Boolean);
 
   return (

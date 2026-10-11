@@ -108,7 +108,9 @@ next start carries on. Then each video read is identified (`kura/identify.py`): 
 like the same anime are looked up together on AniList, and with the owner's TMDB key the same show
 or film is found on TMDB, whose episode lists say where each file sits. An OVA or special goes
 into its show's season 0 when the library has the show and TMDB lists it among the show's
-specials on the day it first aired; otherwise it's a title of its own. A file Kura isn't sure
+specials on the day it first aired; otherwise it's a title of its own. Titles AniList ties
+together by story (sequels, prequels, alternative versions, films, side stories) make a franchise
+(`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own. A file Kura isn't sure
 about waits for the owner, whose choice is pinned (an episode Kura can't place asks for its
 number); offline, identification waits for the next scan and the scan says so.
 Last, the scan checks the library: each series with a folder of its own gets its

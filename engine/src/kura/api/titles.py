@@ -1,5 +1,6 @@
-"""The library's titles: every anime and film with its kind, release date, files and gaps, and one
-title in full with its seasons, the episodes it's missing, and its videos."""
+"""The library's titles: every anime and film with its kind, release date, files and gaps, one
+title in full with its seasons, the episodes it's missing, and its videos, and the franchises they
+make (a franchise's series, films, OVAs and specials together)."""
 
 from datetime import date, datetime
 from pathlib import Path
@@ -73,7 +74,39 @@ class EpisodeState(ApiModel):
     file_id: int | None
 
 
+class FranchiseRef(ApiModel):
+    id: int
+    name: str
+
+
+class KindCounts(ApiModel):
+    series: int
+    movie: int
+    ova: int
+    special: int
+
+
+class FranchiseSummary(ApiModel):
+    """Titles AniList ties together by story. A title on its own is a franchise of one."""
+
+    id: int  # its lead title's: the first series to air, or else the first title
+    name: str
+    released: str | None  # its first release
+    kinds: KindCounts
+    has_poster: bool  # its lead's
+    airing: bool  # any of it
+    files: int
+    added: str | None  # when its newest title's first video was found
+    aired: int
+    present: int
+    missing: int
+    specials_missing: int
+    upcoming: int
+    titles: list[TitleSummary]  # in the order asked for
+
+
 class TitleDetail(TitleSummary):
+    franchise: FranchiseRef | None  # when the title is one of several
     source: Literal["tmdb", "anilist"]  # where its episode list comes from
     folder: str | None  # its own folder, when its videos have one
     seasons: list[SeasonCount]
@@ -93,11 +126,28 @@ def list_titles(conn: Database, sort: Sort = "released") -> list[TitleSummary]:
     return [_summary(found) for found in titles.titles(conn, _today(), sort)]
 
 
+@router.get("/franchises")
+def list_franchises(conn: Database, sort: Sort = "released") -> list[FranchiseSummary]:
+    """Every franchise with its titles, oldest release first unless asked otherwise: Home's
+    shelf. A title on its own is a franchise of one."""
+    return [_franchise(found) for found in titles.franchises(conn, _today(), sort)]
+
+
+@router.get("/franchises/{title_id}")
+def one_franchise(title_id: int, conn: Database, sort: Sort = "released") -> FranchiseSummary:
+    """The franchise a title belongs to, found by any of its titles."""
+    found = titles.franchise_of(conn, title_id, _today(), sort)
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no such franchise.")
+    return _franchise(found)
+
+
 @router.get("/titles/{title_id}")
 def one_title(title_id: int, conn: Database) -> TitleDetail:
     found = titles.title(conn, title_id, _today())
     if found is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no such title.")
+    group = titles.franchise_of(conn, title_id, _today())
     gaps = found.gaps
     videos = conn.execute(
         """SELECT id, path, season, episode, episode_end, problem, height, codec, duration
@@ -115,6 +165,9 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
     own = own_folder(conn, title_id, roots)
     return TitleDetail(
         **_summary(found).model_dump(by_alias=False),
+        franchise=FranchiseRef(id=group.id, name=group.name)
+        if group and len(group.titles) > 1
+        else None,
         source="tmdb" if found.tmdb else "anilist",
         folder=str(own) if own else None,
         episodes=[
@@ -208,6 +261,28 @@ def _summary(found: Title) -> TitleSummary:
         missing=len(gaps.missing) if gaps else 0,
         specials_missing=len(gaps.specials_missing) if gaps else 0,
         upcoming=len(gaps.upcoming) if gaps else 0,
+    )
+
+
+def _franchise(found: titles.Franchise) -> FranchiseSummary:
+    members = [_summary(title) for title in found.titles]
+    lead = next(member for member in members if member.id == found.id)
+    kinds = {kind: sum(1 for m in members if m.kind is kind) for kind in TitleKind}
+    return FranchiseSummary(
+        id=found.id,
+        name=found.name,
+        released=found.released.isoformat() if found.released else None,
+        kinds=KindCounts(**{kind.value: count for kind, count in kinds.items()}),
+        has_poster=lead.has_poster,
+        airing=any(m.airing for m in members),
+        files=sum(m.files for m in members),
+        added=max((m.added for m in members if m.added), default=None),
+        aired=sum(m.aired for m in members),
+        present=sum(m.present for m in members),
+        missing=sum(m.missing for m in members),
+        specials_missing=sum(m.specials_missing for m in members),
+        upcoming=sum(m.upcoming for m in members),
+        titles=members,
     )
 
 
