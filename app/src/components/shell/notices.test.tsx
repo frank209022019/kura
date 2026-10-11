@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { EngineProvider, useHistory } from "@/lib/engine";
@@ -60,5 +60,47 @@ describe("Notices", () => {
     expect(note).toHaveTextContent("26 episodes · all checked · 6.1 GB → 11.7 GB");
     screen.getByRole("button", { name: "View" }).click();
     expect(await screen.findByText("A title")).toBeInTheDocument();
+  });
+
+  it("stays while it's pointed at or focused, and goes when dismissed", async () => {
+    shell.invoke.mockResolvedValue(READY);
+    fakeEngine({});
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <EngineProvider>
+          <MemoryRouter>
+            <Notices />
+          </MemoryRouter>
+        </EngineProvider>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(shell.handlers.has("notice")).toBe(true));
+    vi.useFakeTimers();
+    try {
+      act(() =>
+        shell.handlers.get("notice")?.({
+          payload: { title: "The queue paused", body: "There isn't room on D:", link: null },
+        }),
+      );
+      const note = screen.getByRole("status");
+
+      fireEvent.mouseEnter(note);
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(screen.getByRole("status")).toBeInTheDocument(); // read at leisure
+
+      fireEvent.mouseLeave(note);
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    act(() =>
+      shell.handlers.get("notice")?.({
+        payload: { title: "Trigun is done", body: "1 episode", link: null },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

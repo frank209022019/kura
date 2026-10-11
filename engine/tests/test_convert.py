@@ -154,6 +154,22 @@ def test_a_source_that_cant_be_read_says_how_far_it_plays_and_what_ffmpeg_said(
     assert episode.read_bytes() == original
 
 
+def test_a_720p_file_that_fails_part_way_says_how_far_it_got(
+    conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    with conn:
+        conn.execute("UPDATE files SET probe = ?", (json.dumps(report(1280, 720, codec="h264")),))
+    monkeypatch.setenv("KURA_FAKE_FAIL", "convert")
+
+    with pytest.raises(ConvertError) as failed:
+        run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+    assert str(failed.value) == (
+        "ffmpeg couldn't convert it past 00:50: Error while decoding stream #0:0: Invalid data "
+        "found."
+    )
+
+
 def test_a_result_that_doesnt_play_never_replaces_the_original(
     conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
 ):

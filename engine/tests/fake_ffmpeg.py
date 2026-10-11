@@ -8,9 +8,10 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - one whole conversion: writes the file, telling its progress the way -progress does;
 - a test play: says nothing, as ffmpeg does when a file plays.
 
-KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", or "decode" (once its
-frames are out, as a decoder meeting damage). KURA_FAKE_SLOW is the seconds the decoder takes
-over each frame (none), so a test can stop a conversion mid-way.
+KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", "decode" (once its
+frames are out, as a decoder meeting damage), or "convert" (one command, 1,200 frames in).
+KURA_FAKE_SLOW is the seconds the decoder takes over each frame (none), so a test can stop a
+conversion mid-way.
 """
 
 import os
@@ -61,6 +62,10 @@ def main() -> None:
     if "-progress" in args:
         if fail == "encode":
             print("hevc_nvenc: No capable devices found", file=sys.stderr)
+            sys.exit(1)
+        if fail == "convert":
+            print("frame=1200\nfps=24.0\nprogress=continue", flush=True)
+            print("Error while decoding stream #0:0: Invalid data found", file=sys.stderr)
             sys.exit(1)
         source = Path(args[args.index("-i") + 1])
         for frame in (10, 20, 30):

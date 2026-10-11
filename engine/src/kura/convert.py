@@ -569,8 +569,9 @@ def _in_one_command(
             frames = int(line.split(b"=", 1)[1].strip() or 0)
             report(Progress("converting", frames, total))
     if process.wait() != 0:
+        reached = f" past {_clock(frames / float(made.frame_rate), whole=True)}" if frames else ""
         raise ConvertError(
-            f"ffmpeg couldn't convert it: {said.last() or 'it stopped'}.",
+            f"ffmpeg couldn't convert it{reached}: {said.last() or 'it stopped'}.",
             _log(said, stopped=(frames, total)),
         )
 

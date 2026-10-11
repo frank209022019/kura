@@ -219,7 +219,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   settings, every file change (`changes.csv`) and a manifest; it grows with the schema.
 - Kura deletes only its own files, whatever its records say (a damaged database, or one an
   imported export held): what's in a day's folder of a quarantine, its unfinished copies
-  (`.kura-converting`, `.kura-partial`) and its own `poster.jpg` and `fanart.jpg`.
+  (`.kura-converting`, `.kura-partial`) and its own `poster.jpg` and `fanart.jpg`; and,
+  finishing a move to another drive that a stop cut short, the original once the same file is
+  in place.
 - Uninstall: offer the export first, keep the data folder unless the owner ticks "Delete the
   application data", never touch anime files.
 

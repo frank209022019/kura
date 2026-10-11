@@ -207,7 +207,8 @@ quarantine is
 cleared out. Kura never deletes a file outright. Whatever its records say (a damaged database,
 or one an imported export held), Kura deletes only a file in a day's folder of a quarantine
 (`core.plan.in_quarantine`), its own unfinished results (`.kura-converting`, `.kura-partial`)
-and its own `poster.jpg` and `fanart.jpg`.
+and its own `poster.jpg` and `fanart.jpg`; and, finishing a move to another drive that a stop cut
+short, the original once the same file is in place (`changes._settle`).
 
 Converting (`kura/convert.py`) brings one file to the standard by the method its recipe names
 (`kura/core/convert.py`): the AI model between two ffmpegs (`kura/upscale.py`), or one ffmpeg
