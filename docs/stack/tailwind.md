@@ -67,6 +67,9 @@ management and ARIA, so keep its structure and change only the styling. The CLI 
 `global.css`; keep only what the component needs.
 
 `ui/button.tsx` shows the pattern: shadcn's structure, `cva` variants, Cinema classes.
+`ui/switch.tsx` (the setup's toggles) and `ui/segmented.tsx` (one choice from a few, such as Plex,
+Jellyfin or Keep my names) are small wrappers written straight on Radix's Switch and ToggleGroup,
+with no shadcn code in them; the setup's standard cards use Radix's RadioGroup the same way.
 
 ## Icons
 

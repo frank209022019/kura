@@ -10,7 +10,13 @@ Function KuraUseProgramsFolder
     ${EndIf}
 FunctionEnd
 
-; 2. Before anything is removed, offer to export Kura's data to Documents.
+; 2. The page after the welcome is Kura's "before you install" text (scripts/installer-notes.mjs):
+;    everything Kura downloads to the PC, then its MIT licence. NSIS shows it as a licence page;
+;    these say what it is instead of NSIS's words for a licence agreement.
+!define MUI_LICENSEPAGE_TEXT_TOP "What Kura downloads to this PC, then its licence. Scroll to read it all."
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "Kura is free software under the MIT licence. Click I Agree to install it."
+
+; 3. Before anything is removed, offer to export Kura's data to Documents.
 ;    If the export fails, nothing is removed.
 !macro NSIS_HOOK_PREUNINSTALL
     ${If} $UpdateMode <> 1
@@ -29,7 +35,7 @@ FunctionEnd
     ${EndIf}
 !macroend
 
-; 3. Kura's data folder stays unless "Delete the application data" was ticked.
+; 4. Kura's data folder stays unless "Delete the application data" was ticked.
 !macro NSIS_HOOK_POSTUNINSTALL
     ${If} $DeleteAppDataCheckboxState = 1
     ${AndIf} $UpdateMode <> 1
