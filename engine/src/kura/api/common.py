@@ -11,6 +11,7 @@ from pydantic.alias_generators import to_camel
 
 from kura import db
 from kura.config import DataPaths
+from kura.tools import Tools
 
 
 class ApiModel(BaseModel):
@@ -33,6 +34,12 @@ def _database(paths: Annotated[DataPaths, Depends(_paths)]) -> Iterator[sqlite3.
         yield conn
 
 
+def _toolbox(request: Request) -> Tools:
+    toolbox: Tools = request.app.state.tools
+    return toolbox
+
+
 # Use these as parameter types in routes, e.g. `def route(conn: Database) -> ...`.
 Paths = Annotated[DataPaths, Depends(_paths)]
 Database = Annotated[sqlite3.Connection, Depends(_database)]
+Toolbox = Annotated[Tools, Depends(_toolbox)]

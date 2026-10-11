@@ -1,0 +1,31 @@
+{
+  "about": "Everything Kura downloads to a PC: the one list the installer shows and the engine follows. Kura downloads nothing that isn't here, and uses its own downloads only when their size and SHA-256 match. See docs/releasing.md.",
+  "downloads": [
+    {
+      "id": "webview2",
+      "name": "Microsoft Edge WebView2",
+      "version": "current",
+      "purpose": "Draws Kura's window. Windows 11 has it; on a PC without it, the installer fetches Microsoft's installer for it.",
+      "licence": "Microsoft's WebView2 Runtime terms",
+      "home": "https://developer.microsoft.com/microsoft-edge/webview2/",
+      "url": "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+      "size": null,
+      "sha256": null,
+      "keep": null,
+      "by": "installer"
+    },
+    {
+      "id": "ffmpeg",
+      "name": "ffmpeg",
+      "version": "9.0.2",
+      "purpose": "Reads what each video holds, and converts it. Kura fetches it the first time it starts.",
+      "licence": "LGPL-2.1-or-later",
+      "home": "https://ffmpeg.org",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n9.0.2-17-g2a571b6068-win64-lgpl-shared-9.0.zip",
+      "size": 76972461,
+      "sha256": "7157177b8a6cb2174c1650ba8c71b363f2c78cba5330f88c4c02cf5b2b880646",
+      "keep": "bin",
+      "by": "kura"
+    }
+  ]
+}

@@ -19,6 +19,11 @@ class DataPaths:
     def logs(self) -> Path:
         return self.root / "logs"
 
+    @property
+    def tools(self) -> Path:
+        """What Kura downloads to work with, such as ffmpeg (see downloads.json)."""
+        return self.root / "tools"
+
     @classmethod
     def default(cls) -> DataPaths:
         r"""%LOCALAPPDATA%\Kura, or the folder in KURA_DATA_DIR when that is set."""

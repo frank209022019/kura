@@ -120,6 +120,13 @@ Everything decided so far. Don't ask again; change only with the owner.
 - Plex naming. Watched mostly on the PC; Plex or a phone maybe later.
 - Picture: crisp and clean; 720p or 1080p are both fine. **Every** file goes to the library standard,
   even 720p to 720p; a file already exactly at the standard is only renamed.
+- Everything ends up neatly filed (the owner, 2026-10-11): seasons, specials and OVAs (Season 00)
+  under their show, and every movie in a folder of its own, even one that arrived as a bare file.
+  File and folder names match and stay clean and simple, nothing but the title, year, numbers and
+  episode title: `TV\Show (Year)\Season 01\Show (Year) - S01E01 - Title.mkv` and
+  `Movies\Title (Year)\Title (Year).mkv`, never release groups, resolutions or codecs. Folders a
+  tidy-up leaves empty are removed (and come back on undo), and subtitle files beside a video move
+  and rename with it.
 - "A simple tool, but we don't want to struggle with small things": empty, error and recovery
   states are designed, not afterthoughts (see the "small things" screen).
 - Order of work: design language (done), repo and pipelines (done), then building.
@@ -164,8 +171,9 @@ Everything decided so far. Don't ask again; change only with the owner.
     Kura; the measured speeds are the defaults in `engine/src/kura/core/estimate.py`.
 
 **Data**
-- `%LOCALAPPDATA%\Kura`: kura.db, artwork cache, nightly backups (keep 7), logs (30 days). The
-  folder can be moved to another drive.
+- `%LOCALAPPDATA%\Kura`: kura.db, artwork cache, nightly backups (keep 7), logs (30 days), and
+  `tools\` (ffmpeg, downloaded on first run; see docs/stack/ffmpeg.md). The folder can be moved to
+  another drive.
 - Next to the files: `Kura - Gap analysis.md` and `Kura - History.md` per anime (Plex ignores .md),
   a tag inside every converted MKV, and optional Plex poster and fanart.
 - Export: one zip (SQLite, JSON, CSV, the .md reports, settings). Today it holds the database,
@@ -206,9 +214,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   a licence that isn't allowed.
 - **Every download is listed in the installer** (the owner, 2026-10-11: "really important"). No
   one installs anything by hand except a graphics driver, which Kura checks and links to. What
-  isn't inside the installer (WebView2 on a PC without it; later ffmpeg and manami's database)
-  goes in one manifest in the repo: what it's for, version, size, licence, source and
-  checksum. The installer shows that list before it installs, the first-run Tools step downloads
+  isn't inside the installer (WebView2 on a PC without it, ffmpeg, later manami's database)
+  goes in one manifest, `engine/src/kura/downloads.json`: what it's for, version, size, licence,
+  source and checksum. The installer shows that list before it installs, the first-run Tools step downloads
   it, Settings shows it, and Kura downloads nothing that isn't on it. Built with the first
   download, ffmpeg.
 - Per-user install (no admin) into `%LOCALAPPDATA%\Programs\Kura`, apart from the data.

@@ -17,8 +17,9 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from kura import __version__, changes, db
-from kura.api import health
+from kura.api import health, tools
 from kura.config import DataPaths
+from kura.tools import Tools
 
 # The app's own pages: the installed app, and the Vite dev server in development.
 APP_ORIGINS = ["http://tauri.localhost", "http://localhost:1420"]
@@ -27,7 +28,7 @@ LOCAL_HOSTS = ["127.0.0.1", "localhost"]
 _bearer = HTTPBearer(auto_error=False)
 
 
-def create_app(token: str, paths: DataPaths) -> FastAPI:
+def create_app(token: str, paths: DataPaths, toolbox: Tools | None = None) -> FastAPI:
     expected = token.encode()
 
     def require_token(
@@ -55,6 +56,7 @@ def create_app(token: str, paths: DataPaths) -> FastAPI:
         dependencies=[Depends(require_token)],
     )
     app.state.paths = paths
+    app.state.tools = toolbox or Tools(paths)
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)
@@ -65,6 +67,7 @@ def create_app(token: str, paths: DataPaths) -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
     app.include_router(health.router)
+    app.include_router(tools.router)
     return app
 
 

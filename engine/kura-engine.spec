@@ -9,7 +9,10 @@ from PyInstaller.utils.hooks import copy_metadata
 a = Analysis(
     ["src/kura/__main__.py"],
     pathex=["src"],
-    datas=copy_metadata("kura"),  # kura.__version__ reads the package's metadata
+    datas=[
+        *copy_metadata("kura"),  # kura.__version__ reads the package's metadata
+        ("src/kura/downloads.json", "kura"),  # what Kura downloads on first run
+    ],
     # Never used at run time, though optional imports would pull them in: setuptools (through
     # distutils) and pytest (anyio's test runner).
     excludes=["setuptools", "_distutils_hack", "distutils", "pkg_resources", "_pytest", "pytest"],

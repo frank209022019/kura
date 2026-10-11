@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { createContext, type ReactNode, use, useEffect, useState } from "react";
@@ -61,16 +61,48 @@ export async function callEngine<T>(
   return (await response.json()) as T;
 }
 
-/** A query for one engine endpoint. It waits until the engine is ready. */
-export function useEngineQuery<T>(path: string) {
+function engineKey(engine: EngineStatus, path: string) {
+  return ["engine", engine.state === "ready" ? engine.url : null, path];
+}
+
+/**
+ * A query for one engine endpoint. It waits until the engine is ready. `poll` asks again every
+ * that many milliseconds while it returns a number for the latest answer (a job in progress).
+ */
+export function useEngineQuery<T>(path: string, poll?: (data: T | undefined) => number | false) {
   const engine = useEngine();
   return useQuery({
-    queryKey: ["engine", engine.state === "ready" ? engine.url : null, path],
+    queryKey: engineKey(engine, path),
     queryFn: () => {
       if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
       return callEngine<T>(engine, path);
     },
     enabled: engine.state === "ready",
+    refetchInterval: poll ? (query) => poll(query.state.data) : false,
+  });
+}
+
+/**
+ * A change sent to the engine: `send(path, body?)` posts it, then refreshes the queries for
+ * `refreshes` so the screen shows the result.
+ */
+export function useEngineAction<T>(refreshes: string[], method: "POST" | "DELETE" = "POST") {
+  const engine = useEngine();
+  const queries = useQueryClient();
+  return useMutation({
+    mutationFn: ({ path, body }: { path: string; body?: unknown }) => {
+      if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
+      const init: RequestInit = { method };
+      if (body !== undefined) {
+        init.body = JSON.stringify(body);
+        init.headers = { "Content-Type": "application/json" };
+      }
+      return callEngine<T>(engine, path, init);
+    },
+    onSettled: () =>
+      Promise.all(
+        refreshes.map((path) => queries.invalidateQueries({ queryKey: engineKey(engine, path) })),
+      ),
   });
 }
 
@@ -84,3 +116,29 @@ export interface Health {
 }
 
 export const useHealth = () => useEngineQuery<Health>("/health");
+
+export type ToolState = "missing" | "downloading" | "unpacking" | "ready" | "failed";
+
+/** Something Kura downloads to work with, such as ffmpeg (engine/src/kura/downloads.json). */
+export interface Tool {
+  id: string;
+  name: string;
+  version: string;
+  purpose: string;
+  licence: string;
+  size: number;
+  state: ToolState;
+  done: number;
+  problem: string | null;
+}
+
+const busy = (state: ToolState) => state === "downloading" || state === "unpacking";
+
+/** Kura's tools, asked again every second while one is downloading. */
+export const useTools = () =>
+  useEngineQuery<Tool[]>("/tools", (tools) =>
+    tools?.some((tool) => busy(tool.state)) ? 1000 : false,
+  );
+
+/** Starts downloading a tool: `download.mutate({ path: "/tools/ffmpeg/download" })`. */
+export const useDownloadTool = () => useEngineAction<Tool>(["/tools"]);

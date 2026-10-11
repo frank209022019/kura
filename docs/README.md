@@ -38,10 +38,11 @@ Every tool Kura uses, its version on 2026-10-10, and the page that explains how 
 | Typer | 0.27 | The engine's command line | [fastapi.md](stack/fastapi.md) |
 | SQLite | bundled with Python | Kura's one database file | [sqlite.md](stack/sqlite.md) |
 | anitopy | 2.1.1 | Reading anime file names | [anitopy.md](stack/anitopy.md) |
+| ffmpeg | 9.0.2 (downloaded on first run) | Reading what each video holds, and converting it | [ffmpeg.md](stack/ffmpeg.md) |
 | PyInstaller | 6.22 | Bundles the engine with its own Python | [pyinstaller.md](stack/pyinstaller.md) |
 | Vitest, Testing Library, pytest | 5.0, 16.3, 9.1 | Tests | [testing.md](stack/testing.md) |
 | GitHub Actions | | CI and releases | [github-actions.md](stack/github-actions.md) |
 | NSIS | via Tauri | The Windows installer | [tauri.md](stack/tauri.md#installer) |
 
-Tools planned for the build phase (ffmpeg, ONNX Runtime, the manami database, TMDB and AniList) get
-a page when they are first used.
+Tools planned for the build phase (ONNX Runtime, the manami database, TMDB and AniList) get a page
+when they are first used.
