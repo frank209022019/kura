@@ -44,6 +44,7 @@ class PlacedFile:
     copy: Copy
     identity: Identity
     sidecars: tuple[PurePath, ...] = ()  # subtitles beside it, named after it (see sidecars_of)
+    root: PurePath | None = None  # its library folder, which it's filed under (else plan_tidy's)
 
 
 def sidecars_of(video: PurePath, names: Iterable[str]) -> tuple[PurePath, ...]:
@@ -86,13 +87,21 @@ class Plan:
 
 
 def plan_tidy(
-    files: Sequence[PlacedFile], library: PurePath, *, day: date, taken: Iterable[str] = ()
+    files: Sequence[PlacedFile],
+    library: PurePath,
+    *,
+    day: date,
+    taken: Iterable[str] = (),
+    keep: Iterable[PurePath] = (),
 ) -> Plan:
-    """The changes that put `files` in Plex's layout under `library`.
+    """The changes that put `files` in Plex's layout under their library folder (`library`, unless
+    a file names its own).
 
     `taken` holds the paths already in use on disk. Every file's current path counts as taken
-    too, so a new name never lands on a file that is still there.
+    too, so a new name never lands on a file that is still there. `keep` holds copies the owner
+    chose to keep over the others of the same episode or movie.
     """
+    chosen = {str(path).casefold() for path in keep}
     used = {path.casefold() for path in taken} | {str(f.copy.path).casefold() for f in files}
     groups: dict[tuple[object, ...], list[PlacedFile]] = {}
     for placed in files:  # copies of the same episode or movie, whatever their format
@@ -102,13 +111,16 @@ def plan_tidy(
     moves: list[Change] = []
     skipped: list[tuple[PurePath, str]] = []
     for group in groups.values():
-        keep = group[0]
+        kept = group[0]
         if len(group) > 1:
             choice = choose_copy([placed.copy for placed in group])
-            keep = next(placed for placed in group if placed.copy is choice.keep)
-            reason = f"Kept {keep.copy.path.name} instead: {_lowercase_first(choice.reason)}"
+            kept = next(placed for placed in group if placed.copy is choice.keep)
+            why = _lowercase_first(choice.reason)
+            if owners := [p for p in group if str(p.copy.path).casefold() in chosen]:
+                kept, why = owners[0], "you chose it"
+            reason = f"Kept {kept.copy.path.name} instead: {why}"
             for dropped in group:
-                if dropped is not keep:
+                if dropped is not kept:
                     place = unique_path(_quarantine_place(dropped.copy.path, day), used)
                     used.add(str(place).casefold())
                     label = f"{_label(dropped.identity)} · duplicate"
@@ -119,13 +131,13 @@ def plan_tidy(
                         _with_it(dropped, place, used, ChangeKind.QUARANTINE, reason)
                     )
         try:
-            target = _target(keep, library)
+            target = _target(kept, kept.root or library)
         except PathTooLongError:
-            skipped.append((keep.copy.path, "The new name would be too long for Windows"))
+            skipped.append((kept.copy.path, "The new name would be too long for Windows"))
             continue
-        if move := _move(keep, target, used):
+        if move := _move(kept, target, used):
             moves.append(move)
-            moves.extend(_with_it(keep, move.target, used, ChangeKind.MOVE, "Follows its video"))
+            moves.extend(_with_it(kept, move.target, used, ChangeKind.MOVE, "Follows its video"))
     moves.sort(key=lambda change: str(change.target).casefold())
     return Plan(tuple(quarantines + moves), tuple(skipped))
 

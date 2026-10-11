@@ -97,3 +97,12 @@ def test_an_unreadable_copy_loses_to_a_readable_one():
     readable = copy("y.mkv", 480)
 
     assert choose_copy([unreadable, readable]).keep == readable
+
+
+def test_the_original_wins_over_a_copy_of_it():
+    copied, original = copy("Death Note 07 (copy).mkv", 480), copy("Death Note 07.mkv", 480)
+
+    choice = choose_copy([copied, original])
+
+    assert choice.keep is original
+    assert choice.reason == "The other is named as a copy"

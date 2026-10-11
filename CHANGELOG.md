@@ -9,6 +9,14 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Tidy up: Kura proposes where every identified video goes for Plex (`TV\Show (Year)\Season 01`,
+  `Movies\Title (Year)`), title by title: moves out of folders holding several anime, renames in
+  place, and second copies of an episode set aside in a quarantine folder on the same drive, the
+  two compared with a swap if you'd rather keep the other. Leave out any title, then apply.
+  Subtitles move with their video, emptied folders go, and every video keeps what it was
+  identified as.
+- History: every tidy-up and scan by day, newest first. Any tidy-up can be undone there (or right
+  after applying it), putting every file back.
 - Home lists every franchise and series as poster cards, oldest release first, or by name,
   newest added or most missing. A franchise (Dragon Ball's series, films, OVAs and specials) is
   one card with a page of its own that lists them the same ways. Each says whether it's a TV

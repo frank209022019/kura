@@ -280,3 +280,32 @@ def test_a_change_of_case_alone_renames_the_subtitles_too():
         "Dragon Ball Z (1989) - S01E01 - The New Threat.mkv",
         "Dragon Ball Z (1989) - S01E01 - The New Threat.en.srt",  # not "… (2).en.srt"
     }
+
+
+def test_the_owner_can_keep_the_other_copy():
+    better = placed(r"Downloads\[DB] Death_Note_07 (720p).mkv", DEATH_NOTE_7, media(720))
+    chosen = placed(r"Downloads\Death Note 07.avi", DEATH_NOTE_7, media(480))
+
+    changes = plan_tidy([better, chosen], LIBRARY, day=DAY, keep={chosen.copy.path}).changes
+
+    assert [(c.kind, c.source.name) for c in changes] == [
+        (ChangeKind.QUARANTINE, "[DB] Death_Note_07 (720p).mkv"),
+        (ChangeKind.MOVE, "Death Note 07.avi"),
+    ]
+    assert changes[0].reason == "Kept Death Note 07.avi instead: you chose it"
+
+
+def test_each_file_goes_under_its_own_library_folder():
+    other = PureWindowsPath("F:/More anime")
+    files = [
+        placed(r"Downloads\trigun_03.mp4", TRIGUN_3),
+        PlacedFile(Copy(other / "Bebop" / "01.mkv", media(480)), BEBOP_1, root=other),
+    ]
+
+    targets = sorted(str(c.target) for c in plan_tidy(files, LIBRARY, day=DAY).changes)
+
+    assert targets == [
+        r"D:\Anime\TV\Trigun (1998)\Season 01\Trigun (1998) - S01E03 - Peace Maker.mp4",
+        r"F:\More anime\TV\Cowboy Bebop (1998)\Season 01"
+        r"\Cowboy Bebop (1998) - S01E01 - Asteroid Blues.mkv",
+    ]

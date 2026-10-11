@@ -30,6 +30,7 @@ BEBOP_DETAILS = tv_details(
     first_aired=date(1998, 4, 3),
     specials=3,
     special_dates=(date(1998, 4, 3), date(1998, 6, 26), date(2012, 12, 21)),
+    titles={(1, 1): "Asteroid Blues", (1, 2): "Stray Dog Strut"},
 )
 
 

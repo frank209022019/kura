@@ -1085,10 +1085,195 @@
           }
         }
       }
+    },
+    "/tidy": {
+      "get": {
+        "summary": "Proposal",
+        "description": "Where every identified video would go, filed for Plex. Nothing changes.",
+        "operationId": "proposal_tidy_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "keep",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Copies to keep over the others of an episode",
+              "default": [],
+              "title": "Keep"
+            },
+            "description": "Copies to keep over the others of an episode"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TidyProposal"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Apply Tidy",
+        "description": "Makes the proposed changes of these files, journaled so History can undo them.",
+        "operationId": "apply_tidy_tidy_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TidyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TidyResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history": {
+      "get": {
+        "summary": "What Kura Did",
+        "description": "Every tidy-up applied and every scan, newest first.",
+        "operationId": "what_kura_did_history_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/History"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/plans/{plan_id}/undo": {
+      "post": {
+        "summary": "Undo Plan",
+        "description": "Puts back what a tidy-up moved.",
+        "operationId": "undo_plan_plans__plan_id__undo_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TidyResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ChangeProblem": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "source",
+          "problem"
+        ],
+        "title": "ChangeProblem"
+      },
       "Choice": {
         "properties": {
           "anilistId": {
@@ -1154,6 +1339,96 @@
           "titleId"
         ],
         "title": "Chosen"
+      },
+      "CopyFacts": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "audio": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Audio"
+          },
+          "subtitles": {
+            "type": "integer",
+            "title": "Subtitles"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "plays": {
+            "type": "boolean",
+            "title": "Plays"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "height",
+          "codec",
+          "audio",
+          "subtitles",
+          "size",
+          "plays"
+        ],
+        "title": "CopyFacts"
+      },
+      "Duplicate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "keep": {
+            "$ref": "#/components/schemas/CopyFacts"
+          },
+          "drop": {
+            "items": {
+              "$ref": "#/components/schemas/CopyFacts"
+            },
+            "type": "array",
+            "title": "Drop"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "keep",
+          "drop",
+          "reason"
+        ],
+        "title": "Duplicate"
       },
       "EpisodeRef": {
         "properties": {
@@ -1501,6 +1776,30 @@
         ],
         "title": "Health"
       },
+      "History": {
+        "properties": {
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanDone"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "scans": {
+            "items": {
+              "$ref": "#/components/schemas/ScanDone"
+            },
+            "type": "array",
+            "title": "Scans"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plans",
+          "scans"
+        ],
+        "title": "History"
+      },
       "KindCounts": {
         "properties": {
           "series": {
@@ -1661,6 +1960,123 @@
           "missing"
         ]
       },
+      "PlanDone": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "appliedAt": {
+            "type": "string",
+            "title": "Appliedat"
+          },
+          "undoneAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undoneat"
+          },
+          "moved": {
+            "type": "integer",
+            "title": "Moved"
+          },
+          "quarantined": {
+            "type": "integer",
+            "title": "Quarantined"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "undone": {
+            "type": "integer",
+            "title": "Undone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "appliedAt",
+          "undoneAt",
+          "moved",
+          "quarantined",
+          "failed",
+          "undone"
+        ],
+        "title": "PlanDone"
+      },
+      "ProposedChange": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "move",
+              "quarantine"
+            ],
+            "title": "Kind"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "rename",
+              "mixed",
+              "duplicate"
+            ],
+            "title": "Category"
+          },
+          "titleId": {
+            "type": "integer",
+            "title": "Titleid"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "source",
+          "target",
+          "root",
+          "label",
+          "reason",
+          "category",
+          "titleId",
+          "title"
+        ],
+        "title": "ProposedChange"
+      },
       "Report": {
         "properties": {
           "path": {
@@ -1817,6 +2233,65 @@
         ],
         "title": "Scan"
       },
+      "ScanDone": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "startedAt": {
+            "type": "string",
+            "title": "Startedat"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "startedAt",
+          "finishedAt",
+          "state",
+          "problem",
+          "note"
+        ],
+        "title": "ScanDone"
+      },
       "SeasonCount": {
         "properties": {
           "season": {
@@ -1885,6 +2360,24 @@
         "type": "object",
         "title": "Settings"
       },
+      "SkippedFile": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "title": "SkippedFile"
+      },
       "Stage": {
         "type": "string",
         "enum": [
@@ -1914,6 +2407,109 @@
           "graphicsCard"
         ],
         "title": "System"
+      },
+      "TidyProposal": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedFile"
+            },
+            "type": "array",
+            "title": "Skipped"
+          },
+          "duplicates": {
+            "items": {
+              "$ref": "#/components/schemas/Duplicate"
+            },
+            "type": "array",
+            "title": "Duplicates"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "broken": {
+            "type": "integer",
+            "title": "Broken"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changes",
+          "skipped",
+          "duplicates",
+          "waiting",
+          "broken"
+        ],
+        "title": "TidyProposal"
+      },
+      "TidyRequest": {
+        "properties": {
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "keep": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keep"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "TidyRequest"
+      },
+      "TidyResult": {
+        "properties": {
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          },
+          "moved": {
+            "type": "integer",
+            "title": "Moved"
+          },
+          "quarantined": {
+            "type": "integer",
+            "title": "Quarantined"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeProblem"
+            },
+            "type": "array",
+            "title": "Problems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "planId",
+          "moved",
+          "quarantined",
+          "problems"
+        ],
+        "title": "TidyResult"
       },
       "TitleDetail": {
         "properties": {

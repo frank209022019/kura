@@ -19,7 +19,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from kura import __version__, changes, db
 from kura.anilist import AniList
-from kura.api import health, library, review, scan, settings, system, titles, tmdb, tools
+from kura.api import (
+    health,
+    library,
+    review,
+    scan,
+    settings,
+    system,
+    tidy,
+    titles,
+    tmdb,
+    tools,
+)
 from kura.cache import Cache
 from kura.config import DataPaths
 from kura.scan import Scanner
@@ -108,6 +119,7 @@ def create_app(
     app.include_router(tmdb.router)
     app.include_router(titles.router)
     app.include_router(review.router)
+    app.include_router(tidy.router)
     return app
 
 

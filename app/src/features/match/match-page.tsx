@@ -19,6 +19,7 @@ import {
   useTitle,
   type WaitingFile,
 } from "@/lib/engine";
+import { clockLength, clockTime, codecName, languages, listed, size, split } from "@/lib/format";
 import { kindWord } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
 
@@ -542,69 +543,4 @@ function describe(file: WaitingFile): string {
   if (file.kind === "extra") return `extra, ${length}`;
   if (file.kind === "movie" || (file.minutes ?? 0) >= 60) return `${length}, probably a film`;
   return length;
-}
-
-function split(path: string): [string, string] {
-  const at = Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/"));
-  return [path.slice(at + 1), path.slice(0, at)];
-}
-
-/** 24:10, or 1:32:05 past an hour. */
-function clockTime(seconds: number): string {
-  const whole = Math.round(seconds);
-  const hours = Math.floor(whole / 3600);
-  const minutes = Math.floor((whole % 3600) / 60);
-  const rest = String(whole % 60).padStart(2, "0");
-  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
-}
-
-/** "1 h 32 min", or "24 min". */
-function clockLength(minutes: number): string {
-  const whole = Math.round(minutes);
-  return whole >= 60 ? `${Math.floor(whole / 60)} h ${whole % 60} min` : `${whole} min`;
-}
-
-function size(bytes: number): string {
-  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
-}
-
-const CODECS: Record<string, string> = {
-  h264: "H.264",
-  hevc: "HEVC",
-  av1: "AV1",
-  mpeg2video: "MPEG-2",
-  mpeg4: "MPEG-4",
-  vp9: "VP9",
-};
-
-function codecName(codec: string): string {
-  return CODECS[codec] ?? codec.toUpperCase();
-}
-
-const LANGUAGES: Record<string, string> = {
-  jpn: "Japanese",
-  eng: "English",
-  ger: "German",
-  deu: "German",
-  fre: "French",
-  fra: "French",
-  spa: "Spanish",
-  ita: "Italian",
-  por: "Portuguese",
-  rus: "Russian",
-  chi: "Chinese",
-  zho: "Chinese",
-  kor: "Korean",
-  ara: "Arabic",
-  unknown: "unnamed",
-};
-
-function languages(codes: string[]): string {
-  if (codes.length === 0) return "none";
-  return codes.map((code) => LANGUAGES[code] ?? code.toUpperCase()).join(", ");
-}
-
-function listed(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }

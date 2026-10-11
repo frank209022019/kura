@@ -1,8 +1,9 @@
 """When two files are the same episode, which one Kura keeps.
 
 The better copy plays, then has the higher resolution, then the work Kura already did, more
-audio tracks, subtitles you can switch off, a deeper picture, and finally more bytes. The others
-go to quarantine, never straight to deletion.
+audio tracks, subtitles you can switch off, a deeper picture, more bytes, and finally a name that
+isn't a copy's ("(copy)", " - Copy", "(2)"). The others go to quarantine, never straight to
+deletion.
 """
 
 from collections.abc import Sequence
@@ -10,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import PurePath
 
 from kura.core.media import MediaInfo
+from kura.core.names import parse_name
 
 
 @dataclass(frozen=True)
@@ -62,10 +64,11 @@ def _facts(copy: Copy) -> _Facts | None:
     )
 
 
-def _strength(copy: Copy) -> tuple[bool, int, bool, int, bool, int, int]:
+def _strength(copy: Copy) -> tuple[bool, int, bool, int, bool, int, int, bool]:
     facts = _facts(copy)
+    original = not parse_name(copy.path).is_copy
     if facts is None:
-        return (False, 0, False, 0, False, 0, 0)
+        return (False, 0, False, 0, False, 0, 0, original)
     return (
         True,
         facts.height,
@@ -74,6 +77,7 @@ def _strength(copy: Copy) -> tuple[bool, int, bool, int, bool, int, int]:
         facts.subtitles,
         facts.bit_depth,
         facts.size,
+        original,
     )
 
 
@@ -96,6 +100,8 @@ def _advantages(keep: Copy, other: Copy) -> list[str]:
         return ["Already converted by Kura"]
     if ours.size > theirs.size:
         return ["A larger file, so more detail"]
+    if parse_name(other.path).is_copy and not parse_name(keep.path).is_copy:
+        return ["The other is named as a copy"]
     return ["The copies are the same; the first is kept"]
 
 

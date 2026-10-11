@@ -76,7 +76,9 @@ kura/
   watch.py        keeping the library current while Kura is open: watching, refreshing
   probe.py        running ffprobe on one file
   tools.py        downloading what downloads.json lists (ffmpeg)
+  tidy.py         tidying up: the plan that files the library for Plex, applied and undone
   changes.py      applying and undoing tidy-up plans, journaled
+  history.py      what Kura did, newest first: tidy-ups and scans
   web.py          asking web services for JSON: timeouts, rate limits, errors in words
   anilist.py      AniList: which anime a file is
   tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
@@ -129,13 +131,23 @@ it is marked gone. Links and junctions aren't followed. Files that couldn't be r
 by the next scan. If ffprobe itself doesn't work, the scan stops without marking any file and
 ffmpeg is offered for download again. Scans only look; nothing in the folders changes.
 
+Tidying up (`kura/tidy.py`) proposes where every identified video goes: Plex's layout under
+its own library folder (`kura/core/plan.py` and `kura/core/naming.py`), each title's changes
+together, with copies of one episode compared and all but the best set aside in a "Kura
+quarantine" folder on the same drive. The owner keeps the titles they want, and may keep the
+other copy instead.
+
 A plan is applied only after review, by `kura/changes.py`: each change is written to the
 database before and after its file moves, so it can be undone (newest first) and so the engine,
 when it starts, can settle any move a crash interrupted. Nothing is overwritten: a taken name
 fails that change, and the rest go ahead. A move to another drive copies, checks the copy, and
 only then removes the original. Subtitle files named after a video (`Episode 1.en.srt`) move and
 rename with it, and folders inside a library folder that the moves leave truly empty are removed
-(undo makes them again as it moves the files back).
+(undo makes them again as it moves the files back). A video's record moves with it, so it keeps
+what it was identified as (a quarantined one counts as gone until it's put back); a gap analysis
+left in a folder that no longer holds a video goes with the folder, and the reports are written
+again where the shows are. Nothing moves while a scan runs. History lists every tidy-up, which
+can be undone from there.
 
 ## Data
 

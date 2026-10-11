@@ -8,6 +8,9 @@ newest first.
 Nothing here overwrites a file or deletes one outright. A move onto a name that is taken fails and
 says so. A move to another drive copies the file beside its new place, checks the copy, renames it
 into place, and only then removes the original.
+
+The library's record of a video goes with it (`files.path`), so it keeps what it was identified
+as; a quarantined one counts as gone from the library until it comes back.
 """
 
 import json
@@ -17,7 +20,7 @@ import sqlite3
 from collections.abc import Iterable
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from itertools import takewhile
 from pathlib import Path
@@ -110,13 +113,14 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
             else:
                 made += 1
                 _record(conn, change, ChangeState.DONE, problem=problem, created_dirs=created)
+                _follow(conn, change, forward=True, stamp=_stamp(now))
                 continue
         _log.warning("Couldn't move %s to %s: %s", change.source, change.target, problem)
         _record(conn, change, ChangeState.FAILED, problem=problem, created_dirs=created)
     with conn:
         conn.execute("UPDATE plans SET applied_at = ? WHERE id = ?", (_stamp(now), plan_id))
     done = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE]
-    _remove_emptied(conn, (change.source.parent for change in done))
+    remove_emptied(conn, (change.source.parent for change in done))
     failed = tuple(c for c in changes_of(conn, plan_id) if c.state is ChangeState.FAILED)
     return Outcome(made, failed)
 
@@ -143,6 +147,7 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
                 undone += 1
                 _remove_empty(change.created_dirs)
                 _record(conn, change, ChangeState.UNDONE, problem=problem)
+                _follow(conn, change, forward=False, stamp=_stamp(now))
                 continue
         _log.warning("Couldn't put %s back to %s: %s", change.target, change.source, problem)
         _record(conn, change, ChangeState.DONE, problem=f"Kura couldn't put it back. {problem}")
@@ -152,26 +157,33 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
     return Outcome(undone, kept)
 
 
-def recover(conn: sqlite3.Connection) -> int:
+def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
     """Settle the changes a crash interrupted, and return how many there were.
 
     Run it at start, before anything else uses the plans. A move that happened is done, one that
     didn't is planned again (or done again, for an undo), and anything else is marked with what
     Kura found.
     """
+    stamp = _stamp(now or datetime.now(UTC))
     rows = conn.execute("SELECT * FROM changes WHERE state IN ('moving', 'undoing')").fetchall()
     for change in map(_saved, rows):
         if change.state is ChangeState.MOVING:
-            _settle(conn, change, change.source, change.target, forward=True)
+            _settle(conn, change, change.source, change.target, forward=True, stamp=stamp)
         else:
-            _settle(conn, change, change.target, change.source, forward=False)
+            _settle(conn, change, change.target, change.source, forward=False, stamp=stamp)
     if rows:
         _log.warning("Settled %d file changes that Kura stopped in the middle of", len(rows))
     return len(rows)
 
 
 def _settle(
-    conn: sqlite3.Connection, change: SavedChange, old: Path, new: Path, *, forward: bool
+    conn: sqlite3.Connection,
+    change: SavedChange,
+    old: Path,
+    new: Path,
+    *,
+    forward: bool,
+    stamp: str,
 ) -> None:
     """Find out whether an interrupted move from `old` to `new` happened, and record it."""
     _partial(new).unlink(missing_ok=True)  # an unfinished copy to another drive
@@ -184,6 +196,7 @@ def _settle(
         if not forward:
             _remove_empty(change.created_dirs)
         _record(conn, change, state)
+        _follow(conn, change, forward=forward, stamp=stamp)
     elif at_old and not at_new:
         if forward:
             _remove_empty(change.created_dirs)
@@ -195,6 +208,22 @@ def _settle(
         problem = f"Kura stopped while moving it, and {where}: {old} and {new}."
         state = ChangeState.FAILED if forward else ChangeState.DONE
         _record(conn, change, state, problem=problem)
+
+
+def _follow(conn: sqlite3.Connection, change: SavedChange, *, forward: bool, stamp: str) -> None:
+    """Moves the library's record of a video with it. A record a scan made at the new place
+    meanwhile gives way: it knows nothing the moved one doesn't."""
+    old, new = (change.source, change.target) if forward else (change.target, change.source)
+    gone = stamp if forward and change.kind is ChangeKind.QUARANTINE else None
+    with conn:
+        conn.execute(
+            """DELETE FROM files
+               WHERE path = :new AND id != (SELECT id FROM files WHERE path = :old)""",
+            {"new": str(new), "old": str(old)},
+        )
+        conn.execute(
+            "UPDATE files SET path = ?, gone_at = ? WHERE path = ?", (str(new), gone, str(old))
+        )
 
 
 def _why_not(source: Path, target: Path) -> str | None:
@@ -245,7 +274,7 @@ def _remove_empty(folders: Iterable[Path]) -> None:
             folder.rmdir()
 
 
-def _remove_emptied(conn: sqlite3.Connection, folders: Iterable[Path]) -> None:
+def remove_emptied(conn: sqlite3.Connection, folders: Iterable[Path]) -> None:
     """Remove the folders that moves left empty, and parents they leave empty in turn.
 
     Only inside a library folder, never the library folder itself, and only when there is truly

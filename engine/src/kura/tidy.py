@@ -1,0 +1,339 @@
+"""Tidying up: the plan that files the library the way Plex reads it, and carrying it out.
+
+kura/core/plan.py decides where every identified video goes. This module gathers what it needs
+from the library (each title's name, year and episode titles, the copies of each episode, the
+subtitles beside each video, the paths in use), says which changes rename files in place and
+which move them out of a folder holding several anime, and applies the ones the owner keeps,
+journaled and undoable (kura/changes.py). Each video's record moves with it, so it keeps what it
+was identified as; folders a tidy-up empties go, with the gap analysis Kura had written in them,
+and the reports are written again where the shows are now.
+"""
+
+import json
+import os
+import re
+import sqlite3
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+from datetime import date, datetime
+from pathlib import Path, PureWindowsPath
+from typing import Literal
+
+from kura.changes import (
+    ChangeState,
+    SavedChange,
+    apply_plan,
+    changes_of,
+    remove_emptied,
+    save_plan,
+    undo_plan,
+)
+from kura.core.copies import Copy
+from kura.core.extensions import is_video
+from kura.core.media import MediaInfo, media_from_ffprobe
+from kura.core.plan import (
+    Change,
+    ChangeKind,
+    EpisodeOf,
+    Identity,
+    MovieOf,
+    PlacedFile,
+    Plan,
+    plan_tidy,
+    sidecars_of,
+)
+from kura.core.report import GAP_ANALYSIS_FILE
+from kura.reports import write_reports
+
+type Category = Literal["rename", "mixed", "duplicate"]
+
+# TMDB's name for an episode it has no title for: no title, in a file's name.
+_PLACEHOLDER = re.compile(r"^Episode \d+$")
+
+
+@dataclass(frozen=True)
+class Proposed:
+    """A change Kura proposes, with what the tidy-up screen shows of it."""
+
+    change: Change
+    root: Path  # the library folder it's in
+    category: Category  # a rename in place, a move out of a folder of several anime, or a copy
+    title_id: int
+    title: str
+
+
+@dataclass(frozen=True)
+class CopyFacts:
+    """What decides between two copies of one episode, as the screen compares them."""
+
+    path: Path
+    height: int | None
+    codec: str | None
+    audio: tuple[str, ...]  # languages
+    subtitles: int  # tracks that can be switched off
+    size: int
+    plays: bool
+
+
+@dataclass(frozen=True)
+class Duplicate:
+    """Copies of one episode or movie: the one Kura keeps, and the ones it sets aside."""
+
+    label: str
+    keep: CopyFacts
+    drop: tuple[CopyFacts, ...]
+    reason: str
+
+
+@dataclass(frozen=True)
+class Proposal:
+    changes: tuple[Proposed, ...]
+    skipped: tuple[tuple[Path, str], ...]  # videos left where they are, and why
+    duplicates: tuple[Duplicate, ...]
+
+
+@dataclass(frozen=True)
+class Tidied:
+    """What applying or undoing a tidy-up did."""
+
+    plan_id: int | None  # None when nothing was asked for
+    moved: int  # videos and subtitles moved, or put back
+    quarantined: int  # copies set aside
+    problems: tuple[SavedChange, ...]  # changes that couldn't be made, each saying why
+
+
+@dataclass(frozen=True)
+class _Video:
+    id: int
+    title_id: int
+    title: str
+    placed: PlacedFile
+
+
+def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) -> Proposal:
+    """The changes that would file every identified video for Plex. Nothing changes on disk.
+    `keep` holds the copies the owner chose to keep over others of the same episode."""
+    videos, skipped = _videos(conn)
+    taken = [row["path"] for row in conn.execute("SELECT path FROM files WHERE gone_at IS NULL")]
+    plan = plan_tidy(
+        [video.placed for video in videos],
+        PureWindowsPath(),  # every video names its own library folder
+        day=day,
+        taken=taken,
+        keep=[PureWindowsPath(path) for path in keep],
+    )
+    of: dict[str, _Video] = {}
+    for video in videos:
+        of[str(video.placed.copy.path).casefold()] = video
+        for sidecar in video.placed.sidecars:
+            of[str(sidecar).casefold()] = video
+    mixed = _mixed_folders(conn)
+    proposed: list[Proposed] = []
+    for change in plan.changes:
+        video = of[str(change.source).casefold()]
+        category: Category = (
+            "duplicate"
+            if change.kind is ChangeKind.QUARANTINE
+            else "mixed"
+            if str(change.source.parent).casefold() in mixed
+            else "rename"
+        )
+        root = Path(video.placed.root or "")
+        proposed.append(Proposed(change, root, category, video.title_id, video.title))
+    return Proposal(
+        tuple(proposed),
+        tuple(skipped) + tuple((Path(path), reason) for path, reason in plan.skipped),
+        _duplicates(videos, plan),
+    )
+
+
+def apply(
+    conn: sqlite3.Connection, sources: Iterable[str], *, now: datetime, keep: Iterable[str] = ()
+) -> Tidied:
+    """Makes the proposed changes of these files (videos, and the subtitles that go with them),
+    as Kura proposes them now: anything else in the library stays as it is."""
+    wanted = {str(source).casefold() for source in sources}
+    proposal = propose(conn, day=now.date(), keep=keep)
+    chosen = [p for p in proposal.changes if str(p.change.source).casefold() in wanted]
+    if not chosen:
+        return Tidied(None, 0, 0, ())
+    plan_id = save_plan(conn, Plan(tuple(p.change for p in chosen)), _plan_title(chosen), now=now)
+    outcome = apply_plan(conn, plan_id, now=now)
+    made = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE]
+    _clear_behind(conn, [change.source for change in made])
+    write_reports(conn, now=now)
+    quarantined = sum(1 for c in made if c.kind is ChangeKind.QUARANTINE)
+    return Tidied(plan_id, len(made) - quarantined, quarantined, outcome.problems)
+
+
+def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
+    """Puts back what a tidy-up moved, newest first."""
+    outcome = undo_plan(conn, plan_id, now=now)
+    back = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.UNDONE]
+    _clear_behind(conn, [change.target for change in back])
+    write_reports(conn, now=now)
+    quarantined = sum(1 for c in back if c.kind is ChangeKind.QUARANTINE)
+    return Tidied(plan_id, len(back) - quarantined, quarantined, outcome.problems)
+
+
+def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, str]]]:
+    """Every identified video with what it is, and the ones Kura can't file, with why."""
+    names: dict[tuple[int, int, int], str] = {
+        (row["title_id"], row["season"], row["number"]): row["name"]
+        for row in conn.execute("SELECT * FROM episodes WHERE name IS NOT NULL")
+        if not _PLACEHOLDER.match(row["name"])
+    }
+    rows = conn.execute(
+        """SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.episode_end,
+                  t.id AS title_id, t.name, t.year, t.kind, t.tmdb_type, d.path AS root
+           FROM files AS f
+           JOIN titles AS t ON t.id = f.title_id
+           JOIN folders AS d ON d.id = f.folder_id
+           WHERE f.gone_at IS NULL AND f.matched = 'sure'
+           ORDER BY f.path"""
+    ).fetchall()
+    listings: dict[str, list[str]] = {}
+    videos: list[_Video] = []
+    skipped: list[tuple[Path, str]] = []
+    for row in rows:
+        identity = _identity(row, names)
+        if identity is None:
+            skipped.append((Path(row["path"]), "Kura doesn't know which episode it is"))
+            continue
+        path = PureWindowsPath(row["path"])
+        folder = str(path.parent)
+        if folder not in listings:
+            listings[folder] = _listing(Path(folder))
+        media = _media(row["probe"])
+        placed = PlacedFile(
+            Copy(path, media, broken=row["problem"] is not None),
+            identity,
+            sidecars_of(path, listings[folder]),
+            root=PureWindowsPath(row["root"]),
+        )
+        videos.append(_Video(row["id"], row["title_id"], row["name"], placed))
+    return videos, skipped
+
+
+def _identity(row: sqlite3.Row, names: dict[tuple[int, int, int], str]) -> Identity | None:
+    if row["kind"] == "movie" or row["tmdb_type"] == "movie":
+        return MovieOf(row["name"], row["year"])
+    if row["season"] is None or row["episode"] is None:
+        return None  # a special or extra Kura couldn't number
+    return EpisodeOf(
+        row["name"],
+        row["year"],
+        season=row["season"],
+        episode=row["episode"],
+        last_episode=row["episode_end"],
+        title=names.get((row["title_id"], row["season"], row["episode"])),
+    )
+
+
+def _mixed_folders(conn: sqlite3.Connection) -> set[str]:
+    """Folders holding videos of more than one anime, in lower case."""
+    seen: dict[str, set[int]] = {}
+    for row in conn.execute(
+        "SELECT path, title_id FROM files WHERE gone_at IS NULL AND title_id IS NOT NULL"
+    ):
+        seen.setdefault(str(PureWindowsPath(row["path"]).parent).casefold(), set()).add(
+            row["title_id"]
+        )
+    return {folder for folder, titles in seen.items() if len(titles) > 1}
+
+
+def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
+    """The copies the plan sets aside, each beside the one it keeps."""
+    set_aside = {
+        str(c.source).casefold(): c for c in plan.changes if c.kind is ChangeKind.QUARANTINE
+    }
+    groups: dict[tuple[object, ...], list[_Video]] = {}
+    for video in videos:
+        groups.setdefault(_same(video), []).append(video)
+    found: list[Duplicate] = []
+    for group in groups.values():
+        dropped = [v for v in group if str(v.placed.copy.path).casefold() in set_aside]
+        kept = [v for v in group if str(v.placed.copy.path).casefold() not in set_aside]
+        if not dropped or len(kept) != 1:
+            continue
+        change = set_aside[str(dropped[0].placed.copy.path).casefold()]
+        found.append(
+            Duplicate(
+                label=change.label.removesuffix(" · duplicate"),
+                keep=_facts(kept[0].placed.copy),
+                drop=tuple(_facts(v.placed.copy) for v in dropped),
+                reason=change.reason,
+            )
+        )
+    return tuple(found)
+
+
+def _same(video: _Video) -> tuple[object, ...]:
+    match video.placed.identity:
+        case EpisodeOf() as episode:
+            return (video.title_id, episode.season, episode.episode)
+        case MovieOf():
+            return (video.title_id,)
+
+
+def _facts(copy: Copy) -> CopyFacts:
+    media = copy.media
+    video = media.video if media else None
+    return CopyFacts(
+        path=Path(copy.path),
+        height=video.height if video else None,
+        codec=video.codec if video else None,
+        audio=tuple(track.language or "unknown" for track in media.audio) if media else (),
+        subtitles=len(media.subtitles) if media else 0,
+        size=(media.size or 0) if media else 0,
+        plays=not copy.broken and video is not None,
+    )
+
+
+def _plan_title(chosen: Sequence[Proposed]) -> str:
+    """ "Renamed 26 Cowboy Bebop files for Plex", or "Tidied 30 files: Cowboy Bebop, Death Note
+    and 2 more", as History lists it."""
+    count = len(chosen)
+    titles = list(dict.fromkeys(p.title for p in chosen))
+    files = "file" if count == 1 else "files"
+    if len(titles) == 1 and all(p.category == "rename" for p in chosen):
+        return f"Renamed {count} {titles[0]} {files} for Plex"
+    named = titles[:2]
+    more = len(titles) - len(named)
+    listed = f"{', '.join(named)} and {more} more" if more else " and ".join(named)
+    return f"Tidied {count} {files}: {listed}"
+
+
+def _clear_behind(conn: sqlite3.Connection, left: Sequence[Path]) -> None:
+    """The folders files left: a gap analysis in one that holds no video any more is out of date
+    (it's written again where the show is now), and a folder left empty goes."""
+    roots = [Path(row["path"]) for row in conn.execute("SELECT path FROM folders")]
+    folders: set[Path] = set()
+    for path in left:
+        folder = path.parent
+        while any(folder != root and folder.is_relative_to(root) for root in roots):
+            folders.add(folder)
+            folder = folder.parent
+    for folder in sorted(folders, key=lambda f: len(f.parts), reverse=True):
+        report = folder / GAP_ANALYSIS_FILE
+        if report.is_file() and not _holds_videos(folder):
+            report.unlink(missing_ok=True)
+    remove_emptied(conn, folders)
+
+
+def _holds_videos(folder: Path) -> bool:
+    try:
+        return any(is_video(name) for _, _, names in os.walk(folder) for name in names)
+    except OSError:
+        return True  # can't tell: leave it
+
+
+def _listing(folder: Path) -> list[str]:
+    try:
+        return [entry.name for entry in folder.iterdir()]
+    except OSError:
+        return []
+
+
+def _media(probe: str | None) -> MediaInfo | None:
+    return media_from_ffprobe(json.loads(probe)) if probe else None

@@ -557,3 +557,106 @@ export const useCover = (address: string | null) =>
 /** One of a waiting file's three stills (0, 1 or 2). */
 export const useStill = (fileId: number, index: number) =>
   useEngineImage(`/review/${fileId}/stills/${index}`);
+
+/** Why a change is proposed: a rename in place, a move out of a folder holding several anime,
+ * or a second copy of an episode set aside. */
+export type TidyCategory = "rename" | "mixed" | "duplicate";
+
+/** One change Kura proposes for Plex. Nothing moves until the owner applies it. */
+export interface ProposedChange {
+  kind: "move" | "quarantine";
+  source: string;
+  target: string;
+  /** The library folder it's in. */
+  root: string;
+  /** "Cowboy Bebop · S01E01", "Cowboy Bebop · S01E01 · subtitles". */
+  label: string;
+  reason: string;
+  category: TidyCategory;
+  titleId: number;
+  title: string;
+}
+
+/** What decides between two copies of one episode. */
+export interface CopyFacts {
+  path: string;
+  height: number | null;
+  codec: string | null;
+  audio: string[];
+  /** Subtitle tracks that can be switched off. */
+  subtitles: number;
+  size: number;
+  plays: boolean;
+}
+
+/** Copies of one episode or movie: the one Kura keeps, and the ones it sets aside. */
+export interface Duplicate {
+  label: string;
+  keep: CopyFacts;
+  drop: CopyFacts[];
+  reason: string;
+}
+
+export interface TidyProposal {
+  changes: ProposedChange[];
+  /** Videos that stay where they are, and why. */
+  skipped: { path: string; reason: string }[];
+  duplicates: Duplicate[];
+  /** Videos that need a match first. */
+  waiting: number;
+  /** Videos that won't play. */
+  broken: number;
+}
+
+/** What applying or undoing a tidy-up did. */
+export interface TidyResult {
+  /** Null when nothing was asked for. */
+  planId: number | null;
+  moved: number;
+  quarantined: number;
+  problems: { label: string; source: string; problem: string }[];
+}
+
+/** Where every video would go, filed for Plex; `keep` holds copies the owner keeps instead. */
+export const useTidy = (keep: string[] = []) =>
+  useEngineQuery<TidyProposal>(
+    `/tidy${keep.length ? `?${keep.map((path) => `keep=${encodeURIComponent(path)}`).join("&")}` : ""}`,
+    undefined,
+    true,
+    true,
+  );
+const TIDIED = ["/tidy", "/history", "/titles", "/franchises", "/library", "/review"];
+/** Makes the changes: `apply.mutate({ path: "/tidy", body: { sources, keep } })`. */
+export const useApplyTidy = () => useEngineAction<TidyResult>(TIDIED);
+/** Puts back what a tidy-up moved: `undo.mutate({ path: "/plans/12/undo" })`. */
+export const useUndoPlan = () => useEngineAction<TidyResult>(TIDIED);
+
+/** A tidy-up that was applied, as History lists it. */
+export interface PlanDone {
+  id: number;
+  /** "Renamed 26 Cowboy Bebop files for Plex". */
+  title: string;
+  appliedAt: string;
+  undoneAt: string | null;
+  moved: number;
+  quarantined: number;
+  failed: number;
+  undone: number;
+}
+
+export interface ScanDone {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  state: "running" | "paused" | "done" | "failed";
+  problem: string | null;
+  note: string | null;
+}
+
+/** Everything Kura did, newest first. */
+export interface History {
+  plans: PlanDone[];
+  scans: ScanDone[];
+}
+
+export const useHistory = () => useEngineQuery<History>("/history");

@@ -453,3 +453,74 @@ def test_a_junction_is_never_removed_by_a_tidy_up(
 
     assert movies.is_junction()
     assert (elsewhere / "Akira (1988)" / "Akira (1988).mkv").exists()
+
+
+def recorded(conn: sqlite3.Connection, folder: Path, *files: Path) -> None:
+    """The library's records of these videos, as a scan leaves them."""
+    with conn:
+        conn.execute("INSERT INTO folders (path, added_at) VALUES (?, ?)", (str(folder), "now"))
+        conn.executemany(
+            """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at)
+               VALUES (1, ?, 5, 0, 'now', 'now')""",
+            [(str(file),) for file in files],
+        )
+
+
+def where(conn: sqlite3.Connection) -> list[tuple[str, str | None]]:
+    rows = conn.execute("SELECT path, gone_at FROM files ORDER BY id")
+    return [(Path(row["path"]).name, row["gone_at"]) for row in rows]
+
+
+def test_a_videos_record_goes_with_it_and_back(
+    conn: sqlite3.Connection, downloads: Path, library: Path, tmp_path: Path
+):
+    kept, duplicate = video(downloads / "07.mkv"), video(downloads / "07.avi")
+    recorded(conn, tmp_path, kept, duplicate)
+    place = tmp_path / "Kura quarantine" / "2026-10-10" / "07.avi"
+    plan_id = saved(
+        conn,
+        Change(ChangeKind.QUARANTINE, duplicate, place, "Death Note · duplicate", "Kept 07.mkv"),
+        move(kept, library / "Death Note (2006)" / "Season 01" / "S01E07.mkv"),
+    )
+
+    apply_plan(conn, plan_id, now=NOW)
+
+    assert where(conn) == [("S01E07.mkv", None), ("07.avi", "2026-10-10T20:00:00+00:00")]
+    assert conn.execute("SELECT path FROM files WHERE id = 1").fetchone()[0] == str(
+        library / "Death Note (2006)" / "Season 01" / "S01E07.mkv"
+    )
+
+    undo_plan(conn, plan_id, now=NOW)
+
+    assert where(conn) == [("07.mkv", None), ("07.avi", None)]
+
+
+def test_a_record_follows_a_move_recover_finds(
+    conn: sqlite3.Connection, downloads: Path, library: Path, tmp_path: Path
+):
+    source = video(downloads / "a.mkv")
+    recorded(conn, tmp_path, source)
+    plan_id = saved(conn, move(source, library / "a.mkv"))
+    source.rename(library / "a.mkv")
+    crash_while(conn, ChangeState.MOVING, [])
+
+    recover(conn)
+
+    assert states(conn, plan_id) == [ChangeState.DONE]
+    assert where(conn) == [("a.mkv", None)]
+    assert conn.execute("SELECT path FROM files").fetchone()[0] == str(library / "a.mkv")
+
+
+def test_a_record_a_scan_made_at_the_new_place_gives_way(
+    conn: sqlite3.Connection, downloads: Path, library: Path, tmp_path: Path
+):
+    source = video(downloads / "a.mkv")
+    recorded(conn, tmp_path, source, library / "a.mkv")  # a scan saw it land, unidentified
+    with conn:
+        conn.execute("UPDATE files SET pinned = 1 WHERE id = 1")
+    plan_id = saved(conn, move(source, library / "a.mkv"))
+
+    apply_plan(conn, plan_id, now=NOW)
+
+    rows = conn.execute("SELECT id, path, pinned FROM files").fetchall()
+    assert [tuple(row) for row in rows] == [(1, str(library / "a.mkv"), 1)]
