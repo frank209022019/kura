@@ -8,8 +8,9 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - one whole conversion: writes the file, telling its progress the way -progress does;
 - a test play: says nothing, as ffmpeg does when a file plays.
 
-KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame". KURA_FAKE_SLOW is the
-seconds the decoder takes over each frame (none), so a test can stop a conversion mid-way.
+KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", or "decode" (once its
+frames are out, as a decoder meeting damage). KURA_FAKE_SLOW is the seconds the decoder takes
+over each frame (none), so a test can stop a conversion mid-way.
 """
 
 import os
@@ -45,6 +46,10 @@ def main() -> None:
             time.sleep(slow)
             sys.stdout.buffer.write(frame)
             sys.stdout.buffer.flush()
+        if fail == "decode":
+            print("[h264 @ 0000] error while decoding MB 23 11", file=sys.stderr)
+            print("Error while decoding stream #0:0: Invalid data found", file=sys.stderr)
+            sys.exit(1)
         return
     if "-i" in args and args[args.index("-i") + 1] == "-":
         received = len(sys.stdin.buffer.read())

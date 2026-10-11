@@ -20,6 +20,7 @@ import shutil
 import sqlite3
 import subprocess
 import threading
+from collections import deque
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, ExitStack, nullcontext
 from dataclasses import dataclass, field, replace
@@ -67,6 +68,7 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _PLAY_SECONDS = 5  # how much of the result a test play decodes, at each of three points
 _LOOK_TIMEOUT = 300  # seconds for idet or a test play
 _SPACE_MARGIN = 1.25  # free space wanted, over the estimated size of the result
+_SAID_LINES = 400  # of what ffmpeg says, kept for "Copy full log"
 IN_USE_WAIT = timedelta(minutes=5)  # before a result waiting for its original is tried again
 
 type Stage = Literal["looking", "converting", "checking", "replacing"]
@@ -80,7 +82,12 @@ class Progress:
 
 
 class ConvertError(Exception):
-    """The file couldn't be converted, and the original is as it was. The message says why."""
+    """The file couldn't be converted, and the original is as it was. The message says why, and
+    `log` holds what ffmpeg said, when it was ffmpeg that stopped."""
+
+    def __init__(self, message: str, log: str | None = None) -> None:
+        super().__init__(message)
+        self.log = log
 
 
 class NoRoomError(ConvertError):
@@ -485,6 +492,12 @@ def _with_model(
         stderr=subprocess.PIPE,
     )
     decoding, encoding = _Said(decoder.stderr), _Said(encoder.stderr)
+    reached = [0]  # frames made so far
+
+    def done(count: int) -> None:
+        reached[0] = count
+        report(Progress("converting", count, total))
+
     try:
         pipe(
             cast("IO[bytes]", decoder.stdout),
@@ -492,20 +505,29 @@ def _with_model(
             upscale,
             video.width,
             video.height,
-            done=lambda count: report(Progress("converting", count, total)),
+            done=done,
             stop=stop,
         )
     except UpscaleError as error:
         _end(decoder, encoder)
-        raise ConvertError(f"{error} {encoding.last() or decoding.last()}".strip()) from error
+        log = _log(decoding, encoding, stopped=(reached[0], total))
+        raise ConvertError(f"{error} {encoding.last() or decoding.last()}".strip(), log) from error
     if stop():
         _end(decoder, encoder)
         raise Stopped
     if decoder.wait() != 0:
         _end(encoder)
-        raise ConvertError(f"ffmpeg couldn't read it: {decoding.last() or 'it stopped'}.")
+        played = _clock(reached[0] / float(made.frame_rate), whole=True)
+        raise ConvertError(
+            f"It couldn't be read past {played} ({decoding.last() or 'ffmpeg stopped'}). The "
+            "original is untouched and plays up to there.",
+            _log(decoding, encoding, stopped=(reached[0], total)),
+        )
     if encoder.wait() != 0:
-        raise ConvertError(f"ffmpeg couldn't encode it: {encoding.last() or 'it stopped'}.")
+        raise ConvertError(
+            f"ffmpeg couldn't encode it: {encoding.last() or 'it stopped'}.",
+            _log(decoding, encoding, stopped=(reached[0], total)),
+        )
 
 
 def _in_one_command(
@@ -521,6 +543,7 @@ def _in_one_command(
     command = one_command(programs.ffmpeg, source, work, made, shader=programs.shader)
     process = programs.start(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     said = _Said(process.stderr)
+    frames = 0
     for line in cast("IO[bytes]", process.stdout):
         if stop():
             _end(process)
@@ -529,7 +552,10 @@ def _in_one_command(
             frames = int(line.split(b"=", 1)[1].strip() or 0)
             report(Progress("converting", frames, total))
     if process.wait() != 0:
-        raise ConvertError(f"ffmpeg couldn't convert it: {said.last() or 'it stopped'}.")
+        raise ConvertError(
+            f"ffmpeg couldn't convert it: {said.last() or 'it stopped'}.",
+            _log(said, stopped=(frames, total)),
+        )
 
 
 def _play(programs: Programs, work: Path, duration: float) -> list[str]:
@@ -564,6 +590,13 @@ def _play(programs: Programs, work: Path, duration: float) -> list[str]:
             problems.append(f"it didn't play at {_clock(at)} ({first})")
             break
     return problems
+
+
+def _log(*said: _Said, stopped: tuple[int, int]) -> str:
+    """What ffmpeg said, for "Copy full log", and where it stopped."""
+    reached, total = stopped
+    lines = [line for each in said for line in each.lines()]
+    return "\n".join([*lines, f"Stopped at frame {reached:,} of {total:,}."])
 
 
 def _replace(
@@ -695,10 +728,11 @@ def label_of(row: sqlite3.Row) -> str:
 
 
 class _Said:
-    """What a program writes to its error output, read as it goes so it never blocks."""
+    """What a program writes to its error output, read as it goes so it never blocks: its last
+    few hundred lines."""
 
     def __init__(self, stream: IO[bytes] | None) -> None:
-        self._lines: list[str] = []
+        self._lines: deque[str] = deque(maxlen=_SAID_LINES)
         self._thread = threading.Thread(target=self._read, args=(stream,), daemon=True)
         self._thread.start()
 
@@ -713,6 +747,10 @@ class _Said:
     def last(self) -> str:
         self._thread.join(timeout=5)
         return self._lines[-1] if self._lines else ""
+
+    def lines(self) -> list[str]:
+        self._thread.join(timeout=5)
+        return list(self._lines)
 
 
 def _end(*processes: subprocess.Popen[bytes]) -> None:
@@ -732,6 +770,7 @@ def _run(programs: Programs, command: Sequence[str]) -> subprocess.CompletedProc
     return subprocess.CompletedProcess(list(command), process.returncode, b"", err)
 
 
-def _clock(seconds: float) -> str:
-    whole = round(seconds)
-    return f"{whole // 60:02d}:{whole % 60:02d}"
+def _clock(seconds: float, *, whole: bool = False) -> str:
+    """ "04:12": to the nearest second, or the whole seconds reached (`whole`)."""
+    count = int(seconds) if whole else round(seconds)
+    return f"{count // 60:02d}:{count % 60:02d}"

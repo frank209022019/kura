@@ -35,6 +35,7 @@ function job(id: number, more: Partial<Job> = {}): Job {
     height: 1080,
     driveMissing: false,
     retryAt: null,
+    log: null,
     ...more,
   };
 }
@@ -61,6 +62,7 @@ const RUNNING: QueueStatus = {
       label: "Trigun · S01E09",
       problem: "The source file is damaged at 04:12. The original is untouched.",
       finishedAt: "2026-10-11T12:00:00+02:00",
+      log: "ffmpeg version 8.0\n[h264 @ 0000] error while decoding MB 23 11\nStopped at frame 6,045 of 34,512.",
     }),
   ],
   gpu: { busy: 97, celsius: 71 },
@@ -162,11 +164,31 @@ describe("QueuePage", () => {
     const today = await screen.findByRole("region", { name: "Today" });
     expect(today).toHaveTextContent("1converted1failed412 MBwritten");
     expect(today).toHaveTextContent(
-      "Trigun · S01E09 failedThe source file is damaged at 04:12. The original is untouched.",
+      "Trigun · S01E09 failed. The source file is damaged at 04:12. The original is untouched.",
     );
     screen.getByRole("button", { name: "Try again" }).click();
 
     await waitFor(() => expect(sent(fetch, "POST", "/queue/9/retry")).toHaveLength(1));
+  });
+
+  it("shows what ffmpeg said of a failed file, copies all of it, and marks it broken", async () => {
+    const copied = vi.fn(async (_text: string) => {});
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: copied },
+      configurable: true,
+    });
+    const fetch = fakeEngine({ "/queue": RUNNING, "POST /queue/9/broken": null });
+    renderQueue();
+
+    const failed = await screen.findByRole("alert");
+    expect(failed).toHaveTextContent(
+      "[h264 @ 0000] error while decoding MB 23 11Stopped at frame 6,045 of 34,512.",
+    );
+    expect(failed).not.toHaveTextContent("ffmpeg version 8.0"); // only its last lines show
+    screen.getByRole("button", { name: "Copy full log" }).click();
+    await waitFor(() => expect(copied).toHaveBeenCalledWith(RUNNING.today[1]?.log));
+    screen.getByRole("button", { name: "Mark as broken" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/9/broken")).toHaveLength(1));
   });
 
   it("converts at night only, when asked", async () => {

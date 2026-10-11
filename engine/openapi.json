@@ -1674,6 +1674,44 @@
         }
       }
     },
+    "/queue/{job_id}/broken": {
+      "post": {
+        "summary": "Mark Broken",
+        "description": "Marks a file whose conversion failed as broken: the library counts it among the files\nthat won't play, and it isn't converted again till it changes.",
+        "operationId": "mark_broken_queue__job_id__broken_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/queue/{job_id}/retry": {
       "post": {
         "summary": "Retry Job",
@@ -3248,6 +3286,17 @@
               }
             ],
             "title": "Retryat"
+          },
+          "log": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log"
           }
         },
         "type": "object",
@@ -3272,7 +3321,8 @@
           "width",
           "height",
           "driveMissing",
-          "retryAt"
+          "retryAt",
+          "log"
         ],
         "title": "Job"
       },

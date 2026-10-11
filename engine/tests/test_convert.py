@@ -130,6 +130,28 @@ def test_a_failed_encode_leaves_the_original_as_it_was(
     assert not list(episode.parent.glob(f"*{WORKING}"))
 
 
+def test_a_source_that_cant_be_read_says_how_far_it_plays_and_what_ffmpeg_said(
+    conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("KURA_FAKE_FAIL", "decode")
+    monkeypatch.setenv("KURA_FAKE_FRAMES", "1000")  # 41.7 seconds of it, at 23.976 a second
+    original = episode.read_bytes()
+
+    with pytest.raises(ConvertError) as failed:
+        run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+    assert str(failed.value) == (
+        "It couldn't be read past 00:41 (Error while decoding stream #0:0: Invalid data found). "
+        "The original is untouched and plays up to there."
+    )
+    assert failed.value.log is not None
+    assert failed.value.log.splitlines()[-2:] == [
+        "Error while decoding stream #0:0: Invalid data found",
+        "Stopped at frame 1,000 of 34,525.",
+    ]
+    assert episode.read_bytes() == original
+
+
 def test_a_result_that_doesnt_play_never_replaces_the_original(
     conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
 ):

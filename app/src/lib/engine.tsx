@@ -952,6 +952,8 @@ export interface Job {
    * tries again to put it in place.
    */
   retryAt: string | null;
+  /** What ffmpeg said, when a conversion failed ("Copy full log"). */
+  log: string | null;
 }
 
 /** The file converting now, and how it's going. */

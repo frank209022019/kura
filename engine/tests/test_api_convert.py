@@ -173,6 +173,21 @@ def test_a_file_open_in_another_app_waits_and_can_be_tried_now(
     assert (done["state"], done["retryAt"]) == ("done", None)
 
 
+def test_a_failed_file_can_be_marked_broken(
+    client: TestClient, converting: Queue, monkeypatch: pytest.MonkeyPatch
+):
+    client.post("/queue", json={"files": [1]})
+    monkeypatch.setenv("KURA_FAKE_FAIL", "encode")
+    converting.work_once()
+    [failed] = client.get("/queue").json()["today"]
+    assert "hevc_nvenc" in failed["log"]
+
+    assert client.post(f"/queue/{failed['id']}/broken").status_code == 204
+
+    assert client.post(f"/queue/{failed['id']}/broken").status_code == 404
+    assert client.get("/queue").json()["today"][0]["state"] == "skipped"
+
+
 def test_a_converted_file_is_listed_today_and_its_original_can_come_back(
     client: TestClient, converting: Queue, shelf: Path
 ):

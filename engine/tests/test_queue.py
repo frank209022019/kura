@@ -145,6 +145,26 @@ def test_a_file_that_fails_says_why_and_can_be_tried_again(
     assert [job.file_id for job in queue.status().queued] == [2, 1]  # back in line, last
 
 
+def test_a_failed_file_keeps_what_ffmpeg_said_and_can_be_marked_broken(
+    queue: Queue, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    queue.add([1])
+    monkeypatch.setenv("KURA_FAKE_FAIL", "encode")
+    queue.work_once()
+    [failed] = queue.status().today
+    assert failed.log is not None
+    assert "hevc_nvenc: No capable devices found" in failed.log
+
+    queue.mark_broken(failed.id)
+
+    assert states(conn) == [(1, "skipped")]
+    file = conn.execute("SELECT problem FROM files WHERE id = 1").fetchone()
+    assert file["problem"] == failed.problem
+    assert queue.add([1]) == 0  # broken: it isn't converted again
+    with pytest.raises(LookupError):
+        queue.mark_broken(failed.id)  # only a file that failed
+
+
 def test_a_paused_queue_converts_nothing_until_resumed(
     queue: Queue, paths: DataPaths, conn: sqlite3.Connection
 ):

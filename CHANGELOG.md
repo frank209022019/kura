@@ -66,9 +66,11 @@ shows these notes when it offers the update.
   (23:00 to 07:00). Each result is checked (length, streams, a test play) before it takes its
   original's place; the original waits in quarantine for 30 days and can be put back from
   History, which lists every conversion with what it made. A file whose drive isn't connected
-  waits while the others go, a drive without room for the result pauses the queue and says so,
-  and a file whose new name is taken (an MKV beside an MP4 of the same name) says so before
-  converting. Paused once its result is made, a file is still checked and put in place, and a
+  waits while the others go; a file that fails says why (one that can't be read, how far it
+  plays), shows what ffmpeg said last, copies its whole log, and can be marked broken (it's then
+  counted among the files that won't play); a drive without room for the result pauses the
+  queue and says so; and a file whose new name is taken (an MKV beside an MP4 of the same name)
+  says so before converting. Paused once its result is made, a file is still checked and put in place, and a
   file saved over while it converts keeps what was saved. Kura keeps the PC awake while a file
   converts, and nothing it starts keeps running once it's closed.
 - Tidy up: Kura proposes where every identified video goes (`TV\Show (Year)\Season 01`,

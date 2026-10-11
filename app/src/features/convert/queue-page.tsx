@@ -707,7 +707,6 @@ function Schedule({ status }: { status: QueueStatus }) {
 }
 
 function Today({ jobs }: { jobs: Job[] }) {
-  const action = useQueueAction();
   const navigate = useNavigate();
   const done = jobs.filter((job) => job.state === "done");
   const failed = jobs.filter((job) => job.state === "failed");
@@ -740,36 +739,72 @@ function Today({ jobs }: { jobs: Job[] }) {
         />
       </div>
       {failed.map((job) => (
-        <div
-          key={job.id}
-          className="flex flex-col gap-2.5 rounded-16 border border-broken/40 bg-broken/8 p-3.5"
-        >
-          <span className="flex items-start gap-2.5">
-            <AlertTriangle
-              size={16}
-              aria-hidden="true"
-              className="mt-0.5 shrink-0 text-broken-fg"
-            />
-            <span className="flex flex-col gap-0.5 text-13">
-              <span className="font-extrabold">{job.label} failed</span>
-              <span className="text-fg-soft">{job.problem}</span>
-            </span>
-          </span>
-          <Button
-            size="sm"
-            variant="primary"
-            className="self-start"
-            disabled={action.isPending}
-            onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
-          >
-            Try again
-          </Button>
-          <Problem
-            error={action.variables?.path === `/queue/${job.id}/retry` ? action.error : null}
-          />
-        </div>
+        <Failed key={job.id} job={job} />
       ))}
     </section>
+  );
+}
+
+const LOG_SHOWN = 2; // of what ffmpeg said, the last lines a failed file shows
+
+/** A file that failed: why, what ffmpeg said last, and what can be done about it. */
+function Failed({ job }: { job: Job }) {
+  const action = useQueueAction();
+  const [copied, setCopied] = useState(false);
+  const said = (job.log ?? "").split("\n").filter(Boolean).slice(-LOG_SHOWN);
+  const asked = (path: string) => action.variables?.path === `/queue/${job.id}/${path}`;
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-18 border border-broken/26 bg-broken/7 p-4"
+    >
+      <span className="flex items-start gap-2.5 text-13">
+        <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-broken-fg" />
+        <span>
+          <strong className="font-extrabold">{job.label} failed.</strong>{" "}
+          <span className="text-fg-soft">{job.problem}</span>
+        </span>
+      </span>
+      {said.length > 0 && (
+        <div className="overflow-x-auto rounded-12 bg-inset px-3 py-2.5 font-mono text-11 text-fg-muted leading-[1.7]">
+          {said.map((line, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the same line may come twice
+            <div key={index} className="whitespace-pre">
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={action.isPending}
+          onClick={() => action.mutate({ path: `/queue/${job.id}/broken` })}
+        >
+          Mark as broken
+        </Button>
+        <Button
+          size="sm"
+          disabled={action.isPending}
+          onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
+        >
+          Try again
+        </Button>
+        {job.log && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              void navigator.clipboard.writeText(job.log ?? "").then(() => setCopied(true))
+            }
+          >
+            {copied ? "Copied" : "Copy full log"}
+          </Button>
+        )}
+      </div>
+      <Problem error={asked("retry") || asked("broken") ? action.error : null} />
+    </div>
   );
 }
 

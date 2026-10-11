@@ -206,4 +206,8 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     """
     ALTER TABLE jobs ADD COLUMN retry_at TEXT;
     """,
+    # 12. What ffmpeg said when a conversion failed, for "Copy full log".
+    """
+    ALTER TABLE jobs ADD COLUMN log TEXT;
+    """,
 )

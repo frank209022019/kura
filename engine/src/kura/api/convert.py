@@ -86,6 +86,7 @@ class Job(ApiModel):
     # Made, and waiting beside its original for another app (a player) to let go of it: when
     # Kura tries again to put it in place.
     retry_at: str | None
+    log: str | None  # what ffmpeg said, when a conversion failed ("Copy full log")
 
 
 class Running(ApiModel):
@@ -296,6 +297,14 @@ def remove_job(job_id: int, queue: Queue) -> None:
 def move_job(job_id: int, body: MoveRequest, queue: Queue) -> None:
     with _known():
         queue.move(job_id, body.before)
+
+
+@router.post("/queue/{job_id}/broken", status_code=status.HTTP_204_NO_CONTENT)
+def mark_broken(job_id: int, queue: Queue) -> None:
+    """Marks a file whose conversion failed as broken: the library counts it among the files
+    that won't play, and it isn't converted again till it changes."""
+    with _known():
+        queue.mark_broken(job_id)
 
 
 @router.post("/queue/{job_id}/retry", status_code=status.HTTP_204_NO_CONTENT)

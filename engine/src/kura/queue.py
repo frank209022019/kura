@@ -112,6 +112,7 @@ class Job:
     # Made, and waiting beside its original for another app to let go of it: when Kura tries
     # again to put it in place.
     retry_at: str | None = None
+    log: str | None = None  # what ffmpeg said, when a conversion failed
 
 
 @dataclass(frozen=True)
@@ -333,7 +334,7 @@ class Queue:
 
     def retry(self, job_id: int) -> None:
         """A failed or skipped file goes back in the queue, last. One made and waiting for its
-        original to be free is tried again now."""
+        original to be free is tried again now. One marked broken is passed over: it's broken."""
         with closing(db.connect(self._paths.database)) as conn, conn:
             due = conn.execute(
                 """UPDATE jobs SET retry_at = ?
@@ -345,14 +346,32 @@ class Queue:
                 return
             last: int = conn.execute("SELECT COALESCE(MAX(position), 0) FROM jobs").fetchone()[0]
             again = conn.execute(
-                """UPDATE jobs SET state = 'queued', position = ?, problem = NULL,
+                """UPDATE jobs SET state = 'queued', position = ?, problem = NULL, log = NULL,
                           started_at = NULL, finished_at = NULL
-                   WHERE id = ? AND state IN ('failed', 'skipped')""",
+                   WHERE id = ? AND state IN ('failed', 'skipped')
+                     AND file_id IN (SELECT id FROM files WHERE problem IS NULL)""",
                 (last + 1, job_id),
             ).rowcount
         if not again:
-            raise LookupError("That file didn't fail and wasn't skipped.")
+            raise LookupError("That file didn't fail and wasn't skipped, or it's broken.")
         self._wake.set()
+
+    def mark_broken(self, job_id: int) -> None:
+        """A file whose conversion failed is marked broken: the library counts it among the files
+        that won't play, saying why, and it isn't converted again till it changes (a scan reads
+        it anew then). Raises LookupError when it didn't fail."""
+        with self._lock, closing(db.connect(self._paths.database)) as conn, conn:
+            job = conn.execute(
+                """UPDATE jobs SET state = 'skipped' WHERE id = ? AND state = 'failed'
+                   RETURNING file_id, problem""",
+                (job_id,),
+            ).fetchone()
+            if job is None:
+                raise LookupError("That file didn't fail.")
+            conn.execute(
+                "UPDATE files SET problem = ? WHERE id = ?",
+                (job["problem"] or "Kura couldn't convert it.", job["file_id"]),
+            )
 
     def restore(self, job_id: int) -> None:
         """Puts a converted file's original back in its place. Raises ScanBusyError while a scan
@@ -475,7 +494,7 @@ class Queue:
                 _save(conn, _HELD_UP, problem)
             self._notify("The queue paused", problem, link="/convert/queue")
         except ConvertError as error:
-            self._finished(conn, job_id, "failed", str(error))
+            self._finished(conn, job_id, "failed", str(error), error.log)
         except Exception:
             log.exception("Converting job %d hit a problem", job_id)
             self._finished(conn, job_id, "failed", "Kura hit a problem converting it.")
@@ -591,13 +610,20 @@ class Queue:
             )
 
     def _finished(
-        self, conn: sqlite3.Connection, job_id: int, state: JobState, problem: str | None
+        self,
+        conn: sqlite3.Connection,
+        job_id: int,
+        state: JobState,
+        problem: str | None,
+        said: str | None = None,
     ) -> None:
+        """A job over: done with, failed (why, and what ffmpeg `said`), or skipped."""
         with conn:
             conn.execute(
-                """UPDATE jobs SET state = ?, problem = ?, finished_at = ?, retry_at = NULL
+                """UPDATE jobs SET state = ?, problem = ?, log = ?, finished_at = ?,
+                          retry_at = NULL
                    WHERE id = ?""",
-                (state, problem, self._now().isoformat(), job_id),
+                (state, problem, said, self._now().isoformat(), job_id),
             )
 
     def _heard(self, progress: Progress) -> None:
@@ -793,6 +819,7 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
         width=width,
         height=height,
         retry_at=row["retry_at"],
+        log=row["log"] if row["state"] == "failed" else None,
     )
 
 
