@@ -7,17 +7,16 @@ own tool: one user, one PC, never commercial, no sign-in. The code is shared und
 licence: anyone may fork it, but the repo takes no contributions.
 
 **Where it stands (2026-10-11):** design language chosen; repo, CI, installer and updater
-pipeline set up, with semantic versions, a changelog and a downloads page; the engine's pure core
-(names, Plex naming, standards, estimates, gap reports, tidy plans) and the tidy-up journal
-(apply, undo, crash recovery) built test first; the upscaling test settled how each source is
-converted. Scanning works end to end: first-run setup, ffmpeg fetched from the list the installer
-shows, library folders, the scan (find, read with ffprobe, identify on AniList and TMDB, check for
-gaps and write the reports), "Which anime is this?" for the files Kura isn't sure about, the
-watcher that keeps the library current, Home's shelf of franchises and series with "Needs your
-attention", a page per franchise, and a page per title with its seasons, episode map and gap
-analysis. Tidying up works in the app too: Kura proposes Plex's layout title by title, sets
-second copies aside in quarantine, applies what the owner keeps, and History undoes it. No release
-has been tagged yet. Next is conversion, in [What's next](#whats-next).
+pipeline set up, with semantic versions, a changelog and a downloads page. Built and tested end to
+end: first-run setup with ffmpeg fetched from the list the installer shows; the scan (find, read
+with ffprobe, identify on AniList and TMDB, check for gaps and write the reports); "Which anime is
+this?"; the watcher; Home's shelf of franchises and series, a page per franchise and per title
+(seasons, episode map, the gap analysis as a document, delete with put back); tidying up with
+History's undo; converting with the queue (the AI model for SD, Anime4K for 720p, NVENC HEVC
+10-bit, every result checked before it takes its original's place, nights only, full and
+unplugged drives handled); Settings; nightly backups and restoring one; the quarantine cleared
+out daily; and the tray with "Start with Windows" and notifications. No release has been tagged
+yet. Next is in [What's next](#whats-next).
 
 ## Ground rules
 
@@ -287,13 +286,14 @@ Everything decided so far. Don't ask again; change only with the owner.
    and "Change match").
 3. Tidy-up in the app: done (review title by title, apply, undo, quarantine on the same drive,
    History). Quarantine keeps copies until the 30-day clear-out arrives with step 6.
-4. Conversion, with the queue: upscaling, the encode, Kura's mux, checking each output, estimates,
-   overnight runs, and a full disk or an unplugged drive handled.
-5. Settings: everything chosen in setup, the TMDB key, moving the data folder, starting with
-   Windows.
-6. Background care: nightly database backups (keep 7), clearing quarantined copies after 30
-   days, and notifications from the tray.
-7. Plex poster and fanart files next to each show (optional, as decided).
+4. Conversion, with the queue: done (the AI model and Anime4K, the encode and Kura's mux, checks,
+   estimates and "See it first", nights only, full and unplugged drives, put back from History).
+5. Settings: done but for moving the data folder to another drive (and importing an export, on
+   the board).
+6. Background care: done (nightly backups with restore, the daily quarantine clear-out, the tray
+   with "Start with Windows" and notifications).
+7. Poster and background images next to each show, for media servers (optional, as decided; the
+   UI never names Plex).
 8. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), the attribution
