@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import {
   type Guess,
@@ -82,6 +83,10 @@ function MatchFile(props: {
   const guesses = searching ? (found.data ?? []) : file.guesses;
   const [picked, setPicked] = useState<number | null>(file.guesses[0]?.anilistId ?? null);
   const [kind, setKind] = useState<Kind>(asKind(file.kind));
+  // An episode's number starts as its name gives it; a special's starts blank.
+  const named = file.episode === null ? "" : String(file.episode);
+  const [numbers, setNumbers] = useState({ episode: named, special: "" });
+  const number = kind === "movie" ? "" : numbers[kind];
   const [together, setTogether] = useState(true);
   const chosen = guesses.find((guess) => guess.anilistId === picked) ?? null;
   const busy = choose.isPending || ignore.isPending;
@@ -101,8 +106,11 @@ function MatchFile(props: {
   function confirm() {
     if (!chosen) return;
     const also = together ? file.alike : [];
+    // The number goes only when the owner gave one its name doesn't.
+    const given = number !== "" && (kind === "special" || number !== named);
+    const episode = given ? Number(number) : undefined;
     choose.mutate(
-      { path: `/review/${file.id}`, body: { anilistId: chosen.anilistId, kind, also } },
+      { path: `/review/${file.id}`, body: { anilistId: chosen.anilistId, kind, also, episode } },
       { onSuccess: (answer) => props.onSettled(answer.placed) },
     );
   }
@@ -207,6 +215,25 @@ function MatchFile(props: {
             <span className="font-bold text-13">It is a</span>
             <Segmented label="Kind of file" value={kind} options={KINDS} onChange={setKind} />
           </div>
+          {kind !== "movie" && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label htmlFor="match-number" className="font-bold text-13">
+                {kind === "special" ? "Which special" : "Which episode"}
+              </label>
+              <Input
+                id="match-number"
+                inputMode="numeric"
+                autoComplete="off"
+                value={number}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
+                  setNumbers((before) => ({ ...before, [kind]: digits }));
+                }}
+                placeholder={kind === "special" ? "If you know it" : "Its number"}
+                className="h-10 w-36 text-right font-mono text-13 placeholder:font-sans"
+              />
+            </div>
+          )}
 
           {file.alike.length > 0 && (
             <Together
@@ -227,7 +254,7 @@ function MatchFile(props: {
               Your choice is remembered, so a rescan never undoes it.
             </span>
             <Button variant="primary" disabled={!chosen || busy} onClick={confirm}>
-              {chosen ? confirmText(chosen, kind, file) : "Pick the anime first"}
+              {chosen ? confirmText(chosen, kind, number) : "Pick the anime first"}
             </Button>
           </div>
         </section>
@@ -471,9 +498,9 @@ function asKind(kind: WaitingFile["kind"]): Kind {
   return "episode";
 }
 
-function confirmText(guess: Guess, kind: Kind, file: WaitingFile): string {
-  if (kind === "episode" && file.episode !== null)
-    return `Confirm ${guess.title}, episode ${file.episode}`;
+function confirmText(guess: Guess, kind: Kind, number: string): string {
+  if (kind === "episode" && number !== "") return `Confirm ${guess.title}, episode ${number}`;
+  if (kind === "special" && number !== "") return `Confirm ${guess.title}, special ${number}`;
   return `Confirm ${guess.title}`;
 }
 

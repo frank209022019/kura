@@ -24,10 +24,10 @@ shows these notes when it offers the update.
   gaps and writing the reports, with the anime found so far (artwork and all, oldest release
   first), the files that need a match, folders with mixed anime and broken files.
 - "Which anime is this?": for each file Kura couldn't place surely, its stills, length, picture,
-  languages and group tag beside Kura's best guesses (press 1, 2 or 3), a search for another, and
-  whether it's an episode, a movie or a special. One choice can cover the other files from the
-  same release, and it's remembered, so a rescan never undoes it. "Not anime" leaves a file out
-  for good.
+  languages and group tag beside Kura's best guesses (press 1, 2 or 3), a search for another,
+  whether it's an episode, a movie or a special, and which episode when its name doesn't say. One
+  choice can cover the other files from the same release, and it's remembered, so a rescan never
+  undoes it. "Not anime" leaves a file out for good.
 - A gap analysis next to each anime that has a folder of its own (`Kura - Gap analysis.md`): the
   episodes TMDB lists as aired that the library doesn't hold (without a TMDB key, AniList's count
   of the episodes aired so far), a run of them as one range, with specials and OVAs listed apart

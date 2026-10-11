@@ -106,8 +106,11 @@ time, then reads the new and changed ones with ffprobe (`kura/probe.py`). Everyt
 goes and the scan's stage is in the `scans` table, so a pause, an exit or a crash loses nothing: the
 next start carries on. Then each video read is identified (`kura/identify.py`): files that look
 like the same anime are looked up together on AniList, and with the owner's TMDB key the same show
-or film is found on TMDB, whose episode lists say where each file sits. A file Kura isn't sure
-about waits for the owner; offline, identification waits for the next scan and the scan says so.
+or film is found on TMDB, whose episode lists say where each file sits. An OVA or special goes
+into its show's season 0 when the library has the show and TMDB lists it among the show's
+specials on the day it first aired; otherwise it's a title of its own. A file Kura isn't sure
+about waits for the owner, whose choice is pinned (an episode Kura can't place asks for its
+number); offline, identification waits for the next scan and the scan says so.
 Last, the scan checks the library: each series with a folder of its own gets its
 `Kura - Gap analysis.md` (`kura/reports.py`), rewritten only when its news changes. The missing
 episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`), or without a

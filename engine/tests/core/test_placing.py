@@ -6,7 +6,7 @@ from pathlib import Path, PureWindowsPath
 
 from kura.core.catalog import Anime, Show, anime_list, show
 from kura.core.names import parse_name
-from kura.core.placing import How, Placement, place
+from kura.core.placing import How, Placement, lists_special, place
 from tests.tmdb_data import DBZ_SEASONS, tv_details
 
 ANILIST = Path(__file__).parent.parent / "data" / "anilist"
@@ -140,3 +140,35 @@ def test_a_special_kura_cant_date_or_number_isnt_placed():
 def test_films_and_extras_arent_episodes():
     assert placed(r"D:\Anime\Cowboy Bebop - The Movie (2001).mkv", BEBOP) is None
     assert placed(r"D:\Anime\Cowboy Bebop\Extras\NCOP01.mkv", BEBOP) is None
+
+
+def test_a_special_named_the_plex_way_keeps_its_number_whatever_its_entry():
+    yoseatsume = anilist("cowboy-bebop", 4037)  # first aired 26 June 1998, TMDB's S00E02
+
+    found = placed(
+        "D:/Anime/Cowboy Bebop (1998)/Specials/Cowboy Bebop (1998) - S00E03.mkv", BEBOP, yoseatsume
+    )
+
+    assert found == Placement(0, 3, None, How.NUMBERED)
+
+
+def test_a_series_says_nothing_about_which_special_a_file_is():
+    bebop = anilist("cowboy-bebop", 1)  # first aired 3 April 1998, the day TMDB's S00E01 did
+
+    assert placed("D:/Anime/Cowboy Bebop/Cowboy Bebop - OVA.mkv", BEBOP, bebop) is None
+
+
+def test_episode_zero_of_a_later_part_isnt_the_episode_before_it():
+    part_two = anilist("attack-on-titan-season-3-part-2", 104578)
+
+    found = placed(
+        "D:/Anime/[SubsPlease] Shingeki no Kyojin S3 Part 2 - 00 (1080p).mkv", TITAN, part_two
+    )
+
+    assert found is None
+
+
+def test_a_show_lists_a_special_by_the_day_it_first_aired():
+    assert lists_special(BEBOP, date(1998, 6, 27))  # a day out, as listings are
+    assert not lists_special(BEBOP, date(1998, 7, 10))
+    assert not lists_special(DBZ, date(1989, 4, 26))  # no specials at all

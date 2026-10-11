@@ -83,6 +83,30 @@ def test_the_owners_choice_places_the_files_and_sticks(
     assert conn.execute("SELECT COUNT(*) FROM files WHERE pinned = 1").fetchone()[0] == 4
 
 
+def test_a_choice_kura_cant_place_asks_which_episode(
+    client: TestClient, paths: DataPaths, conn: sqlite3.Connection, root: Path, web: FakeWeb
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Old DVDs/VTS_01_1.VOB"])
+    identify(paths, conn, internet())
+    web.answers.update(internet().answers)
+    [found] = client.get("/review").json()
+
+    answer = client.post(f"/review/{found['id']}", json={"anilistId": 813, "kind": "episode"})
+
+    assert answer.status_code == 422
+    assert answer.json()["detail"].startswith("Which episode is it?")
+    assert len(client.get("/review").json()) == 1
+
+    answer = client.post(
+        f"/review/{found['id']}", json={"anilistId": 813, "kind": "episode", "episode": 150}
+    )
+
+    assert answer.json() == {"placed": 1}
+    row = conn.execute("SELECT season, episode, pinned FROM files").fetchone()
+    assert tuple(row) == (5, 11, 1)
+
+
 def test_not_anime_is_left_out_for_good(
     client: TestClient, waiting: FakeWeb, conn: sqlite3.Connection
 ):

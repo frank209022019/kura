@@ -15,7 +15,7 @@ from kura.config import DataPaths
 from kura.core.catalog import TitleKind
 from kura.core.identify import Guess as FoundGuess
 from kura.core.names import Kind
-from kura.identify import Identifier
+from kura.identify import Identifier, UnplacedError
 from kura.web import Send, WebError
 
 router = APIRouter()
@@ -56,6 +56,8 @@ class Choice(ApiModel):
     kind: Literal["episode", "movie", "special"] = "episode"
     # Other files that are the same anime, numbered from their names.
     also: list[int] = Field(default_factory=list[int])
+    # The file's number, when its name has none Kura can use.
+    episode: int | None = None
 
 
 class Chosen(ApiModel):
@@ -104,10 +106,19 @@ def search_anilist(file_id: int, q: str, conn: Database, paths: Paths, web: Web)
 
 @router.post("/review/{file_id}")
 def choose(file_id: int, body: Choice, conn: Database, paths: Paths, web: Web) -> Chosen:
-    """The owner's choice for this file, and for the others that are the same anime."""
-    files = [file_id, *[other for other in body.also if other != file_id]]
+    """The owner's choice for this file, and for the others that are the same anime. An
+    episode Kura can't place is 422: the owner gives its number."""
     try:
-        placed = _identifier(paths, web).choose(conn, files, body.anilist_id, Kind(body.kind))
+        placed = _identifier(paths, web).choose(
+            conn,
+            file_id,
+            body.anilist_id,
+            Kind(body.kind),
+            also=body.also,
+            episode=body.episode,
+        )
+    except UnplacedError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
     except LookupError:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "AniList doesn't have that entry any more."

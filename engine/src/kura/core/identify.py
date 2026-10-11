@@ -123,10 +123,12 @@ def _guess(group: Group, entry: Anime, rank: int) -> Guess:
     if longest is not None and entry.episodes and not group.movie:
         if longest <= entry.episodes:
             score += 10
-            reasons.append(f"{entry.episodes} episodes fit")
+            reasons.append(
+                f"{_episodes(entry.episodes)} {'fits' if entry.episodes == 1 else 'fit'}"
+            )
         elif not entry.airing:
             score -= 20
-            reasons.append(f"Only {entry.episodes} episodes, files go up to {longest}")
+            reasons.append(f"Only {_episodes(entry.episodes)}, files go up to {longest}")
 
     minutes = group.minutes
     if minutes and entry.minutes:
@@ -224,3 +226,7 @@ def similarity(a: str, b: str) -> float:
     shorter, longer = sorted((words_left, words_right), key=len)
     contained = 0.9 * len(shorter) / len(longer) if shorter <= longer else 0.0
     return max(ratio, contained)
+
+
+def _episodes(count: int) -> str:
+    return f"{count} episode" if count == 1 else f"{count} episodes"

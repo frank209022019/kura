@@ -12,12 +12,16 @@ from kura import credentials
 from kura.anilist import API as ANILIST
 from kura.config import DataPaths
 from kura.core.catalog import anime_list
-from kura.identify import save_anilist_title
+from kura.core.names import Kind
+from kura.identify import Identifier, UnplacedError, save_anilist_title
 from kura.library import find_files, folders, read_file, unread
 from kura.titles import title
 from tests.fake_ffprobe import REPORT
 from tests.services import SAVED, internet
 from tests.shelf import NOW, identify, library
+
+COWBOY_BEBOP = json.loads((SAVED / "cowboy-bebop.json").read_text(encoding="utf-8"))
+YOSEATSUME = next(m for m in COWBOY_BEBOP["data"]["Page"]["media"] if m["id"] == 4037)
 
 
 def placed(conn: sqlite3.Connection) -> dict[str, tuple[object, ...]]:
@@ -242,6 +246,140 @@ def test_an_ova_goes_into_its_shows_specials_by_date(
         "series",
         0,
         2,
+    )
+
+
+def test_an_ovas_numbered_files_go_into_its_shows_specials_not_its_episodes(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Cowboy Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet())
+    web = internet()
+    web.answers[f"POST {ANILIST}"] = lambda asked: {"data": {"Page": {"media": [YOSEATSUME]}}}
+    library(conn, root, ["Cowboy Bebop/Cowboy Bebop - Yoseatsume Blues - 01.mkv"])
+
+    identify(paths, conn, web)
+
+    found = placed(conn)
+    assert found["Cowboy Bebop - Yoseatsume Blues - 01.mkv"] == (
+        "sure",
+        "Cowboy Bebop",
+        "series",
+        0,
+        2,
+    )
+    assert found["Cowboy Bebop - 01.mkv"] == ("sure", "Cowboy Bebop", "series", 1, 1)
+
+
+def test_an_ova_goes_under_a_show_only_if_its_part_of_it(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Cowboy Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet())
+    edges = YOSEATSUME["relations"]["edges"]
+    crossover = {  # only its characters appear in Cowboy Bebop
+        **YOSEATSUME,
+        "relations": {"edges": [{**edge, "relationType": "CHARACTER"} for edge in edges]},
+    }
+    web = internet()
+    web.answers[f"POST {ANILIST}"] = lambda asked: {"data": {"Page": {"media": [crossover]}}}
+    library(conn, root, ["Cowboy Bebop/Cowboy Bebop - Yoseatsume Blues - 01.mkv"])
+
+    identify(paths, conn, web)
+
+    where = placed(conn)["Cowboy Bebop - Yoseatsume Blues - 01.mkv"]
+    assert where[1:] != ("Cowboy Bebop", "series", 0, 2)
+
+
+def test_the_same_episode_named_two_ways_isnt_a_clash(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(
+        conn,
+        root,
+        [
+            "Dragon Ball Z (1989)/Season 01/05.mkv",
+            "Dragon Ball Z (1989)/Dragon Ball Z - S01E05.mkv",
+        ],
+    )
+
+    identify(paths, conn, internet())
+
+    assert set(placed(conn).values()) == {("sure", "Dragon Ball Z", "series", 1, 5)}
+
+
+def test_the_owner_says_which_episode_when_its_name_doesnt(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Old DVDs/VTS_01_1.VOB"])
+    identify(paths, conn, internet())
+    [file_id] = [row[0] for row in conn.execute("SELECT id FROM files")]
+    owner = Identifier(paths, internet(), now=lambda: NOW)
+
+    with pytest.raises(UnplacedError, match="Which episode is it"):
+        owner.choose(conn, file_id, 813, Kind.EPISODE)
+    assert placed(conn)["VTS_01_1.VOB"] == ("none", None, None, None, None)
+
+    assert owner.choose(conn, file_id, 813, Kind.EPISODE, episode=150) == 1
+    assert placed(conn)["VTS_01_1.VOB"] == ("sure", "Dragon Ball Z", "series", 5, 11)
+
+
+def test_look_alikes_kura_cant_place_keep_waiting(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Downloads/[subs] ep03 final.mkv", "Downloads/[subs] ep999 final.mkv"])
+    identify(paths, conn, internet())
+    ids = {Path(row["path"]).name: row["id"] for row in conn.execute("SELECT id, path FROM files")}
+    owner = Identifier(paths, internet(), now=lambda: NOW)
+
+    count = owner.choose(
+        conn,
+        ids["[subs] ep03 final.mkv"],
+        813,
+        Kind.EPISODE,
+        also=[ids["[subs] ep999 final.mkv"]],
+    )
+
+    assert count == 1
+    assert placed(conn)["[subs] ep03 final.mkv"] == ("sure", "Dragon Ball Z", "series", 1, 3)
+    assert placed(conn)["[subs] ep999 final.mkv"][0] != "sure"
+
+
+def test_a_special_or_extra_kura_cant_number_still_belongs_to_its_show(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Old DVDs/VTS_02_1.VOB"])
+    identify(paths, conn, internet())
+    [file_id] = [row[0] for row in conn.execute("SELECT id FROM files")]
+
+    Identifier(paths, internet(), now=lambda: NOW).choose(conn, file_id, 1, Kind.SPECIAL)
+
+    assert placed(conn)["VTS_02_1.VOB"] == ("sure", "Cowboy Bebop", "series", 0, None)
+
+
+def test_without_a_key_a_special_is_numbered_as_its_own_title(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    library(conn, root, ["Downloads/Yoseatsume Blues.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    [file_id] = [row[0] for row in conn.execute("SELECT id FROM files")]
+
+    Identifier(paths, internet(tmdb=False), now=lambda: NOW).choose(
+        conn, file_id, 4037, Kind.SPECIAL
+    )
+
+    assert placed(conn)["Yoseatsume Blues.mkv"] == (
+        "sure",
+        "Cowboy Bebop: Yoseatsume Blues",
+        "special",
+        1,
+        1,
     )
 
 

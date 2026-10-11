@@ -128,6 +128,31 @@ describe("MatchPage", () => {
     expect(JSON.parse(String(init.body))).toEqual({ anilistId: 1, kind: "special", also: [] });
   });
 
+  it("asks which episode a file is when its name doesn't say", async () => {
+    const dvd: WaitingFile = {
+      ...waiting(7, 1),
+      path: "D:\\Anime\\Old DVDs\\VTS_01_1.VOB",
+      episode: null,
+      kind: "dvd",
+    };
+    const fetch = fakeEngine({ "/review": [dvd], "POST /review/7": { placed: 1 } });
+    renderMatch();
+
+    const number = await screen.findByRole("textbox", { name: "Which episode" });
+    expect(screen.getByRole("button", { name: "Confirm Trigun" })).toBeInTheDocument();
+    fireEvent.change(number, { target: { value: "15x0" } });
+    (await screen.findByRole("button", { name: "Confirm Trigun, episode 150" })).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/review/7")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/review/7") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({
+      anilistId: 6,
+      kind: "episode",
+      also: [],
+      episode: 150,
+    });
+  });
+
   it("searches when none of the guesses is right", async () => {
     fakeEngine({
       "/review": QUEUE,

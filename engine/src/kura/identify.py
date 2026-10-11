@@ -23,8 +23,8 @@ from kura.config import DataPaths
 from kura.core.catalog import Anime, Film, Hit, Show, TitleKind
 from kura.core.identify import SURE, FileFacts, Group, Guess, base_title, group_files, guesses
 from kura.core.identify import pick_hit as pick_tmdb
-from kura.core.names import Kind, parse_name
-from kura.core.placing import How, Placement, place
+from kura.core.names import Kind, ParsedName, parse_name
+from kura.core.placing import How, Placement, lists_special, place
 from kura.titles import show_of
 from kura.tmdb import Tmdb
 from kura.web import Send, WebError
@@ -34,6 +34,7 @@ log = logging.getLogger(__name__)
 AIRING_EVERY = timedelta(hours=1)  # how often a show still airing has its episode list refreshed
 FINISHED_EVERY = timedelta(days=7)  # and a finished one
 _SHOWN_GUESSES = 3  # how many guesses the review screen offers
+_PART_OF = ("PARENT", "SIDE_STORY")  # how AniList ties an OVA or special to its show
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,20 @@ class Identified:
     sure: int  # files placed without asking
     unsure: int  # files waiting for the owner
     note: str | None  # what couldn't be done this time, in words
+
+
+class UnplacedError(ValueError):
+    """The owner's choice for a file Kura can't place as an episode: it needs the number."""
+
+
+@dataclass(frozen=True)
+class _Home:
+    """Where an entry's files go: a title, with its TMDB show when it has one."""
+
+    title_id: int
+    show: Show | None = None
+    film: bool = False  # the title is a film: a file is the whole of it
+    specials: bool = False  # the show's specials hold the entry: an OVA or special, in season 0
 
 
 class Identifier:
@@ -100,39 +115,54 @@ class Identifier:
         return Identified(sure, unsure, note)
 
     def choose(
-        self, conn: sqlite3.Connection, file_ids: Sequence[int], anilist_id: int, as_kind: Kind
+        self,
+        conn: sqlite3.Connection,
+        file_id: int,
+        anilist_id: int,
+        as_kind: Kind,
+        *,
+        also: Sequence[int] = (),
+        episode: int | None = None,
     ) -> int:
-        """The owner's choice: these files are this AniList entry, as episodes, a film, or
-        specials. It's pinned, so no rescan undoes it. Returns how many files it placed.
+        """The owner's choice: this file, and the others that are the same anime (`also`), are
+        this AniList entry, as episodes, a film, or specials. `episode` is the file's number when
+        its name has none Kura can use. It's pinned, so no rescan undoes it. Returns how many
+        files it placed; one of `also` that Kura can't place keeps waiting. A special Kura can't
+        number still belongs to its show (an extra, say).
 
-        Raises LookupError when AniList has no such entry, and WebError when a service can't be
-        asked right now.
+        Raises UnplacedError when the file is an episode Kura can't place, LookupError when AniList
+        has no such entry, and WebError when a service can't be asked right now.
         """
         entry = self._anilist.entry(anilist_id)
         if entry is None:
             raise LookupError(f"AniList has no entry {anilist_id}.")
-        title_id, show = self._title_for(conn, entry, self._tmdb())
+        home = self._title_for(conn, entry, self._tmdb())
+        film = home.film or entry.kind is TitleKind.MOVIE or as_kind is Kind.MOVIE
+        chosen: list[tuple[FileFacts, Placement | None]] = []
+        for facts in _facts(conn, [file_id, *(other for other in also if other != file_id)]):
+            parsed = replace(facts.parsed, kind=as_kind)
+            if facts.id == file_id and episode is not None:
+                parsed = replace(parsed, episode=episode, episode_end=None)
+                if as_kind is Kind.SPECIAL:
+                    parsed = replace(parsed, season=0)
+            where = None if film else _placement(parsed, entry, home)
+            if where is None and not film and as_kind is Kind.EPISODE:
+                if facts.id == file_id:
+                    raise UnplacedError(_which_episode(entry, parsed.episode))
+                continue  # it keeps waiting
+            chosen.append((facts, where))
         stamp = self._now().isoformat()
-        chosen = _facts(conn, file_ids)
         with conn:
-            for facts in chosen:
-                parsed = replace(facts.parsed, kind=as_kind)
-                where: Placement | None = None
-                if as_kind is not Kind.MOVIE and entry.kind is not TitleKind.MOVIE:
-                    if show is not None:
-                        where = place(parsed, show, entry)
-                    else:
-                        where = _by_anilist_number(replace(facts, parsed=parsed), entry)
-                special = as_kind is Kind.SPECIAL
+            for facts, where in chosen:
                 conn.execute(
                     """UPDATE files SET title_id = ?, anilist_id = ?, season = ?, episode = ?,
                               episode_end = ?, matched = 'sure', confidence = 100,
                               pinned = 1, identified_at = ?
                        WHERE id = ?""",
                     (
-                        title_id,
+                        home.title_id,
                         entry.id,
-                        where.season if where else (0 if special else None),
+                        where.season if where else (0 if as_kind is Kind.SPECIAL else None),
                         where.episode if where else None,
                         where.last if where else None,
                         stamp,
@@ -180,22 +210,18 @@ class Identifier:
             return 0, len(group.files)
 
         entry = best.anime
-        title_id, show = self._title_for(conn, entry, tmdb)
-        placements: dict[int, Placement | None] = {}
-        for facts in group.files:
-            if entry.kind is TitleKind.MOVIE or (show is None and facts.parsed.kind is Kind.MOVIE):
-                placements[facts.id] = None  # a film is the whole title
-            elif show is not None:
-                placements[facts.id] = place(facts.parsed, show, entry)
-            else:
-                placements[facts.id] = _by_anilist_number(facts, entry)
+        home = self._title_for(conn, entry, tmdb)
+        film = home.film or entry.kind is TitleKind.MOVIE  # a file is the whole title
+        placements: dict[int, Placement | None] = {
+            facts.id: None if film else _placement(facts.parsed, entry, home)
+            for facts in group.files
+        }
         clashing = _clashes(group.files, placements)
 
         sure = unsure = 0
         with conn:
             for facts in group.files:
                 where = placements[facts.id]
-                film = entry.kind is TitleKind.MOVIE
                 if facts.id in clashing or (where is None and not film):
                     _mark_unsure(conn, [facts], ranked, stamp, commit=False)
                     unsure += 1
@@ -206,7 +232,7 @@ class Identifier:
                               identified_at = ?
                        WHERE id = ? AND pinned = 0""",
                     (
-                        title_id,
+                        home.title_id,
                         entry.id,
                         where.season if where else None,
                         where.episode if where else None,
@@ -220,9 +246,7 @@ class Identifier:
                 sure += 1
         return sure, unsure
 
-    def _title_for(
-        self, conn: sqlite3.Connection, entry: Anime, tmdb: Tmdb | None
-    ) -> tuple[int, Show | None]:
+    def _title_for(self, conn: sqlite3.Connection, entry: Anime, tmdb: Tmdb | None) -> _Home:
         """The library's title for an AniList entry, made or refreshed, with its TMDB show."""
         if tmdb is not None:
             if entry.kind in (TitleKind.OVA, TitleKind.SPECIAL):
@@ -235,24 +259,23 @@ class Identifier:
                 hit = _find(tmdb, entry, "movie")  # a one-off OVA is often a film on TMDB
             if hit is not None:
                 return self._tmdb_title(conn, entry, hit, tmdb)
-        return self._anilist_title(conn, entry), None
+        return self._anilist_title(conn, entry)
 
-    def _anilist_title(self, conn: sqlite3.Connection, entry: Anime) -> int:
+    def _anilist_title(self, conn: sqlite3.Connection, entry: Anime) -> _Home:
         """The title of an entry Kura knows only from AniList. A list the library already has
         stays until it's due; a show still airing is asked about afresh, since a search answer
         can be days old."""
         row = conn.execute(
             "SELECT * FROM titles WHERE anilist_id = ? AND tmdb_id IS NULL", (entry.id,)
         ).fetchone()
+        film = entry.kind is TitleKind.MOVIE
         if row is not None and not due(row, self._now()):
-            return row["id"]
+            return _Home(row["id"], film=film)
         if entry.airing:
             entry = self._anilist.entry(entry.id, fresh=True) or entry
-        return save_anilist_title(conn, entry, self._now())
+        return _Home(save_anilist_title(conn, entry, self._now()), film=film)
 
-    def _tmdb_title(
-        self, conn: sqlite3.Connection, entry: Anime, hit: Hit, tmdb: Tmdb
-    ) -> tuple[int, Show | None]:
+    def _tmdb_title(self, conn: sqlite3.Connection, entry: Anime, hit: Hit, tmdb: Tmdb) -> _Home:
         row = conn.execute(
             "SELECT * FROM titles WHERE tmdb_type = ? AND tmdb_id = ?", (hit.media, hit.id)
         ).fetchone()
@@ -260,14 +283,14 @@ class Identifier:
         if hit.media == "movie":
             film = tmdb.film(hit.id)
             if film is None:
-                return self._anilist_title(conn, entry), None
-            return _save_film(conn, row, film, entry, self._now()), None
+                return self._anilist_title(conn, entry)
+            return _Home(_save_film(conn, row, film, entry, self._now()), film=True)
         if row is not None and not due(row, self._now()):
-            return row["id"], show_of(conn, row["id"])
+            return _Home(row["id"], show_of(conn, row["id"]))
         found = tmdb.show(hit.id)
         if found is None:
-            return self._anilist_title(conn, entry), None
-        return save_show(conn, found, kind, entry.id, self._now()), found
+            return self._anilist_title(conn, entry)
+        return _Home(save_show(conn, found, kind, entry.id, self._now()), found)
 
 
 def save_show(
@@ -397,20 +420,42 @@ def _aired(entry: Anime) -> int | None:
     return entry.next_episode - 1 if entry.next_episode else None
 
 
-def _parent_show(conn: sqlite3.Connection, entry: Anime) -> tuple[int, Show | None] | None:
-    """The TMDB show an OVA or special belongs to, when the library has it: TMDB keeps them in
-    the show's season 0."""
+def _parent_show(conn: sqlite3.Connection, entry: Anime) -> _Home | None:
+    """The TMDB show an OVA or special is part of, when the library has it and the show's
+    specials (season 0) list it on the day it first aired. Otherwise it's a title of its own."""
+    if entry.start is None:
+        return None
     for related in entry.related:
-        if related.kind is not TitleKind.SERIES:
+        if related.kind is not TitleKind.SERIES or related.relation not in _PART_OF:
             continue
         row = conn.execute(
             "SELECT id FROM titles WHERE anilist_id = ? AND tmdb_type = 'tv'", (related.id,)
         ).fetchone()
-        if row is not None:
-            show = show_of(conn, row["id"])
-            if show is not None and show.season(0):
-                return row["id"], show
+        if row is None:
+            continue
+        show = show_of(conn, row["id"])
+        if show is not None and lists_special(show, entry.start):
+            return _Home(row["id"], show, specials=True)
     return None
+
+
+def _placement(parsed: ParsedName, entry: Anime, home: _Home) -> Placement | None:
+    """Where a file of `entry` sits in its title, or None when Kura can't tell surely."""
+    if home.specials and home.show is not None:
+        return place(replace(parsed, kind=Kind.SPECIAL), home.show, entry)
+    if entry.kind in (TitleKind.OVA, TitleKind.SPECIAL) and parsed.kind is Kind.SPECIAL:
+        parsed = replace(parsed, kind=Kind.EPISODE)  # the title is the OVA or special itself
+    if parsed.kind is Kind.EPISODE and parsed.episode is None and entry.episodes == 1:
+        parsed = replace(parsed, episode=1)  # a one-off: its only episode
+    if home.show is not None:
+        return place(parsed, home.show, entry)
+    return _by_anilist_number(parsed, entry)
+
+
+def _which_episode(entry: Anime, number: int | None) -> str:
+    if number is None:
+        return "Which episode is it? Kura can't tell from its name."
+    return f"Which episode is it? {entry.title} has no episode {number}."
 
 
 def _find(tmdb: Tmdb, entry: Anime, media: str) -> Hit | None:
@@ -446,15 +491,14 @@ def due(row: sqlite3.Row, now: datetime) -> bool:
     return now - datetime.fromisoformat(checked) >= every
 
 
-def _by_anilist_number(facts: FileFacts, entry: Anime) -> Placement | None:
+def _by_anilist_number(parsed: ParsedName, entry: Anime) -> Placement | None:
     """Without TMDB, a file sits at its own number among the entry's episodes."""
-
-    number = facts.parsed.episode
-    if number is None or facts.parsed.kind is not Kind.EPISODE:
+    number = parsed.episode
+    if number is None or parsed.kind is not Kind.EPISODE or number < 1:
         return None
-    if entry.episodes and not 1 <= number <= entry.episodes:
+    if entry.episodes and number > entry.episodes:
         return None
-    return Placement(1, number, facts.parsed.episode_end, How.NUMBERED)
+    return Placement(1, number, parsed.episode_end, How.NUMBERED)
 
 
 def _clashes(files: Sequence[FileFacts], placements: dict[int, Placement | None]) -> set[int]:
@@ -467,10 +511,15 @@ def _clashes(files: Sequence[FileFacts], placements: dict[int, Placement | None]
             by_spot[(where.season, where.episode)].append(facts)
     clashing: set[int] = set()
     for together in by_spot.values():
-        numbers = {(f.parsed.season, f.parsed.episode, f.parsed.part) for f in together}
+        numbers = {(_season(f.parsed), f.parsed.episode, f.parsed.part) for f in together}
         if len(numbers) > 1:
             clashing.update(f.id for f in together)
     return clashing
+
+
+def _season(parsed: ParsedName) -> int | None:
+    """A file's season, from its name or else its folder ("Season 01/05.mkv")."""
+    return parsed.season if parsed.season is not None else parsed.folder_season
 
 
 def _facts(conn: sqlite3.Connection, file_ids: Sequence[int]) -> list[FileFacts]:

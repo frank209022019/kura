@@ -49,7 +49,13 @@ def place(parsed: ParsedName, show: Show, entry: Anime | None = None) -> Placeme
     season = parsed.season if parsed.season is not None else parsed.folder_season
 
     start = _start_of(entry, numbered)
-    if start is not None and start > 0 and entry and entry.episodes and number <= entry.episodes:
+    if (
+        start is not None
+        and start > 0
+        and entry
+        and entry.episodes
+        and 1 <= number <= entry.episodes
+    ):
         # A later part with its own numbering: count on from its first episode.
         return _from(numbered, start + number - 1, parsed, How.BY_DATE)
     if season is not None:
@@ -92,21 +98,31 @@ def _start_of(entry: Anime | None, numbered: list[Episode]) -> int | None:
     return None
 
 
+def lists_special(show: Show, day: date) -> bool:
+    """Whether the show's specials (season 0) hold one that first aired on this day."""
+    return any(
+        episode.aired is not None and _same_day(episode.aired, day) for episode in show.season(0)
+    )
+
+
 def _special(parsed: ParsedName, show: Show, entry: Anime | None) -> Placement | None:
     specials = show.season(0)
     if not specials:
         return None
     number = parsed.episode or 1
-    if entry is not None and entry.start is not None:
+    known = any(episode.number == number for episode in specials)
+    if parsed.season == 0 and known:
+        return Placement(0, number, None, How.NUMBERED)  # named the Plex way: "S00E03"
+    # An OVA or special entry is the special that first aired on its day. A series' first day
+    # says nothing about which of its specials a file is.
+    if entry is not None and entry.start is not None and entry.kind not in (TitleKind.SERIES, None):
         for index, episode in enumerate(specials):
             if episode.aired is not None and _same_day(episode.aired, entry.start):
                 at = index + number - 1
-                if at < len(specials):
+                if 0 <= at < len(specials):
                     return Placement(0, specials[at].number, None, How.BY_DATE)
-    # Already numbered as a special: "S00E03", or "03" in a "Specials" folder.
-    numbered = parsed.season == 0 or parsed.folder_season == 0
-    if numbered and any(episode.number == number for episode in specials):
-        return Placement(0, number, None, How.NUMBERED)
+    if parsed.folder_season == 0 and known:
+        return Placement(0, number, None, How.NUMBERED)  # "03" in a "Specials" folder
     return None
 
 

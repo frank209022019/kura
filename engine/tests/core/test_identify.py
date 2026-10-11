@@ -125,6 +125,19 @@ def test_a_length_far_from_the_entrys_counts_against_it():
     assert "4 min, not 24" in best.reasons
 
 
+def test_one_episode_is_counted_as_one():
+    files = [
+        facts(f"D:/Anime/Cowboy Bebop - Yoseatsume Blues - 0{n}.mkv", number=n) for n in (1, 3)
+    ]
+    special = [entry for entry in entries("cowboy-bebop") if entry.id == 4037]
+
+    one = guesses(group_files(files[:1])[0], special)[0]
+    three = guesses(group_files(files)[0], special)[0]
+
+    assert "1 episode fits" in one.reasons
+    assert "Only 1 episode, files go up to 3" in three.reasons
+
+
 def test_tmdb_has_attack_on_titans_later_parts_under_the_one_show():
     part_two = entries("attack-on-titan-season-3-part-2")[0]
     found = hits(

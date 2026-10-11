@@ -455,7 +455,7 @@ export const useMatchSearch = (fileId: number, text: string) =>
     undefined,
     text.trim().length >= 2,
   );
-/** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also } })`. */
+/** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also, episode } })`. */
 export const useChooseMatch = () =>
   useEngineAction<{ placed: number }>(["/review", "/titles", "/scan", "/library"]);
 /** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
