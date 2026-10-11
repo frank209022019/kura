@@ -12,9 +12,11 @@ core. [What's next](CLAUDE.md#whats-next) says where it stands.
 
 ## Download
 
-Installers go on the [releases page](https://github.com/frankgrobbelaar/kura/releases) (Windows 10
-or 11, 64-bit), and an installed Kura updates itself from there. Kura isn't code-signed, so Windows
-SmartScreen warns on the first install: choose More info › Run anyway.
+Get Kura from the [downloads page](https://frankgrobbelaar.github.io/kura/): the latest version and
+every earlier one, with what changed (the same installers are on the
+[releases page](https://github.com/frankgrobbelaar/kura/releases)). It runs on Windows 10 or 11,
+64-bit, and an installed Kura updates itself, showing what's new first. Kura isn't code-signed, so
+Windows SmartScreen warns on the first install: choose More info › Run anyway.
 
 ## Licence
 
@@ -44,6 +46,7 @@ trademarks of their owners, and Kura isn't affiliated with or endorsed by any of
 ## Working on Kura
 
 - [CLAUDE.md](CLAUDE.md): the decisions so far and the ground rules.
+- [CHANGELOG.md](CHANGELOG.md): every change you'd notice, by version.
 - [AGENTS.md](AGENTS.md): how coding agents work here, with a guide in each area.
 - [docs/](docs/README.md): architecture, development, conventions, design, releasing, and a page
   for every tool in the stack.

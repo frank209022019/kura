@@ -72,4 +72,12 @@ describe("HomePage", () => {
 
     expect(screen.queryByRole("button", { name: "Copy details" })).not.toBeInTheDocument();
   });
+
+  it("opens the downloads page to show every version and what changed", async () => {
+    renderHome({ state: "ready", url: "http://127.0.0.1:5000", token: "secret" });
+
+    (await screen.findByRole("button", { name: "Every version and what changed" })).click();
+
+    expect(shell.invoke).toHaveBeenCalledWith("open_downloads_page");
+  });
 });

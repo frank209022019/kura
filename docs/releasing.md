@@ -5,36 +5,71 @@ How a change becomes an installed, self-updating Kura.
 ## The short version
 
 ```powershell
-node scripts/set-version.mjs 0.2.0      # sets the version everywhere and refreshes what depends on it
-git commit -am "Release 0.2.0"
-git tag v0.2.0; git push origin main v0.2.0
+node scripts/release.mjs minor          # or patch, major, or an exact version such as 0.3.0
+git push origin main v0.3.0             # publishing is the owner's call
 ```
 
-The tag starts the [release workflow](../.github/workflows/release.yml). About fifteen minutes
-later the release is on GitHub, and every installed Kura offers "Kura 0.2.0 is ready" within a day.
+`release.mjs` moves what's under "Unreleased" in [CHANGELOG.md](../CHANGELOG.md) under the new
+version, sets the version everywhere, commits "Release 0.3.0" and tags it; nothing leaves the PC.
+Pushing the tag starts the [release workflow](../.github/workflows/release.yml). About fifteen
+minutes later the release is on GitHub and on the [downloads page](https://frankgrobbelaar.github.io/kura/),
+and every installed Kura offers "Kura 0.3.0 is ready", with what changed, within a day. The first
+release is `node scripts/release.mjs 0.1.0`.
 
 ## Versions
 
-Kura has one version, written in two places that must agree: `app/package.json` (the shell and UI;
-Tauri reads it) and `engine/pyproject.toml`. `scripts/set-version.mjs` changes both, then refreshes
-`engine/uv.lock` and `engine/openapi.json`, which carry it too. The release workflow refuses a tag
-that doesn't match. Versions follow `major.minor.patch`; while Kura is young, bump the minor
-version for features and the patch for fixes.
+Kura follows [semantic versioning](https://semver.org): `major.minor.patch`, nothing more.
+
+- **patch** (0.3.0 to 0.3.1): fixes only.
+- **minor** (0.3.1 to 0.4.0): new features, with or without fixes.
+- **major** (0.4.0 to 1.0.0): a change the owner has to act on, such as data an older Kura can't
+  read. 1.0.0 is the first version meant for everyday use.
+
+Every release must be newer than the last, or installed copies wouldn't see it as an update.
+`release.mjs` won't step back or repeat a version, and the release workflow refuses a tag that
+isn't newer than every version already out. Kura has one version, written in two places that must
+agree: `app/package.json` (the shell and UI; Tauri reads it) and `engine/pyproject.toml`.
+`release.mjs` changes both and refreshes `engine/uv.lock` and `engine/openapi.json`, which carry it
+too; the release workflow refuses a tag that doesn't match them.
+
+## The changelog
+
+[CHANGELOG.md](../CHANGELOG.md) records every change the owner would notice, in the same commit as
+the change: one plain sentence under "## Unreleased" and one of `### Added`, `### Changed`,
+`### Fixed` or `### Removed`, about what Kura does now rather than how the code changed. Internal
+work (refactoring, tests, docs) stays out. A release moves the entries under
+`## 0.3.0 - 2026-10-20`, and `release.mjs` refuses to release when nothing is listed.
+
+From there the notes travel:
+
+- to the GitHub release: the version's entries, then every commit since the last release, then a
+  link comparing the two ([scripts/release-notes.mjs](../scripts/release-notes.mjs) writes them);
+- to `latest.json`, so the update card shows them under "What's new";
+- to the downloads page, every version's notes, newest first.
+
+The rules live in [scripts/versioning.mjs](../scripts/versioning.mjs), tested with
+`node --test "scripts/*.test.mjs"` (CI runs it).
 
 ## What the release workflow does
 
 1. Checks that the tag, `package.json` and `pyproject.toml` agree.
-2. Builds the engine with PyInstaller, the UI with Vite, and the shell with Cargo.
-3. Bundles them into `Kura_<version>_x64-setup.exe` (NSIS) and signs it for the updater, which
+2. Writes the notes from CHANGELOG.md, and stops if the version has none, or if a newer version is
+   already out.
+3. Builds the engine with PyInstaller, the UI with Vite, and the shell with Cargo, and checks the
+   bundled engine starts and answers.
+4. Bundles them into `Kura_<version>_x64-setup.exe` (NSIS) and signs it for the updater, which
    writes `Kura_<version>_x64-setup.exe.sig`.
-4. Creates a **draft** release with the installer, its signature and `THIRD-PARTY-NOTICES.txt`,
-   writes `latest.json` (the update manifest: version, date, signature, and the installer's
-   download address), uploads it, then publishes the release. Installed copies only ever see a
-   complete release.
+5. Creates a **draft** release with the installer, its signature, `THIRD-PARTY-NOTICES.txt` and the
+   notes, writes `latest.json` (the update manifest: version, notes, date, signature, and the
+   installer's download address), uploads it, then publishes the release as the latest. Installed
+   copies only ever see a complete release.
+6. Reads `releases/latest/download/latest.json`, the address every installed Kura checks, and fails
+   unless it names the new version, so a release can't silently miss installed copies.
+7. Starts the downloads page workflow, which republishes the page with the new version.
 
 Starting the workflow by hand (Actions › Release › Run workflow) is a dry run: it builds and signs
-the installer and keeps it, with the notices, as a downloadable workflow artifact, without
-releasing anything.
+the installer and keeps it, with the notices and a preview of the notes (from "Unreleased"), as a
+downloadable workflow artifact, without releasing anything.
 
 ## How updates reach a PC
 
@@ -46,8 +81,9 @@ The releases are public, so updates need no login.
    release. Until the first release exists GitHub answers 404, which Kura takes as up to date.
 2. If the version is newer, it downloads the installer in the background and checks its signature
    against the public key built into Kura.
-3. The UI shows "Kura 0.2.0 is ready". "Restart and update" stops the engine, runs the installer
-   in passive mode (a progress bar, no questions), and the installer opens Kura again.
+3. The UI shows "Kura 0.2.0 is ready" with what's new from the notes, and a button for every
+   version on the downloads page. "Restart and update" stops the engine, runs the installer in
+   passive mode (a progress bar, no questions), and the installer opens Kura again.
 
 If a check fails (no internet, say), the Home page's "This copy of Kura" panel says so ("Can't
 check right now: …") and Kura tries again the next day. The code is
@@ -56,10 +92,30 @@ check right now: …") and Kura tries again the next day. The code is
 ## Installing for the first time
 
 Download `Kura_<version>_x64-setup.exe` from the
-[releases page](https://github.com/frankgrobbelaar/kura/releases) and run it. Kura isn't
+[downloads page](https://frankgrobbelaar.github.io/kura/) (or the
+[releases page](https://github.com/frankgrobbelaar/kura/releases)) and run it. Kura isn't
 code-signed, so Windows SmartScreen warns once: choose More info › Run anyway. (Updates don't warn:
 the updater downloads them, not a browser.) Kura installs for this user only, without admin rights,
 into `%LOCALAPPDATA%\Programs\Kura`; its data stays apart in `%LOCALAPPDATA%\Kura`.
+
+## The downloads page
+
+[frankgrobbelaar.github.io/kura](https://frankgrobbelaar.github.io/kura/), the repo's website, lists
+every released version, newest first: the latest with its download button, size, SHA-256 and what's
+new, and every earlier one below with its installer and notes. Drafts never appear.
+[scripts/downloads-page.mjs](../scripts/downloads-page.mjs) builds it from the GitHub releases, and
+[downloads.yml](../.github/workflows/downloads.yml) publishes it on GitHub Pages: after every
+release, when the page's code changes, and by hand (Actions › Downloads page › Run workflow, for
+example after editing a release's notes on GitHub). In Kura, the update card's "Every version"
+and the Home page's "Every version and what changed" open it in the browser
+(`app/src-tauri/src/links.rs`).
+
+To preview it locally from the current releases:
+
+```powershell
+gh api repos/frankgrobbelaar/kura/releases > releases.json
+node scripts/downloads-page.mjs site --releases releases.json   # then open site\index.html
+```
 
 ## Third-party notices
 

@@ -35,6 +35,9 @@ in [What's next](#whats-next).
   installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:
   `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
   installer, and titles appear only as example data.
+- **Every change you'd notice goes in CHANGELOG.md**, in the same commit, under "Unreleased"
+  (see [docs/releasing.md](docs/releasing.md)). Versions are semantic, and every release must be
+  newer than the last so installed copies see it as an update.
 - **Latest versions.** Use the newest stable release of every tool and library, and keep them
   current (see "Updating dependencies" in [docs/development.md](docs/development.md)).
 - **Fix what you find.** A real fault found while working is fixed in the same piece of work, test
@@ -49,6 +52,7 @@ in [What's next](#whats-next).
 
 ```
 AGENTS.md       the guide for coding agents; each area below has its own AGENTS.md
+CHANGELOG.md    every change you'd notice, by version
 LICENSE         MIT
 app/            the desktop app
   src/            React UI (TypeScript): components/, features/, lib/, styles/
@@ -56,7 +60,7 @@ app/            the desktop app
 engine/         the engine (Python): src/kura/, tests/, tools/ (build tools), kura-engine.spec,
                 openapi.json
 docs/           how it all works; docs/design/ holds the screens
-scripts/        set-version.mjs, design-snapshot.mjs
+scripts/        release.mjs (versions, notes, the downloads page), design-snapshot.mjs
 .github/        CI and release workflows
 ```
 
@@ -74,12 +78,13 @@ Check everything CI checks (each line from the repo root):
 cd engine; uv run ruff format --check; uv run ruff check; uv run pyright; uv run pytest
 cd app; pnpm check; pnpm build
 cd app/src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; cargo test
+node --test "scripts/*.test.mjs"
 ```
 
 Fix formatting: `uv run ruff format` (engine), `pnpm fix` (app), `cargo fmt` (shell).
 Build the installer locally: `cd app; pnpm build:installer` (needs the signing key, see
-[docs/releasing.md](docs/releasing.md)). Release: `node scripts/set-version.mjs 1.2.3`, commit,
-then `git tag v1.2.3; git push origin main v1.2.3`. A tag reaches every installed copy, so
+[docs/releasing.md](docs/releasing.md)). Release: `node scripts/release.mjs patch|minor|major`
+(commits and tags), then `git push origin main v1.2.3`. A tag reaches every installed copy, so
 releasing is the owner's call.
 
 ## How it fits together
@@ -183,9 +188,18 @@ Everything decided so far. Don't ask again; change only with the owner.
   collaborators can open pull requests (a repo setting) and issues are off: no contributions.
   Secret scanning with push protection is on: GitHub refuses a push that holds a known secret.
   CI on every push to `main` (Windows runners).
+- Semantic versions and a changelog (the owner, 2026-10-11): patch for fixes, minor for features,
+  major for a change to act on. `scripts/release.mjs` picks the version, moves CHANGELOG.md's
+  "Unreleased" entries under it, commits and tags; it and the release workflow refuse a version
+  that isn't newer than the last, so every release is an update.
 - A `v*` tag builds the NSIS installer, signs it for the updater, and publishes a public release
-  with `latest.json` and `THIRD-PARTY-NOTICES.txt`. Installed copies check daily at
-  `releases/latest/download/latest.json`, no login needed.
+  with its notes (the changelog entries, every commit since the last release, a comparison link),
+  `latest.json` (which carries the entries to the update card) and `THIRD-PARTY-NOTICES.txt`. The
+  workflow then checks that `releases/latest/download/latest.json` names the new version, which
+  installed copies check daily, no login needed, and refreshes the downloads page.
+- Downloads page (the owner, 2026-10-11): https://frankgrobbelaar.github.io/kura/, the repo's
+  website on GitHub Pages, lists every version newest first with its notes, installer, size and
+  SHA-256. Kura's "Every version" buttons open it.
 - `THIRD-PARTY-NOTICES.txt` lists everything that ships, with its licence, and goes next to Kura
   with `LICENSE.txt`. `engine/tools/third_party_notices.py` writes it from what was actually
   bundled (PyInstaller's records, Cargo's graph, Vite's licence report) and stops the build on

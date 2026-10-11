@@ -17,6 +17,8 @@ use crate::engine::{self, Engine};
 #[derive(Serialize)]
 pub struct ReadyUpdate {
     version: String,
+    /// What changed: the version's notes from CHANGELOG.md, carried by latest.json.
+    notes: Option<String>,
 }
 
 /// An update that has been downloaded and is waiting for "Restart and update".
@@ -39,6 +41,7 @@ pub async fn prepare_update(
     let bytes = update.download(|_, _| {}, || {}).await.map_err(text)?;
     let ready = ReadyUpdate {
         version: update.version.clone(),
+        notes: update.body.clone(),
     };
     *pending.0.lock().unwrap() = Some((update, bytes));
     Ok(Some(ready))

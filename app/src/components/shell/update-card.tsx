@@ -1,15 +1,21 @@
 import { ArrowDownToLine } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useInstallUpdate, useReadyUpdate } from "@/lib/updates";
+import { openDownloadsPage } from "@/lib/links";
+import { useInstallUpdate, useReadyUpdate, whatsNew } from "@/lib/updates";
 
-/** Shown once an update has downloaded in the background. */
+const SHOWN = 4; // entries listed before "and N more"
+
+/** Shown once an update has downloaded in the background, with what changed in it. */
 export function UpdateCard() {
   const update = useReadyUpdate();
   const install = useInstallUpdate();
   const [later, setLater] = useState(false);
 
   if (!update.data || later) return null;
+
+  const changes = whatsNew(update.data.notes);
+  const more = changes.length - SHOWN;
 
   return (
     <section
@@ -27,6 +33,25 @@ export function UpdateCard() {
           <span className="text-13 text-fg-muted">Downloaded in the background</span>
         </div>
       </div>
+      {changes.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h3 className="font-bold text-12 text-fg-muted uppercase tracking-[0.06em]">
+            What's new
+          </h3>
+          <ul className="flex list-disc flex-col gap-1.5 pl-4.5 text-13 text-fg-soft marker:text-accent">
+            {changes.slice(0, SHOWN).map((change) => (
+              <li key={change} className="line-clamp-2">
+                {change}
+              </li>
+            ))}
+          </ul>
+          {more > 0 && (
+            <p className="text-13 text-fg-muted">
+              And {more} more {more === 1 ? "change" : "changes"}.
+            </p>
+          )}
+        </div>
+      )}
       <p className="text-13 text-fg-soft">
         Kura closes, updates and opens again. Your settings and library stay as they are.
       </p>
@@ -36,6 +61,9 @@ export function UpdateCard() {
         </Button>
         <Button variant="ghost" onClick={() => setLater(true)}>
           Later
+        </Button>
+        <Button variant="ghost" onClick={() => void openDownloadsPage()}>
+          Every version
         </Button>
       </div>
       {install.isError && (

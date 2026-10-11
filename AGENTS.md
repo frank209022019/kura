@@ -42,6 +42,10 @@ copy, and what "done" means.
     co-author line has no address.
 11. **Only ship what Kura may share.** A new dependency's licence must be on the allowed list in
     `engine/tools/third_party_notices.py`; adapted code keeps its notice; no media in the repo.
+12. **Changelog and versions.** A change the owner would notice adds one plain sentence under
+    "Unreleased" in `CHANGELOG.md`, in the same commit. Versions are semantic and only
+    `scripts/release.mjs` changes them; every release must be newer than the last, so installed
+    copies update. See [docs/releasing.md](docs/releasing.md).
 
 When the owner is scoping ("is it possible…"), answer in the conversation; don't build.
 

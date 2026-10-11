@@ -2,6 +2,7 @@ import { useState } from "react";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { restartEngine, useEngine, useHealth } from "@/lib/engine";
+import { openDownloadsPage } from "@/lib/links";
 import { useReadyUpdate } from "@/lib/updates";
 
 export function HomePage() {
@@ -119,6 +120,16 @@ function ThisCopy() {
         <dd>{health.data ? `Ready · schema version ${health.data.schemaVersion}` : "…"}</dd>
         <dt className="text-fg-muted">Updates</dt>
         <dd>{updateText}</dd>
+        <dt className="text-fg-muted">Versions</dt>
+        <dd>
+          <button
+            type="button"
+            className="cursor-pointer text-accent-fg underline-offset-3 hover:text-accent-fg-hover hover:underline"
+            onClick={() => void openDownloadsPage()}
+          >
+            Every version and what changed
+          </button>
+        </dd>
       </dl>
     </section>
   );

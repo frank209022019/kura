@@ -80,4 +80,5 @@ How Kura's code is written. The aim is code a newcomer can read top to bottom an
   address, and Claude's co-author line has none (`Co-Authored-By: Claude Opus 5.5`).
 - Never commit generated output (`dist/`, `target/`, `.venv/`) or anything secret. Generated files
   that are part of a contract (`engine/openapi.json`, `docs/design/`) are committed on purpose.
-- Docs change in the same commit as the code they describe.
+- Docs change in the same commit as the code they describe, and a change the owner would notice
+  adds a line under "Unreleased" in `CHANGELOG.md` (see [releasing.md](releasing.md)).

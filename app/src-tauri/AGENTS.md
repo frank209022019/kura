@@ -12,6 +12,7 @@ process or updating belongs in the engine. Start with [../../AGENTS.md](../../AG
 | App setup: plugins, state, commands, exit | `src/main.rs` |
 | Starting, watching and stopping the engine | `src/engine.rs` |
 | Updates from the GitHub releases | `src/updater.rs` |
+| Pages opened in the browser (the downloads page) | `src/links.rs` |
 | Running console programs without a window | `src/process.rs` |
 | Window, security policy, bundle, updater key | `tauri.conf.json` (installer-only extras: `tauri.bundle.conf.json`) |
 | What the window may call | `capabilities/default.json` |

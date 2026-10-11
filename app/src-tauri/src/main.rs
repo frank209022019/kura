@@ -3,6 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod engine;
+mod links;
 mod process;
 mod updater;
 
@@ -19,6 +20,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .manage(engine::Engine::default())
         .manage(updater::PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
@@ -26,6 +28,7 @@ fn main() {
             engine::restart_engine,
             updater::prepare_update,
             updater::install_update,
+            links::open_downloads_page,
         ])
         .setup(|app| {
             engine::start(app.handle().clone());

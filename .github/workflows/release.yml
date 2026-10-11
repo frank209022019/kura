@@ -1,7 +1,9 @@
 # Builds Kura's signed installer.
-# - A version tag (v1.2.3) publishes it as a GitHub release, with the third-party notices;
-#   installed copies update from there.
-# - Starting it by hand is a dry run: the installer is kept as a workflow artifact instead.
+# - A version tag (v1.2.3, made by scripts/release.mjs) publishes it as a GitHub release with
+#   its notes from CHANGELOG.md and the third-party notices, checks that installed copies now see
+#   it as an update, and refreshes the downloads page.
+# - Starting it by hand is a dry run: the installer and a preview of the notes are kept as a
+#   workflow artifact instead.
 # See docs/releasing.md.
 name: Release
 
@@ -12,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # to refresh the downloads page
 
 concurrency:
   group: release-${{ github.ref }}
@@ -27,6 +30,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # every tag and commit, for the notes
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
@@ -59,6 +64,13 @@ jobs:
           fi
           echo "VERSION=$app" >> "$GITHUB_ENV"
 
+      # Stops here when CHANGELOG.md has no notes for the version, or when a newer version is
+      # already out (installed copies would never update to this one).
+      - name: Write the release notes
+        env:
+          DRY_RUN: ${{ github.ref_type == 'tag' && '0' || '1' }}
+        run: node scripts/release-notes.mjs "$VERSION" release-notes
+
       - run: uv sync --locked --directory engine
       - run: pnpm install --frozen-lockfile --dir app
 
@@ -83,6 +95,7 @@ jobs:
           path: |
             app/src-tauri/target/release/bundle/nsis/
             app/src-tauri/target/THIRD-PARTY-NOTICES.txt
+            release-notes/
 
       # The release starts as a draft, so installed copies only see it once
       # latest.json (the update manifest) is in place.
@@ -95,16 +108,38 @@ jobs:
           notices=app/src-tauri/target/THIRD-PARTY-NOTICES.txt
 
           gh release create "$tag" "$installer" "$installer.sig" "$notices" \
-            --draft --title "Kura $VERSION" --generate-notes
+            --draft --title "Kura $VERSION" --notes-file release-notes/notes.md
           # Where the installer will be once the release is published (a draft's
           # download addresses are temporary).
           url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$tag/$name"
           jq -n \
             --arg version "$VERSION" \
+            --arg notes "$(cat release-notes/update-notes.md)" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg signature "$(cat "$installer.sig")" \
             --arg url "$url" \
-            '{version: $version, pub_date: $date,
+            '{version: $version, notes: $notes, pub_date: $date,
               platforms: {"windows-x86_64": {signature: $signature, url: $url}}}' > latest.json
           gh release upload "$tag" latest.json
           gh release edit "$tag" --draft=false --latest
+
+      # The address every installed Kura checks. If it doesn't name this version, no copy
+      # would update, so the run fails and says so.
+      - name: Check that installed copies see the update
+        if: github.ref_type == 'tag'
+        run: |
+          manifest="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/latest/download/latest.json"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            seen=$(curl -fsSL "$manifest" | jq -r .version || true)
+            if [ "$seen" = "$VERSION" ]; then
+              echo "Installed copies now see Kura $VERSION."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::$manifest says '$seen', not $VERSION: installed copies won't update."
+          exit 1
+
+      - name: Refresh the downloads page
+        if: github.ref_type == 'tag'
+        run: gh workflow run downloads.yml --ref main
