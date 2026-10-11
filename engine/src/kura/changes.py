@@ -26,6 +26,7 @@ from itertools import takewhile
 from pathlib import Path
 from typing import Literal
 
+from kura.core.extensions import is_video
 from kura.core.plan import ChangeKind, Plan
 
 PARTIAL = ".kura-partial"  # added to a copy's name until the copy is complete
@@ -63,6 +64,18 @@ class Outcome:
 
     count: int  # changes made, or put back
     problems: tuple[SavedChange, ...]  # changes that couldn't be, each with its problem
+
+
+def tally(changes: Iterable[SavedChange]) -> tuple[int, int]:
+    """How many of these changes filed a file (a video or its subtitles), and how many set a
+    copy aside. A copy's subtitles go with it, but only the copy counts."""
+    moved = quarantined = 0
+    for change in changes:
+        if change.kind is ChangeKind.MOVE:
+            moved += 1
+        elif is_video(change.source.name):
+            quarantined += 1
+    return moved, quarantined
 
 
 def save_plan(

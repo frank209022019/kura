@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from kura.core.names import Kind, ParsedName, parse_name
+from kura.core.names import Kind, ParsedName, film_part, parse_name
 
 
 def parsed(path: str) -> ParsedName:
@@ -273,6 +273,12 @@ class TestNamesThatNeedAMatch:
 
         assert (result.kind, result.title, result.version) == (Kind.MOVIE, None, 2)
 
+    @pytest.mark.parametrize("name", ["Ep.mkv", "Episode.mkv", "Vol.mkv"])
+    def test_a_name_anitopy_trips_over_still_has_its_folders(self, name: str):
+        result = parsed(rf"D:\Anime\Cowboy Bebop\{name}")
+
+        assert (result.folder_title, result.episode) == ("Cowboy Bebop", None)
+
 
 class TestCopies:
     @pytest.mark.parametrize(
@@ -316,3 +322,32 @@ def test_parsing_from_many_threads_at_once_gives_the_same_answers():
         results = list(pool.map(parsed, paths))
 
     assert {(r.title, r.episode) for r in results} == {("DBZ", 1), ("Hunter x Hunter", 148)}
+
+
+@pytest.mark.parametrize(
+    ("name", "part"),
+    [
+        ("Akira (1988) CD1", 1),
+        ("Akira.1988.cd2", 2),
+        ("Akira (1988) - pt1", 1),
+        ("Akira (1988) - Part 2", 2),
+        ("Akira (1988) - disc 2", 2),
+        ("Akira (1988) CD1 (copy)", 1),
+        ("Akira (1988)", None),
+        ("Mobile Suit Gundam 0083", None),
+    ],
+)
+def test_a_films_part_is_read_from_the_end_of_its_name(name: str, part: int | None):
+    assert film_part(name) == part
+
+
+@pytest.mark.parametrize("name", ["Akira (1988).cd2.avi", "Akira (1988) - disc 2.mkv"])
+def test_a_films_part_isnt_part_of_its_title(name: str):
+    result = parsed(rf"D:\Anime\Movies\{name}")
+
+    assert (result.kind, result.title, result.year, result.episode) == (
+        Kind.MOVIE,
+        "Akira",
+        1988,
+        None,
+    )

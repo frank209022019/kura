@@ -14,7 +14,7 @@ shows these notes when it offers the update.
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the
   two compared with a swap if you'd rather keep the other. Leave out any title, then apply.
   Subtitles move with their video, emptied folders go, and every video keeps what it was
-  identified as.
+  identified as. A film in two files (CD1, CD2) is filed as its two parts.
 - History: every tidy-up and scan by day, newest first. Any tidy-up can be undone there (or right
   after applying it), putting every file back.
 - Home lists every franchise and series as poster cards, oldest release first, or by name,

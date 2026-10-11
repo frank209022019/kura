@@ -125,6 +125,9 @@ class TestSafeNames:
     def test_names_windows_reserves_get_an_underscore(self, reserved: str):
         assert safe_name(reserved) == f"{reserved}_"
 
+    def test_a_leading_dot_goes_so_the_folder_isnt_hidden(self):
+        assert safe_name(".hack//Sign") == "hack--Sign"
+
     def test_a_name_with_nothing_usable_is_refused(self):
         with pytest.raises(ValueError, match="nothing Windows can use"):
             safe_name("???")

@@ -35,10 +35,13 @@ def episode_path(
     return _fit(folder, f"{show_name} - {numbers}", safe_name(title) if title else None, extension)
 
 
-def movie_path(root: PurePath, title: str, year: int | None, *, extension: str) -> PurePath:
-    """A movie's place in the library, in a folder of its own."""
+def movie_path(
+    root: PurePath, title: str, year: int | None, *, extension: str, part: int | None = None
+) -> PurePath:
+    """A movie's place in the library, in a folder of its own. A film in several files has its
+    parts named the way Plex stacks them ("- pt1", "- pt2")."""
     name = _with_year(title, year)
-    path = root / "Movies" / name / f"{name}{extension}"
+    path = root / "Movies" / name / f"{name}{f' - pt{part}' if part else ''}{extension}"
     if len(str(path)) > MAX_PATH:
         raise PathTooLongError(f"{path} is longer than Windows allows.")
     return path
@@ -56,7 +59,7 @@ def safe_name(text: str) -> str:
     name = re.sub(r"\s*[:?]\s+", " - ", name)
     name = re.sub(r"[:/\\|]", "-", name).replace('"', "'")
     name = re.sub(r"[?*<>]", "", name)
-    name = re.sub(r"\s+", " ", name).strip(" -").rstrip(". -")
+    name = re.sub(r"\s+", " ", name).strip(" -").rstrip(". -").lstrip(". ")
     if not name:
         raise ValueError(f"{text!r} has nothing Windows can use as a name.")
     if name.split(".")[0].casefold() in _RESERVED:

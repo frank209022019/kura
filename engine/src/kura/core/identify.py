@@ -15,7 +15,7 @@ from difflib import SequenceMatcher
 from pathlib import PurePath
 
 from kura.core.catalog import Anime, Hit, TitleKind
-from kura.core.names import Kind, ParsedName
+from kura.core.names import Kind, ParsedName, film_part
 
 SURE = 75  # a guess at least this confident is taken without asking
 WORTH_SHOWING = 15  # guesses below this aren't shown on the review screen
@@ -49,7 +49,12 @@ class Group:
     @property
     def minutes(self) -> float | None:
         lengths = [f.minutes for f in self.files if f.minutes]
-        return statistics.median(lengths) if lengths else None
+        if not lengths:
+            return None
+        parts = {film_part(f.path.stem) for f in self.files} - {None}
+        if self.movie and len(parts) > 1:
+            return sum(lengths)  # a film in parts (CD1, CD2) is as long as they are together
+        return statistics.median(lengths)
 
 
 @dataclass(frozen=True)

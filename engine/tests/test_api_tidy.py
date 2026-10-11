@@ -80,6 +80,20 @@ def test_applying_lists_the_plan_in_history_and_undo_puts_it_back(
     assert plan["undone"] == 3
 
 
+def test_a_copys_subtitles_go_with_it_and_count_as_no_copy_of_their_own(
+    client: TestClient, mixed: sqlite3.Connection, root: Path
+):
+    (root / "Downloads" / "Cowboy Bebop - 01 (copy).en.srt").write_text("1", encoding="utf-8")
+    sources = [c["source"] for c in client.get("/tidy").json()["changes"]]
+
+    done = client.post("/tidy", json={"sources": sources}).json()
+
+    assert len(sources) == 4
+    assert (done["moved"], done["quarantined"]) == (2, 1)
+    [plan] = client.get("/history").json()["plans"]
+    assert (plan["moved"], plan["quarantined"]) == (2, 1)
+
+
 def test_the_owner_can_keep_the_other_copy(client: TestClient, mixed: sqlite3.Connection):
     copied = next(
         c["source"] for c in client.get("/tidy").json()["changes"] if c["kind"] == "quarantine"

@@ -26,11 +26,14 @@ from kura.changes import (
     changes_of,
     remove_emptied,
     save_plan,
+    tally,
     undo_plan,
 )
 from kura.core.copies import Copy
 from kura.core.extensions import is_video
+from kura.core.library import QUARANTINE_FOLDER
 from kura.core.media import MediaInfo, media_from_ffprobe
+from kura.core.names import film_part
 from kura.core.plan import (
     Change,
     ChangeKind,
@@ -39,6 +42,7 @@ from kura.core.plan import (
     MovieOf,
     PlacedFile,
     Plan,
+    copy_key,
     plan_tidy,
     sidecars_of,
 )
@@ -97,8 +101,8 @@ class Tidied:
     """What applying or undoing a tidy-up did."""
 
     plan_id: int | None  # None when nothing was asked for
-    moved: int  # videos and subtitles moved, or put back
-    quarantined: int  # copies set aside
+    moved: int  # videos and subtitles filed, or put back
+    quarantined: int  # copies set aside, or put back (a copy's subtitles go with it uncounted)
     problems: tuple[SavedChange, ...]  # changes that couldn't be made, each saying why
 
 
@@ -119,7 +123,7 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
         [video.placed for video in videos],
         PureWindowsPath(),  # every video names its own library folder
         day=day,
-        taken=taken,
+        taken=taken + _set_aside(videos, day),
         keep=[PureWindowsPath(path) for path in keep],
     )
     of: dict[str, _Video] = {}
@@ -127,10 +131,13 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
         of[str(video.placed.copy.path).casefold()] = video
         for sidecar in video.placed.sidecars:
             of[str(sidecar).casefold()] = video
+    linked = _into_links(plan, of)
     mixed = _mixed_folders(conn)
     proposed: list[Proposed] = []
     for change in plan.changes:
         video = of[str(change.source).casefold()]
+        if video.id in linked:
+            continue
         category: Category = (
             "duplicate"
             if change.kind is ChangeKind.QUARANTINE
@@ -140,11 +147,49 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
         )
         root = Path(video.placed.root or "")
         proposed.append(Proposed(change, root, category, video.title_id, video.title))
+    left = [(Path(video.placed.copy.path), _LINKED) for video in videos if video.id in linked]
     return Proposal(
         tuple(proposed),
-        tuple(skipped) + tuple((Path(path), reason) for path, reason in plan.skipped),
+        tuple(skipped) + tuple((Path(path), reason) for path, reason in plan.skipped) + tuple(left),
         _duplicates(videos, plan),
     )
+
+
+_LINKED = "Its new folder is a link to another place, which scans skip"
+
+
+def _into_links(plan: Plan, of: dict[str, _Video]) -> set[int]:
+    """The videos the plan would move into a link or junction inside their library folder. Scans
+    don't follow links (they can lead anywhere), so a video filed there would seem to have gone."""
+    checked: dict[Path, bool] = {}
+
+    def linked(folder: Path, root: Path) -> bool:
+        if folder == root or not folder.is_relative_to(root):
+            return False
+        if folder not in checked:
+            checked[folder] = (
+                folder.is_junction() or folder.is_symlink() or linked(folder.parent, root)
+            )
+        return checked[folder]
+
+    found: set[int] = set()
+    for change in plan.changes:
+        video = of[str(change.source).casefold()]
+        root = Path(video.placed.root or "")
+        if change.kind is ChangeKind.MOVE and linked(Path(change.target).parent, root):
+            found.add(video.id)
+    return found
+
+
+def _set_aside(videos: Sequence[_Video], day: date) -> list[str]:
+    """What the quarantine folders hold already today, on the drives the videos are on: a copy
+    set aside now never takes the name of one set aside earlier."""
+    drives = {video.placed.copy.path.anchor for video in videos}
+    return [
+        str(path)
+        for drive in sorted(drives)
+        for path in _paths(Path(drive) / QUARANTINE_FOLDER / day.isoformat())
+    ]
 
 
 def apply(
@@ -162,8 +207,7 @@ def apply(
     made = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE]
     _clear_behind(conn, [change.source for change in made])
     write_reports(conn, now=now)
-    quarantined = sum(1 for c in made if c.kind is ChangeKind.QUARANTINE)
-    return Tidied(plan_id, len(made) - quarantined, quarantined, outcome.problems)
+    return Tidied(plan_id, *tally(made), outcome.problems)
 
 
 def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
@@ -172,8 +216,7 @@ def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
     back = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.UNDONE]
     _clear_behind(conn, [change.target for change in back])
     write_reports(conn, now=now)
-    quarantined = sum(1 for c in back if c.kind is ChangeKind.QUARANTINE)
-    return Tidied(plan_id, len(back) - quarantined, quarantined, outcome.problems)
+    return Tidied(plan_id, *tally(back), outcome.problems)
 
 
 def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, str]]]:
@@ -192,11 +235,12 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
            WHERE f.gone_at IS NULL AND f.matched = 'sure'
            ORDER BY f.path"""
     ).fetchall()
+    parted = _films_in_parts(rows)
     listings: dict[str, list[str]] = {}
     videos: list[_Video] = []
     skipped: list[tuple[Path, str]] = []
     for row in rows:
-        identity = _identity(row, names)
+        identity = _identity(row, names, parted)
         if identity is None:
             skipped.append((Path(row["path"]), "Kura doesn't know which episode it is"))
             continue
@@ -215,9 +259,12 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
     return videos, skipped
 
 
-def _identity(row: sqlite3.Row, names: dict[tuple[int, int, int], str]) -> Identity | None:
-    if row["kind"] == "movie" or row["tmdb_type"] == "movie":
-        return MovieOf(row["name"], row["year"])
+def _identity(
+    row: sqlite3.Row, names: dict[tuple[int, int, int], str], parted: set[int]
+) -> Identity | None:
+    if _is_movie(row):
+        part = _part(row) if row["title_id"] in parted else None
+        return MovieOf(row["name"], row["year"], part=part, title_id=row["title_id"])
     if row["season"] is None or row["episode"] is None:
         return None  # a special or extra Kura couldn't number
     return EpisodeOf(
@@ -227,7 +274,26 @@ def _identity(row: sqlite3.Row, names: dict[tuple[int, int, int], str]) -> Ident
         episode=row["episode"],
         last_episode=row["episode_end"],
         title=names.get((row["title_id"], row["season"], row["episode"])),
+        title_id=row["title_id"],
     )
+
+
+def _is_movie(row: sqlite3.Row) -> bool:
+    return row["kind"] == "movie" or row["tmdb_type"] == "movie"
+
+
+def _part(row: sqlite3.Row) -> int | None:
+    return film_part(PureWindowsPath(row["path"]).stem)
+
+
+def _films_in_parts(rows: Iterable[sqlite3.Row]) -> set[int]:
+    """The films whose files are its parts (CD1, CD2): two part numbers at least. One file named
+    "Part 2" is a whole film, named so."""
+    parts: dict[int, set[int]] = {}
+    for row in rows:
+        if _is_movie(row) and (part := _part(row)) is not None:
+            parts.setdefault(row["title_id"], set()).add(part)
+    return {title for title, numbers in parts.items() if len(numbers) > 1}
 
 
 def _mixed_folders(conn: sqlite3.Connection) -> set[str]:
@@ -249,7 +315,7 @@ def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
     }
     groups: dict[tuple[object, ...], list[_Video]] = {}
     for video in videos:
-        groups.setdefault(_same(video), []).append(video)
+        groups.setdefault(copy_key(video.placed.identity), []).append(video)
     found: list[Duplicate] = []
     for group in groups.values():
         dropped = [v for v in group if str(v.placed.copy.path).casefold() in set_aside]
@@ -266,14 +332,6 @@ def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
             )
         )
     return tuple(found)
-
-
-def _same(video: _Video) -> tuple[object, ...]:
-    match video.placed.identity:
-        case EpisodeOf() as episode:
-            return (video.title_id, episode.season, episode.episode)
-        case MovieOf():
-            return (video.title_id,)
 
 
 def _facts(copy: Copy) -> CopyFacts:
@@ -329,10 +387,14 @@ def _holds_videos(folder: Path) -> bool:
 
 
 def _listing(folder: Path) -> list[str]:
+    return [path.name for path in _paths(folder)]
+
+
+def _paths(folder: Path) -> list[Path]:
     try:
-        return [entry.name for entry in folder.iterdir()]
+        return list(folder.iterdir())
     except OSError:
-        return []
+        return []  # not there, or can't be read
 
 
 def _media(probe: str | None) -> MediaInfo | None:

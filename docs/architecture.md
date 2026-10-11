@@ -134,8 +134,12 @@ ffmpeg is offered for download again. Scans only look; nothing in the folders ch
 Tidying up (`kura/tidy.py`) proposes where every identified video goes: Plex's layout under
 its own library folder (`kura/core/plan.py` and `kura/core/naming.py`), each title's changes
 together, with copies of one episode compared and all but the best set aside in a "Kura
-quarantine" folder on the same drive. The owner keeps the titles they want, and may keep the
-other copy instead.
+quarantine" folder on the same drive. Copies are files of one title's same episode (a file
+holding two episodes isn't a copy of one) or of one film; a film in parts (CD1, CD2) is filed as
+its parts (`- pt1`, `- pt2`, as Plex stacks them). A video stays where it is, with the reason,
+when its new name would be too long for Windows (its subtitles' included) or its new folder is
+one scans skip (a link, or a name starting with a dot). The owner keeps the titles they want, and
+may keep the other copy instead.
 
 A plan is applied only after review, by `kura/changes.py`: each change is written to the
 database before and after its file moves, so it can be undone (newest first) and so the engine,

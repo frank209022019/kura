@@ -108,6 +108,20 @@ def test_a_film_file_matches_the_film_not_the_series():
     assert best.anime.id == 5
 
 
+def test_a_film_in_two_parts_is_as_long_as_both_together():
+    [group] = group_files(
+        [
+            facts(rf"D:\Anime\Movies\Cowboy Bebop - The Movie (2001) CD{part}.avi", 58, part)
+            for part in (1, 2)
+        ]
+    )
+
+    best = guesses(group, entries("cowboy-bebop"))[0]
+
+    assert (best.anime.id, best.confidence >= SURE) == (5, True)
+    assert "116 min fits" in best.reasons
+
+
 def test_the_wrong_year_counts_against_a_guess():
     right = group_files([facts(r"D:\Anime\Cowboy Bebop (1998)\Cowboy Bebop - 01.mkv")])[0]
     wrong = group_files([facts(r"D:\Anime\Cowboy Bebop (2021)\Cowboy Bebop - 01.mkv")])[0]

@@ -13,9 +13,10 @@ from pathlib import PurePath
 
 from kura.core.copies import Copy, choose_copy
 from kura.core.extensions import is_subtitle, is_video
-from kura.core.naming import PathTooLongError, episode_path, movie_path, unique_path
+from kura.core.library import QUARANTINE_FOLDER, skipped_folder
+from kura.core.naming import MAX_PATH, PathTooLongError, episode_path, movie_path, unique_path
 
-QUARANTINE_FOLDER = "Kura quarantine"
+_TOO_LONG = "The new name would be too long for Windows"
 
 
 @dataclass(frozen=True)
@@ -26,12 +27,15 @@ class EpisodeOf:
     episode: int
     last_episode: int | None = None
     title: str | None = None
+    title_id: int | None = None  # the library's title, when known: two shows of one name differ
 
 
 @dataclass(frozen=True)
 class MovieOf:
     title: str
     year: int | None
+    part: int | None = None  # one part of a film that comes in several files (CD1, CD2)
+    title_id: int | None = None
 
 
 type Identity = EpisodeOf | MovieOf
@@ -105,13 +109,14 @@ def plan_tidy(
     used = {path.casefold() for path in taken} | {str(f.copy.path).casefold() for f in files}
     groups: dict[tuple[object, ...], list[PlacedFile]] = {}
     for placed in files:  # copies of the same episode or movie, whatever their format
-        groups.setdefault(_same(placed.identity), []).append(placed)
+        groups.setdefault(copy_key(placed.identity), []).append(placed)
 
     quarantines: list[Change] = []
     moves: list[Change] = []
     skipped: list[tuple[PurePath, str]] = []
+    claimed: set[str] = set()  # subtitles going with a video: each goes with one only
     for group in groups.values():
-        kept = group[0]
+        kept, reason = group[0], ""
         if len(group) > 1:
             choice = choose_copy([placed.copy for placed in group])
             kept = next(placed for placed in group if placed.copy is choice.keep)
@@ -119,27 +124,48 @@ def plan_tidy(
             if owners := [p for p in group if str(p.copy.path).casefold() in chosen]:
                 kept, why = owners[0], "you chose it"
             reason = f"Kept {kept.copy.path.name} instead: {why}"
-            for dropped in group:
-                if dropped is not kept:
-                    place = unique_path(quarantine_place(dropped.copy.path, day), used)
-                    used.add(str(place).casefold())
-                    label = f"{_label(dropped.identity)} · duplicate"
-                    quarantines.append(
-                        Change(ChangeKind.QUARANTINE, dropped.copy.path, place, label, reason)
-                    )
-                    quarantines.extend(
-                        _with_it(dropped, place, used, ChangeKind.QUARANTINE, reason)
-                    )
+        own = _claim(kept.sidecars, claimed)  # first, though a dropped copy's name fits them too
+        for dropped in group:
+            if dropped is not kept:
+                place = unique_path(quarantine_place(dropped.copy.path, day), used)
+                used.add(str(place).casefold())
+                label = f"{_label(dropped.identity)} · duplicate"
+                quarantines.append(
+                    Change(ChangeKind.QUARANTINE, dropped.copy.path, place, label, reason)
+                )
+                theirs = _claim(dropped.sidecars, claimed)
+                quarantines.extend(
+                    _with_it(dropped, theirs, place, used, ChangeKind.QUARANTINE, reason)
+                )
+        root = kept.root or library
         try:
-            target = _target(kept, kept.root or library)
+            target = _target(kept, root)
         except PathTooLongError:
-            skipped.append((kept.copy.path, "The new name would be too long for Windows"))
+            skipped.append((kept.copy.path, _TOO_LONG))
             continue
-        if move := _move(kept, target, used):
-            moves.append(move)
-            moves.extend(_with_it(kept, move.target, used, ChangeKind.MOVE, "Follows its video"))
+        if _hidden(target, root):
+            skipped.append((kept.copy.path, "Scans never look in a folder named so"))
+            continue
+        move = _move(kept, target, used)
+        place = move.target if move else kept.copy.path
+        followers = _with_it(kept, own, place, used, ChangeKind.MOVE, "Follows its video")
+        going = [change for change in (move, *followers) if change is not None]
+        if any(len(str(change.target)) > MAX_PATH for change in going):
+            skipped.append((kept.copy.path, _TOO_LONG))
+            continue
+        moves.extend(going)
     moves.sort(key=lambda change: str(change.target).casefold())
     return Plan(tuple(quarantines + moves), tuple(skipped))
+
+
+def _hidden(target: PurePath, root: PurePath) -> bool:
+    """Whether a new place is inside a folder scans never look into (a dot at the start of a
+    show's name, say), where a filed video would seem to have gone."""
+    try:
+        folders = target.relative_to(root).parts[:-1]
+    except ValueError:
+        return False
+    return any(skipped_folder(folder) for folder in folders)
 
 
 def _move(placed: PlacedFile, target: PurePath, used: set[str]) -> Change | None:
@@ -157,12 +183,24 @@ def _move(placed: PlacedFile, target: PurePath, used: set[str]) -> Change | None
     return Change(ChangeKind.MOVE, source, place, _label(placed.identity), reason)
 
 
+def _claim(sidecars: Iterable[PurePath], claimed: set[str]) -> list[PurePath]:
+    """The subtitles no other video has taken, taken now."""
+    mine = [sidecar for sidecar in sidecars if str(sidecar).casefold() not in claimed]
+    claimed.update(str(sidecar).casefold() for sidecar in mine)
+    return mine
+
+
 def _with_it(
-    placed: PlacedFile, place: PurePath, used: set[str], kind: ChangeKind, reason: str
+    placed: PlacedFile,
+    sidecars: Iterable[PurePath],
+    place: PurePath,
+    used: set[str],
+    kind: ChangeKind,
+    reason: str,
 ) -> list[Change]:
     """Moves for a file's subtitles, renamed to match where the file itself goes."""
     changes: list[Change] = []
-    for sidecar in placed.sidecars:
+    for sidecar in sidecars:
         tail = sidecar.name[len(placed.copy.path.stem) :]  # ".en.srt"
         target = place.with_name(place.stem + tail)
         if str(sidecar) == str(target):
@@ -192,22 +230,26 @@ def _target(placed: PlacedFile, library: PurePath) -> PurePath:
                 extension=extension,
             )
         case MovieOf() as movie:
-            return movie_path(library, movie.title, movie.year, extension=extension)
+            return movie_path(
+                library, movie.title, movie.year, extension=extension, part=movie.part
+            )
 
 
-def _same(identity: Identity) -> tuple[object, ...]:
-    """What makes two files copies of each other: the same episode, or the same movie."""
+def copy_key(identity: Identity) -> tuple[object, ...]:
+    """What makes two files copies of each other: the same episode, or the same movie (or the
+    same part of it). Files with one key are copies."""
     match identity:
         case EpisodeOf() as episode:
             return (
                 "episode",
-                episode.show.casefold(),
+                episode.title_id or episode.show.casefold(),
                 episode.year,
                 episode.season,
                 episode.episode,
+                episode.last_episode,  # a file holding two episodes isn't a copy of one
             )
         case MovieOf() as movie:
-            return ("movie", movie.title.casefold(), movie.year)
+            return ("movie", movie.title_id or movie.title.casefold(), movie.year, movie.part)
 
 
 def quarantine_place(source: PurePath, day: date) -> PurePath:
@@ -223,7 +265,7 @@ def _label(identity: Identity) -> str:
                 code += f"-E{episode.last_episode:02d}"
             return f"{episode.show} · {code}"
         case MovieOf() as movie:
-            return movie.title
+            return f"{movie.title} · part {movie.part}" if movie.part else movie.title
 
 
 def _lowercase_first(text: str) -> str:

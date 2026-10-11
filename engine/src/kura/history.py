@@ -4,6 +4,8 @@ undone), and each scan."""
 import sqlite3
 from dataclasses import dataclass
 
+from kura.changes import ChangeState, changes_of, tally
+
 
 @dataclass(frozen=True)
 class PlanDone:
@@ -11,8 +13,8 @@ class PlanDone:
     title: str  # "Renamed 26 Cowboy Bebop files for Plex"
     applied_at: str
     undone_at: str | None
-    moved: int  # videos and subtitles moved, and still there
-    quarantined: int  # copies set aside, and still there
+    moved: int  # videos and subtitles filed, and still there
+    quarantined: int  # copies set aside, and still there (their subtitles uncounted)
     failed: int  # changes that couldn't be made
     undone: int  # changes put back
 
@@ -30,17 +32,25 @@ class ScanDone:
 def plans(conn: sqlite3.Connection) -> list[PlanDone]:
     """Every tidy-up that was applied, newest first."""
     rows = conn.execute(
-        """SELECT p.id, p.title, p.applied_at, p.undone_at,
-                  SUM(c.kind = 'move' AND c.state = 'done') AS moved,
-                  SUM(c.kind = 'quarantine' AND c.state = 'done') AS quarantined,
-                  SUM(c.state = 'failed') AS failed,
-                  SUM(c.state = 'undone') AS undone
-           FROM plans AS p JOIN changes AS c ON c.plan_id = p.id
-           WHERE p.applied_at IS NOT NULL
-           GROUP BY p.id
-           ORDER BY p.applied_at DESC, p.id DESC"""
-    )
-    return [PlanDone(**dict(row)) for row in rows]
+        """SELECT id, title, applied_at, undone_at FROM plans
+           WHERE applied_at IS NOT NULL
+           ORDER BY applied_at DESC, id DESC"""
+    ).fetchall()
+    done: list[PlanDone] = []
+    for row in rows:
+        changes = changes_of(conn, row["id"])
+        states = [change.state for change in changes]
+        moved, quarantined = tally(c for c in changes if c.state is ChangeState.DONE)
+        done.append(
+            PlanDone(
+                **dict(row),
+                moved=moved,
+                quarantined=quarantined,
+                failed=states.count(ChangeState.FAILED),
+                undone=states.count(ChangeState.UNDONE),
+            )
+        )
+    return done
 
 
 def scans(conn: sqlite3.Connection, count: int = 50) -> list[ScanDone]:

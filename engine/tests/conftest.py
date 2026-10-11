@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from kura import db
 from kura.api import create_app
 from kura.config import DataPaths
-from kura.core.plan import QUARANTINE_FOLDER
+from kura.core.library import QUARANTINE_FOLDER
 from tests.fake_web import FakeWeb
 from tests.shelf import NOW
 

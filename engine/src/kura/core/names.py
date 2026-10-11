@@ -50,8 +50,8 @@ def parse_name(path: PurePath) -> ParsedName:
         return ParsedName(Kind.DVD, folder_title=folder_title, folder_season=folder_season)
 
     stem, is_copy = _without_copy_marker(path.stem)
-    with _anitopy_lock:
-        found = anitopy.parse(stem + path.suffix) or {}
+    stem = _DISC.sub("", stem)  # "Akira (1988) CD2" is Akira's second part, not an episode 2
+    found = _anitopy(stem + path.suffix)
 
     types = {value.casefold() for value in _all(found, "anime_type")}
     episodes = [_number(value) for value in _all(found, "episode_number")]
@@ -83,6 +83,16 @@ def parse_name(path: PurePath) -> ParsedName:
     )
 
 
+def _anitopy(name: str) -> dict[str, str | list[str]]:
+    """What anitopy reads in a name. It trips over a few names, such as a bare "Episode.mkv"
+    (a keyword with nothing after it): those are read from their folders alone."""
+    with _anitopy_lock:
+        try:
+            return anitopy.parse(name) or {}
+        except AttributeError, IndexError, TypeError, ValueError:
+            return {}
+
+
 # anitopy keeps its working state in module globals, so only one thread may use it at a time.
 _anitopy_lock = threading.Lock()
 
@@ -92,6 +102,8 @@ _COPY_MARKER = re.compile(
 )
 _SEASON_FOLDER = re.compile(r"^(?:season|series|s)[\s._-]*0*(\d{1,3})$", re.IGNORECASE)
 _SPECIALS_FOLDER = re.compile(r"^specials?$", re.IGNORECASE)
+_FILM_PART = re.compile(r"(?:^|[\s._-])(?:cd|dis[ck]|dvd|part|pt)[\s._-]?(\d{1,2})$", re.IGNORECASE)
+_DISC = re.compile(r"[\s._-]*\b(?:cd|dis[ck]|dvd)[\s._-]?\d{1,2}$", re.IGNORECASE)
 # "S3 Part 2", "Season 3 Part 2": anitopy drops the part, which numbers its episodes from 1 again.
 _PART = re.compile(r"\b(?:s\d{1,2}|season\s*\d{1,2})\s*[-:]?\s*part\s*(\d)\b", re.IGNORECASE)
 _PART_ALONE = re.compile(r"part\s*(\d)", re.IGNORECASE)
@@ -163,6 +175,14 @@ def _title_and_part(stem: str, episode_title: str | None) -> tuple[str | None, i
     before = stem[: stem.find(episode_title)] if episode_title and episode_title in stem else stem
     found = _PART.search(before)
     return episode_title, int(found[1]) if found else None
+
+
+def film_part(stem: str) -> int | None:
+    """Which part of a film in several files this is, from the end of its name: "CD1", "cd2",
+    "pt1", "Part 2", "disc 2". None for a film in one file."""
+    if found := _FILM_PART.search(_without_copy_marker(stem)[0]):
+        return int(found[1])
+    return None
 
 
 def season_of_folder(folder: str) -> int | None:

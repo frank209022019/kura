@@ -309,3 +309,93 @@ def test_each_file_goes_under_its_own_library_folder():
         r"F:\More anime\TV\Cowboy Bebop (1998)\Season 01"
         r"\Cowboy Bebop (1998) - S01E01 - Asteroid Blues.mkv",
     ]
+
+
+def test_a_file_holding_more_episodes_isnt_a_copy_of_one_holding_fewer():
+    both = EpisodeOf("Cowboy Bebop", 1998, season=1, episode=1, last_episode=2)
+    files = [
+        placed(r"x\Cowboy Bebop - 01-02.mkv", both, media(480)),
+        placed(r"x\Cowboy Bebop - 01.mkv", BEBOP_1, media(720)),
+    ]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY).changes
+
+    assert {c.kind for c in changes} == {ChangeKind.MOVE}
+    assert len(changes) == 2
+
+
+def test_the_parts_of_a_film_are_filed_together_not_set_aside():
+    files = [
+        placed(r"x\Akira (1988) CD1.avi", MovieOf("Akira", 1988, part=1)),
+        placed(r"x\Akira (1988) CD2.avi", MovieOf("Akira", 1988, part=2)),
+    ]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY).changes
+
+    assert [(c.kind, str(c.target)) for c in changes] == [
+        (ChangeKind.MOVE, r"D:\Anime\Movies\Akira (1988)\Akira (1988) - pt1.avi"),
+        (ChangeKind.MOVE, r"D:\Anime\Movies\Akira (1988)\Akira (1988) - pt2.avi"),
+    ]
+    assert [c.label for c in changes] == ["Akira · part 1", "Akira · part 2"]
+
+
+def test_two_titles_of_one_name_and_year_are_never_copies_of_each_other():
+    one = EpisodeOf("Hellsing", 2001, season=1, episode=1, title_id=1)
+    other = EpisodeOf("Hellsing", 2001, season=1, episode=1, title_id=2)
+
+    changes = plan_tidy(
+        [placed(r"x\a.mkv", one), placed(r"y\b.mkv", other)], LIBRARY, day=DAY
+    ).changes
+
+    assert {c.kind for c in changes} == {ChangeKind.MOVE}
+
+
+def test_two_copies_sharing_one_subtitle_file_leave_it_with_the_one_kept():
+    kept, copy = LIBRARY / "Downloads" / "Ep.mkv", LIBRARY / "Downloads" / "Ep.mp4"
+    subtitles = (kept.with_suffix(".srt"),)
+    files = [
+        PlacedFile(Copy(kept, media(720)), BEBOP_1, subtitles),
+        PlacedFile(Copy(copy, media(480)), BEBOP_1, subtitles),
+    ]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY).changes
+
+    assert [(c.kind, c.source.name) for c in changes] == [
+        (ChangeKind.QUARANTINE, "Ep.mp4"),
+        (ChangeKind.MOVE, "Ep.mkv"),
+        (ChangeKind.MOVE, "Ep.srt"),
+    ]
+
+
+def test_a_subtitle_two_videos_names_fit_goes_with_one_of_them_only():
+    first, second = LIBRARY / "x" / "Ep.mkv", LIBRARY / "x" / "Ep.mp4"
+    subtitles = (first.with_suffix(".srt"),)
+    files = [
+        PlacedFile(Copy(first, media(720)), BEBOP_1, subtitles),
+        PlacedFile(Copy(second, media(720)), EpisodeOf("Cowboy Bebop", 1998, 1, 2), subtitles),
+    ]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY).changes
+
+    assert sorted(c.source.name for c in changes) == ["Ep.mkv", "Ep.mp4", "Ep.srt"]
+
+
+def test_a_subtitle_whose_new_name_is_too_long_keeps_its_video_where_it_is():
+    deep = PureWindowsPath("D:\\" + "\\".join(["Folder"] * 26))
+    video = deep / "x.mkv"
+    subtitle = video.with_name("x." + "a" * 40 + ".en.srt")
+    file = PlacedFile(Copy(video, media(480)), BEBOP_1, (subtitle,))
+
+    plan = plan_tidy([file], deep, day=DAY)
+
+    assert plan.changes == ()
+    assert plan.skipped == ((video, "The new name would be too long for Windows"),)
+
+
+def test_a_folder_scans_never_look_into_is_never_a_place_to_file():
+    hidden = EpisodeOf("System Volume Information", None, season=1, episode=1)
+
+    plan = plan_tidy([placed(r"x\a.mkv", hidden)], LIBRARY, day=DAY)
+
+    assert plan.changes == ()
+    assert plan.skipped == ((LIBRARY / "x" / "a.mkv", "Scans never look in a folder named so"),)

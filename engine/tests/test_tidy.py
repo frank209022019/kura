@@ -1,5 +1,6 @@
 """Tidying up a real library in a temporary folder: what Kura proposes, applying it, undoing it."""
 
+import _winapi
 import sqlite3
 from pathlib import Path
 
@@ -184,13 +185,16 @@ def test_a_quarantined_copy_leaves_the_library_until_its_put_back(
 
     assert (done.moved, done.quarantined) == (1, 1)
     gone = conn.execute("SELECT path FROM files WHERE gone_at IS NOT NULL").fetchone()
-    assert Path(gone[0]).parent.parent.name == "Kura quarantine"
+    set_aside = Path(gone[0])
+    assert set_aside.parent.parent.name == "Kura quarantine"
+    assert set_aside.is_file()
     assert done.plan_id is not None
 
     undo(conn, done.plan_id, now=NOW)
 
     assert conn.execute("SELECT COUNT(*) FROM files WHERE gone_at IS NULL").fetchone()[0] == 2
-    assert not list(tmp_path.rglob("Kura quarantine"))
+    assert not set_aside.exists()
+    assert (root / "Bebop" / "Cowboy Bebop - 01 (copy).mkv").is_file()
 
 
 def test_a_special_kura_cant_number_stays_where_it_is(
@@ -208,3 +212,65 @@ def test_a_special_kura_cant_number_stays_where_it_is(
     assert [(path.name, why) for path, why in proposal.skipped] == [
         ("Cowboy Bebop - 01.mkv", "Kura doesn't know which episode it is")
     ]
+
+
+def test_a_film_in_two_files_is_filed_as_its_two_parts(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    names = [f"Movies/Cowboy Bebop - The Movie (2001) CD{part}.mkv" for part in (1, 2)]
+    library(conn, root, names, minutes=58)
+    identify(paths, conn, internet())
+
+    proposal = propose(conn, day=NOW.date())
+
+    film = r"Movies\Cowboy Bebop - The Movie (2001)\Cowboy Bebop - The Movie (2001)"
+    assert [str(p.change.target.relative_to(root)) for p in proposal.changes] == [
+        f"{film} - pt1.mkv",
+        f"{film} - pt2.mkv",
+    ]
+    assert proposal.duplicates == ()
+
+
+def test_one_file_named_part_2_is_a_whole_film(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Movies/Cowboy Bebop - The Movie (2001) Part 2.mkv"], minutes=115)
+    identify(paths, conn, internet())
+
+    [proposed] = propose(conn, day=NOW.date()).changes
+
+    assert proposed.change.target.name == "Cowboy Bebop - The Movie (2001).mkv"
+
+
+def test_a_folder_that_is_a_link_is_never_a_place_to_file(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path, tmp_path: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet())
+    (tmp_path / "Elsewhere").mkdir()
+    _winapi.CreateJunction(str(tmp_path / "Elsewhere"), str(root / "TV"))
+
+    proposal = propose(conn, day=NOW.date())
+
+    assert proposal.changes == ()
+    assert [(path.name, why) for path, why in proposal.skipped] == [
+        ("Cowboy Bebop - 01.mkv", "Its new folder is a link to another place, which scans skip")
+    ]
+
+
+def test_a_copy_is_never_set_aside_on_top_of_one_set_aside_earlier(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Bebop/Cowboy Bebop - 01.mkv", "Bebop/Cowboy Bebop - 01 (copy).mkv"])
+    identify(paths, conn, internet())
+    earlier = Path(root.anchor) / "Kura quarantine" / NOW.date().isoformat()
+    earlier.mkdir(parents=True, exist_ok=True)
+    (earlier / "Cowboy Bebop - 01 (copy).mkv").write_bytes(b"set aside this morning")
+
+    first = propose(conn, day=NOW.date()).changes[0]
+
+    assert first.change.target == earlier / "Cowboy Bebop - 01 (copy) (2).mkv"

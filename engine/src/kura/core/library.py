@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import PureWindowsPath
 from typing import Literal
 
-from kura.core.plan import QUARANTINE_FOLDER
+QUARANTINE_FOLDER = "Kura quarantine"  # on each drive: copies set aside, never scanned
 
 # Kura's own quarantine, and the folders Windows keeps on every drive.
 _SKIPPED = frozenset(
