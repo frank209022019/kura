@@ -183,6 +183,28 @@ def test_stopping_leaves_everything_as_it_was(conn: sqlite3.Connection, episode:
     assert not list(episode.parent.glob(f"*{WORKING}"))
 
 
+def test_a_result_held_a_moment_as_it_goes_never_changes_the_outcome(
+    conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr("kura.convert._HELD_PAUSE", 0)
+    stopping = [False]
+    unlink = Path.unlink
+
+    def held(path: Path, missing_ok: bool = False) -> None:
+        if stopping[0] and path.name.endswith(WORKING):  # an antivirus looking at it, say
+            raise PermissionError(13, "The process cannot access the file", str(path))
+        unlink(path, missing_ok=missing_ok)
+
+    def stop() -> bool:
+        stopping[0] = True
+        return True
+
+    monkeypatch.setattr(Path, "unlink", held)
+
+    with pytest.raises(Stopped):  # paused, as asked: not a failure
+        run(conn, programs(report(1440, 1080, tag=BEST_TAG)), stop=stop)
+
+
 def test_a_result_made_but_skipped_before_it_goes_in_is_thrown_away(
     conn: sqlite3.Connection, episode: Path
 ):

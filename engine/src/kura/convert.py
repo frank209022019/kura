@@ -20,6 +20,7 @@ import shutil
 import sqlite3
 import subprocess
 import threading
+import time
 from collections import deque
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, ExitStack, nullcontext
@@ -69,6 +70,8 @@ _PLAY_SECONDS = 5  # how much of the result a test play decodes, at each of thre
 _LOOK_TIMEOUT = 300  # seconds for idet or a test play
 _SPACE_MARGIN = 1.25  # free space wanted, over the estimated size of the result
 _SAID_LINES = 400  # of what ffmpeg says, kept for "Copy full log"
+_HELD_TRIES = 5  # times Kura tries to take away a result Windows holds a moment
+_HELD_PAUSE = 0.2  # seconds between them
 IN_USE_WAIT = timedelta(minutes=5)  # before a result waiting for its original is tried again
 
 type Stage = Literal["looking", "converting", "checking", "replacing"]
@@ -198,7 +201,7 @@ def convert(
                 f"The result didn't check out: {problems[0]}. The original is as it was."
             )
     except BaseException:
-        work.unlink(missing_ok=True)
+        _discard(work)
         raise
     report(Progress("replacing", total, total))
     with ExitStack() as held:
@@ -208,7 +211,7 @@ def convert(
                 raise Stopped
             _still_as_read(source, row["size"], row["modified"])  # nothing saved over it since
         except BaseException:
-            work.unlink(missing_ok=True)  # never put in place: nothing to keep
+            _discard(work)  # never put in place: nothing to keep
             raise
         if in_use(source):
             _keep(conn, row, result, made.method)
@@ -244,11 +247,7 @@ def throw_away_kept(conn: sqlite3.Connection, job_id: int) -> None:
     if row is None:
         return
     path = Path(row["path"])
-    kept = path.with_name(path.stem + WORKING)
-    try:
-        kept.unlink(missing_ok=True)
-    except OSError:  # held open a moment (an antivirus, say): it's only Kura's own copy
-        log.warning("Couldn't remove %s", kept)
+    _discard(path.with_name(path.stem + WORKING))
 
 
 def _keep(conn: sqlite3.Connection, row: sqlite3.Row, result: Json, method: Method) -> None:
@@ -359,7 +358,22 @@ def _take_away(result: Path) -> None:
     """Removes a result that never went in, or came back out: only ever a file named as Kura's
     work in progress, whatever a damaged or imported journal says."""
     if result.name.endswith(WORKING):
-        result.unlink(missing_ok=True)
+        _discard(result)
+
+
+def _discard(result: Path) -> None:
+    """Takes away a result that won't go in. Windows may hold it a moment after its ffmpeg ends
+    (an antivirus looking at it, say), so Kura tries a few times; one still held is left for the
+    next try, which takes it away first. Never what decides how a conversion went."""
+    for tried in range(1, _HELD_TRIES + 1):
+        try:
+            result.unlink(missing_ok=True)
+            return
+        except OSError:
+            if tried == _HELD_TRIES:
+                log.warning("Couldn't remove %s; the next try takes it away", result)
+                return
+            time.sleep(_HELD_PAUSE)
 
 
 def _moved(conn: sqlite3.Connection, plan_id: int | None) -> SavedChange | None:
@@ -644,7 +658,7 @@ def _replace(
     outcome = apply_plan(conn, plan_id, now=now)
     if outcome.problems:
         undone = undo_plan(conn, plan_id, now=now)
-        work.unlink(missing_ok=True)
+        _discard(work)
         problem = outcome.problems[0].problem
         if undone.problems:  # the original stays in quarantine: History can still put it back
             raise ConvertError(
