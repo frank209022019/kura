@@ -20,6 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from kura import __version__, changes, db
 from kura.anilist import AniList
 from kura.api import (
+    convert,
     health,
     library,
     review,
@@ -33,6 +34,8 @@ from kura.api import (
 )
 from kura.cache import Cache
 from kura.config import DataPaths
+from kura.gpu import Gpu
+from kura.queue import Queue, programs_from
 from kura.scan import Scanner
 from kura.tools import Tools
 from kura.watch import Watcher
@@ -53,10 +56,12 @@ def create_app(
     transport: Send = send,
     *,
     watch: bool = False,
+    work: bool = False,
 ) -> FastAPI:
     """The API, with its parts. Tests pass their own tools, scanner and transport (the
     internet as TMDB and AniList see it). `watch` keeps the library current while the engine
-    runs (kura/watch.py): `kura serve` turns it on."""
+    runs (kura/watch.py), and `work` converts the queue (kura/queue.py): `kura serve` turns
+    both on."""
     expected = token.encode()
 
     def require_token(
@@ -82,7 +87,12 @@ def create_app(
         running.state.watcher = watcher
         if watcher is not None:
             watcher.start()
+        worker: Queue = running.state.queue
+        if work:
+            worker.start()  # settles what a crash left, then converts what waits
         yield
+        if work:
+            worker.stop()  # the file converting now is first in line next time
         if watcher is not None:
             watcher.stop()
 
@@ -101,6 +111,10 @@ def create_app(
         paths, app.state.tools, transport=transport, anilist=app.state.anilist
     )
     app.state.watcher = None  # set while it runs
+    app.state.queue = Queue(
+        paths, app.state.scanner, lambda: programs_from(app.state.tools), now=_now
+    )
+    app.state.gpu = Gpu()
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)
@@ -120,6 +134,7 @@ def create_app(
     app.include_router(titles.router)
     app.include_router(review.router)
     app.include_router(tidy.router)
+    app.include_router(convert.router)
     return app
 
 

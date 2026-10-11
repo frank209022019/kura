@@ -172,4 +172,9 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     ALTER TABLE plans ADD COLUMN kind TEXT NOT NULL DEFAULT 'tidy'
         CHECK (kind IN ('tidy', 'convert'));
     """,
+    # 7. The result a conversion made, as ffprobe read it: History says what each file became,
+    #    even once its original is back.
+    """
+    ALTER TABLE jobs ADD COLUMN output_probe TEXT;
+    """,
 )

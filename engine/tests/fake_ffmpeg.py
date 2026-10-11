@@ -8,11 +8,13 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - one whole conversion: writes the file, telling its progress the way -progress does;
 - a test play: says nothing, as ffmpeg does when a file plays.
 
-KURA_FAKE_FAIL names a step that fails instead: "encode" or "play".
+KURA_FAKE_FAIL names a step that fails instead: "encode" or "play". KURA_FAKE_SLOW is the
+seconds the decoder takes over each frame (none), so a test can stop a conversion mid-way.
 """
 
 import os
 import sys
+import time
 from pathlib import Path
 
 
@@ -36,9 +38,11 @@ def main() -> None:
         width, height = (int(n) for n in os.environ.get("KURA_FAKE_SIZE", "4x2").split("x"))
         frames = int(os.environ.get("KURA_FAKE_FRAMES", "5"))
         frame = bytes(width * height * 3 * 4)
+        slow = float(os.environ.get("KURA_FAKE_SLOW", "0"))
         for _ in range(frames):
+            time.sleep(slow)
             sys.stdout.buffer.write(frame)
-        sys.stdout.buffer.flush()
+            sys.stdout.buffer.flush()
         return
     if "-i" in args and args[args.index("-i") + 1] == "-":
         received = len(sys.stdin.buffer.read())

@@ -2,10 +2,7 @@
 
 import json
 import sqlite3
-import subprocess
-import sys
 from collections.abc import Callable, Sequence
-from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
@@ -20,55 +17,12 @@ from kura.convert import (
     convert,
     lighter,
     restore,
-    start,
 )
-from kura.core.fields import Json
 from kura.core.standard import CINEMA_1080, Method
-from kura.upscale import Frame
-from tests.fake_ffprobe import REPORT
+from tests.converting import BEST_TAG, programs, report
 from tests.shelf import NOW, library
 
-FAKE_FFMPEG = [sys.executable, str(Path(__file__).parent / "fake_ffmpeg.py")]
-SHADER = Path(__file__).parent / "fake.glsl"
-
 pytestmark = pytest.mark.usefixtures("quarantine")
-
-
-def report(width: int, height: int, *, codec: str = "hevc", tag: str | None = None) -> Json:
-    """ffprobe's report on a 24-minute file like REPORT (Japanese sound), at this size."""
-    made = cast("dict[str, object]", deepcopy(REPORT))
-    streams = cast("list[dict[str, object]]", made["streams"])
-    streams[0].update(
-        {"width": width, "height": height, "codec_name": codec, "pix_fmt": "yuv420p10le"}
-    )
-    streams[0].pop("display_aspect_ratio", None)
-    format_ = {**cast("dict[str, object]", made["format"]), "duration": "1440.0"}
-    made["format"] = {**format_, "tags": {"KURA": tag}} if tag else format_
-    return made
-
-
-def doubled(frame: Frame) -> Frame:
-    return frame.repeat(2, axis=2).repeat(2, axis=3)
-
-
-def programs(converted: Json, commands: list[Sequence[str]] | None = None) -> Programs:
-    """ffmpeg and ffprobe stand-ins; ffprobe reports `converted` for the result."""
-
-    def read(path: Path) -> Json:
-        return converted
-
-    def started(
-        command: Sequence[str],
-        *,
-        stdin: int | None = None,
-        stdout: int | None = None,
-        stderr: int | None = None,
-    ) -> subprocess.Popen[bytes]:
-        if commands is not None:
-            commands.append(command)
-        return start(command, stdin=stdin, stdout=stdout, stderr=stderr)
-
-    return Programs(FAKE_FFMPEG, read, lambda _width, _height: doubled, SHADER, start=started)
 
 
 @pytest.fixture
@@ -95,9 +49,6 @@ def run(
 ) -> None:
     heard = seen if seen is not None else []
     convert(conn, 1, kit, CINEMA_1080, now=lambda: NOW, report=heard.append, stop=stop)
-
-
-BEST_TAG = "best to 1080p · Kura 0.1.0"
 
 
 def test_an_sd_episode_goes_through_the_ai_model_and_takes_its_originals_place(

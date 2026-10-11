@@ -19,6 +19,7 @@ function today(hour: number, minute: number): string {
 
 const TIDIED: PlanDone = {
   id: 13,
+  kind: "tidy",
   title: "Tidied 30 files: Cowboy Bebop, Death Note and 2 more",
   appliedAt: today(11, 40),
   undoneAt: null,
@@ -26,6 +27,24 @@ const TIDIED: PlanDone = {
   quarantined: 1,
   failed: 0,
   undone: 0,
+  conversion: null,
+};
+const CONVERTED: PlanDone = {
+  ...TIDIED,
+  id: 14,
+  kind: "convert",
+  title: "Converted Trigun · S01E03",
+  appliedAt: today(14, 20),
+  moved: 1,
+  quarantined: 1,
+  conversion: {
+    jobId: 5,
+    method: "best",
+    before: { height: 480, codec: "h264", size: 233_000_000 },
+    after: { height: 1080, codec: "hevc", size: 412_000_000 },
+    seconds: 3480,
+    restored: false,
+  },
 };
 const RENAMED: PlanDone = {
   ...TIDIED,
@@ -123,6 +142,47 @@ describe("HistoryPage", () => {
     const todayList = await screen.findByRole("region", { name: "Today" });
     expect(todayList).toHaveTextContent("1 file moved · 29 put back · plan 13");
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  });
+
+  it("lists each conversion with what it made, and puts an original back", async () => {
+    const fetch = fakeEngine({
+      "/history": { plans: [CONVERTED, TIDIED], scans: [] },
+      "POST /plans/14/undo": { planId: 14, moved: 1, quarantined: 0, problems: [] },
+    });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "14:20ConvertedTrigun · S01E03480p H.264 233 MB → 1080p HEVC 412 MB · 58 min · checked",
+    );
+    screen.getByRole("button", { name: "Put back the original" }).click();
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(
+          ([input, init]) => init?.method === "POST" && String(input).endsWith("/plans/14/undo"),
+        ),
+      ).toBe(true),
+    );
+
+    screen.getByRole("radio", { name: "Conversions" }).click();
+    await waitFor(() => expect(screen.queryByText(/Tidied 30 files/)).not.toBeInTheDocument());
+    expect(screen.getByText("Trigun · S01E03")).toBeInTheDocument();
+  });
+
+  it("says when a converted file's original came back", async () => {
+    const back: PlanDone = {
+      ...CONVERTED,
+      undoneAt: today(15, 0),
+      conversion: CONVERTED.conversion && { ...CONVERTED.conversion, restored: true },
+    };
+    fakeEngine({ "/history": { plans: [back], scans: [] } });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "15:00Put backTrigun · S01E03The original is in its place again",
+    );
+    expect(screen.queryByRole("button", { name: "Put back the original" })).not.toBeInTheDocument();
   });
 
   it("shows only scans, or only renames and moves", async () => {

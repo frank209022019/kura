@@ -5,18 +5,22 @@ import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import {
+  type Conversion,
   type History,
+  type Picture,
   type PlanDone,
   type ScanDone,
   type TidyResult,
   useHistory,
   useUndoPlan,
 } from "@/lib/engine";
+import { clockLength, codecName, size } from "@/lib/format";
 
-type Shown = "all" | "moves" | "scans";
+type Shown = "all" | "conversions" | "moves" | "scans";
 
 const FILTERS = [
   { value: "all", label: "All" },
+  { value: "conversions", label: "Conversions" },
   { value: "moves", label: "Renames and moves" },
   { value: "scans", label: "Scans" },
 ] as const;
@@ -41,7 +45,8 @@ export function HistoryPage() {
         <div className="flex max-w-xl flex-col gap-1.5">
           <h1 className="type-title">History</h1>
           <p className="text-14 text-fg-muted">
-            Everything Kura changed, newest first. Renames and moves can be undone at any time.
+            Everything Kura changed, newest first. Renames and moves can be undone at any time, and
+            a converted file's original put back for 30 days.
           </p>
         </div>
         <Segmented label="Show" value={shown} options={FILTERS} onChange={setShown} />
@@ -90,6 +95,7 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
   const [verb, title, detail] = words(event);
   const plan = event.kind === "plan" ? event.plan : null;
   const undoable = plan !== null && plan.undoneAt === null && plan.moved + plan.quarantined > 0;
+  const action = plan?.kind === "convert" ? "Put back the original" : "Undo";
   return (
     <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-white/6 border-b py-3 text-13 last:border-b-0">
       <span className="font-mono text-12 text-fg-muted">{clock(event.at)}</span>
@@ -99,8 +105,13 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
         {detail && <span className="text-12 text-fg-muted">{detail}</span>}
       </span>
       {undoable ? (
-        <Button size="sm" disabled={props.busy} onClick={() => props.onUndo(plan)}>
-          Undo
+        <Button
+          size="sm"
+          aria-label={action}
+          disabled={props.busy}
+          onClick={() => props.onUndo(plan)}
+        >
+          {plan.kind === "convert" ? "Put back" : "Undo"}
         </Button>
       ) : (
         <span />
@@ -124,6 +135,12 @@ function words(event: Event): [string, string, string | null] {
     return ["Scanned", "Your library folders", detail];
   }
   const { plan } = event;
+  const made = plan.conversion;
+  if (plan.kind === "convert") {
+    const label = plan.title.replace(/^Converted /, "");
+    if (event.kind === "undo") return ["Put back", label, "The original is in its place again"];
+    return ["Converted", label, made ? conversionWords(made) : null];
+  }
   if (event.kind === "undo") {
     return ["Undone", plan.title, `You put ${count(plan.undone, "file")} back`];
   }
@@ -138,15 +155,36 @@ function words(event: Event): [string, string, string | null] {
   return [plan.title.startsWith("Renamed") ? "Renamed" : "Moved", plan.title, parts.join(" · ")];
 }
 
+/** "480p H.264 233 MB → 1080p HEVC 412 MB · 58 min · checked": every result is checked before
+ * it takes its original's place. */
+function conversionWords(made: Conversion): string {
+  const picture = ({ height, codec, size: bytes }: Picture) =>
+    [height && `${height}p`, codec && codecName(codec), bytes && size(bytes)]
+      .filter(Boolean)
+      .join(" ");
+  return [
+    `${picture(made.before)} → ${picture(made.after)}`,
+    made.seconds !== null && clockLength(made.seconds / 60),
+    "checked",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function eventsOf(history: History, shown: Shown): Event[] {
   const events: Event[] = [];
-  if (shown !== "scans") {
-    for (const plan of history.plans) {
-      events.push({ kind: "plan", at: plan.appliedAt, plan });
-      if (plan.undoneAt) events.push({ kind: "undo", at: plan.undoneAt, plan });
-    }
+  const kinds: Record<Shown, PlanDone["kind"][]> = {
+    all: ["tidy", "convert"],
+    conversions: ["convert"],
+    moves: ["tidy"],
+    scans: [],
+  };
+  for (const plan of history.plans) {
+    if (!kinds[shown].includes(plan.kind)) continue;
+    events.push({ kind: "plan", at: plan.appliedAt, plan });
+    if (plan.undoneAt) events.push({ kind: "undo", at: plan.undoneAt, plan });
   }
-  if (shown !== "moves") {
+  if (shown === "all" || shown === "scans") {
     for (const scan of history.scans) events.push({ kind: "scan", at: scan.startedAt, scan });
   }
   return events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));

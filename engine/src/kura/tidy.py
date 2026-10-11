@@ -278,7 +278,10 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
     }
     rows = conn.execute(
         """SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.episode_end,
-                  t.id AS title_id, t.name, t.year, t.kind, t.tmdb_type, d.path AS root
+                  t.id AS title_id, t.name, t.year, t.kind, t.tmdb_type, d.path AS root,
+                  EXISTS (SELECT 1 FROM jobs AS j
+                          WHERE j.file_id = f.id AND j.state IN ('running', 'replacing'))
+                      AS converting
            FROM files AS f
            JOIN titles AS t ON t.id = f.title_id
            JOIN folders AS d ON d.id = f.folder_id
@@ -295,6 +298,9 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
             connected[row["root"]] = Path(row["root"]).is_dir()
         if not connected[row["root"]]:
             skipped.append((Path(row["path"]), "Its library folder isn't connected"))
+            continue
+        if row["converting"]:
+            skipped.append((Path(row["path"]), "It's being converted"))
             continue
         identity = _identity(row, names, parted)
         if identity is None:

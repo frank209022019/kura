@@ -77,8 +77,12 @@ kura/
   probe.py        running ffprobe on one file
   tools.py        downloading what downloads.json lists (ffmpeg)
   tidy.py         tidying up: the plan that files the library for Plex, applied and undone
-  changes.py      applying and undoing tidy-up plans, journaled
-  history.py      what Kura did, newest first: tidy-ups and scans
+  changes.py      applying and undoing plans (tidy-ups, a converted file's replacement), journaled
+  convert.py      converting one file, checked, then in its original's place
+  upscale.py      the AI model on the graphics card, between two ffmpegs
+  queue.py        the conversion queue: files in the owner's order, converted one at a time
+  gpu.py          how busy and how warm the graphics card is (nvidia-smi)
+  history.py      what Kura did, newest first: tidy-ups, conversions and scans
   web.py          asking web services for JSON: timeouts, rate limits, errors in words
   anilist.py      AniList: which anime a file is
   tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
@@ -165,6 +169,19 @@ again where the shows are. Nothing moves while a scan runs, and no scan starts w
 (`Scanner.hold`); the watcher's scan waits until they're in place. History lists every tidy-up,
 which can be undone from there, and undone again for any file that couldn't go back the first
 time (the plan counts as undone only once nothing is left).
+
+Converting (`kura/convert.py`) brings one file to the standard by the method its recipe names
+(`kura/core/convert.py`): the AI model between two ffmpegs (`kura/upscale.py`), or one ffmpeg
+command (see [stack/upscaling.md](stack/upscaling.md)). The result is made beside the original,
+checked (length, streams, Kura's tag, a test play at three points), and only then takes the
+original's place, journaled like a tidy-up, the original going to quarantine; no scan runs
+meanwhile. The queue (`kura/queue.py`) holds the files waiting, in the owner's order, and its
+worker converts them one at a time while Kura is open; on the nights-only schedule it starts
+files only between 23:00 and 07:00. Pausing or skipping stops ffmpeg at once and leaves the
+original as it was (a paused file starts over), and Windows doesn't sleep while a file converts.
+After a crash, a file that was converting waits in line again, and one whose result was taking
+its original's place is finished, or its original put back. A file being converted stays out of
+tidy-ups. History lists each conversion with what it made, and puts the original back on asking.
 
 ## Data
 

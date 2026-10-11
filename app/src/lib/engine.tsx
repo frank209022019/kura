@@ -650,10 +650,30 @@ export const useApplyTidy = () => useEngineAction<TidyResult>(TIDIED);
  * `undo.mutate({ path: "/plans/12/undo" })`. */
 export const useUndoPlan = () => useEngineAction<TidyResult>(TIDIED);
 
-/** A tidy-up that was applied, as History lists it. */
+/** A video's picture and size, before or after converting. */
+export interface Picture {
+  height: number | null;
+  codec: string | null;
+  size: number | null;
+}
+
+/** What converting made of a file, as History tells it. */
+export interface Conversion {
+  jobId: number;
+  method: Method;
+  before: Picture;
+  after: Picture;
+  /** How long converting took. */
+  seconds: number | null;
+  /** The original is back in its place. */
+  restored: boolean;
+}
+
+/** A tidy-up or conversion that was applied, as History lists it. */
 export interface PlanDone {
   id: number;
-  /** "Renamed 26 Cowboy Bebop files for Plex". */
+  kind: "tidy" | "convert";
+  /** "Renamed 26 Cowboy Bebop files for Plex", "Converted Trigun · S01E03". */
   title: string;
   appliedAt: string;
   undoneAt: string | null;
@@ -661,6 +681,7 @@ export interface PlanDone {
   quarantined: number;
   failed: number;
   undone: number;
+  conversion: Conversion | null;
 }
 
 export interface ScanDone {
@@ -679,3 +700,124 @@ export interface History {
 }
 
 export const useHistory = () => useEngineQuery<History>("/history");
+
+/** How a file is converted: copied into MKV, re-encoded, or upscaled fast or with the AI model. */
+export type Method = "remux" | "reencode" | "fast" | "best";
+
+/** The ways the owner can pick from on the Convert screen. */
+export type Way = "best" | "fast" | "reencode";
+
+/** A video not at the library's standard yet, with what each way of converting it takes. */
+export interface Convertible {
+  fileId: number;
+  /** "Dragon Ball Z · S01E06". */
+  label: string;
+  titleId: number | null;
+  title: string | null;
+  season: number | null;
+  episode: number | null;
+  /** How long it plays. */
+  seconds: number;
+  height: number;
+  /** "4:3", "16:9". */
+  aspect: string;
+  size: number;
+  /** "D:". */
+  drive: string;
+  /** What each way gives it (never more than suits it), and its GPU time. Empty when broken. */
+  ways: Partial<Record<Way, { method: Method; gpuSeconds: number }>>;
+  /** The result's size, about. */
+  outputBytes: number;
+  /** In the queue already, or converting. */
+  waiting: boolean;
+  /** It won't play, so it can't be converted. */
+  broken: boolean;
+}
+
+export interface ConvertOptions {
+  /** "Cinema 1080p". */
+  standard: string;
+  files: Convertible[];
+  /** Bytes free on each drive the files are on. */
+  free: Record<string, number>;
+}
+
+export const useConvertOptions = () => useEngineQuery<ConvertOptions>("/convert");
+
+export type JobState =
+  | "queued"
+  | "running"
+  | "replacing"
+  | "done"
+  | "failed"
+  | "skipped"
+  | "restored";
+
+/** A file in the conversion queue. */
+export interface Job {
+  id: number;
+  fileId: number;
+  path: string;
+  label: string;
+  titleId: number | null;
+  title: string | null;
+  season: number | null;
+  episode: number | null;
+  method: Method;
+  state: JobState;
+  /** How long it takes on the graphics card, as estimated. */
+  gpuSeconds: number;
+  addedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** Why it failed, in words. */
+  problem: string | null;
+  sourceSize: number;
+  outputSize: number | null;
+}
+
+/** The file converting now, and how it's going. */
+export interface RunningJob {
+  job: Job;
+  stage: "looking" | "converting" | "checking" | "replacing";
+  frames: number;
+  total: number;
+  secondsLeft: number | null;
+  /** Frames a second, over the last ten minutes. */
+  fps: number | null;
+}
+
+export interface QueueStatus {
+  paused: boolean;
+  schedule: "now" | "nights";
+  /** Nights only, and it's day: files start again at 23:00. */
+  waitsForNight: boolean;
+  /** Why nothing converts though files wait (no ffmpeg, say). */
+  problem: string | null;
+  running: RunningJob | null;
+  /** In the order they'll go. */
+  queued: Job[];
+  /** The work left, in seconds of GPU time. */
+  gpuSeconds: number;
+  /** Finished today, newest first. */
+  today: Job[];
+  /** The graphics card's load and temperature, while a file converts. */
+  gpu: { busy: number; celsius: number } | null;
+}
+
+/** The queue, asked again every two seconds while a file converts, else every ten. */
+export const useQueue = () =>
+  useEngineQuery<QueueStatus>("/queue", (now) => (now?.running ? 2000 : 10_000));
+
+const QUEUED = ["/queue", "/convert", "/history", "/library", "/titles"];
+/** Adds files: `add.mutate({ path: "/queue", body: { files, method, start } })`. */
+export const useAddToQueue = () => useEngineAction<{ added: number }>(QUEUED);
+/**
+ * Changes the queue: `/queue/pause`, `/queue/resume`, `/queue/7/skip`, `/queue/7/retry`,
+ * `/queue/7/move` (with `{ before }`) or `/queue/7/restore`.
+ */
+export const useQueueAction = () => useEngineAction<unknown>(QUEUED);
+/** Takes a waiting file out: `remove.mutate({ path: "/queue/7" })`. */
+export const useRemoveFromQueue = () => useEngineAction<void>(QUEUED, "DELETE");
+/** Converts whenever files wait, or only at night: `{ path: "/queue/schedule", body: { schedule } }`. */
+export const useQueueSchedule = () => useEngineAction<QueueStatus>(QUEUED, "PUT");

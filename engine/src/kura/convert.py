@@ -8,7 +8,8 @@ drive. Both moves are journaled (kura/changes.py), so a crash leaves nothing hal
 `restore` puts the original back.
 
 The work happens beside the original, in a file whose name ends in .kura-converting: no scan or
-watcher counts it as a video, and it moves into place on the same drive at once.
+watcher counts it as a video, and it moves into place on the same drive at once. A crash while
+it moves leaves the job "replacing": `settle` finishes it, or puts the original back.
 """
 
 import json
@@ -17,13 +18,21 @@ import sqlite3
 import subprocess
 import threading
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, ExitStack, nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Literal, Protocol, cast
 
 from kura import __version__
-from kura.changes import ChangeState, apply_plan, changes_of, save_plan, undo_plan
+from kura.changes import (
+    ChangeState,
+    SavedChange,
+    apply_plan,
+    changes_of,
+    save_plan,
+    undo_plan,
+)
 from kura.core.convert import (
     Recipe,
     check,
@@ -40,10 +49,12 @@ from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
 from kura.core.standard import Decision, Method, Standard, decide
+from kura.probe import ProbeError, ProbeToolError
 from kura.upscale import UpscaleError, Upscaler, pipe, upscaled_size
 
 WORKING = ".kura-converting"  # the end of a result's name while it's being made
-_CONVERTED = (Method.REMUX, Method.REENCODE, Method.FAST, Method.BEST)
+SHADER = Path(__file__).parent / "assets" / "anime4k-mode-a-hq.glsl"  # the fast upscale
+CONVERTED = (Method.REMUX, Method.REENCODE, Method.FAST, Method.BEST)  # what a job can be
 _UPSCALES = (Method.BEST, Method.FAST, Method.REENCODE)  # heaviest first
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _PLAY_SECONDS = 5  # how much of the result a test play decodes, at each of three points
@@ -115,15 +126,17 @@ def convert(
     now: Callable[[], datetime],
     report: Callable[[Progress], None],
     stop: Callable[[], bool],
+    hold: Callable[[], AbstractContextManager[None]] = nullcontext,
 ) -> None:
-    """Converts a job's file and puts the result in its place. Raises ConvertError when it can't
-    (the original stays as it was), or Stopped when `stop` asked."""
+    """Converts a job's file and puts the result in its place, `hold` holding scans off while
+    it moves. Raises ConvertError when it can't (the original stays as it was), or Stopped when
+    `stop` asked."""
     row = _job(conn, job_id)
     source = Path(row["path"])
     _still_as_read(source, row["size"], row["modified"])
     media = media_from_ffprobe(json.loads(row["probe"]))
     decision = decide(media, standard)
-    if decision.method not in _CONVERTED or media.video is None:
+    if decision.method not in CONVERTED or media.video is None:
         raise ConvertError("It's at your standard already, so there's nothing to convert.")
     decision = replace(decision, method=lighter(decision.method, Method(row["method"])))
     total = _frames(media)
@@ -142,7 +155,10 @@ def convert(
         else:
             _in_one_command(programs, source, work, made, total, report, stop)
         report(Progress("checking", total, total))
-        result = programs.read(work)
+        try:
+            result = programs.read(work)
+        except (ProbeError, ProbeToolError) as error:
+            raise ConvertError(f"The result couldn't be read back: {error}") from None
         problems = check(media, media_from_ffprobe(result), made)
         problems += _play(programs, work, media.duration or 0.0)
         if problems:
@@ -153,7 +169,13 @@ def convert(
         work.unlink(missing_ok=True)
         raise
     report(Progress("replacing", total, total))
-    _replace(conn, row, source, work, made, result, now())
+    with ExitStack() as held:
+        try:
+            held.enter_context(hold())
+        except BaseException:
+            work.unlink(missing_ok=True)  # never put in place: nothing to keep
+            raise
+        _replace(conn, row, source, work, made, result, now())
 
 
 def lighter(decided: Method, chosen: Method) -> Method:
@@ -183,6 +205,56 @@ def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
             "UPDATE jobs SET state = 'restored', finished_at = ? WHERE id = ?",
             (now.isoformat(), job_id),
         )
+
+
+def settle(
+    conn: sqlite3.Connection, job_id: int, read: Callable[[Path], Json] | None, now: datetime
+) -> None:
+    """A job a crash stopped while its result was taking its original's place (its changes as
+    kura/changes.py's `recover` left them): finished when the result can still go in, or else
+    the original is put back and the job waits in the queue again. `read` is ffprobe, when
+    Kura has it; without it the next scan reads the result."""
+    job = conn.execute("SELECT file_id, plan_id FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    plan_id: int | None = job["plan_id"] if job else None
+    moved = _moved(conn, plan_id)
+    carry_on = moved is not None and moved.state is ChangeState.PLANNED and moved.source.exists()
+    if plan_id is not None and carry_on:  # the result was checked before the crash
+        apply_plan(conn, plan_id, now=now)
+        moved = _moved(conn, plan_id)
+    if moved is not None and moved.state is ChangeState.DONE:
+        try:
+            result = read(moved.target) if read else None
+        except ProbeError, ProbeToolError:
+            result = None
+        if result is not None:
+            finish(conn, job_id, result, now)
+            return
+        with conn:  # in place, but unread: the next scan reads it
+            conn.execute(
+                "UPDATE files SET path = ?, probed_at = NULL, gone_at = NULL WHERE id = ?",
+                (str(moved.target), job["file_id"]),
+            )
+            conn.execute(
+                "UPDATE jobs SET state = 'done', finished_at = ? WHERE id = ?",
+                (now.isoformat(), job_id),
+            )
+        return
+    if plan_id is not None:
+        undo_plan(conn, plan_id, now=now)
+        if moved is not None:
+            moved.source.unlink(missing_ok=True)  # the result, never in place
+    with conn:
+        conn.execute(
+            "UPDATE jobs SET state = 'queued', plan_id = NULL, started_at = NULL WHERE id = ?",
+            (job_id,),
+        )
+
+
+def _moved(conn: sqlite3.Connection, plan_id: int | None) -> SavedChange | None:
+    """A conversion plan's second change: the result into its original's place."""
+    if plan_id is None:
+        return None
+    return next((c for c in changes_of(conn, plan_id) if c.kind is ChangeKind.MOVE), None)
 
 
 def _job(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
@@ -351,7 +423,7 @@ def _replace(
 ) -> None:
     """The original to quarantine and the result into its place, journaled; then the library's
     record of the file describes the result, keeping what it was identified as."""
-    label = _label(row)
+    label = label_of(row)
     place = Path(quarantine_place(source, now.date()))
     if place.exists():
         place = Path(unique_path(place, {str(place)}))
@@ -396,9 +468,10 @@ def finish(conn: sqlite3.Connection, job_id: int, result: Json, now: datetime) -
     _record(conn, job["file_id"], moved.target, stat.st_size, stat.st_mtime_ns, result, now)
     with conn:
         conn.execute(
-            """UPDATE jobs SET state = 'done', finished_at = ?, output_size = ?, problem = NULL
+            """UPDATE jobs SET state = 'done', finished_at = ?, output_size = ?,
+                      output_probe = ?, problem = NULL
                WHERE id = ?""",
-            (now.isoformat(), stat.st_size, job_id),
+            (now.isoformat(), stat.st_size, json.dumps(result, separators=(",", ":")), job_id),
         )
 
 
@@ -434,8 +507,9 @@ def _record(
         )
 
 
-def _label(row: sqlite3.Row) -> str:
-    """ "Trigun · S01E03", or the film's name, or the file's."""
+def label_of(row: sqlite3.Row) -> str:
+    """ "Trigun · S01E03", or the film's name, or the file's, from a row with the file's `path`,
+    `season` and `episode`, and its title's name (`title`)."""
     title = row["title"] or Path(row["path"]).stem
     if row["season"] is not None and row["episode"] is not None:
         return f"{title} · S{row['season']:02d}E{row['episode']:02d}"

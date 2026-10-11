@@ -315,3 +315,24 @@ def test_a_folder_already_there_keeps_its_own_spelling(
         / "season 01"
         / "Cowboy Bebop (1998) - S01E01 - Asteroid Blues.mkv"
     )
+
+
+def test_a_video_being_converted_stays_where_it_is_till_its_done(
+    downloads: sqlite3.Connection, root: Path
+):
+    bebop = downloads.execute("SELECT id FROM files WHERE path LIKE '%Bebop_-_01%'").fetchone()[0]
+    with downloads:
+        downloads.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " VALUES (?, 'best', 1, 'running', ?)",
+            (bebop, NOW.isoformat()),
+        )
+
+    proposal = propose(downloads, day=NOW.date())
+
+    assert "[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv" not in {
+        p.change.source.name for p in proposal.changes
+    }
+    assert ("[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv", "It's being converted") in {
+        (path.name, why) for path, why in proposal.skipped
+    }

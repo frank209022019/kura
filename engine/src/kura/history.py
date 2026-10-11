@@ -1,22 +1,47 @@
 """What Kura did, newest first, for the History screen: each tidy-up applied (and whether it was
-undone), and each scan."""
+undone), each file converted (and whether its original is back), and each scan."""
 
+import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal
 
 from kura.changes import ChangeState, changes_of, tally
+from kura.core.media import media_from_ffprobe
+
+
+@dataclass(frozen=True)
+class Picture:
+    """A video's picture and size, before or after converting."""
+
+    height: int | None
+    codec: str | None
+    size: int | None
+
+
+@dataclass(frozen=True)
+class Conversion:
+    job_id: int
+    method: str  # remux, reencode, fast or best
+    before: Picture
+    after: Picture
+    seconds: float | None  # how long converting took
+    restored: bool  # the original is back in its place
 
 
 @dataclass(frozen=True)
 class PlanDone:
     id: int
-    title: str  # "Renamed 26 Cowboy Bebop files for Plex"
+    kind: Literal["tidy", "convert"]
+    title: str  # "Renamed 26 Cowboy Bebop files for Plex", "Converted Trigun · S01E03"
     applied_at: str
     undone_at: str | None
     moved: int  # videos and subtitles filed, and still there
     quarantined: int  # copies set aside, and still there (their subtitles uncounted)
     failed: int  # changes that couldn't be made
     undone: int  # changes put back
+    conversion: Conversion | None = None  # what a conversion made of its file
 
 
 @dataclass(frozen=True)
@@ -30,9 +55,9 @@ class ScanDone:
 
 
 def plans(conn: sqlite3.Connection) -> list[PlanDone]:
-    """Every tidy-up that was applied, newest first."""
+    """Every tidy-up and conversion that was applied, newest first."""
     rows = conn.execute(
-        """SELECT id, title, applied_at, undone_at FROM plans
+        """SELECT id, kind, title, applied_at, undone_at FROM plans
            WHERE applied_at IS NOT NULL
            ORDER BY applied_at DESC, id DESC"""
     ).fetchall()
@@ -48,9 +73,33 @@ def plans(conn: sqlite3.Connection) -> list[PlanDone]:
                 quarantined=quarantined,
                 failed=states.count(ChangeState.FAILED),
                 undone=states.count(ChangeState.UNDONE),
+                conversion=_conversion(conn, row["id"]) if row["kind"] == "convert" else None,
             )
         )
     return done
+
+
+def _conversion(conn: sqlite3.Connection, plan_id: int) -> Conversion | None:
+    job = conn.execute("SELECT * FROM jobs WHERE plan_id = ?", (plan_id,)).fetchone()
+    if job is None:
+        return None
+    took = None
+    if job["started_at"] and job["finished_at"]:
+        began, ended = (datetime.fromisoformat(job[key]) for key in ("started_at", "finished_at"))
+        took = (ended - began).total_seconds()
+    return Conversion(
+        job_id=job["id"],
+        method=job["method"],
+        before=_picture(job["source_probe"], job["source_size"]),
+        after=_picture(job["output_probe"], job["output_size"]),
+        seconds=took,
+        restored=job["state"] == "restored",
+    )
+
+
+def _picture(probe: str | None, size: int | None) -> Picture:
+    video = media_from_ffprobe(json.loads(probe)).video if probe else None
+    return Picture(video.height if video else None, video.codec if video else None, size)
 
 
 def scans(conn: sqlite3.Connection, count: int = 50) -> list[ScanDone]:

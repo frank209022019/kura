@@ -50,7 +50,8 @@ def serve(
     sock = socket.socket()
     sock.bind(("127.0.0.1", port))
     sock.listen()  # early requests wait in the queue until the server is up
-    app = create_app(token, paths, watch=True)  # keeps the library current while it runs
+    # While it runs, the engine keeps the library current and converts the queue.
+    app = create_app(token, paths, watch=True, work=True)
     config = uvicorn.Config(app, log_config=None, access_log=False)
     server = uvicorn.Server(config)
     if watch_stdin:

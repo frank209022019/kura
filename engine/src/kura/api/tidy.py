@@ -1,16 +1,19 @@
 """Tidying up: what Kura proposes, applying the changes the owner keeps, and History, where any
 tidy-up can be undone. Nothing moves while a scan runs, and no scan starts while files move."""
 
+from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import Field
 
 from kura import history, tidy
 from kura.api.common import ApiModel, Database, Scans
 from kura.changes import SavedChange
+from kura.convert import ConvertError
 from kura.core.plan import ChangeKind
+from kura.queue import Queue
 from kura.scan import ScanBusyError
 
 router = APIRouter()
@@ -86,8 +89,24 @@ class TidyResult(ApiModel):
     problems: list[ChangeProblem]
 
 
+class Picture(ApiModel):
+    height: int | None
+    codec: str | None
+    size: int | None
+
+
+class Conversion(ApiModel):
+    job_id: int
+    method: Literal["remux", "reencode", "fast", "best"]
+    before: Picture
+    after: Picture
+    seconds: float | None  # how long converting took
+    restored: bool  # the original is back in its place
+
+
 class PlanDone(ApiModel):
     id: int
+    kind: Literal["tidy", "convert"]
     title: str
     applied_at: str
     undone_at: str | None
@@ -95,6 +114,7 @@ class PlanDone(ApiModel):
     quarantined: int
     failed: int
     undone: int
+    conversion: Conversion | None  # for a conversion: what the file became
 
 
 class ScanDone(ApiModel):
@@ -177,22 +197,37 @@ def apply_tidy(body: TidyRequest, conn: Database, scans: Scans) -> TidyResult:
 def what_kura_did(conn: Database) -> History:
     """Every tidy-up applied and every scan, newest first."""
     return History(
-        plans=[PlanDone.model_validate(plan.__dict__) for plan in history.plans(conn)],
+        plans=[PlanDone.model_validate(asdict(plan)) for plan in history.plans(conn)],
         scans=[ScanDone.model_validate(scan.__dict__) for scan in history.scans(conn)],
     )
 
 
 @router.post("/plans/{plan_id}/undo")
-def undo_plan(plan_id: int, conn: Database, scans: Scans) -> TidyResult:
-    """Puts back what a tidy-up moved, or what couldn't go back last time."""
-    if conn.execute("SELECT 1 FROM plans WHERE id = ?", (plan_id,)).fetchone() is None:
+def undo_plan(plan_id: int, conn: Database, scans: Scans, request: Request) -> TidyResult:
+    """Puts back what a tidy-up moved, or what couldn't go back last time. For a conversion,
+    the original comes back in the converted file's place."""
+    plan = conn.execute("SELECT kind FROM plans WHERE id = ?", (plan_id,)).fetchone()
+    if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no such tidy-up.")
     try:
+        if plan["kind"] == "convert":
+            return _put_back(conn, plan_id, request)
         with scans.hold():
             done = tidy.undo(conn, plan_id, now=_now())
     except ScanBusyError as busy:
         raise HTTPException(status.HTTP_409_CONFLICT, f"{busy} Undo it once that's done.") from None
     return _result(done)
+
+
+def _put_back(conn: Database, plan_id: int, request: Request) -> TidyResult:
+    """A conversion undone: its original back from quarantine (kura/queue.py)."""
+    job = conn.execute("SELECT id FROM jobs WHERE plan_id = ?", (plan_id,)).fetchone()
+    worker: Queue = request.app.state.queue
+    try:
+        worker.restore(job["id"] if job else 0)
+    except ConvertError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
+    return TidyResult(plan_id=plan_id, moved=1, quarantined=0, problems=[])
 
 
 def _result(done: tidy.Tidied) -> TidyResult:

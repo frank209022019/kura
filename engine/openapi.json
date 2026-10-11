@@ -980,7 +980,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Chosen"
+                  "$ref": "#/components/schemas/Chosen-Output"
                 }
               }
             }
@@ -1206,7 +1206,7 @@
     "/plans/{plan_id}/undo": {
       "post": {
         "summary": "Undo Plan",
-        "description": "Puts back what a tidy-up moved, or what couldn't go back last time.",
+        "description": "Puts back what a tidy-up moved, or what couldn't go back last time. For a conversion,\nthe original comes back in the converted file's place.",
         "operationId": "undo_plan_plans__plan_id__undo_post",
         "security": [
           {
@@ -1247,10 +1247,431 @@
           }
         }
       }
+    },
+    "/convert": {
+      "get": {
+        "summary": "What To Convert",
+        "description": "Every video not at the standard yet, with what each way of converting it would take.",
+        "operationId": "what_to_convert_convert_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConvertOptions"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue": {
+      "get": {
+        "summary": "Queue Status",
+        "operationId": "queue_status_queue_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Add To Queue",
+        "description": "Puts files at the end of the queue; with `start`, the queue converts now.",
+        "operationId": "add_to_queue_queue_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Added"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue/pause": {
+      "post": {
+        "summary": "Pause Queue",
+        "description": "Stops the file converting now (it starts over on resuming) and takes no other.",
+        "operationId": "pause_queue_queue_pause_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue/resume": {
+      "post": {
+        "summary": "Resume Queue",
+        "operationId": "resume_queue_queue_resume_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue/schedule": {
+      "put": {
+        "summary": "Plan Queue",
+        "description": "Converts whenever files wait, or only at night (23:00 to 07:00).",
+        "operationId": "plan_queue_queue_schedule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue/{job_id}/skip": {
+      "post": {
+        "summary": "Skip Job",
+        "description": "Passes over a file: the one converting stops, one waiting leaves the line.",
+        "operationId": "skip_job_queue__job_id__skip_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/{job_id}": {
+      "delete": {
+        "summary": "Remove Job",
+        "operationId": "remove_job_queue__job_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/{job_id}/move": {
+      "post": {
+        "summary": "Move Job",
+        "operationId": "move_job_queue__job_id__move_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/{job_id}/retry": {
+      "post": {
+        "summary": "Retry Job",
+        "operationId": "retry_job_queue__job_id__retry_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/{job_id}/restore": {
+      "post": {
+        "summary": "Restore Original",
+        "description": "Puts a converted file's original back in its place, from quarantine.",
+        "operationId": "restore_original_queue__job_id__restore_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AddRequest": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Chosen-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "type": "boolean",
+            "title": "Start",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "AddRequest"
+      },
+      "Added": {
+        "properties": {
+          "added": {
+            "type": "integer",
+            "title": "Added"
+          }
+        },
+        "type": "object",
+        "required": [
+          "added"
+        ],
+        "title": "Added"
+      },
       "ChangeProblem": {
         "properties": {
           "label": {
@@ -1326,7 +1747,15 @@
         ],
         "title": "Choice"
       },
-      "Chosen": {
+      "Chosen-Input": {
+        "type": "string",
+        "enum": [
+          "best",
+          "fast",
+          "reencode"
+        ]
+      },
+      "Chosen-Output": {
         "properties": {
           "placed": {
             "type": "integer",
@@ -1355,6 +1784,199 @@
           "titleId"
         ],
         "title": "Chosen"
+      },
+      "Conversion": {
+        "properties": {
+          "jobId": {
+            "type": "integer",
+            "title": "Jobid"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "remux",
+              "reencode",
+              "fast",
+              "best"
+            ],
+            "title": "Method"
+          },
+          "before": {
+            "$ref": "#/components/schemas/Picture"
+          },
+          "after": {
+            "$ref": "#/components/schemas/Picture"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "restored": {
+            "type": "boolean",
+            "title": "Restored"
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobId",
+          "method",
+          "before",
+          "after",
+          "seconds",
+          "restored"
+        ],
+        "title": "Conversion"
+      },
+      "ConvertOptions": {
+        "properties": {
+          "standard": {
+            "type": "string",
+            "title": "Standard"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/Convertible"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "free": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Free"
+          }
+        },
+        "type": "object",
+        "required": [
+          "standard",
+          "files",
+          "free"
+        ],
+        "title": "ConvertOptions"
+      },
+      "Convertible": {
+        "properties": {
+          "fileId": {
+            "type": "integer",
+            "title": "Fileid"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "titleId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titleid"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "aspect": {
+            "type": "string",
+            "title": "Aspect"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "drive": {
+            "type": "string",
+            "title": "Drive"
+          },
+          "ways": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Estimate"
+            },
+            "type": "object",
+            "title": "Ways"
+          },
+          "outputBytes": {
+            "type": "integer",
+            "title": "Outputbytes"
+          },
+          "waiting": {
+            "type": "boolean",
+            "title": "Waiting"
+          },
+          "broken": {
+            "type": "boolean",
+            "title": "Broken"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fileId",
+          "label",
+          "titleId",
+          "title",
+          "season",
+          "episode",
+          "seconds",
+          "height",
+          "aspect",
+          "size",
+          "drive",
+          "ways",
+          "outputBytes",
+          "waiting",
+          "broken"
+        ],
+        "title": "Convertible",
+        "description": "A video not at the library's standard yet."
       },
       "CopyFacts": {
         "properties": {
@@ -1547,6 +2169,30 @@
         "title": "EpisodeState",
         "description": "One episode and how it stands, for the episode map: status by shape."
       },
+      "Estimate": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "remux",
+              "reencode",
+              "fast",
+              "best"
+            ],
+            "title": "Method"
+          },
+          "gpuSeconds": {
+            "type": "number",
+            "title": "Gpuseconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "gpuSeconds"
+        ],
+        "title": "Estimate"
+      },
       "FranchiseRef": {
         "properties": {
           "id": {
@@ -1659,6 +2305,24 @@
         ],
         "title": "FranchiseSummary",
         "description": "Titles AniList ties together by story. A title on its own is a franchise of one."
+      },
+      "GpuReading": {
+        "properties": {
+          "busy": {
+            "type": "integer",
+            "title": "Busy"
+          },
+          "celsius": {
+            "type": "integer",
+            "title": "Celsius"
+          }
+        },
+        "type": "object",
+        "required": [
+          "busy",
+          "celsius"
+        ],
+        "title": "GpuReading"
       },
       "Guess": {
         "properties": {
@@ -1816,6 +2480,170 @@
         ],
         "title": "History"
       },
+      "Job": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "fileId": {
+            "type": "integer",
+            "title": "Fileid"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "titleId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titleid"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "remux",
+              "reencode",
+              "fast",
+              "best"
+            ],
+            "title": "Method"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "replacing",
+              "done",
+              "failed",
+              "skipped",
+              "restored"
+            ],
+            "title": "State"
+          },
+          "gpuSeconds": {
+            "type": "number",
+            "title": "Gpuseconds"
+          },
+          "addedAt": {
+            "type": "string",
+            "title": "Addedat"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "sourceSize": {
+            "type": "integer",
+            "title": "Sourcesize"
+          },
+          "outputSize": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputsize"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "fileId",
+          "path",
+          "label",
+          "titleId",
+          "title",
+          "season",
+          "episode",
+          "method",
+          "state",
+          "gpuSeconds",
+          "addedAt",
+          "startedAt",
+          "finishedAt",
+          "problem",
+          "sourceSize",
+          "outputSize"
+        ],
+        "title": "Job"
+      },
       "KindCounts": {
         "properties": {
           "series": {
@@ -1941,6 +2769,24 @@
         ],
         "title": "LibraryFolder"
       },
+      "MoveRequest": {
+        "properties": {
+          "before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before",
+            "description": "The job to go before; None: last"
+          }
+        },
+        "type": "object",
+        "title": "MoveRequest"
+      },
       "NewFolder": {
         "properties": {
           "path": {
@@ -1976,11 +2822,63 @@
           "missing"
         ]
       },
+      "Picture": {
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "height",
+          "codec",
+          "size"
+        ],
+        "title": "Picture"
+      },
       "PlanDone": {
         "properties": {
           "id": {
             "type": "integer",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tidy",
+              "convert"
+            ],
+            "title": "Kind"
           },
           "title": {
             "type": "string",
@@ -2016,18 +2914,30 @@
           "undone": {
             "type": "integer",
             "title": "Undone"
+          },
+          "conversion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Conversion"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
           "id",
+          "kind",
           "title",
           "appliedAt",
           "undoneAt",
           "moved",
           "quarantined",
           "failed",
-          "undone"
+          "undone",
+          "conversion"
         ],
         "title": "PlanDone"
       },
@@ -2093,6 +3003,88 @@
         ],
         "title": "ProposedChange"
       },
+      "QueueStatus": {
+        "properties": {
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "schedule": {
+            "type": "string",
+            "enum": [
+              "now",
+              "nights"
+            ],
+            "title": "Schedule"
+          },
+          "waitsForNight": {
+            "type": "boolean",
+            "title": "Waitsfornight"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "running": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Running"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queued": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Queued"
+          },
+          "gpuSeconds": {
+            "type": "number",
+            "title": "Gpuseconds"
+          },
+          "today": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Today"
+          },
+          "gpu": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GpuReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "paused",
+          "schedule",
+          "waitsForNight",
+          "problem",
+          "running",
+          "queued",
+          "gpuSeconds",
+          "today",
+          "gpu"
+        ],
+        "title": "QueueStatus"
+      },
       "Report": {
         "properties": {
           "path": {
@@ -2138,6 +3130,63 @@
         ],
         "title": "ReviewedChange",
         "description": "A proposed change, as the owner saw it."
+      },
+      "Running": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "looking",
+              "converting",
+              "checking",
+              "replacing"
+            ],
+            "title": "Stage"
+          },
+          "frames": {
+            "type": "integer",
+            "title": "Frames"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "secondsLeft": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secondsleft"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job",
+          "stage",
+          "frames",
+          "total",
+          "secondsLeft",
+          "fps"
+        ],
+        "title": "Running"
       },
       "Scan": {
         "properties": {
@@ -2335,6 +3384,23 @@
           "note"
         ],
         "title": "ScanDone"
+      },
+      "ScheduleRequest": {
+        "properties": {
+          "schedule": {
+            "type": "string",
+            "enum": [
+              "now",
+              "nights"
+            ],
+            "title": "Schedule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule"
+        ],
+        "title": "ScheduleRequest"
       },
       "SeasonCount": {
         "properties": {
