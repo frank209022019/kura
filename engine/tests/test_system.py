@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from kura.system import in_use
+from kura.system import in_use, on_network
 
 # A stand-in engine: ends its programs with it, starts one that would run a minute, and says
 # whether that's so and which program it started.
@@ -63,3 +63,8 @@ def test_a_file_another_program_has_open_is_in_use(tmp_path: Path):
         assert in_use(video) is True
     assert in_use(video) is False
     assert in_use(tmp_path / "not there.mkv") is False
+
+
+def test_a_network_share_is_on_another_computer(tmp_path: Path):
+    assert on_network(Path(r"\\nas\anime\Kura data"))
+    assert not on_network(tmp_path)

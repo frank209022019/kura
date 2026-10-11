@@ -49,7 +49,8 @@ def test_the_data_moves_as_the_engine_starts_and_the_home_keeps_a_note(home: Pat
     assert (target / "logs" / "engine.log").is_file()
     assert setting(target) == '"keep"'
     assert sorted(path.name for path in home.iterdir()) == [LOCATION]  # the old copy went
-    assert (home / LOCATION).read_text(encoding="utf-8") == str(target)
+    # In UTF-16, which the uninstaller reads whatever the path's letters.
+    assert (home / LOCATION).read_bytes().decode("utf-16-le") == str(target)
     with closing(db.connect(target / "kura.db")) as conn:
         assert last_move(conn) == Moved(str(home), str(target), NOW.isoformat(), None)
 
@@ -194,3 +195,18 @@ def still(told: list[str]) -> Generator[None]:
     told.append("working")
     yield
     told.append("done")
+
+
+def test_a_folder_on_another_computer_isnt_taken(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    with pytest.raises(MoveError, match="on another computer"):
+        ask_to_move(DataPaths(home), Path(r"\\nas\anime\Kura data"))
+
+    def mapped(path: Path) -> bool:  # a drive mapped to one
+        return True
+
+    monkeypatch.setattr("kura.relocate.on_network", mapped)
+
+    with pytest.raises(MoveError, match="on another computer"):
+        ask_to_move(DataPaths(home), tmp_path / "Z" / "Kura data")

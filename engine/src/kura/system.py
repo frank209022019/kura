@@ -15,6 +15,7 @@ _DELETE = 0x00010000  # the right to move or delete a file
 _SHARE_READ_WRITE = 0x1 | 0x2  # FILE_SHARE_READ | FILE_SHARE_WRITE
 _OPEN_EXISTING = 3
 _SHARING_VIOLATION = 32  # ERROR_SHARING_VIOLATION
+_DRIVE_REMOTE = 4  # what GetDriveTypeW says of a drive mapped to a network share
 _EXTENDED_LIMITS = 9  # JobObjectExtendedLimitInformation
 
 
@@ -100,6 +101,20 @@ def graphics_card() -> str | None:
     except OSError, subprocess.TimeoutExpired:
         return None
     return best_card(result.stdout.splitlines())
+
+
+def on_network(path: Path) -> bool:
+    r"""Whether a path is on another computer: a network share (\\nas\anime) or a drive mapped
+    to one. Asked without touching the network, so an unreachable one answers at once."""
+    anchor = path.anchor
+    if anchor.startswith("\\\\") and not anchor.startswith("\\\\?\\"):
+        return True
+    if sys.platform != "win32" or not anchor:
+        return False
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.GetDriveTypeW.argtypes = (ctypes.c_wchar_p,)
+    kernel.GetDriveTypeW.restype = ctypes.c_uint32
+    return kernel.GetDriveTypeW(anchor) == _DRIVE_REMOTE
 
 
 def in_use(path: Path) -> bool:

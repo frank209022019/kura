@@ -7,6 +7,7 @@ from pathlib import Path
 # In the home folder once Kura's data moved to another drive: where it went. The uninstaller
 # reads it too (app/src-tauri/windows/hooks.nsh).
 LOCATION = "location.txt"
+NOTE_ENCODING = "utf-16-le"  # the uninstaller's FileReadUTF16LE reads it so
 
 
 @dataclass(frozen=True)
@@ -46,10 +47,16 @@ class DataPaths:
 
     @classmethod
     def at(cls, home: Path) -> DataPaths:
-        """The data folder of this home: the home itself, or where its note says the data went."""
+        """The data folder of this home: the home itself, or where its note says the data went.
+        The note is UTF-16 (`NOTE_ENCODING`), which the uninstaller reads whatever the path's
+        letters; an older one may be UTF-8."""
         try:
-            moved = (home / LOCATION).read_text(encoding="utf-8").strip()
+            note = (home / LOCATION).read_bytes()
         except OSError:
+            return cls(home)
+        try:
+            moved = note.decode(NOTE_ENCODING if b"\x00" in note else "utf-8").strip()
+        except UnicodeDecodeError:
             return cls(home)
         return cls(Path(moved)) if moved else cls(home)
 

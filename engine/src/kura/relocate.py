@@ -18,7 +18,8 @@ from datetime import datetime
 from pathlib import Path
 
 from kura import db, events
-from kura.config import LOCATION, DataPaths
+from kura.config import LOCATION, NOTE_ENCODING, DataPaths
+from kura.system import on_network
 
 log = logging.getLogger(__name__)
 
@@ -44,8 +45,14 @@ class Moved:
 
 
 def ask_to_move(paths: DataPaths, target: Path) -> None:
-    """Checks the folder can take Kura's data (empty or new, outside the data folder, with room),
-    then asks for the move as the engine next starts."""
+    """Checks the folder can take Kura's data (on this PC, empty or new, outside the data folder,
+    with room), then asks for the move as the engine next starts. A folder on another computer
+    won't do: the database's write-ahead log needs a drive of this PC's own."""
+    if on_network(target):
+        raise MoveError(
+            f"{target} is on another computer. Kura's data needs a drive of this PC's own "
+            "(an external one is fine)."
+        )
     root, target = paths.root.resolve(), target.resolve()
     if target == root:
         raise MoveError("Kura's data is there already.")
@@ -129,7 +136,7 @@ def _switch(home: Path, target: Path) -> None:
     if target.resolve() == home.resolve():
         (home / LOCATION).unlink(missing_ok=True)
     else:
-        (home / LOCATION).write_text(str(target), encoding="utf-8")
+        (home / LOCATION).write_text(str(target), encoding=NOTE_ENCODING)
 
 
 def _clear_away(folder: Path, parts: list[Path], home: Path) -> None:

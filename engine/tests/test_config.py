@@ -43,6 +43,18 @@ def test_data_moved_to_another_drive_is_found_by_the_note_left_behind(
     assert DataPaths.default().root == moved  # there or not: a drive may be unplugged
 
 
+@pytest.mark.parametrize("encoding", ["utf-16-le", "utf-8"])
+def test_the_note_is_read_in_the_uninstallers_encoding_or_an_older_kuras(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, encoding: str
+):
+    home, moved = tmp_path / "Kura", tmp_path / "アニメ" / "Kura data"
+    home.mkdir()
+    (home / "location.txt").write_bytes(str(moved).encode(encoding))
+    monkeypatch.setenv("KURA_DATA_DIR", str(home))
+
+    assert DataPaths.default().root == moved
+
+
 def test_data_never_moved_has_no_note(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("KURA_DATA_DIR", str(tmp_path / "Kura"))
 

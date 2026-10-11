@@ -237,10 +237,12 @@ Before queueing, the Convert screen shows one frame of a file before and after
   it doesn't check out.
   Development uses `engine/.dev-data`, so it never touches the real folder.
 - **Moving it** to another drive (Settings > Your data, `kura/relocate.py`): the owner picks a
-  folder (an empty or new one, outside the data folder, with room); the app starts the engine
+  folder (an empty or new one on a drive of this PC's own, not a network share, where SQLite's
+  write-ahead log isn't safe; outside the data folder, with room); the app starts the engine
   again, and as it starts, before it logs or opens anything, the engine copies the data there,
   checks the copy (sizes and the database), and only then removes the old one. The home folder
-  keeps a note, `location.txt`, naming where the data went: Kura, `kura export` and the
+  keeps a note, `location.txt` (UTF-16, so the uninstaller reads any path's letters), naming
+  where the data went: Kura, `kura export` and the
   uninstaller follow it, and an engine whose moved data isn't there (an unplugged drive) says so
   instead of starting empty. A move that fails leaves everything where it was, and Settings says
   why. While the data moves, the home keeps `moving.json` (where from, where to), so a move cut

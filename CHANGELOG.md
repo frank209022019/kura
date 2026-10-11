@@ -22,7 +22,8 @@ shows these notes when it offers the update.
   Backups can bring it back.
 - Move Kura's data to another drive (Settings > Your data): Kura copies it, checks the copy, and
   only then removes the old one, as its engine starts again, however long that takes. A move cut
-  short (a power cut) is settled when Kura next starts. If the drive it's on isn't connected,
+  short (a power cut) is settled when Kura next starts. A folder on another computer isn't
+  taken: the data needs a drive of this PC's own (an external one is fine). If the drive it's on isn't connected,
   Kura says so instead of starting empty, and uninstalling cleans up only Kura's own files
   there.
 - Start with Windows (Settings > General): Kura waits in the tray, so the queue, the nightly

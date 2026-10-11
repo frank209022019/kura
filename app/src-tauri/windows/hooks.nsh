@@ -36,13 +36,14 @@ FunctionEnd
 !macroend
 
 ; 4. Kura's data folder stays unless "Delete the application data" was ticked. Data moved to
-;    another drive goes too (the data folder's location.txt says where), but only Kura's own parts
-;    of it, and its folder only if nothing else is left there: never anyone's other files.
+;    another drive goes too (the data folder's location.txt says where, in UTF-16 so any path's
+;    letters read right), but only Kura's own parts of it, and its folder only if nothing else is
+;    left there: never anyone's other files.
 !macro KuraDeleteData HOME
     ClearErrors
     FileOpen $0 "${HOME}\location.txt" r
     ${IfNot} ${Errors}
-        FileRead $0 $1
+        FileReadUTF16LE $0 $1
         FileClose $0
         ${If} $1 != ""
         ${AndIf} ${FileExists} "$1\kura.db"
