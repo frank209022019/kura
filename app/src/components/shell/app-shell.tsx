@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router";
 import { ScreenError } from "@/components/screen-error";
 import { NavRail } from "./nav-rail";
 import { Notices } from "./notices";
+import { Offline } from "./offline";
 import { TitleBar } from "./title-bar";
 import { UpdateCard } from "./update-card";
 
@@ -30,7 +31,12 @@ export function AppShell() {
         </main>
       </div>
       <UpdateCard />
-      <Notices />
+      {/* Notes at the foot of the window, over the page: being offline, and what the engine
+          tells of. */}
+      <div className="pointer-events-none fixed bottom-6 left-1/2 z-10 flex w-[min(30rem,calc(100vw-3rem))] -translate-x-1/2 flex-col gap-3 *:pointer-events-auto">
+        <Offline />
+        <Notices />
+      </div>
     </div>
   );
 }

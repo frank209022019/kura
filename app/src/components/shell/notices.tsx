@@ -47,7 +47,7 @@ export function Notices() {
   return (
     <div
       role="status"
-      className="fixed bottom-6 left-1/2 z-10 flex w-[min(30rem,calc(100vw-3rem))] -translate-x-1/2 animate-pop items-center gap-3.5 rounded-18 bg-featured px-4 py-3.5 text-white shadow-toast"
+      className="flex animate-pop items-center gap-3.5 rounded-18 bg-featured px-4 py-3.5 text-white shadow-toast"
     >
       <span
         aria-hidden="true"
