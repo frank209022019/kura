@@ -26,7 +26,7 @@ from itertools import takewhile
 from pathlib import Path
 from typing import Literal
 
-from kura.core.extensions import is_video
+from kura.core.extensions import is_subtitle, is_video
 from kura.core.plan import ChangeKind, Plan
 
 PARTIAL = ".kura-partial"  # added to a copy's name until the copy is complete
@@ -120,7 +120,8 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
     """Make every planned change, in order.
 
     The plan counts as applied from the start, so History has it even if Kura stops mid-way. A
-    change that can't be made is marked failed with the reason, and the rest go ahead.
+    change that can't be made is marked failed with the reason, and the rest go ahead, except a
+    video's subtitles: they stay with a video that couldn't move.
     """
     stamp = _stamp(now)
     with conn:
@@ -129,8 +130,14 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
         )
     made: list[int] = []
     failed: list[int] = []
-    for change in changes_of(conn, plan_id):
+    planned = changes_of(conn, plan_id)
+    for change in planned:
         if change.state is not ChangeState.PLANNED:
+            continue
+        video = _video_of(change, planned)
+        if video is not None and video.id in failed:
+            _record(conn, change, ChangeState.FAILED, problem=_STAYED_WITH)
+            failed.append(change.id)
             continue
         _record(conn, change, ChangeState.MOVING)
         problem = _why_not(change.source, change.target)
@@ -154,6 +161,25 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
     after = changes_of(conn, plan_id)
     remove_emptied(conn, (change.source.parent for change in _these(after, made)))
     return Outcome(_these(after, made), _these(after, failed))
+
+
+_STAYED_WITH = "Its video stayed where it was, so it did too."
+
+
+def _video_of(change: SavedChange, planned: list[SavedChange]) -> SavedChange | None:
+    """The change moving the video a subtitle file is named after, when the plan moves it: the
+    longest name that fits (`Show - 12.5.en.srt` is 12.5's, not 12's)."""
+    if not is_subtitle(change.source.name):
+        return None
+    name = change.source.name.casefold()
+    fits = [
+        other
+        for other in planned
+        if is_video(other.source.name)
+        and other.source.parent == change.source.parent
+        and name.startswith(other.source.stem.casefold() + ".")
+    ]
+    return max(fits, key=lambda other: len(other.source.stem), default=None)
 
 
 def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outcome:

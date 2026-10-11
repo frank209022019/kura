@@ -296,21 +296,49 @@ def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) 
         )
     listings: dict[Path, list[str]] = {}
     videos: list[tuple[PurePath, str, Sequence[PurePath]]] = []
+    going = {row["path"].casefold() for row in rows}
+    claimed: set[str] = set()  # subtitles two copies share go once, with the first
     for row in rows:
         path = Path(row["path"])
         if path.parent not in listings:
             listings[path.parent] = _listing(path.parent)
-        videos.append((path, label_of(row), sidecars_of(path, listings[path.parent])))
+        listing = listings[path.parent]
+        sidecars = [
+            sidecar
+            for sidecar in sidecars_of(path, listing)
+            if str(sidecar).casefold() not in claimed
+            and not _shared_with_staying(path, sidecar, listing, going)
+        ]
+        claimed.update(str(sidecar).casefold() for sidecar in sidecars)
+        videos.append((path, label_of(row), sidecars))
     day = now.date()
     taken = _set_aside({video.anchor for video, _, _ in videos}, day)
     plan = plan_set_aside(videos, day=day, taken=taken)
-    with conn:
-        conn.execute(f"DELETE FROM jobs WHERE state = 'queued' AND file_id IN ({marks})", ids)  # noqa: S608
     plan_id = save_plan(conn, plan, _deleted_title(rows), now=now)
     outcome = apply_plan(conn, plan_id, now=now)
+    deleted = {str(change.source) for change in outcome.changed}
+    gone = [row["id"] for row in rows if str(Path(row["path"])) in deleted]
+    with conn:  # a video waiting to be converted leaves the queue, once it's gone
+        conn.executemany(
+            "DELETE FROM jobs WHERE state = 'queued' AND file_id = ?", [(id_,) for id_ in gone]
+        )
     _clear_behind(conn, [change.source for change in outcome.changed])
     write_reports(conn, now=now)
     return Tidied(plan_id, *tally(outcome.changed), outcome.problems)
+
+
+def _shared_with_staying(
+    video: Path, sidecar: PurePath, listing: list[str], going: set[str]
+) -> bool:
+    """Whether another copy of the video beside it (the same name, another kind of file) stays,
+    and the subtitles fit it as well: they stay with it."""
+    return any(
+        is_video(name)
+        and PurePath(name).stem.casefold() == video.stem.casefold()
+        and str(video.parent / name).casefold() not in going
+        and sidecar in sidecars_of(video.parent / name, listing)
+        for name in listing
+    )
 
 
 def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:

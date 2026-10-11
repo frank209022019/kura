@@ -175,7 +175,8 @@ are closed at the next start (tidying up proposes them again). A change and its 
 are saved together. Nothing is overwritten: a taken name fails that change, and the rest go
 ahead. A move to another drive copies, checks the copy, and
 only then removes the original. Subtitle files named after a video (`Episode 1.en.srt`) move and
-rename with it, and folders inside a library folder that the moves leave truly empty are removed
+rename with it (and stay with one that couldn't move: another app had it open, say), and folders
+inside a library folder that the moves leave truly empty are removed
 (undo makes them again as it moves the files back). A video's record moves with it, so it keeps
 what it was identified as (a quarantined one counts as gone until it's put back); a gap analysis
 left in a folder that no longer holds a video goes with the folder, and the reports are written
@@ -187,8 +188,10 @@ time (the plan counts as undone only once nothing is left).
 
 Deleting (`tidy.delete`, from a title's page: the whole title, a season or one video) is a plan of
 the same kind: each video and the subtitles named after it go to the quarantine on their own
-drive, folders left empty go, a video waiting to be converted leaves the queue (one converting
-can't be deleted), and History, or the page right after, puts them back until the quarantine is
+drive (subtitles another copy of the video shares stay with it), folders left empty go, a video
+waiting to be converted leaves the queue once it's gone (one converting can't be deleted), the
+page says what stayed and why, and History, or the page right after, puts them back until the
+quarantine is
 cleared out. Kura never deletes a file outright. Whatever its records say (a damaged database,
 or one an imported export held), Kura deletes only a file in a day's folder of a quarantine
 (`core.plan.in_quarantine`), its own unfinished results (`.kura-converting`, `.kura-partial`)

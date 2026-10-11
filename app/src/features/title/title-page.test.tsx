@@ -268,6 +268,27 @@ describe("TitlePage", () => {
     await waitFor(() => expect(sent(fetch, "POST", "/plans/12/undo")).toHaveLength(1));
   });
 
+  it("says which videos couldn't be deleted, and why", async () => {
+    const open = "It's open in another app, maybe your player. Close it, then try again.";
+    const stayed = {
+      planId: 13,
+      moved: 0,
+      quarantined: 0,
+      problems: [
+        { label: "Dragon Ball Z · S01E01", source: String.raw`D:\Anime\x.mkv`, problem: open },
+      ],
+    };
+    renderTitle(DBZ, undefined, null, { "POST /files/delete": stayed });
+
+    (await screen.findByRole("button", { name: "Delete S01E01" })).click();
+    (await screen.findByRole("button", { name: "Delete 1 video" })).click();
+
+    const said = await screen.findByRole("region", { name: "Deleted" });
+    expect(said).toHaveTextContent("Nothing was deleted.");
+    expect(said).toHaveTextContent(`Dragon Ball Z · S01E01: ${open}`);
+    expect(screen.queryByRole("button", { name: "Put back" })).not.toBeInTheDocument();
+  });
+
   it("deletes a whole title or season only once asked, and can be talked out of it", async () => {
     const fetch = renderTitle(DBZ, undefined, null, { "POST /files/delete": DELETED });
 

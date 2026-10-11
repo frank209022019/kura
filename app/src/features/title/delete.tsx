@@ -1,4 +1,4 @@
-import { Check, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type TidyResult,
@@ -101,23 +101,40 @@ export function ConfirmDelete(props: {
   );
 }
 
-/** Right after deleting: what went, and the way to put it back. */
+/** Right after deleting: what went, the way to put it back, and what stayed and why. */
 export function Deleted(props: { result: TidyResult; onPutBack: () => void }) {
   const undo = useUndoPlan();
-  const count = props.result.quarantined;
+  const { quarantined: count, problems } = props.result;
   return (
     <section
       aria-label="Deleted"
       className="flex animate-fade-up flex-wrap items-center gap-3 rounded-20 border border-edge bg-glass px-5 py-3.5 text-13"
     >
-      <Check size={16} aria-hidden="true" className="shrink-0 text-accent-fg" />
-      <span className="min-w-0 flex-1">Deleted {count === 1 ? "1 video" : `${count} videos`}.</span>
+      {count > 0 ? (
+        <Check size={16} aria-hidden="true" className="shrink-0 text-accent-fg" />
+      ) : (
+        <AlertTriangle size={16} aria-hidden="true" className="shrink-0 text-broken-fg" />
+      )}
+      <span className="min-w-0 flex-1">
+        {count > 0
+          ? `Deleted ${count === 1 ? "1 video" : `${count} videos`}.`
+          : "Nothing was deleted."}
+      </span>
       {undo.isError && (
         <span role="alert" className="text-broken-fg">
           {undo.error.message}
         </span>
       )}
-      {props.result.planId !== null && (
+      {problems.length > 0 && (
+        <ul className="flex basis-full flex-col gap-1 text-broken-fg">
+          {problems.map((problem) => (
+            <li key={problem.source}>
+              {problem.label}: {problem.problem}
+            </li>
+          ))}
+        </ul>
+      )}
+      {props.result.planId !== null && count > 0 && (
         <Button
           size="sm"
           disabled={undo.isPending}

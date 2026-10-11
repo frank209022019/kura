@@ -31,7 +31,8 @@ shows these notes when it offers the update.
   episodes · all checked") or when a full drive paused the queue; a click opens Kura.
 - Delete a title, a season or one video from its page. Kura asks first, then moves the videos and
   their subtitles to the quarantine on their drive, for as long as you keep copies set aside; the
-  page, right after, or History puts them back.
+  page, right after, or History puts them back. A video another app has open stays (the page
+  says so), and subtitles another copy of it shares stay with that copy.
 - Only the page scrolls: the nav rail and the page's title (or where it sits) stay where they
   are, and so does Settings' list of sections.
 - A title's gap analysis reads like a document (headings, lists and tables), under the title Gap
@@ -70,9 +71,10 @@ shows these notes when it offers the update.
   `Movies\Title (Year)`), title by title: moves out of folders holding several anime, renames in
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the
   two compared with a swap if you'd rather keep the other. Leave out any title, then apply.
-  Subtitles move with their video, emptied folders go, and every video keeps what it was
-  identified as. A film in two files (CD1, CD2) is filed as its two parts. With "Keep my
-  names", files move into the same folders under the names they have. Applying makes
+  Subtitles move with their video (and stay with one that couldn't move), emptied folders
+  go, and every video keeps what it was identified as. A film in two files (CD1, CD2) is
+  filed as its two parts. With "Keep my names", files move into the same folders under the
+  names they have. Applying makes
   exactly what you reviewed, or asks you to look again if a scan changed it, and waits while a
   scan runs.
 - History: every tidy-up and scan by day, newest first. Any tidy-up can be undone there (or right

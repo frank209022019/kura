@@ -2,6 +2,7 @@
 History until the quarantine is cleared out."""
 
 import sqlite3
+import sys
 from pathlib import Path
 
 import pytest
@@ -110,3 +111,44 @@ def test_a_video_waiting_to_convert_leaves_the_queue(conn: sqlite3.Connection, s
     delete(conn, [1], now=NOW)
 
     assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' sharing rules")
+def test_a_video_that_couldnt_go_says_why_and_stays_in_the_queue(
+    conn: sqlite3.Connection, season: Path
+):
+    with conn:
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, added_at) VALUES (1, 'best', 1, 'now')"
+        )
+
+    with (season / "Trigun (1998) - S01E01.mkv").open("rb"):  # a player playing it
+        done = delete(conn, [1], now=NOW)
+
+    assert done.quarantined == 0
+    assert [problem.problem for problem in done.problems][:1] == [
+        "It's open in another app, maybe your player. Close it, then try again."
+    ]
+    assert [row["state"] for row in conn.execute("SELECT state FROM jobs")] == ["queued"]
+
+
+def test_subtitles_another_copy_shares_stay_with_it(conn: sqlite3.Connection, tmp_path: Path):
+    library(conn, tmp_path / "Anime", ["Old/Ep01.mkv", "Old/Ep01.mp4"])
+    folder = tmp_path / "Anime" / "Old"
+    (folder / "Ep01.en.srt").write_text("subtitles")
+    mkv = conn.execute("SELECT id FROM files WHERE path LIKE '%.mkv'").fetchone()[0]
+
+    delete(conn, [mkv], now=NOW)
+
+    assert sorted(path.name for path in folder.iterdir()) == ["Ep01.en.srt", "Ep01.mp4"]
+
+
+def test_subtitles_both_copies_share_go_once_with_them(conn: sqlite3.Connection, tmp_path: Path):
+    library(conn, tmp_path / "Anime", ["Old/Ep01.mkv", "Old/Ep01.mp4"])
+    folder = tmp_path / "Anime" / "Old"
+    (folder / "Ep01.en.srt").write_text("subtitles")
+
+    done = delete(conn, [1, 2], now=NOW)
+
+    assert done.problems == ()
+    assert quarantined(folder) == ["Ep01.en.srt", "Ep01.mkv", "Ep01.mp4"]

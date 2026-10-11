@@ -155,6 +155,35 @@ def test_a_file_open_in_another_app_stays_and_says_so(
     assert source.exists()
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' sharing rules")
+def test_subtitles_stay_with_a_video_that_couldnt_move(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "Death Note - 07.mkv")
+    subtitles = video(downloads / "Death Note - 07.en.srt", "subtitles")
+    other = video(downloads / "Death Note - 08.en.srt", "another episode's")
+    show = library / "Death Note (2006)"
+    plan_id = saved(
+        conn,
+        move(source, show / "Death Note (2006) - S01E07.mkv"),
+        move(subtitles, show / "Death Note (2006) - S01E07.en.srt"),
+        move(other, show / "Death Note (2006) - S01E08.en.srt"),
+    )
+
+    with source.open("rb"):  # a player playing it
+        outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert [change.source.name for change in outcome.changed] == ["Death Note - 08.en.srt"]
+    assert [(change.source.name, change.problem) for change in outcome.problems] == [
+        (
+            "Death Note - 07.mkv",
+            "It's open in another app, maybe your player. Close it, then try again.",
+        ),
+        ("Death Note - 07.en.srt", "Its video stayed where it was, so it did too."),
+    ]
+    assert subtitles.read_text(encoding="utf-8") == "subtitles"
+
+
 def test_a_change_of_case_alone_renames_the_file(conn: sqlite3.Connection, library: Path):
     source = video(library / "Show" / "show - s01e01.mkv")
     target = library / "Show" / "Show - S01E01.mkv"
