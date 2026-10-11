@@ -78,8 +78,16 @@ function engineWith(answers: Record<string, unknown> = {}) {
     "/scan": NO_SCAN,
     "/tmdb": { connected: false, keyEnd: null },
     "/franchises": [],
+    "/recovery": () => Response.json(null),
     ...answers,
   });
+}
+
+function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string) {
+  return fetch.mock.calls.filter(
+    ([input, init]) =>
+      (init?.method ?? "GET") === method && new URL(String(input)).pathname === path,
+  );
 }
 
 function renderHome(engine: EngineStatus) {
@@ -98,6 +106,7 @@ function renderHome(engine: EngineStatus) {
             <Route path="/match" element={<p>Match</p>} />
             <Route path="/titles/:id" element={<p>A title</p>} />
             <Route path="/franchises/:id" element={<p>A franchise</p>} />
+            <Route path="/history" element={<p>History</p>} />
           </Routes>
         </MemoryRouter>
       </EngineProvider>
@@ -121,6 +130,38 @@ describe("HomePage", () => {
     expect(await screen.findByText("Running · version 0.1.0")).toBeInTheDocument();
     expect(screen.getByText(health.dataDir)).toBeInTheDocument();
     expect(screen.getByText("Ready · schema version 3")).toBeInTheDocument();
+  });
+
+  it("says what Kura settled after it closed unexpectedly, till it's seen", async () => {
+    const at = new Date().toISOString();
+    const fetch = engineWith({
+      "/recovery": () => Response.json({ at, restarted: 1, finished: 0, putBack: 0, moves: 0 }),
+      "POST /recovery/seen": null,
+    });
+    renderHome(READY);
+
+    const said = await screen.findByText("Kura closed unexpectedly.");
+    expect(said.closest("[role=status]")).toHaveTextContent(
+      "Kura closed unexpectedly. One file was restarted from the beginning; the original was " +
+        "never touched and nothing was lost.",
+    );
+    screen.getByRole("button", { name: "See what happened" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/recovery/seen")).toHaveLength(1));
+    expect(await screen.findByText("History")).toBeInTheDocument();
+  });
+
+  it("words all that a crash left in one sentence", async () => {
+    const at = new Date().toISOString();
+    engineWith({
+      "/recovery": () => Response.json({ at, restarted: 2, finished: 1, putBack: 0, moves: 3 }),
+    });
+    renderHome(READY);
+
+    const said = await screen.findByText("Kura closed unexpectedly.");
+    expect(said.closest("[role=status]")).toHaveTextContent(
+      "Kura closed unexpectedly. 2 files were restarted from the beginning, one converted file " +
+        "went into its original's place and 3 file moves were settled; nothing was lost.",
+    );
   });
 
   it("opens setup on the very first run", async () => {

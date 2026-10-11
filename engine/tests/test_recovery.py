@@ -1,0 +1,33 @@
+"""What Kura tells after closing unexpectedly (a crash, a power cut): what it settled as it
+started again, once, for a day."""
+
+import sqlite3
+from datetime import timedelta
+
+from kura.recovery import Recovery, last, note, seen
+from tests.shelf import NOW
+
+
+def test_what_was_settled_is_told_for_a_day(conn: sqlite3.Connection):
+    found = Recovery(NOW.isoformat(), restarted=1, moves=2)
+
+    note(conn, found)
+
+    assert last(conn, NOW + timedelta(hours=10)) == found
+    assert last(conn, NOW + timedelta(days=1, minutes=1)) is None
+
+
+def test_once_seen_it_isnt_told_again(conn: sqlite3.Connection):
+    note(conn, Recovery(NOW.isoformat(), finished=1))
+
+    seen(conn)
+
+    assert last(conn, NOW) is None
+
+
+def test_a_start_with_nothing_to_settle_tells_nothing(conn: sqlite3.Connection):
+    note(conn, Recovery(NOW.isoformat(), restarted=1))
+
+    note(conn, Recovery((NOW + timedelta(hours=1)).isoformat()))  # a clean start after
+
+    assert last(conn, NOW + timedelta(hours=1)) == Recovery(NOW.isoformat(), restarted=1)

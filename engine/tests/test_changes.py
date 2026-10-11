@@ -330,6 +330,17 @@ def test_recover_finds_a_move_that_happened(
     assert states(conn, plan_id) == [ChangeState.DONE]
 
 
+def test_recover_counts_only_a_tidy_ups_moves(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "a.mkv")
+    plan = Plan((move(source, library / "a.mkv"),))
+    save_plan(conn, plan, "Converted a", now=NOW, kind="convert")
+    crash_while(conn, ChangeState.MOVING, [])
+
+    assert recover(conn) == 0  # the queue settles a conversion, and says so
+
+
 def test_recover_plans_again_a_move_that_had_not_started(
     conn: sqlite3.Connection, downloads: Path, library: Path
 ):

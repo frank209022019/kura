@@ -326,10 +326,11 @@ def test_after_a_crash_a_file_converting_waits_again_and_its_result_goes(
     unfinished = shows / f"Trigun (1998) - S01E01{WORKING}"
     unfinished.write_bytes(b"half made")
 
-    queue.recover()
+    settled = queue.recover()
 
     assert states(conn) == [(1, "queued")]
     assert not unfinished.exists()
+    assert (settled.restarted, settled.finished, settled.put_back) == (1, 0, 0)
 
 
 def test_at_start_a_copy_still_open_doesnt_keep_kura_from_starting(
@@ -374,9 +375,10 @@ def test_after_a_crash_a_result_half_in_place_is_finished(
     assert not episode.exists()  # the original set aside, the result not in place yet
 
     changes.recover(conn)  # at the next start, as the engine does
-    queue.recover()
+    settled = queue.recover()
 
     assert states(conn) == [(1, "done")]
+    assert (settled.restarted, settled.finished, settled.put_back) == (0, 1, 0)
     assert episode.read_text().startswith("converted")
     plan = conn.execute("SELECT plan_id FROM jobs").fetchone()[0]
     assert [c.state.value for c in changes_of(conn, plan)] == ["done", "done"]

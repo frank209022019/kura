@@ -23,6 +23,7 @@ import {
 import { openDownloadsPage } from "@/lib/links";
 import { useReadyUpdate } from "@/lib/updates";
 import { Attention } from "./attention";
+import { Recovered } from "./recovered";
 import { Shelf } from "./shelf";
 
 export function HomePage() {
@@ -53,6 +54,7 @@ export function HomePage() {
         </p>
       </header>
 
+      <Recovered />
       <EngineProblem queries={[settings, folders, library, scan]} />
       {engine.state !== "failed" && empty && (
         <EmptyState

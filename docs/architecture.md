@@ -100,12 +100,17 @@ kura/
   anilist.py      AniList: which anime a file is
   tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
   credentials.py  the TMDB key, encrypted for the Windows user, outside the database
-  system.py       the graphics card, and ending the programs the engine starts with it
+  system.py       the graphics card, ending the programs the engine starts with it, whether
+                  another app has a file open, and whether a folder is on another computer
   export.py       the export zip
   data.py         how big each part of the data folder and each drive's quarantine is
   backups.py      the nightly backups of the database, and restoring one as the engine starts
   quarantine.py   clearing out what has waited in quarantine longer than the owner keeps it
   care.py         looking after Kura while it's open: tonight's backup, the daily clear-out
+  artwork_files.py  poster.jpg and fanart.jpg next to each show, when the owner wants them
+  relocate.py     moving the data folder to another drive, as the engine starts
+  events.py       what the engine tells the app on its stdout: still starting, notifications
+  recovery.py     what Kura settled after it closed unexpectedly, for Home to tell
 ```
 
 The core is the heart and stays pure: it takes plain values (file facts, titles, settings) and
@@ -217,7 +222,10 @@ for the right to move it), the checked result waits beside it and the next file 
 thread of the queue puts it in place once the app lets go, trying every 5 minutes, or at once on
 "Try now", though another file is converting (`Queue.try_waiting`, `convert.put_in`). Skipping it
 throws the result away. After a crash, a file that was converting waits in line again, and one
-whose result was taking its original's place is finished, or its original put back. A file being
+whose result was taking its original's place is finished, or its original put back. A clean stop
+leaves none of these, so finding any (or a tidy-up's moves in flight) is how Kura knows it closed
+unexpectedly: `kura/recovery.py` keeps what was settled, and Home says so in a sentence, until the
+owner looks (History has each file), for a day. A file being
 converted (its result waiting beside it too), and any copy of it, stays out of tidy-ups and
 deletes. History lists each conversion with what it made, and puts the original back on asking.
 Before queueing, the Convert screen shows one frame of a file before and after

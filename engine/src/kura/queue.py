@@ -63,6 +63,7 @@ from kura.core.media import media_from_ffprobe
 from kura.core.standard import Method, Standard, decide
 from kura.preferences import library_standard
 from kura.probe import probe
+from kura.recovery import Recovery
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
 from kura.upscale import MODEL, model
@@ -187,16 +188,18 @@ class Queue:
             if thread is not None:
                 thread.join(timeout=30)
 
-    def recover(self) -> None:
+    def recover(self) -> Recovery:
         """At start: a job a crash stopped while converting waits in line again (its unfinished
-        result goes), and one whose result was taking its original's place is settled."""
+        result goes), and one whose result was taking its original's place is settled: finished,
+        or its original put back. Says how many of each there were (a clean stop leaves none)."""
         programs = self._programs()
         read = programs.read if programs else None
         with closing(db.connect(self._paths.database)) as conn:
-            for row in conn.execute(
+            running = conn.execute(
                 """SELECT f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
                    WHERE j.state = 'running'"""
-            ).fetchall():
+            ).fetchall()
+            for row in running:
                 path = Path(row["path"])
                 unfinished = path.with_name(path.stem + WORKING)
                 try:
@@ -207,8 +210,17 @@ class Queue:
                 conn.execute(
                     "UPDATE jobs SET state = 'queued', started_at = NULL WHERE state = 'running'"
                 )
+            finished = put_back = 0
             for row in conn.execute("SELECT id FROM jobs WHERE state = 'replacing'").fetchall():
                 settle(conn, row["id"], read, self._now())
+                after = conn.execute(
+                    "SELECT state, retry_at FROM jobs WHERE id = ?", (row["id"],)
+                ).fetchone()
+                if after["state"] == "done":
+                    finished += 1
+                elif after["retry_at"] is None:  # one still waiting for its player just waits
+                    put_back += 1
+        return Recovery(restarted=len(running), finished=finished, put_back=put_back)
 
     def add(self, file_ids: Iterable[int], method: Method | None = None) -> int:
         """Puts files at the end of the queue, in the order given. A file already in it, or one

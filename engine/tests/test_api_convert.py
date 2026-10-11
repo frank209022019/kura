@@ -15,6 +15,7 @@ from kura.api import create_app
 from kura.config import DataPaths
 from kura.core.standard import Method
 from kura.queue import Queue
+from kura.recovery import Recovery
 from kura.scan import Scanner
 from tests.conftest import TOKEN
 from tests.converting import BEST_TAG, open_elsewhere, programs, report
@@ -247,8 +248,9 @@ def test_at_start_a_conversion_a_crash_stopped_is_settled_before_any_scan(
         def hold(self) -> Generator[None]:
             yield
 
-    def settled(_queue: Queue) -> None:
+    def settled(_queue: Queue) -> Recovery:
         order.append("queue")
+        return Recovery()
 
     monkeypatch.setattr(Queue, "recover", settled)
     app = create_app(TOKEN, paths, scanner=cast("Scanner", Scans()), work=True)
@@ -257,6 +259,24 @@ def test_at_start_a_conversion_a_crash_stopped_is_settled_before_any_scan(
         pass
 
     assert order == ["queue", "scan"]  # files settle in place before a scan looks at them
+
+
+def test_after_a_crash_kura_says_what_it_settled_till_its_seen(
+    paths: DataPaths, conn: sqlite3.Connection, shelf: Path
+):
+    with conn:  # Kura closed unexpectedly while a file converted
+        conn.execute(
+            "INSERT INTO jobs (file_id, method, position, state, added_at)"
+            " VALUES (1, 'best', 1, 'running', 'then')"
+        )
+    app = create_app(TOKEN, paths, work=True)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+
+    with TestClient(app, base_url="http://127.0.0.1", headers=headers) as client:
+        found = client.get("/recovery").json()
+        assert (found["restarted"], found["finished"], found["putBack"]) == (1, 0, 0)
+        assert client.post("/recovery/seen").status_code == 204
+        assert client.get("/recovery").json() is None
 
 
 def test_a_record_left_at_the_results_name_gives_way(

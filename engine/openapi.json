@@ -1974,6 +1974,55 @@
           }
         }
       }
+    },
+    "/recovery": {
+      "get": {
+        "summary": "Last Recovery",
+        "description": "What Kura settled as it started again after closing unexpectedly, while it's news.",
+        "operationId": "last_recovery_recovery_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Recovery"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Last Recovery Recovery Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/recovery/seen": {
+      "post": {
+        "summary": "Recovery Seen",
+        "description": "The owner has seen it: Home doesn't tell it again.",
+        "operationId": "recovery_seen_recovery_seen_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3712,6 +3761,39 @@
           "gpu"
         ],
         "title": "QueueStatus"
+      },
+      "Recovery": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "restarted": {
+            "type": "integer",
+            "title": "Restarted"
+          },
+          "finished": {
+            "type": "integer",
+            "title": "Finished"
+          },
+          "putBack": {
+            "type": "integer",
+            "title": "Putback"
+          },
+          "moves": {
+            "type": "integer",
+            "title": "Moves"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "restarted",
+          "finished",
+          "putBack",
+          "moves"
+        ],
+        "title": "Recovery"
       },
       "Report": {
         "properties": {

@@ -8,6 +8,7 @@ routes as an APIRouter in its own module, included below.
 import secrets
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager, closing
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -25,6 +26,7 @@ from kura.api import (
     data,
     health,
     library,
+    recovery,
     review,
     scan,
     settings,
@@ -40,6 +42,8 @@ from kura.care import Care
 from kura.config import DataPaths
 from kura.gpu import Gpu
 from kura.queue import Queue, programs_from
+from kura.recovery import Recovery
+from kura.recovery import note as note_recovery
 from kura.scan import Scanner
 from kura.tools import Tools
 from kura.watch import Watcher
@@ -85,12 +89,15 @@ def create_app(
         restore_asked(paths, _now())  # a backup the owner chose, before anything opens the database
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
-            changes.recover(conn)  # settle file moves that a crash interrupted
+            moves = changes.recover(conn)  # settle file moves that a crash interrupted
         worker: Queue = running.state.queue
+        settled = Recovery()
         if work:
             # A conversion a crash stopped while its result was taking the original's place is
             # finished or undone before any scan looks at the folders.
-            worker.recover()
+            settled = worker.recover()
+        with closing(db.connect(paths.database)) as conn:  # Home tells what a crash left
+            note_recovery(conn, replace(settled, at=_now().isoformat(), moves=moves))
         scans: Scanner = running.state.scanner
         scans.recover()  # carry on a scan that an exit or a crash stopped
         anilist: AniList = running.state.anilist
@@ -153,6 +160,7 @@ def create_app(
     app.include_router(convert.router)
     app.include_router(data.router)
     app.include_router(backups.router)
+    app.include_router(recovery.router)
     return app
 
 

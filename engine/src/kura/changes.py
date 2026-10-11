@@ -223,7 +223,8 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
 
 
 def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
-    """Settle the changes a crash interrupted, and return how many there were.
+    """Settle the changes a crash interrupted, and return how many of them were a tidy-up's (or
+    a delete's): a conversion's are the queue's to tell of.
 
     Run it at start, before anything else uses the plans. A move that happened is done, one that
     didn't is planned again (or done again, for an undo), and anything else is marked with what
@@ -231,7 +232,10 @@ def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
     again); a conversion's are left to the queue, which finishes or undoes its replacement.
     """
     stamp = _stamp(now or datetime.now(UTC))
-    rows = conn.execute("SELECT * FROM changes WHERE state IN ('moving', 'undoing')").fetchall()
+    rows = conn.execute(
+        """SELECT c.*, p.kind AS plan_kind FROM changes AS c JOIN plans AS p ON p.id = c.plan_id
+           WHERE c.state IN ('moving', 'undoing')"""
+    ).fetchall()
     for change in map(_saved, rows):
         if change.state is ChangeState.MOVING:
             _settle(conn, change, change.source, change.target, forward=True, stamp=stamp)
@@ -248,7 +252,7 @@ def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
         ).rowcount
     if closed:
         _log.warning("Closed %d changes of a tidy-up Kura stopped before making", closed)
-    return len(rows)
+    return sum(1 for row in rows if row["plan_kind"] == "tidy")
 
 
 _STOPPED = "Kura stopped before making this change. Tidy up proposes it again."

@@ -88,6 +88,9 @@ shows these notes when it offers the update.
   series, movie, OVA or special, and how much of it is there.
 - Home's "Needs your attention": files that need a match, episodes missing, files that won't play
   and folders holding mixed anime, each leading to what to do.
+- After Kura closed unexpectedly (a crash, a power cut), Home says what it settled as it started
+  again ("One file was restarted from the beginning; the original was never touched and nothing
+  was lost."), with the way to History.
 - A page for each anime: how much of it is there, its seasons and episode map with every
   episode's state by shape, the missing and broken episodes (a long run of missing ones as one
   range), its specials and OVAs apart, its videos, and the gap analysis written next to it (shown

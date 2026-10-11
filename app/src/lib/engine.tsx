@@ -350,6 +350,26 @@ export const useMoveData = () => useEngineAction<void>([]);
 /** Writes the export zip: `exporting.mutate({ path: "/export", body: { folder } })`. */
 export const useExport = () => useEngineAction<{ path: string; size: number }>(["/data"]);
 
+/** What Kura settled as it started again after closing unexpectedly (a crash, a power cut). */
+export interface Recovery {
+  /** When Kura started again. */
+  at: string;
+  /** Files that were converting: in line again, from their beginning. */
+  restarted: number;
+  /** Results that were taking their original's place: in it now. */
+  finished: number;
+  /** Originals put back, their results never in place. */
+  putBack: number;
+  /** A tidy-up's or a delete's file moves, settled. */
+  moves: number;
+}
+
+/** What a crash left for Home to tell, while it's news; null otherwise. */
+export const useRecovery = () => useEngineQuery<Recovery | null>("/recovery");
+
+/** The owner has seen it: `seen.mutate({ path: "/recovery/seen" })`. */
+export const useRecoverySeen = () => useEngineAction<void>(["/recovery"]);
+
 /** A backup of Kura's records, made each night (Settings > Your data). */
 export interface Backup {
   /** "kura 2026-10-11 0300.db" */
