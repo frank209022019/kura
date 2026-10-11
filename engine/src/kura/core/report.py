@@ -6,7 +6,7 @@ board in the design word for word.
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from pathlib import PurePath
 
@@ -33,6 +33,15 @@ class EpisodeState:
 
 
 @dataclass(frozen=True)
+class SpecialState:
+    """A special or OVA (season 0) the library doesn't hold. Listed apart: never missing."""
+
+    number: int
+    title: str | None
+    aired: date | None
+
+
+@dataclass(frozen=True)
 class GapAnalysis:
     show: str  # "Dragon Ball Z (1989)"
     library: PurePath
@@ -40,6 +49,7 @@ class GapAnalysis:
     episodes: tuple[EpisodeState, ...]
     conversion: str | None = None  # "SD 480p → 1080p HEVC 10-bit"
     to_convert: Estimate = NOTHING
+    specials: tuple[SpecialState, ...] = ()  # specials and OVAs not in the library
 
 
 def gap_analysis_markdown(analysis: GapAnalysis) -> str:
@@ -75,7 +85,19 @@ def gap_analysis_markdown(analysis: GapAnalysis) -> str:
         if analysis.to_convert.gpu_seconds:
             gpu = describe_gpu_time(analysis.to_convert.gpu_seconds)
             lines.append(f"- About {gpu} and {describe_size(analysis.to_convert.output_bytes)}")
+    if analysis.specials:
+        lines += ["", "## Specials and OVAs not in the library"]
+        lines += [_special(special) for special in analysis.specials]
     return "\n".join(lines) + "\n"
+
+
+def _special(special: SpecialState) -> str:
+    parts = [f"S00E{special.number:02d}"]
+    if special.title:
+        parts.append(special.title)
+    if special.aired:
+        parts.append(f"{special.aired.day} {_MONTHS[special.aired.month - 1]} {special.aired.year}")
+    return "- " + " · ".join(parts)
 
 
 def conversion_summary(heights: Iterable[int], standard: Standard) -> str:

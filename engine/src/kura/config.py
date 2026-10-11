@@ -20,6 +20,11 @@ class DataPaths:
         return self.root / "logs"
 
     @property
+    def artwork(self) -> Path:
+        """Posters, downloaded once (see kura/artwork.py)."""
+        return self.root / "artwork"
+
+    @property
     def cache(self) -> Path:
         """Answers from TMDB and AniList, kept for a while (see kura/cache.py)."""
         return self.root / "cache"

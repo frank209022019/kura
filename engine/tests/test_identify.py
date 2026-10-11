@@ -1,47 +1,19 @@
 """Identifying the library, the scan's third stage, with AniList and TMDB stood in for."""
 
-import itertools
 import json
 import sqlite3
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from typing import cast
 
 import pytest
 
 from kura import credentials
 from kura.anilist import API as ANILIST
 from kura.config import DataPaths
-from kura.core.fields import Json
-from kura.identify import Identified, Identifier
-from kura.library import add_folder, find_files, folders, read_file, unread
+from kura.library import find_files, folders, read_file, unread
 from tests.fake_ffprobe import REPORT
-from tests.fake_web import FakeWeb
 from tests.services import SAVED, internet
-
-NOW = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
-
-
-def library(conn: sqlite3.Connection, root: Path, names: list[str], minutes: float = 24) -> None:
-    """Puts these files in a library folder, found and read (each `minutes` long)."""
-    for name in names:
-        (root / name).parent.mkdir(parents=True, exist_ok=True)
-        (root / name).write_bytes(name.encode())
-    add_folder(conn, root, now=NOW)
-    [folder] = folders(conn)
-    find_files(conn, folder, stamp=NOW.isoformat())
-    format_ = cast("dict[str, object]", REPORT["format"])
-    report: Json = {**REPORT, "format": {**format_, "duration": str(minutes * 60)}}
-    for file_id, path in unread(conn):
-        read_file(conn, file_id, path, lambda _: report, now=NOW)
-
-
-def identify(paths: DataPaths, conn: sqlite3.Connection, web: FakeWeb) -> Identified:
-    clock = itertools.count()
-    identifier = Identifier(paths, web, now=lambda: NOW + timedelta(seconds=next(clock)))
-    done = identifier.run(conn)
-    assert done is not None
-    return done
+from tests.shelf import NOW, identify, library
 
 
 def placed(conn: sqlite3.Connection) -> dict[str, tuple[object, ...]]:

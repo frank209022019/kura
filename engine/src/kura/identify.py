@@ -13,18 +13,19 @@ import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import PureWindowsPath
 
 from kura import credentials
 from kura.anilist import AniList
 from kura.cache import Cache
 from kura.config import DataPaths
-from kura.core.catalog import Anime, Episode, Film, Hit, Show, TitleKind
+from kura.core.catalog import Anime, Film, Hit, Show, TitleKind
 from kura.core.identify import SURE, FileFacts, Group, Guess, base_title, group_files, guesses
 from kura.core.identify import pick_hit as pick_tmdb
 from kura.core.names import Kind, parse_name
 from kura.core.placing import How, Placement, place
+from kura.titles import show_of
 from kura.tmdb import Tmdb
 from kura.web import Send, WebError
 
@@ -184,7 +185,7 @@ class Identifier:
                 return _anilist_title(conn, entry), None
             return _save_film(conn, row, film, entry, self._now()), None
         if row is not None and not _due(row, self._now()):
-            return row["id"], show_from_rows(conn, row["id"])
+            return row["id"], show_of(conn, row["id"])
         found = tmdb.show(hit.id)
         if found is None:
             return _anilist_title(conn, entry), None
@@ -242,28 +243,6 @@ def save_show(
             ],
         )
     return title_id
-
-
-def show_from_rows(conn: sqlite3.Connection, title_id: int) -> Show | None:
-    """A TMDB show as Kura stored it, episodes and all, without asking TMDB again."""
-    row = conn.execute("SELECT * FROM titles WHERE id = ?", (title_id,)).fetchone()
-    if row is None or row["tmdb_type"] != "tv":
-        return None
-    episodes = tuple(
-        Episode(e["season"], e["number"], e["name"], _day(e["aired"]), e["minutes"])
-        for e in conn.execute(
-            "SELECT * FROM episodes WHERE title_id = ? ORDER BY season, number", (title_id,)
-        )
-    )
-    return Show(
-        id=row["tmdb_id"],
-        title=row["name"],
-        original_title=row["name"],
-        first_aired=_day(row["released"]),
-        airing=bool(row["airing"]),
-        poster=row["poster"],
-        episodes=episodes,
-    )
 
 
 def _save_film(
@@ -342,7 +321,7 @@ def _parent_show(conn: sqlite3.Connection, entry: Anime) -> tuple[int, Show | No
             "SELECT id FROM titles WHERE anilist_id = ? AND tmdb_type = 'tv'", (related.id,)
         ).fetchone()
         if row is not None:
-            show = show_from_rows(conn, row["id"])
+            show = show_of(conn, row["id"])
             if show is not None and show.season(0):
                 return row["id"], show
     return None
@@ -493,7 +472,3 @@ def _series_last(ranked: list[Guess]) -> int:
 
 def _waiting(service: str, error: WebError) -> str:
     return f"Titles wait for the next scan: {service} couldn't be asked ({error})"
-
-
-def _day(text: str | None) -> date | None:
-    return date.fromisoformat(text) if text else None

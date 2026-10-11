@@ -25,6 +25,7 @@ from kura.core.media import Json
 from kura.identify import Identifier
 from kura.library import find_files, folders, read_file, unread
 from kura.probe import ProbeToolError, probe
+from kura.reports import write_reports
 from kura.tools import Tools
 from kura.web import Send, send
 
@@ -181,7 +182,17 @@ class Scanner:
                     if identified is None:
                         return self._stop(conn, scan_id, "identifying")
                     _set(conn, scan_id, stage="checking", note=identified.note)
-                _set(conn, scan_id, state="done", stage="done", finished_at=self._now().isoformat())
+                # Checking: the gap analysis next to each anime that has a folder of its own.
+                written = write_reports(conn, now=self._now())
+                note = " ".join(written.problems) or None
+                _set(
+                    conn,
+                    scan_id,
+                    state="done",
+                    stage="done",
+                    finished_at=self._now().isoformat(),
+                    note=note,
+                )
             except _NoReaderError:
                 _set(conn, scan_id, state="failed", problem=_NEEDS_FFMPEG)
             except ProbeToolError as error:

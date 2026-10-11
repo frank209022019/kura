@@ -9,6 +9,12 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Scans identify every video: which anime, movie, OVA or special it is and, with a TMDB key,
+  which season and episode, numbered as Plex shows them. Files Kura isn't sure about wait for you
+  instead of being guessed. Offline, the scan still finishes and identifies them next time.
+- A gap analysis next to each anime that has a folder of its own (`Kura - Gap analysis.md`): the
+  episodes TMDB lists as aired that the library doesn't hold, with specials and OVAs listed apart
+  and never counted as missing.
 - Setup takes your TMDB key, for episode lists, episode titles and artwork. It's optional: Kura
   checks the key with TMDB, then keeps it on this PC only, encrypted for your Windows account and
   never in an export. Home says whether TMDB is connected.

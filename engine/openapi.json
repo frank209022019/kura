@@ -497,10 +497,189 @@
           }
         ]
       }
+    },
+    "/titles": {
+      "get": {
+        "summary": "List Titles",
+        "description": "Every anime and film in the library, oldest release first unless asked otherwise.",
+        "operationId": "list_titles_titles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Order",
+              "description": "released (the default), name, added or missing",
+              "default": "released"
+            },
+            "description": "released (the default), name, added or missing"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TitleSummary"
+                  },
+                  "title": "Response List Titles Titles Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/titles/{title_id}": {
+      "get": {
+        "summary": "One Title",
+        "operationId": "one_title_titles__title_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/titles/{title_id}/poster": {
+      "get": {
+        "summary": "Title Poster",
+        "description": "The title's poster, fetched once from TMDB or AniList and then kept.",
+        "operationId": "title_poster_titles__title_id__poster_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "EpisodeRef": {
+        "properties": {
+          "season": {
+            "type": "integer",
+            "title": "Season"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "aired": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aired"
+          }
+        },
+        "type": "object",
+        "required": [
+          "season",
+          "number",
+          "name",
+          "aired"
+        ],
+        "title": "EpisodeRef"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -666,6 +845,15 @@
         ],
         "title": "NewKey"
       },
+      "Order": {
+        "type": "string",
+        "enum": [
+          "released",
+          "name",
+          "added",
+          "missing"
+        ]
+      },
       "Scan": {
         "properties": {
           "state": {
@@ -799,6 +987,34 @@
         ],
         "title": "Scan"
       },
+      "SeasonCount": {
+        "properties": {
+          "season": {
+            "type": "integer",
+            "title": "Season"
+          },
+          "present": {
+            "type": "integer",
+            "title": "Present"
+          },
+          "aired": {
+            "type": "integer",
+            "title": "Aired"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "season",
+          "present",
+          "aired",
+          "total"
+        ],
+        "title": "SeasonCount"
+      },
       "Settings": {
         "properties": {
           "standard": {
@@ -868,6 +1084,355 @@
           "graphicsCard"
         ],
         "title": "System"
+      },
+      "TitleDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TitleKind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "released": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released"
+          },
+          "airing": {
+            "type": "boolean",
+            "title": "Airing"
+          },
+          "hasPoster": {
+            "type": "boolean",
+            "title": "Hasposter"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          },
+          "added": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
+          "aired": {
+            "type": "integer",
+            "title": "Aired"
+          },
+          "present": {
+            "type": "integer",
+            "title": "Present"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          },
+          "specialsMissing": {
+            "type": "integer",
+            "title": "Specialsmissing"
+          },
+          "upcoming": {
+            "type": "integer",
+            "title": "Upcoming"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/SeasonCount"
+            },
+            "type": "array",
+            "title": "Seasons"
+          },
+          "missingEpisodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeRef"
+            },
+            "type": "array",
+            "title": "Missingepisodes"
+          },
+          "missingSpecials": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeRef"
+            },
+            "type": "array",
+            "title": "Missingspecials"
+          },
+          "upcomingEpisodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeRef"
+            },
+            "type": "array",
+            "title": "Upcomingepisodes"
+          },
+          "videos": {
+            "items": {
+              "$ref": "#/components/schemas/TitleFile"
+            },
+            "type": "array",
+            "title": "Videos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "year",
+          "released",
+          "airing",
+          "hasPoster",
+          "files",
+          "added",
+          "aired",
+          "present",
+          "missing",
+          "specialsMissing",
+          "upcoming",
+          "seasons",
+          "missingEpisodes",
+          "missingSpecials",
+          "upcomingEpisodes",
+          "videos"
+        ],
+        "title": "TitleDetail"
+      },
+      "TitleFile": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "episodeEnd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episodeend"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "season",
+          "episode",
+          "episodeEnd",
+          "problem",
+          "height",
+          "codec",
+          "duration"
+        ],
+        "title": "TitleFile"
+      },
+      "TitleKind": {
+        "type": "string",
+        "enum": [
+          "series",
+          "movie",
+          "ova",
+          "special"
+        ],
+        "title": "TitleKind",
+        "description": "What a title is, in the words Kura shows: a TV series, a movie, an OVA or a special."
+      },
+      "TitleSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TitleKind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "released": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released"
+          },
+          "airing": {
+            "type": "boolean",
+            "title": "Airing"
+          },
+          "hasPoster": {
+            "type": "boolean",
+            "title": "Hasposter"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          },
+          "added": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
+          "aired": {
+            "type": "integer",
+            "title": "Aired"
+          },
+          "present": {
+            "type": "integer",
+            "title": "Present"
+          },
+          "missing": {
+            "type": "integer",
+            "title": "Missing"
+          },
+          "specialsMissing": {
+            "type": "integer",
+            "title": "Specialsmissing"
+          },
+          "upcoming": {
+            "type": "integer",
+            "title": "Upcoming"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "year",
+          "released",
+          "airing",
+          "hasPoster",
+          "files",
+          "added",
+          "aired",
+          "present",
+          "missing",
+          "specialsMissing",
+          "upcoming"
+        ],
+        "title": "TitleSummary"
       },
       "TmdbStatus": {
         "properties": {

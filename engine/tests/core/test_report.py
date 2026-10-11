@@ -1,6 +1,6 @@
 """The gap analysis file. The expected text is the one shown on the design's title board."""
 
-from datetime import datetime
+from datetime import date, datetime
 from fractions import Fraction
 from pathlib import PureWindowsPath
 
@@ -12,6 +12,7 @@ from kura.core.media import MediaInfo, Video
 from kura.core.report import (
     EpisodeState,
     GapAnalysis,
+    SpecialState,
     Status,
     conversion_summary,
     describe_gpu_time,
@@ -97,6 +98,29 @@ def test_a_complete_show_with_nothing_to_do_says_so_briefly():
         "## Summary\n"
         "- Present: **26 of 26** episodes (100%)\n"
         "- Missing: **0** · Broken: **0** · At standard: **26**\n"
+    )
+
+
+def test_specials_and_ovas_the_library_lacks_are_listed_apart():
+    analysis = GapAnalysis(
+        show="Cowboy Bebop (1998)",
+        library=PureWindowsPath(r"D:\Anime"),
+        updated=datetime(2026, 10, 10, 9, 5),
+        episodes=tuple(EpisodeState(number, Status.READY) for number in all_episodes((26,))),
+        specials=(
+            SpecialState(2, "Yoseatsume Blues", date(1998, 6, 26)),
+            SpecialState(3, None, None),
+        ),
+    )
+
+    text = gap_analysis_markdown(analysis)
+
+    assert "- Missing: **0** · Broken: **0** · At standard: **26**\n" in text
+    assert text.endswith(
+        "\n"
+        "## Specials and OVAs not in the library\n"
+        "- S00E02 · Yoseatsume Blues · 26 Jun 1998\n"
+        "- S00E03\n"
     )
 
 

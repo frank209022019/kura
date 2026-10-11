@@ -17,7 +17,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from kura import __version__, changes, db
-from kura.api import health, library, scan, settings, system, tmdb, tools
+from kura.api import health, library, scan, settings, system, titles, tmdb, tools
 from kura.config import DataPaths
 from kura.scan import Scanner
 from kura.tools import Tools
@@ -87,6 +87,7 @@ def create_app(
     app.include_router(settings.router)
     app.include_router(system.router)
     app.include_router(tmdb.router)
+    app.include_router(titles.router)
     return app
 
 

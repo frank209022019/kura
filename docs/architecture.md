@@ -70,6 +70,9 @@ kura/
   scan.py         the scan: find every video, read each one, identify it, check the library
   identify.py     which anime and episode each video is, asked of AniList and TMDB
   cache.py        their answers, kept a while so a rescan asks nobody again
+  titles.py       the library's titles with their gaps, sorted by release date or otherwise
+  reports.py      the gap analysis written next to each anime with a folder of its own
+  artwork.py      posters, fetched once from TMDB or AniList and kept
   probe.py        running ffprobe on one file
   tools.py        downloading what downloads.json lists (ffmpeg)
   changes.py      applying and undoing tidy-up plans, journaled
@@ -104,6 +107,10 @@ next start carries on. Then each video read is identified (`kura/identify.py`): 
 like the same anime are looked up together on AniList, and with the owner's TMDB key the same show
 or film is found on TMDB, whose episode lists say where each file sits. A file Kura isn't sure
 about waits for the owner; offline, identification waits for the next scan and the scan says so.
+Last, the scan checks the library: each series with a folder of its own gets its
+`Kura - Gap analysis.md` (`kura/reports.py`), rewritten only when its news changes. The missing
+episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`); specials and
+OVAs are listed apart and never counted as missing.
 A folder on an unplugged drive is skipped and its files stay as they were,
 and so do the files in a folder the walk couldn't open; only a file whose folder is there without
 it is marked gone. Links and junctions aren't followed. Files that couldn't be read are read again
@@ -122,7 +129,8 @@ rename with it, and folders inside a library folder that the moves leave truly e
 
 - **The data folder**, `%LOCALAPPDATA%\Kura`: `kura.db` (everything Kura knows), `logs/`
   (`engine.log`, kept 30 days), `tools/` (ffmpeg), `credentials.json` (the TMDB key, encrypted by
-  Windows for this user and never exported), later `artwork/` and `backups/` (7 nights).
+  Windows for this user and never exported), `cache/` (answers from TMDB and AniList, safe to
+  delete), `artwork/` (posters), later `backups/` (7 nights).
   Development uses `engine/.dev-data`, so it never touches the real folder.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
   A database written by a newer Kura is refused, not damaged.
