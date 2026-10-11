@@ -226,12 +226,11 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 **Delivery**
 - GitHub repo `frankgrobbelaar/kura`, public under the MIT licence (the owner's call on
-  2026-10-10, replacing private releases through the `gh` login). The account was
-  renamed on 2026-10-11: the links and the app's identifier
-  (`io.github.frankgrobbelaar.kura`) follow the new name. Anyone may fork; only collaborators
-  can open pull requests (a repo setting) and issues are off: no contributions. Secret scanning
-  with push protection is on: GitHub refuses a push that holds a known secret. CI on every push
-  to `main` (Windows runners).
+  2026-10-10, replacing private releases through the `gh` login); the app's identifier is
+  `io.github.frankgrobbelaar.kura`. Anyone may fork; only collaborators can open pull requests
+  (a repo setting) and issues are off: no contributions. Secret scanning with push protection is
+  on: GitHub refuses a push that holds a known secret. CI on every push to `main` (Windows
+  runners).
 - Semantic versions and a changelog (the owner, 2026-10-11): patch for fixes, minor for features,
   major for a change to act on. `scripts/release.mjs` picks the version, moves CHANGELOG.md's
   "Unreleased" entries under it, commits and tags; it and the release workflow refuse a version
