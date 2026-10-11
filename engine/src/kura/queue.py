@@ -12,7 +12,8 @@ connected waits while the others go; a drive without room for a result pauses th
 so. While a result takes its original's place no scan runs (Scanner.hold): the worker waits for
 one that's running. While a file converts, Windows doesn't put the PC to sleep. After a crash,
 `recover` puts a job that was converting back in line and settles one whose result was taking
-its original's place.
+its original's place. Once nothing waits, the app is told what the batch came to, and it's told
+when the queue pauses itself: a Windows notification while Kura is in the tray.
 """
 
 import ctypes
@@ -133,9 +134,13 @@ class Queue:
         *,
         now: Callable[[], datetime],
         clock: Callable[[], float] = time.monotonic,
+        notify: Callable[[str, str], None] = lambda _title, _body: None,
     ) -> None:
-        """`programs` gives what converting runs, or None while Kura has no ffmpeg."""
+        """`programs` gives what converting runs, or None while Kura has no ffmpeg. `notify`
+        tells the app something worth a notification: a title and a line."""
         self._paths = paths
+        self._notify = notify
+        self._batch: list[int] = []  # files converted (or failed) since nothing last waited
         self._scanner = scanner
         self._programs = programs
         self._now = now
@@ -411,9 +416,11 @@ class Queue:
             self._stopped(conn, job_id)
         except NoRoomError as error:
             self._back_in_line(conn, job_id)  # it, and the rest, wait for room
+            problem = f"{error} Make room, then resume the queue."
             with conn:
                 _save(conn, _PAUSED, True)
-                _save(conn, _HELD_UP, f"{error} Make room, then resume the queue.")
+                _save(conn, _HELD_UP, problem)
+            self._notify("The queue paused", problem)
         except ConvertError as error:
             self._finished(conn, job_id, "failed", str(error))
         except Exception:
@@ -422,6 +429,30 @@ class Queue:
         finally:
             with self._lock:
                 self._job_id, self._stop_for, self._progress = None, None, None
+        self._noted(conn, job_id)
+
+    def _noted(self, conn: sqlite3.Connection, job_id: int) -> None:
+        """A file converted (or failed) joins the batch, and once nothing waits, the app is told
+        what the batch came to."""
+        row = conn.execute("SELECT state FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is not None and row["state"] in ("done", "failed"):
+            self._batch.append(job_id)
+        waiting = conn.execute(
+            "SELECT 1 FROM jobs WHERE state IN ('queued', 'running', 'replacing') LIMIT 1"
+        ).fetchone()
+        if waiting is not None or not self._batch:
+            return
+        marks = ", ".join("?" * len(self._batch))
+        rows = conn.execute(
+            f"""SELECT j.state, j.source_size, j.output_size, f.season, f.episode, f.title_id,
+                       t.name AS title
+                FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+                LEFT JOIN titles AS t ON t.id = f.title_id
+                WHERE j.id IN ({marks})""",  # noqa: S608 - only placeholders go in
+            self._batch,
+        ).fetchall()
+        self._batch.clear()
+        self._notify(*_told(rows))
 
     def _stopped(self, conn: sqlite3.Connection, job_id: int) -> None:
         """A file stopped on purpose: skipped, or first in line again (paused, or Kura closing)."""
@@ -520,6 +551,42 @@ class Queue:
             if not worked:
                 self._wake.wait(_IDLE)
                 self._wake.clear()
+
+
+def _told(rows: list[sqlite3.Row]) -> tuple[str, str]:
+    """What a finished batch is called and what it came to: "Dragon Ball Z, season 1 is done",
+    "39 episodes · all checked · 9.1 GB → 17.5 GB"."""
+    titles = {row["title_id"] for row in rows}
+    seasons = {row["season"] for row in rows}
+    name = rows[0]["title"]
+    if len(titles) == 1 and name and len(seasons) == 1 and None not in seasons:
+        season = rows[0]["season"]
+        title = f"{name}, season {season} is done" if season else f"{name}, the specials are done"
+    elif len(titles) == 1 and name:
+        title = f"{name} is done"
+    else:
+        title = "The queue is done"
+    done = [row for row in rows if row["state"] == "done"]
+    failed = len(rows) - len(done)
+    what = "episode" if all(row["episode"] is not None for row in rows) else "file"
+    if failed:
+        count = f"{len(done)} converted, {failed} failed"
+    else:
+        count = f"{len(done)} {what}{'' if len(done) == 1 else 's'} · all checked"
+    before = sum(row["source_size"] or 0 for row in done)
+    after = sum(row["output_size"] or 0 for row in done)
+    return title, f"{count} · {_size(before)} → {_size(after)}" if done else count
+
+
+def _size(count: int) -> str:
+    """Bytes as the app writes them: "412 MB", "9.1 GB", "35 GB"."""
+    if count >= 10**10:
+        return f"{round(count / 10**9)} GB"
+    if count >= 10**9:
+        return f"{count / 10**9:.1f} GB"
+    if count >= 10**6:
+        return f"{round(count / 10**6)} MB"
+    return f"{max(1, round(count / 10**3)) if count else 0} KB"
 
 
 def programs_from(tools: Tools) -> Programs | None:

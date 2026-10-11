@@ -46,14 +46,20 @@ def shows(conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 
 def make_queue(
-    paths: DataPaths, kit: Programs | None = None, scanner: Scanner | None = None
+    paths: DataPaths,
+    kit: Programs | None = None,
+    scanner: Scanner | None = None,
+    told: list[tuple[str, str]] | None = None,
 ) -> Queue:
+    """A queue on the test's data; what it tells the app (a notification) goes into `told`."""
     clock = iter(range(1, 10_000))
+    heard = told if told is not None else []
     return Queue(
         paths,
         scanner or Scanner(paths, Tools(paths, items=())),
         lambda: kit,
         now=lambda: NOW + timedelta(seconds=next(clock)),
+        notify=lambda title, body: heard.append((title, body)),
     )
 
 
@@ -427,3 +433,58 @@ def test_a_full_drive_pauses_the_queue_and_says_so(
     assert status.paused is True
     assert status.problem is not None
     assert status.problem.startswith("There isn't room on")
+
+
+def test_once_nothing_waits_the_batch_is_told_of(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    told: list[tuple[str, str]] = []
+    queue = make_queue(paths, programs(RESULT), told=told)
+    queue.add([1, 2])
+
+    queue.work_once()
+    assert told == []  # one still waits
+    queue.work_once()
+
+    [(title, body)] = told
+    assert title == "Trigun, season 1 is done"
+    assert body.startswith("2 episodes · all checked · ")
+    assert " → " in body
+
+
+def test_a_batch_with_a_failure_says_so(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    told: list[tuple[str, str]] = []
+    queue = make_queue(paths, programs(RESULT), told=told)
+    with conn:  # one from another show
+        conn.execute("INSERT INTO titles (id, kind, name) VALUES (2, 'series', 'Cowboy Bebop')")
+        conn.execute("UPDATE files SET title_id = 2 WHERE id = 2")
+    queue.add([1, 2])
+    queue.work_once()
+    monkeypatch.setenv("KURA_FAKE_FAIL", "encode")
+
+    queue.work_once()
+
+    [(title, body)] = told
+    assert title == "The queue is done"
+    assert body.startswith("1 converted, 1 failed · ")
+
+
+def test_a_full_drive_is_told_of(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    told: list[tuple[str, str]] = []
+    queue = make_queue(paths, programs(RESULT), told=told)
+    queue.add([1])
+
+    def full(path: object) -> SimpleNamespace:
+        return SimpleNamespace(total=10**12, used=10**12 - 10**6, free=10**6)
+
+    monkeypatch.setattr("kura.convert.shutil.disk_usage", full)
+
+    queue.work_once()
+
+    [(title, body)] = told
+    assert title == "The queue paused"
+    assert body.startswith("There isn't room on")

@@ -13,7 +13,7 @@ from typing import Annotated
 import typer
 import uvicorn
 
-from kura import __version__
+from kura import __version__, events
 from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
 from kura.export import export_data
@@ -53,7 +53,7 @@ def serve(
     sock.bind(("127.0.0.1", port))
     sock.listen()  # early requests wait in the queue until the server is up
     # While it runs, the engine keeps the library current and converts the queue.
-    app = create_app(token, paths, watch=True, work=True)
+    app = create_app(token, paths, watch=True, work=True, notify=events.notify)
     config = uvicorn.Config(app, log_config=None, access_log=False)
     server = uvicorn.Server(config)
     if watch_stdin:

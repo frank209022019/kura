@@ -6,7 +6,7 @@ routes as an APIRouter in its own module, included below.
 """
 
 import secrets
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager, closing
 from datetime import datetime
 from pathlib import Path
@@ -61,11 +61,12 @@ def create_app(
     *,
     watch: bool = False,
     work: bool = False,
+    notify: Callable[[str, str], None] = lambda _title, _body: None,
 ) -> FastAPI:
     """The API, with its parts. Tests pass their own tools, scanner and transport (the
     internet as TMDB and AniList see it). `watch` keeps the library current while the engine
     runs (kura/watch.py), and `work` converts the queue (kura/queue.py): `kura serve` turns
-    both on."""
+    both on, and passes `notify`, which tells the app what's worth a notification."""
     expected = token.encode()
 
     def require_token(
@@ -125,7 +126,9 @@ def create_app(
     app.state.watcher = None  # set while it runs
     # What converting runs: Kura's ffmpeg, the AI model and Anime4K's shader (tests stand in).
     app.state.programs = lambda: programs_from(app.state.tools)
-    app.state.queue = Queue(paths, app.state.scanner, lambda: app.state.programs(), now=_now)
+    app.state.queue = Queue(
+        paths, app.state.scanner, lambda: app.state.programs(), now=_now, notify=notify
+    )
     app.state.gpu = Gpu()
     app.state.care = Care(paths, app.state.scanner.hold, now=_now)
     # The middleware added last runs first: CORS answers the webview's preflight
