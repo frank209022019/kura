@@ -3,7 +3,8 @@ again, the home folder keeping a note of where it went."""
 
 import os
 import shutil
-from contextlib import closing
+from collections.abc import Generator
+from contextlib import closing, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -121,3 +122,75 @@ def test_a_drive_without_room_for_it_isnt_taken(
 
     with pytest.raises(MoveError, match="There isn't room"):
         ask_to_move(DataPaths(home), tmp_path / "F" / "Kura data")
+
+
+def test_a_move_cut_short_leaves_the_data_where_it_was_and_says_so(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    target = tmp_path / "F" / "Kura data"
+    ask_to_move(DataPaths(home), target)
+    copy = shutil.copy2
+
+    def power_cut(source: str | os.PathLike[str], destination: str | os.PathLike[str]) -> object:
+        if os.fspath(source).endswith("1.jpg"):
+            raise KeyboardInterrupt  # Kura stopped part-way: a power cut, or the app ending it
+        return copy(source, destination)
+
+    monkeypatch.setattr("kura.relocate.shutil.copy2", power_cut)
+    with pytest.raises(KeyboardInterrupt):
+        move_asked(home, NOW)
+    monkeypatch.undo()
+
+    stayed = move_asked(home, NOW)  # the next start
+
+    assert stayed.root == home
+    assert setting(home) == '"keep"'
+    assert (home / "artwork" / "1.jpg").is_file()
+    assert not target.exists()  # the part-made copy went, so the folder can be chosen again
+    with closing(db.connect(home / "kura.db")) as conn:
+        found = last_move(conn)
+    assert found is not None
+    assert found.problem == "Kura stopped while it moved the data, so it stayed where it was."
+
+
+def test_a_move_cut_short_once_the_copy_was_in_place_is_finished_at_the_next_start(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    target = tmp_path / "F" / "Kura data"
+    ask_to_move(DataPaths(home), target)
+
+    def power_cut(path: Path) -> None:
+        raise KeyboardInterrupt  # as the old copy began to go
+
+    monkeypatch.setattr("kura.relocate._remove", power_cut)
+    with pytest.raises(KeyboardInterrupt):
+        move_asked(home, NOW)
+    monkeypatch.undo()
+
+    moved = move_asked(home, NOW)  # the next start
+
+    assert moved.root == target
+    assert setting(target) == '"keep"'
+    assert sorted(path.name for path in home.iterdir()) == [LOCATION]  # the old copy went
+    with closing(db.connect(target / "kura.db")) as conn:
+        assert last_move(conn) == Moved(str(home), str(target), NOW.isoformat(), None)
+
+
+def test_while_the_data_moves_the_app_is_told_the_engine_is_still_starting(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    target = tmp_path / "F" / "Kura data"
+    ask_to_move(DataPaths(home), target)
+    told: list[str] = []
+    monkeypatch.setattr("kura.relocate.events.working", lambda: still(told))
+
+    move_asked(home, NOW)
+
+    assert told == ["working", "done"]
+
+
+@contextmanager
+def still(told: list[str]) -> Generator[None]:
+    told.append("working")
+    yield
+    told.append("done")

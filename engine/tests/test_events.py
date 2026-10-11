@@ -1,10 +1,11 @@
 """What the engine tells the app on its standard output, after the ready line."""
 
 import json
+import time
 
 import pytest
 
-from kura.events import notify
+from kura.events import notify, working
 
 
 def test_a_notification_is_one_json_line_in_plain_ascii(capsys: pytest.CaptureFixture[str]):
@@ -18,3 +19,16 @@ def test_a_notification_is_one_json_line_in_plain_ascii(capsys: pytest.CaptureFi
         "title": "Trigun, season 1 is done",
         "body": "26 episodes · all checked · 6.1 GB → 11.7 GB",
     }
+
+
+def test_while_it_works_at_starting_the_engine_says_so_every_few_seconds(
+    capsys: pytest.CaptureFixture[str],
+):
+    with working(every=0.02):
+        time.sleep(0.2)
+    said = capsys.readouterr().out.splitlines()
+    time.sleep(0.1)
+
+    assert len(said) >= 2
+    assert all(json.loads(line) == {"event": "working"} for line in said)
+    assert capsys.readouterr().out == ""  # nothing once it's done

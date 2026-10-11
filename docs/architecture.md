@@ -35,7 +35,9 @@ engine, where it is easy to test.
 1. The shell starts `kura serve --watch-stdin` with a fresh random token in `KURA_TOKEN`
    (in development: `uv run kura …` from `engine/`; installed: the bundled `kura-engine.exe`).
 2. The engine listens on `127.0.0.1` on a free port and prints one line:
-   `{"event": "ready", "port": 51234}`.
+   `{"event": "ready", "port": 51234}`. Before that, while a long job keeps it starting (moving
+   the data to another drive), it prints `{"event": "working"}` every 5 seconds, and the shell
+   waits on.
 3. The shell sends the UI an `engine-status` event with the address and token.
 4. The UI calls the API with `Authorization: Bearer <token>`.
 5. On exit the shell closes the engine's stdin and the engine shuts down (the shell ends it
@@ -48,7 +50,7 @@ engine, where it is easy to test.
    `{"event": "notify", "title": …, "body": …}` lines (a finished batch, a queue that paused
    itself), which the shell shows as Windows notifications while the window is away.
 
-If no ready line arrives within a minute, the engine exits first, or it stops on its own later,
+If the engine is silent for a minute before its ready line, exits first, or stops on its own later,
 the status becomes `failed` with the engine's last error lines, and the UI says so with "Try again"
 and "Copy details". Both sides of this handshake are tested: `engine/tests/test_cli.py` and
 `app/src-tauri/src/engine.rs`.
@@ -235,7 +237,9 @@ Before queueing, the Convert screen shows one frame of a file before and after
   keeps a note, `location.txt`, naming where the data went: Kura, `kura export` and the
   uninstaller follow it, and an engine whose moved data isn't there (an unplugged drive) says so
   instead of starting empty. A move that fails leaves everything where it was, and Settings says
-  why.
+  why. While the data moves, the home keeps `moving.json` (where from, where to), so a move cut
+  short (a power cut, the app ended) is settled at the next start: finished when the data had
+  switched to its new place, or else the part-made copy goes and Settings says so.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
   A database written by a newer Kura is refused, not damaged.
 - **With the anime**: `Kura - Gap analysis.md` per anime (the owner can turn these off in

@@ -31,7 +31,8 @@ How Kura's code is written. The aim is code a newcomer can read top to bottom an
   and API turn them into exit codes and status codes.
 - One `APIRouter` module per feature in `kura/api/`; share dependencies through `api/common.py`.
 - Log with the standard `logging` module (`logging.getLogger(__name__)`); the engine writes
-  `logs/engine.log`. Nothing but the ready line goes to stdout while serving.
+  `logs/engine.log`. Nothing but the events in `kura/events.py` (the ready line, "working"
+  while a long job keeps it starting, notifications) goes to stdout while serving.
 
 ## TypeScript and React (the UI)
 

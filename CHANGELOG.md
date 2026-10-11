@@ -20,9 +20,10 @@ shows these notes when it offers the update.
   export's as its engine starts again, and what it knew till then is backed up first, so
   Backups can bring it back.
 - Move Kura's data to another drive (Settings > Your data): Kura copies it, checks the copy, and
-  only then removes the old one, as its engine starts again. If the drive it's on isn't
-  connected, Kura says so instead of starting empty, and uninstalling cleans up only Kura's own
-  files there.
+  only then removes the old one, as its engine starts again, however long that takes. A move cut
+  short (a power cut) is settled when Kura next starts. If the drive it's on isn't connected,
+  Kura says so instead of starting empty, and uninstalling cleans up only Kura's own files
+  there.
 - Start with Windows (Settings > General): Kura waits in the tray, so the queue, the nightly
   backup and the watching carry on, and closing the window keeps it there. While it's in the
   tray, a Windows notification says when a batch is done ("Trigun, season 1 is done · 26
