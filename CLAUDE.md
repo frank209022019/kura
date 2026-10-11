@@ -179,6 +179,13 @@ Everything decided so far. Don't ask again; change only with the owner.
   with `LICENSE.txt`. `engine/tools/third_party_notices.py` writes it from what was actually
   bundled (PyInstaller's records, Cargo's graph, Vite's licence report) and stops the build on
   a licence that isn't allowed.
+- **Every download is listed in the installer** (the owner, 2026-10-11: "really important"). No
+  one installs anything by hand except a graphics driver, which Kura checks and links to. What
+  isn't inside the installer (WebView2 on a PC without it; later ffmpeg, the AI models, manami's
+  database) goes in one manifest in the repo: what it's for, version, size, licence, source and
+  checksum. The installer shows that list before it installs, the first-run Tools step downloads
+  it, Settings shows it, and Kura downloads nothing that isn't on it. Built with the first
+  download, ffmpeg.
 - Per-user install (no admin) into `%LOCALAPPDATA%\Programs\Kura`, apart from the data.
 - The update-signing key is `%USERPROFILE%\.tauri\kura-updater.key` (no password) and the
   `TAURI_SIGNING_PRIVATE_KEY` repo secret. Lose it and installed copies can't update.
@@ -194,7 +201,11 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 1. A one-day spike: measure AI upscaling fps on the GTX 1660 Super (ONNX Runtime with DirectML and
    CUDA, Real-ESRGAN anime model vs Anime4K) to settle the conversion pipeline and the estimates.
-2. Scanning: add folders, find files, read them with ffprobe, the first-scan screen.
+   Whatever wins reaches other PCs through the download list: DirectML ships inside Kura, CUDA
+   would add more than a gigabyte to every NVIDIA PC's downloads. The spike's own tools (PyTorch
+   to convert a model, CUDA) are for measuring only and never ship.
+2. Scanning: the download manifest and the installer's list, with ffmpeg first; add folders, find
+   files, read them with ffprobe, the first-scan screen.
 3. Identification and the library home, then tidy-up plans, then conversion.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), each AI
