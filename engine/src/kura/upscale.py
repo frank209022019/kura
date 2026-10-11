@@ -14,7 +14,6 @@ from typing import IO, Protocol
 
 import numpy as np
 import numpy.typing as npt
-import onnxruntime as ort
 
 MODEL = Path(__file__).parent / "assets" / "realesr-animevideov3.onnx"
 _BUFFERED = 8  # frames waiting on either side of the model
@@ -32,7 +31,12 @@ class UpscaleError(Exception):
 
 def model(width: int, height: int, path: Path = MODEL) -> Upscaler:
     """The model on the graphics card, ready for frames of this size. Raises UpscaleError when
-    the card can't run it (DirectML needs a DirectX 12 card)."""
+    the card can't run it (DirectML needs a DirectX 12 card). ONNX Runtime loads only now: the
+    engine starts sooner, and starts even where it can't load."""
+    try:
+        import onnxruntime as ort  # loaded when first needed, see above
+    except ImportError as error:
+        raise UpscaleError(f"Kura couldn't load ONNX Runtime ({error}).") from error
     options = ort.SessionOptions()
     options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     options.enable_mem_pattern = False  # DirectML asks for both of these
