@@ -37,6 +37,7 @@ class Scans:
         self.state: State = state
         self.started = 0
         self.busy = False
+        self.kura_moving = False
 
     def start(self) -> ScanStatus:
         if self.busy:
@@ -46,6 +47,9 @@ class Scans:
 
     def status(self) -> ScanStatus:
         return ScanStatus(self.state, None, None, None, 0, 0, 0, 0, None, None, (), None)
+
+    def moving(self) -> bool:
+        return self.kura_moving
 
 
 class Clock:
@@ -114,6 +118,18 @@ def test_a_change_starts_a_scan_once_the_folder_is_quiet(
 
     watcher.tick()
     assert scans.started == 1  # once per change
+
+
+def test_files_kura_moves_itself_start_no_scan(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection
+):
+    scans.kura_moving = True  # a tidy-up, or a converted file taking its original's place
+
+    watcher.notice()
+    clock.now += QUIET
+    watcher.tick()
+
+    assert scans.started == 0
 
 
 def test_a_busy_scanner_gets_the_change_on_a_later_tick(

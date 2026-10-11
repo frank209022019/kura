@@ -25,6 +25,7 @@ def graphics_card() -> str | None:
     try:
         result = subprocess.run(  # noqa: S603 - a fixed command, no shell
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", query],  # noqa: S607
+            stdin=subprocess.DEVNULL,  # the engine's own input is the app's
             capture_output=True,
             text=True,
             timeout=20,

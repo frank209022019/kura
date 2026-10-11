@@ -34,6 +34,7 @@ def probe(ffprobe: Path | Sequence[str], file: Path, timeout: float = 120) -> Js
     try:
         result = subprocess.run(  # noqa: S603 - Kura's own ffprobe, and a path, never a shell
             [*command, *_ARGUMENTS, "-show_chapters", str(file)],
+            stdin=subprocess.DEVNULL,  # the engine's own input is the app's
             capture_output=True,
             timeout=timeout,
             creationflags=_NO_WINDOW,
@@ -71,6 +72,7 @@ def _works(command: Sequence[str]) -> bool:
     try:
         result = subprocess.run(  # noqa: S603 - as in probe
             [*command, "-version"],
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             timeout=_CHECK_TIMEOUT,
             creationflags=_NO_WINDOW,

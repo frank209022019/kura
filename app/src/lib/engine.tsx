@@ -774,6 +774,9 @@ export interface Job {
   problem: string | null;
   sourceSize: number;
   outputSize: number | null;
+  /** The result's picture, for a file still to finish. */
+  width: number | null;
+  height: number | null;
 }
 
 /** The file converting now, and how it's going. */

@@ -78,6 +78,8 @@ class Job(ApiModel):
     problem: str | None
     source_size: int
     output_size: int | None
+    width: int | None  # the result's picture, for a file still to finish
+    height: int | None
 
 
 class Running(ApiModel):

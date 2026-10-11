@@ -35,6 +35,7 @@ from kura.web import Send, send
 log = logging.getLogger(__name__)
 
 _STOPPING = 0.5  # seconds a resume waits for a scan that's still stopping for a pause
+_SETTLING = 3.0  # seconds after Kura moves files that what Windows tells of them is Kura's doing
 
 type State = Literal["idle", "running", "paused", "done", "failed"]
 type Stage = Literal["finding", "reading", "identifying", "checking", "done"]
@@ -94,11 +95,14 @@ class Scanner:
         now: Callable[[], datetime] = _utc_now,
         transport: Send = send,
         anilist: AniList | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._paths = paths
         self._tools = tools
         self._read = read
         self._now = now
+        self._clock = clock
+        self._settled_at = 0.0  # what Windows tells of before this is Kura's own doing
         self._identifier = Identifier(paths, transport, now=now, anilist=anilist)
         self._lock = threading.Lock()
         self._pause = threading.Event()
@@ -169,6 +173,13 @@ class Scanner:
         finally:
             with self._lock:
                 self._held = False
+                self._settled_at = self._clock() + _SETTLING
+
+    def moving(self) -> bool:
+        """Whether Kura is moving files, or was a moment ago: what Windows tells of them then is
+        Kura's own doing, which its records follow already (the watcher starts no scan for it)."""
+        with self._lock:
+            return self._held or self._clock() < self._settled_at
 
     def wait(self, timeout: float | None = None) -> None:
         if thread := self._thread:

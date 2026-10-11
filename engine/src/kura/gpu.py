@@ -50,6 +50,7 @@ class Gpu:
         try:
             done = subprocess.run(  # noqa: S603 - the driver's nvidia-smi, never a shell
                 [*self._command, *_ASK],
+                stdin=subprocess.DEVNULL,  # the engine's own input is the app's
                 capture_output=True,
                 timeout=_TIMEOUT,
                 creationflags=_NO_WINDOW,

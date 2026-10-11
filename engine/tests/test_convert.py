@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import subprocess
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import cast
@@ -17,9 +18,10 @@ from kura.convert import (
     convert,
     lighter,
     restore,
+    start,
 )
 from kura.core.standard import CINEMA_1080, Method
-from tests.converting import BEST_TAG, programs, report
+from tests.converting import BEST_TAG, FAKE_FFMPEG, programs, report
 from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
@@ -193,3 +195,27 @@ def test_an_sd_episode_can_be_only_re_encoded(conn: sqlite3.Connection, episode:
 
     assert episode.read_bytes().startswith(b"converted ")
     assert not any("rawvideo" in command for command in commands)
+
+
+def test_programs_start_with_nothing_on_standard_input(monkeypatch: pytest.MonkeyPatch):
+    started: dict[str, object] = {}
+
+    def popen(command: list[str], **options: object) -> object:
+        started.update(options)
+        return object()
+
+    monkeypatch.setattr(subprocess, "Popen", popen)
+
+    start(["ffmpeg", "-version"])
+
+    assert started["stdin"] == subprocess.DEVNULL
+
+
+def test_a_test_play_reads_no_keys(conn: sqlite3.Connection, episode: Path):
+    commands: list[Sequence[str]] = []
+
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG), commands))
+
+    plays = [command for command in commands if "null" in command]
+    assert plays
+    assert all(command[len(FAKE_FFMPEG)] == "-nostdin" for command in plays)

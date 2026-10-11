@@ -86,6 +86,12 @@ def recipe(source: PurePath, media: MediaInfo, decision: Decision, *, tag: str) 
     )
 
 
+# ffmpeg looks for key presses (q to quit) on standard input. Under Kura's window that's the
+# engine's own input, which the engine waits on to know when the app closes, and Windows makes
+# ffmpeg's look wait behind that read: ffmpeg would stop for good. Every command turns it off.
+QUIET_INPUT = ("-nostdin",)
+
+
 def one_command(
     ffmpeg: Sequence[str],
     source: PurePath,
@@ -118,6 +124,7 @@ def one_command(
     picture = ["-c:v", "copy"] if made.method is Method.REMUX else [*NVENC]
     return [
         *ffmpeg,
+        *QUIET_INPUT,
         "-v",
         "error",
         "-y",
@@ -141,6 +148,7 @@ def decoder_command(ffmpeg: Sequence[str], source: PurePath, made: Recipe) -> li
     """For the AI model: the picture as raw frames of planar float RGB on standard output."""
     return [
         *ffmpeg,
+        *QUIET_INPUT,
         "-v",
         "error",
         "-i",
@@ -169,6 +177,7 @@ def encoder_command(
     width, height = upscaled
     return [
         *ffmpeg,
+        *QUIET_INPUT,  # its frames still come in on standard input
         "-v",
         "error",
         "-y",
@@ -200,6 +209,7 @@ def interlace_command(ffmpeg: Sequence[str], source: PurePath, *, at: float) -> 
     frames look interlaced (see `interlaced`)."""
     return [
         *ffmpeg,
+        *QUIET_INPUT,
         "-v",
         "info",
         "-nostats",

@@ -9,6 +9,16 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Convert: choose what to convert (a franchise, a title, or some of its seasons) and how: Best
+  quality with the AI model for SD, Fast with Anime4K, or only a re-encode. Before queueing, it
+  says what that takes: GPU time, size before and after, and the space on the drive. Every file
+  goes to your standard, and none gets more than suits it (the AI model is for SD).
+- The queue converts one file at a time while Kura is open, showing the graphics card's load and
+  temperature. Pause it (Space), skip a file, move one up, take one out, or run it on nights only
+  (23:00 to 07:00). Each result is checked (length, streams, a test play) before it takes its
+  original's place; the original waits in quarantine for 30 days and can be put back from
+  History, which lists every conversion with what it made. Kura keeps the PC awake while a file
+  converts.
 - Tidy up: Kura proposes where every identified video goes for Plex (`TV\Show (Year)\Season 01`,
   `Movies\Title (Year)`), title by title: moves out of folders holding several anime, renames in
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the

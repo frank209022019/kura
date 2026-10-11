@@ -4,6 +4,8 @@ import { ScreenError } from "@/components/screen-error";
 import { AppShell } from "@/components/shell/app-shell";
 import { sections } from "@/components/shell/sections";
 import { UpdateCard } from "@/components/shell/update-card";
+import { ConvertPage } from "@/features/convert/convert-page";
+import { QueuePage } from "@/features/convert/queue-page";
 import { FranchisePage } from "@/features/franchise/franchise-page";
 import { HistoryPage } from "@/features/history/history-page";
 import { HomePage } from "@/features/home/home-page";
@@ -18,7 +20,7 @@ import { EngineProvider } from "@/lib/engine";
 const queryClient = new QueryClient();
 
 /** The sections with a screen of their own; the rest say they're coming. */
-const BUILT = ["/", "/tidy", "/history"];
+const BUILT = ["/", "/tidy", "/convert", "/history"];
 
 export function App() {
   return (
@@ -41,6 +43,8 @@ export function App() {
               <Route path="/titles/:id" element={<TitlePage />} />
               <Route path="/franchises/:id" element={<FranchisePage />} />
               <Route path="/tidy" element={<TidyPage />} />
+              <Route path="/convert" element={<ConvertPage />} />
+              <Route path="/convert/queue" element={<QueuePage />} />
               <Route path="/history" element={<HistoryPage />} />
               {sections
                 .filter((section) => !BUILT.includes(section.path))

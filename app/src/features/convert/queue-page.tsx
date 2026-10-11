@@ -1,0 +1,683 @@
+import { AlertTriangle, Check, EllipsisVertical, GripVertical, Pause, Play } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
+import { useEffect, useId, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { EmptyState, ShelfIllustration } from "@/components/empty-state";
+import { EngineProblem } from "@/components/engine-problem";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  episodeCode,
+  gpuTime,
+  gpuTimeShort,
+  type JobGroup,
+  jobGroups,
+  METHOD_ENGINES,
+  METHOD_NAMES,
+} from "@/lib/convert";
+import {
+  type Job,
+  type QueueStatus,
+  type RunningJob,
+  useQueue,
+  useQueueAction,
+  useQueueSchedule,
+  useRemoveFromQueue,
+  useStill,
+} from "@/lib/engine";
+import { split } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { ConvertTabs } from "./convert-tabs";
+
+const LISTED = 5; // waiting files shown in the first group before "Show all"
+
+/** The queue: the file converting now, what's next, when it runs, and today's results. */
+export function QueuePage() {
+  const queue = useQueue();
+  const action = useQueueAction();
+  const status = queue.data;
+
+  // Space pauses or resumes, as the board's key hint says, unless a control has the focus.
+  const toggle = useRef<() => void>(() => {});
+  toggle.current = () => {
+    if (!status || action.isPending) return;
+    action.mutate({ path: status.paused ? "/queue/resume" : "/queue/pause" });
+  };
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.code !== "Space" || event.target !== document.body) return;
+      event.preventDefault();
+      toggle.current();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const header = (
+    <header className="flex animate-fade-up flex-wrap items-end justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <h1 className="type-title">Queue</h1>
+        {status && <StatusLine status={status} />}
+      </div>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <ConvertTabs queued={status ? status.queued.length : null} />
+        {status && (status.running || status.queued.length > 0) && (
+          <Button disabled={action.isPending} onClick={() => toggle.current()}>
+            {status.paused ? (
+              <Play size={14} fill="currentColor" aria-hidden="true" />
+            ) : (
+              <Pause size={14} fill="currentColor" aria-hidden="true" />
+            )}
+            {status.paused ? "Resume" : "Pause all"}
+            <kbd className="rounded-6 border border-white/14 px-1.5 font-mono text-11 text-fg-muted leading-[18px]">
+              Space
+            </kbd>
+          </Button>
+        )}
+      </div>
+    </header>
+  );
+  if (!status) {
+    return (
+      <>
+        {header}
+        <EngineProblem queries={[queue]} />
+      </>
+    );
+  }
+  const idle = !status.running && status.queued.length === 0;
+  return (
+    <>
+      {header}
+      <EngineProblem queries={[queue]} />
+      {action.isError && (
+        <p role="alert" className="text-13 text-broken-fg">
+          {action.error.message}
+        </p>
+      )}
+      {status.problem && (
+        <p
+          role="alert"
+          className="rounded-20 border border-broken/40 bg-broken/8 px-5 py-4 text-13"
+        >
+          {status.problem}
+        </p>
+      )}
+      {status.running ? (
+        <NowConverting running={status.running} gpu={status.gpu} paused={status.paused} />
+      ) : (
+        !idle && <Waiting status={status} />
+      )}
+      {idle && (
+        <EmptyState
+          title="Nothing waiting"
+          illustration={<ShelfIllustration />}
+          action={
+            <Button asChild variant="primary">
+              <Link to="/convert">Choose what to convert</Link>
+            </Button>
+          }
+        >
+          Files you add to the queue convert here, one at a time, each checked before it takes its
+          original's place.
+        </EmptyState>
+      )}
+      <div className="flex flex-wrap items-start gap-5">
+        {status.queued.length > 0 && <UpNext jobs={status.queued} />}
+        <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-5">
+          <Schedule status={status} />
+          <Today jobs={status.today} />
+          <p className="text-12 text-fg-faint">
+            Every finished file is checked for length, streams and a test play before it replaces
+            the original. Originals wait in quarantine for 30 days.
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function StatusLine({ status }: { status: QueueStatus }) {
+  const waiting = status.queued.length;
+  const left = status.gpuSeconds > 0 ? `about ${gpuTime(status.gpuSeconds)} of GPU time` : null;
+  const queued = `${waiting} in the queue`;
+  const [dot, words] = status.paused
+    ? ["bg-fg-faint", ["Paused", queued]]
+    : status.running
+      ? ["animate-pulse bg-accent", ["Running", queued, left]]
+      : status.waitsForNight && waiting > 0
+        ? ["bg-convert", ["Waiting for the night", queued, "starts at 23:00"]]
+        : waiting > 0
+          ? ["animate-pulse bg-accent", ["Starting", queued]]
+          : ["bg-fg-faint", ["Nothing waiting"]];
+  return (
+    <span className="inline-flex items-center gap-2 text-14 text-fg-muted">
+      <span aria-hidden="true" className={cn("size-2 rounded-full", dot)} />
+      {words.filter(Boolean).join(" · ")}
+    </span>
+  );
+}
+
+const STEPS = ["Read", "Upscale", "Encode", "Check"] as const;
+
+/** Where a file is: reading it, making it (upscaling, or only encoding), checking the result. */
+function stepOf(running: RunningJob): number {
+  if (running.stage === "looking") return 0;
+  if (running.stage === "converting")
+    return running.job.method === "best" || running.job.method === "fast" ? 1 : 2;
+  return 3;
+}
+
+function NowConverting(props: { running: RunningJob; gpu: QueueStatus["gpu"]; paused: boolean }) {
+  const { running } = props;
+  const { job } = running;
+  const action = useQueueAction();
+  const still = useStill(job.fileId, 1);
+  const steps = STEPS.filter(
+    (step) => step !== "Upscale" || job.method === "best" || job.method === "fast",
+  );
+  const at = steps.indexOf(STEPS[stepOf(running)] ?? "Read");
+  const share =
+    running.total > 0 ? Math.min(100, Math.round((running.frames / running.total) * 100)) : 0;
+  const speed = useSpeeds(running.fps);
+  return (
+    <section
+      aria-label="Now converting"
+      className="relative flex animate-fade-up flex-wrap items-center gap-6 overflow-hidden rounded-26 bg-featured p-6.5 text-white"
+    >
+      <span
+        aria-hidden="true"
+        className="-right-30 -bottom-40 absolute size-90 rounded-full bg-featured-orb/90"
+      />
+      <div
+        aria-hidden="true"
+        className="relative h-37.5 flex-[0_0_200px] overflow-hidden rounded-14 bg-[#6fa8dc] shadow-[0_20px_40px_-20px_rgb(0_0_0/0.6)]"
+      >
+        {still && <img src={still} alt="" className="size-full object-cover" />}
+      </div>
+      <div className="relative flex min-w-0 flex-[1_1_340px] flex-col gap-3">
+        <span className="font-extrabold text-12 text-converting">Now converting</span>
+        <h2 className="font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em]">{job.label}</h2>
+        <ol aria-label="Steps" className="flex flex-wrap items-center gap-1.5 font-bold text-12">
+          {steps.map((step, index) => (
+            <li
+              key={step}
+              aria-current={index === at ? "step" : undefined}
+              className={cn(
+                "inline-flex items-center gap-1.5",
+                index === at ? "text-converting" : index > at && "text-white/75",
+              )}
+            >
+              {index > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={cn("mr-0.5 h-0.5 w-3.5", index <= at ? "bg-accent" : "bg-white/30")}
+                />
+              )}
+              <StepMark done={index < at} now={index === at} />
+              {step}
+            </li>
+          ))}
+        </ol>
+        <div className="relative h-2 overflow-hidden rounded-4 bg-white/16">
+          <div
+            className="relative h-full overflow-hidden rounded-4 bg-accent transition-[width] duration-600 ease-cinema"
+            style={{ width: `${share}%` }}
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 animate-shimmer bg-linear-to-r from-white/0 via-white/60 to-white/0"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1.5 text-13 text-white/85">
+          <span>
+            {share}%
+            {running.secondsLeft !== null && running.secondsLeft > 0
+              ? ` · ${gpuTime(running.secondsLeft)} left`
+              : running.stage === "checking"
+                ? " · checking the result"
+                : running.stage === "replacing"
+                  ? " · putting it in place"
+                  : ""}
+          </span>
+          <span>
+            {METHOD_ENGINES[job.method]} → HEVC 10-bit
+            {job.width && job.height ? ` · ${job.width} × ${job.height}` : ""}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          <FeaturedButton
+            disabled={action.isPending || props.paused}
+            onClick={() => action.mutate({ path: "/queue/pause" })}
+          >
+            <Pause size={14} fill="currentColor" aria-hidden="true" />
+            Pause
+          </FeaturedButton>
+          <FeaturedButton
+            disabled={action.isPending}
+            onClick={() => action.mutate({ path: `/queue/${job.id}/skip` })}
+          >
+            Skip this file
+          </FeaturedButton>
+        </div>
+      </div>
+      <div className="relative grid min-w-60 flex-[0_1_300px] grid-cols-2 gap-2.5">
+        {props.gpu && (
+          <>
+            <Stat className="items-center">
+              <Ring busy={props.gpu.busy} />
+              <span className="text-12 text-white/80">GPU busy</span>
+            </Stat>
+            <Stat className="justify-center">
+              <span className="font-extrabold text-22 leading-none">{props.gpu.celsius} °C</span>
+              <span className="h-1.5 overflow-hidden rounded-3 bg-white/16">
+                <span
+                  className="block h-full rounded-3 bg-converting"
+                  style={{ width: `${Math.min(100, props.gpu.celsius)}%` }}
+                />
+              </span>
+              <span className="text-12 text-white/80">GPU temperature</span>
+            </Stat>
+          </>
+        )}
+        <Stat className="col-span-2">
+          <span className="flex justify-between text-12 text-white/80">
+            <span>Speed, last 10 min</span>
+            <span className="font-mono text-converting">
+              {running.fps ? `${running.fps.toFixed(1)} fps` : "…"}
+            </span>
+          </span>
+          <Sparkline values={speed} />
+        </Stat>
+      </div>
+    </section>
+  );
+}
+
+/** The speeds heard while this page is open, for the sparkline. */
+function useSpeeds(fps: number | null): number[] {
+  const [speeds, setSpeeds] = useState<number[]>([]);
+  useEffect(() => {
+    if (fps !== null) setSpeeds((before) => [...before.slice(-29), fps]);
+  }, [fps]);
+  return speeds;
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return <span className="h-9" />;
+  const top = Math.max(...values) * 1.15;
+  const points = values
+    .map((value, index) => `${(index / (values.length - 1)) * 240},${36 - (value / top) * 30}`)
+    .join(" ");
+  return (
+    <svg
+      width="100%"
+      height="36"
+      viewBox="0 0 240 36"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="var(--color-accent)"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function Ring({ busy }: { busy: number }) {
+  return (
+    <span className="relative size-16">
+      <svg
+        width="64"
+        height="64"
+        viewBox="0 0 100 100"
+        role="img"
+        aria-label={`Graphics card ${busy} percent busy`}
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          stroke="rgb(255 255 255 / 0.16)"
+          strokeWidth="10"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="40"
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeWidth="10"
+          strokeLinecap="round"
+          pathLength="100"
+          strokeDasharray="100"
+          strokeDashoffset={100 - busy}
+          transform="rotate(-90 50 50)"
+          className="transition-[stroke-dashoffset] duration-600 ease-cinema"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center font-extrabold text-14">
+        {busy}%
+      </span>
+    </span>
+  );
+}
+
+function Stat({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1.5 rounded-18 border border-white/12 bg-[rgb(6_10_28/0.62)] p-3.5",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StepMark({ done, now }: { done: boolean; now: boolean }) {
+  if (done) {
+    return (
+      <span className="inline-flex size-4.5 items-center justify-center rounded-full bg-accent text-on-accent">
+        <Check size={10} strokeWidth={3.6} aria-hidden="true" />
+      </span>
+    );
+  }
+  if (now) {
+    return (
+      <span className="inline-flex size-4.5 items-center justify-center rounded-full shadow-[inset_0_0_0_2px_var(--color-accent)]">
+        <span className="size-2 animate-pulse rounded-full bg-accent" />
+      </span>
+    );
+  }
+  return <span className="size-4.5 rounded-full shadow-[inset_0_0_0_2px_rgb(255_255_255/0.35)]" />;
+}
+
+function FeaturedButton(props: React.ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className="press inline-flex min-h-10.5 cursor-pointer items-center gap-2 rounded-full bg-white/14 px-4.5 font-bold text-white disabled:pointer-events-none disabled:opacity-50"
+    />
+  );
+}
+
+/** Files wait, but none converts: paused, waiting for the night, or about to start. */
+function Waiting({ status }: { status: QueueStatus }) {
+  const action = useQueueAction();
+  const words = status.paused
+    ? "The queue is paused. A file that was converting starts again from its beginning."
+    : status.waitsForNight
+      ? "Files convert tonight, from 23:00 to 07:00."
+      : "The next file starts in a moment.";
+  return (
+    <section
+      aria-label="Waiting"
+      className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-24 border border-edge bg-glass px-5.5 py-4.5"
+    >
+      <span className="text-14">{words}</span>
+      {status.paused && (
+        <Button
+          variant="primary"
+          disabled={action.isPending}
+          onClick={() => action.mutate({ path: "/queue/resume" })}
+        >
+          <Play size={14} fill="currentColor" aria-hidden="true" />
+          Resume
+        </Button>
+      )}
+    </section>
+  );
+}
+
+function UpNext({ jobs }: { jobs: Job[] }) {
+  const groups = jobGroups(jobs);
+  const [all, setAll] = useState(false);
+  const [first, ...rest] = groups;
+  if (!first) return null;
+  const listed = all ? first.jobs : first.jobs.slice(0, LISTED);
+  return (
+    <section
+      aria-labelledby="next-title"
+      className="flex min-w-0 flex-[999_1_560px] animate-fade-up flex-col gap-1 rounded-24 border border-edge bg-glass p-5.5"
+    >
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="next-title" className="font-extrabold text-18">
+          Up next
+        </h2>
+        <span className="text-12 text-fg-muted">Each file's menu moves or removes it</span>
+      </div>
+      <GroupLabel group={first} />
+      <ul className="flex flex-col">
+        {listed.map((job, index) => (
+          <JobRow key={job.id} job={job} first={jobs[0]?.id ?? null} top={index === 0} />
+        ))}
+      </ul>
+      {first.jobs.length > listed.length && (
+        <Button size="sm" variant="ghost" className="self-start" onClick={() => setAll(true)}>
+          Show {first.jobs.length - listed.length} more
+        </Button>
+      )}
+      {rest.length > 0 && (
+        <ul className="mt-2 flex flex-col border-white/6 border-t pt-2">
+          {rest.map((group) => (
+            <li key={group.key} className="flex items-center gap-2.5 py-2 text-13">
+              <span aria-hidden="true" className="size-2 rounded-full bg-[#2449b8]" />
+              <span className="min-w-0 flex-1 truncate">{group.label}</span>
+              <span className="font-mono text-12 text-fg-muted">
+                {group.jobs.length} · ≈ {gpuTimeShort(sum(group.jobs))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function GroupLabel({ group }: { group: JobGroup }) {
+  return (
+    <div className="flex items-center gap-2.5 py-2 font-extrabold text-12 text-fg-muted">
+      <span aria-hidden="true" className="size-2 rounded-full bg-[#2449b8]" />
+      {group.label} · {group.jobs.length} left
+    </div>
+  );
+}
+
+function JobRow({ job, first, top }: { job: Job; first: number | null; top: boolean }) {
+  const action = useQueueAction();
+  const remove = useRemoveFromQueue();
+  const [name] = split(job.path);
+  return (
+    <li className="flex min-h-13 items-center gap-3 border-white/6 border-b px-1.5 text-13 last:border-b-0">
+      <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
+      <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
+      <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
+      <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
+        {METHOD_NAMES[job.method]}
+      </span>
+      <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
+        ≈ {gpuTimeShort(job.gpuSeconds)}
+      </span>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          aria-label={`More for ${job.label}`}
+          className="press inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-fg-muted"
+        >
+          <EllipsisVertical size={16} aria-hidden="true" />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="end"
+            sideOffset={4}
+            className="z-50 flex min-w-44 flex-col rounded-16 border border-edge bg-dialog p-1.5 text-13 shadow-float"
+          >
+            {!top && first !== null && (
+              <MenuItem
+                onSelect={() =>
+                  action.mutate({ path: `/queue/${job.id}/move`, body: { before: first } })
+                }
+              >
+                Convert next
+              </MenuItem>
+            )}
+            <MenuItem
+              onSelect={() =>
+                action.mutate({ path: `/queue/${job.id}/move`, body: { before: null } })
+              }
+            >
+              Move to the end
+            </MenuItem>
+            <MenuItem onSelect={() => remove.mutate({ path: `/queue/${job.id}` })}>
+              Take out of the queue
+            </MenuItem>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </li>
+  );
+}
+
+function MenuItem({ onSelect, children }: { onSelect: () => void; children: React.ReactNode }) {
+  return (
+    <DropdownMenu.Item
+      onSelect={onSelect}
+      className="cursor-pointer rounded-10 px-3 py-2 font-bold text-fg-soft outline-none data-highlighted:bg-white/6 data-highlighted:text-fg"
+    >
+      {children}
+    </DropdownMenu.Item>
+  );
+}
+
+function Schedule({ status }: { status: QueueStatus }) {
+  const schedule = useQueueSchedule();
+  const id = useId();
+  const nights = status.schedule === "nights";
+  return (
+    <section
+      aria-labelledby="schedule-title"
+      className="flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="schedule-title" className="font-extrabold text-16">
+          Schedule
+        </h2>
+        <span className="font-bold text-12 text-accent-fg">
+          {nights ? "Nights only" : "Running now, by hand"}
+        </span>
+      </div>
+      <div className="flex items-start gap-3">
+        <Switch
+          id={id}
+          checked={nights}
+          disabled={schedule.isPending}
+          aria-describedby={`${id}-text`}
+          onCheckedChange={(on) =>
+            schedule.mutate({ path: "/queue/schedule", body: { schedule: on ? "nights" : "now" } })
+          }
+        />
+        <span className="flex flex-col gap-0.5">
+          <label htmlFor={id} className="cursor-pointer font-extrabold text-14">
+            Nights only, 23:00–07:00
+          </label>
+          <span id={`${id}-text`} className="text-12 text-fg-muted">
+            {nights && status.waitsForNight
+              ? "Picks up again tonight at 23:00"
+              : "A file started before 07:00 finishes"}
+          </span>
+        </span>
+      </div>
+      <p className="text-12 text-fg-muted">
+        Kura keeps the PC awake while a file converts; Windows' sleep settings come back when it's
+        done.
+      </p>
+    </section>
+  );
+}
+
+function Today({ jobs }: { jobs: Job[] }) {
+  const action = useQueueAction();
+  const navigate = useNavigate();
+  const done = jobs.filter((job) => job.state === "done");
+  const failed = jobs.filter((job) => job.state === "failed");
+  const written = done.reduce((total, job) => total + (job.outputSize ?? 0), 0);
+  return (
+    <section
+      aria-labelledby="today-title"
+      className="flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="today-title" className="font-extrabold text-16">
+          Today
+        </h2>
+        <button
+          type="button"
+          onClick={() => void navigate("/history")}
+          className="press cursor-pointer font-bold text-12 text-accent-fg"
+        >
+          History
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Figure value={String(done.length)} label="converted" />
+        <Figure value={String(failed.length)} label="failed" />
+        <Figure
+          value={
+            written >= 1e9 ? `${(written / 1e9).toFixed(1)} GB` : `${Math.round(written / 1e6)} MB`
+          }
+          label="written"
+        />
+      </div>
+      {failed.map((job) => (
+        <div
+          key={job.id}
+          className="flex flex-col gap-2.5 rounded-16 border border-broken/40 bg-broken/8 p-3.5"
+        >
+          <span className="flex items-start gap-2.5">
+            <AlertTriangle
+              size={16}
+              aria-hidden="true"
+              className="mt-0.5 shrink-0 text-broken-fg"
+            />
+            <span className="flex flex-col gap-0.5 text-13">
+              <span className="font-extrabold">{job.label} failed</span>
+              <span className="text-fg-soft">{job.problem}</span>
+            </span>
+          </span>
+          <Button
+            size="sm"
+            variant="primary"
+            className="self-start"
+            disabled={action.isPending}
+            onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
+          >
+            Try again
+          </Button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function Figure({ value, label }: { value: string; label: string }) {
+  return (
+    <span className="flex flex-col">
+      <span className="font-extrabold text-22">{value}</span>
+      <span className="text-12 text-fg-muted">{label}</span>
+    </span>
+  );
+}
+
+function sum(jobs: Job[]): number {
+  return jobs.reduce((total, job) => total + job.gpuSeconds, 0);
+}

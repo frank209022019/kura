@@ -34,6 +34,7 @@ from kura.changes import (
     undo_plan,
 )
 from kura.core.convert import (
+    QUIET_INPUT,
     Recipe,
     check,
     decoder_command,
@@ -99,9 +100,14 @@ def start(
     stdout: int | None = None,
     stderr: int | None = None,
 ) -> subprocess.Popen[bytes]:
-    """A program without a console window (the engine has none)."""
+    """A program without a console window (the engine has none), and with nothing on standard
+    input unless it's given frames there: the engine's own input is the app's (see QUIET_INPUT)."""
     return subprocess.Popen(  # noqa: S603 - Kura's own ffmpeg, never a shell
-        list(command), stdin=stdin, stdout=stdout, stderr=stderr, creationflags=_NO_WINDOW
+        list(command),
+        stdin=subprocess.DEVNULL if stdin is None else stdin,
+        stdout=stdout,
+        stderr=stderr,
+        creationflags=_NO_WINDOW,
     )
 
 
@@ -386,6 +392,7 @@ def _play(programs: Programs, work: Path, duration: float) -> list[str]:
         at = max(0.0, duration * share - _PLAY_SECONDS / 2)
         command = [
             *programs.ffmpeg,
+            *QUIET_INPUT,
             "-v",
             "error",
             "-xerror",

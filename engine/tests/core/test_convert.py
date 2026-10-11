@@ -85,8 +85,9 @@ def test_a_720p_episode_is_upscaled_with_anime4k_in_one_command():
     command = one_command(FF, SOURCE, WORK, made, shader=PureWindowsPath(r"C:\Kura\modeA_hq.glsl"))
 
     assert made.method is Method.FAST
-    assert command[:7] == [
+    assert command[:8] == [
         FFMPEG,
+        "-nostdin",
         "-v",
         "error",
         "-y",
@@ -152,6 +153,7 @@ def test_the_ai_model_reads_raw_frames_and_the_encoder_takes_them_with_the_sound
 
     assert decoder == [
         FFMPEG,
+        "-nostdin",
         "-v",
         "error",
         "-i",
@@ -164,8 +166,9 @@ def test_the_ai_model_reads_raw_frames_and_the_encoder_takes_them_with_the_sound
         "gbrpf32le",
         "-",
     ]
-    assert encoder[:16] == [
+    assert encoder[:17] == [
         FFMPEG,
+        "-nostdin",  # its frames still come in on standard input
         "-v",
         "error",
         "-y",
@@ -222,3 +225,17 @@ def test_a_result_that_matches_passes_and_one_that_doesnt_says_why():
     assert check(sd(), replace(good, duration=1200.0), made) == ["It's 20:00 long, not 24:00"]
     assert check(sd(), replace(good, audio=good.audio[:1]), made) == ["It has 1 sound track, not 2"]
     assert check(sd(), replace(good, video=None), made) == ["It has no picture"]
+
+
+def test_no_ffmpeg_kura_starts_reads_keys_from_its_standard_input():
+    """ffmpeg looks for key presses on standard input. Under Kura's window that's the engine's own
+    input, which the engine waits on, and Windows makes ffmpeg's look wait too: it would stop."""
+    made = recipe(SOURCE, sd(), Decision(Method.BEST, 1440, 1080), tag=TAG)
+    commands = [
+        decoder_command(FF, SOURCE, made),
+        encoder_command(FF, SOURCE, WORK, made, upscaled=(1440, 960)),
+        one_command(FF, SOURCE, WORK, replace(made, method=Method.REENCODE), shader=None),
+        interlace_command(FF, SOURCE, at=60.0),
+    ]
+
+    assert all(command[1] == "-nostdin" for command in commands)

@@ -45,7 +45,7 @@ def test_a_still_is_taken_at_its_point_then_kept(paths: DataPaths, tmp_path: Pat
     assert again == first
     assert len(frames.commands) == 1
     command = frames.commands[0]
-    assert command[0] == str(FFMPEG)
+    assert command[:2] == [str(FFMPEG), "-nostdin"]  # no key reading: see core/convert.py
     assert command[command.index("-ss") + 1] == "725.00"  # halfway through 24:10
 
 

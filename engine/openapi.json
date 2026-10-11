@@ -2620,6 +2620,28 @@
               }
             ],
             "title": "Outputsize"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
           }
         },
         "type": "object",
@@ -2640,7 +2662,9 @@
           "finishedAt",
           "problem",
           "sourceSize",
-          "outputSize"
+          "outputSize",
+          "width",
+          "height"
         ],
         "title": "Job"
       },

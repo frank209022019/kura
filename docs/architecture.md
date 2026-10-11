@@ -166,7 +166,8 @@ rename with it, and folders inside a library folder that the moves leave truly e
 what it was identified as (a quarantined one counts as gone until it's put back); a gap analysis
 left in a folder that no longer holds a video goes with the folder, and the reports are written
 again where the shows are. Nothing moves while a scan runs, and no scan starts while files move
-(`Scanner.hold`); the watcher's scan waits until they're in place. History lists every tidy-up,
+(`Scanner.hold`); what Windows tells of Kura's own moves starts no scan, since the records
+follow them already. History lists every tidy-up,
 which can be undone from there, and undone again for any file that couldn't go back the first
 time (the plan counts as undone only once nothing is left).
 

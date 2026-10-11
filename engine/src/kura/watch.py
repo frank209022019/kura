@@ -48,6 +48,8 @@ class Scans(Protocol):
 
     def status(self) -> ScanStatus: ...
 
+    def moving(self) -> bool: ...
+
 
 class Watcher:
     def __init__(
@@ -100,7 +102,13 @@ class Watcher:
         return self._start_scan()
 
     def notice(self) -> None:
-        """A video changed in a library folder."""
+        """A video changed in a library folder. Kura's own moves (a tidy-up, a converted file
+        taking its original's place) start no scan: the library's records follow them already."""
+        if self._scanner.moving():
+            return
+        self._changed()
+
+    def _changed(self) -> None:
         with self._lock:
             self._changed_at = self._clock()
 
@@ -212,7 +220,7 @@ class Watcher:
                 self._watched.pop(path).stop()
             elif not Path(path).is_dir() or not all(e.is_alive() for e in observer.emitters):
                 self._watched.pop(path).stop()
-                self.notice()  # its videos went with it
+                self._changed()  # its videos went with it
         for path in wanted - set(self._watched):
             if not Path(path).is_dir():
                 continue  # its drive is unplugged: watched once it's back

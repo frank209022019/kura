@@ -14,7 +14,7 @@ export function NavRail() {
           <NavLink
             key={path}
             to={path}
-            end
+            end={path === "/"}
             className={({ isActive }) =>
               cn(
                 "press relative flex min-h-16 flex-[1_1_72px] flex-col items-center justify-center gap-1 rounded-16 px-1 py-1.5 font-bold text-11",

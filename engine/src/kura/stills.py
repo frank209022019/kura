@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from kura.config import DataPaths
+from kura.core.convert import QUIET_INPUT
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ type Run = Callable[[Sequence[str]], None]
 def _run(command: Sequence[str]) -> None:
     subprocess.run(  # noqa: S603 - Kura's own ffmpeg, a path and fixed arguments, no shell
         list(command),
+        stdin=subprocess.DEVNULL,  # the engine's own input is the app's: see core/convert.py
         capture_output=True,
         timeout=_TIMEOUT,
         creationflags=_NO_WINDOW,
@@ -51,6 +53,7 @@ def still(
     at = f"{seconds * POINTS[index]:.2f}"
     command = [
         str(ffmpeg),
+        *QUIET_INPUT,
         "-hide_banner",
         "-loglevel",
         "error",

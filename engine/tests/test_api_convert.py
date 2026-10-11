@@ -86,6 +86,7 @@ def test_files_join_the_queue_and_wait_their_turn(client: TestClient, shelf: Pat
         ("Trigun · S01E02", "fast"),
         ("Trigun · S01E01", "fast"),
     ]
+    assert (status["queued"][0]["width"], status["queued"][0]["height"]) == (1440, 1080)
     assert status["gpuSeconds"] == sum(job["gpuSeconds"] for job in status["queued"])
     assert (status["running"], status["gpu"], status["paused"]) == (None, None, False)
     assert [f["waiting"] for f in client.get("/convert").json()["files"]] == [True, True, False]

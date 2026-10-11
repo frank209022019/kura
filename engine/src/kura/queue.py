@@ -88,6 +88,8 @@ class Job:
     problem: str | None  # why it failed, in words
     source_size: int  # the original, in bytes
     output_size: int | None  # the result, once there
+    width: int | None = None  # the result's picture, for a file still to finish
+    height: int | None = None
 
 
 @dataclass(frozen=True)
@@ -499,11 +501,12 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
     estimate; a finished one says what it got (its file's record is the result's now)."""
     method = Method(row["method"])
     gpu_seconds = 0.0
+    width = height = None
     if row["probe"] and row["state"] in ("queued", "running", "replacing"):
         media = media_from_ffprobe(json.loads(row["probe"]))
         decision = decide(media, standard)
         decision = replace(decision, method=lighter(decision.method, method))
-        method = decision.method
+        method, width, height = decision.method, decision.width, decision.height
         gpu_seconds = estimate(media, decision, standard).gpu_seconds
     return Job(
         id=row["id"],
@@ -524,6 +527,8 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
         problem=row["problem"],
         source_size=row["source_size"] or row["size"],
         output_size=row["output_size"],
+        width=width,
+        height=height,
     )
 
 

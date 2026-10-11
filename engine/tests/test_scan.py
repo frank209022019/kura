@@ -435,3 +435,16 @@ def test_files_never_move_while_a_scan_runs(
         pass
     go_on.set()
     finished(scan)
+
+
+def test_files_kura_moves_are_its_own_doing_till_a_moment_after(paths: DataPaths):
+    moment = [0.0]
+    scan = Scanner(paths, Tools(paths, items=()), clock=lambda: moment[0])
+
+    assert scan.moving() is False
+    with scan.hold():
+        assert scan.moving() is True
+    assert scan.moving() is True  # Windows tells of the moves a moment later
+
+    moment[0] += 5
+    assert scan.moving() is False

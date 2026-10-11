@@ -41,6 +41,14 @@ Kura runs ffmpeg and ffprobe as child processes with `CREATE_NO_WINDOW`, so no c
 flashes, and reads ffprobe's JSON (`-show_format -show_streams -show_chapters`), which
 [kura/core/media.py](../../engine/src/kura/core/media.py) turns into a `MediaInfo`.
 
+**Nothing on standard input.** ffmpeg looks for key presses (q to quit) on standard input. Under
+Kura's window the engine's standard input is a pipe from the app, which the engine reads to know
+when the app closes, and Windows makes ffmpeg's look at that pipe wait behind the engine's read:
+ffmpeg would stop for good part way through a file (it did, in the first test under the app).
+So every ffmpeg command starts with `-nostdin` (`QUIET_INPUT` in
+[kura/core/convert.py](../../engine/src/kura/core/convert.py)), and every program the engine
+starts gets an empty standard input unless it's given frames there.
+
 ## Moving to a newer build
 
 1. Pick the last build of a month on [BtbN's releases](https://github.com/BtbN/FFmpeg-Builds/releases)

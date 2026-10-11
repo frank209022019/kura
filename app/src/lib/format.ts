@@ -23,6 +23,7 @@ export function clockLength(minutes: number): string {
 
 /** "233 MB", or "1.1 GB" from a billion bytes. */
 export function size(bytes: number): string {
+  if (bytes >= 1e10) return `${Math.round(bytes / 1e9)} GB`; // "931 GB", "16 GB"
   return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
 }
 

@@ -164,7 +164,8 @@ function conversionWords(made: Conversion): string {
       .join(" ");
   return [
     `${picture(made.before)} → ${picture(made.after)}`,
-    made.seconds !== null && clockLength(made.seconds / 60),
+    made.seconds !== null &&
+      (made.seconds < 60 ? `${Math.round(made.seconds)} s` : clockLength(made.seconds / 60)),
     "checked",
   ]
     .filter(Boolean)
