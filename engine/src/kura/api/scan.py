@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from kura.api.common import ApiModel, Scans
-from kura.scan import ScanBusyError, ScanStatus, Stage, State
+from kura.scan import MovingFilesError, ScanBusyError, ScanStatus, Stage, State
 
 router = APIRouter()
 
@@ -58,6 +58,8 @@ def start_scan(scans: Scans) -> Scan:
     """Starts scanning every library folder. Nothing in them changes."""
     try:
         return _scan(scans.start())
+    except MovingFilesError as busy:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"{busy} {_ONCE_MOVED}") from None
     except ScanBusyError:
         raise HTTPException(status.HTTP_409_CONFLICT, "A scan is already running.") from None
 
@@ -71,4 +73,10 @@ def pause_scan(scans: Scans) -> Scan:
 
 @router.post("/scan/resume", status_code=status.HTTP_202_ACCEPTED)
 def resume_scan(scans: Scans) -> Scan:
-    return _scan(scans.resume())
+    try:
+        return _scan(scans.resume())
+    except MovingFilesError as busy:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"{busy} {_ONCE_MOVED}") from None
+
+
+_ONCE_MOVED = "Scan once they're in place."

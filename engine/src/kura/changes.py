@@ -3,7 +3,7 @@
 A plan from kura.core.plan is saved first (`save_plan`) and shown for review; nothing moves until
 it is applied (`apply_plan`). Each change is written to the database before and after its file
 moves, so after a crash `recover` can tell where every file is. `undo_plan` puts files back,
-newest first.
+newest first, and can be asked again for any that couldn't go back.
 
 Nothing here overwrites a file or deletes one outright. A move onto a name that is taken fails and
 says so. A move to another drive copies the file beside its new place, checks the copy, renames it
@@ -60,10 +60,14 @@ class SavedChange:
 
 @dataclass(frozen=True)
 class Outcome:
-    """What applying or undoing a plan did."""
+    """What applying or undoing a plan did this time."""
 
-    count: int  # changes made, or put back
+    changed: tuple[SavedChange, ...]  # changes made, or put back
     problems: tuple[SavedChange, ...]  # changes that couldn't be, each with its problem
+
+    @property
+    def count(self) -> int:
+        return len(self.changed)
 
 
 def tally(changes: Iterable[SavedChange]) -> tuple[int, int]:
@@ -113,10 +117,16 @@ def changes_of(conn: sqlite3.Connection, plan_id: int) -> list[SavedChange]:
 def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outcome:
     """Make every planned change, in order.
 
-    A change that can't be made is marked failed with the reason, and the rest go ahead. After a
-    crash, `recover` and then this again carry on where it stopped.
+    The plan counts as applied from the start, so History has it even if Kura stops mid-way. A
+    change that can't be made is marked failed with the reason, and the rest go ahead.
     """
-    made = 0
+    stamp = _stamp(now)
+    with conn:
+        conn.execute(
+            "UPDATE plans SET applied_at = ? WHERE id = ? AND applied_at IS NULL", (stamp, plan_id)
+        )
+    made: list[int] = []
+    failed: list[int] = []
     for change in changes_of(conn, plan_id):
         if change.state is not ChangeState.PLANNED:
             continue
@@ -133,27 +143,26 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
                 created = []
                 problem = _could_not(error)
             else:
-                made += 1
-                _record(conn, change, ChangeState.DONE, problem=problem, created_dirs=created)
-                _follow(conn, change, forward=True, stamp=_stamp(now))
+                _settled(conn, change, ChangeState.DONE, problem, created, stamp=stamp)
+                made.append(change.id)
                 continue
         _log.warning("Couldn't move %s to %s: %s", change.source, change.target, problem)
         _record(conn, change, ChangeState.FAILED, problem=problem, created_dirs=created)
-    with conn:
-        conn.execute("UPDATE plans SET applied_at = ? WHERE id = ?", (_stamp(now), plan_id))
-    done = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE]
-    remove_emptied(conn, (change.source.parent for change in done))
-    failed = tuple(c for c in changes_of(conn, plan_id) if c.state is ChangeState.FAILED)
-    return Outcome(made, failed)
+        failed.append(change.id)
+    after = changes_of(conn, plan_id)
+    remove_emptied(conn, (change.source.parent for change in _these(after, made)))
+    return Outcome(_these(after, made), _these(after, failed))
 
 
 def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outcome:
     """Put back every change that was made, newest first.
 
     A file that can't go back (it has gone, or its old name is taken now) stays where it is, and
-    its change says why.
+    its change says why; the plan counts as undone once nothing is left to put back.
     """
-    undone = 0
+    stamp = _stamp(now)
+    back: list[int] = []
+    kept: list[int] = []
     for change in reversed(changes_of(conn, plan_id)):
         if change.state is not ChangeState.DONE:
             continue
@@ -166,21 +175,22 @@ def undo_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outco
             except OSError as error:
                 problem = _could_not(error)
             else:
-                undone += 1
                 _remove_empty(change.created_dirs)
                 if change.kind is ChangeKind.QUARANTINE:
                     # The day's folder and the quarantine itself are Kura's own: whichever change
                     # made them, they go once nothing is left in them.
                     _remove_empty([change.target.parent, change.target.parent.parent])
-                _record(conn, change, ChangeState.UNDONE, problem=problem)
-                _follow(conn, change, forward=False, stamp=_stamp(now))
+                _settled(conn, change, ChangeState.UNDONE, problem, None, stamp=stamp)
+                back.append(change.id)
                 continue
         _log.warning("Couldn't put %s back to %s: %s", change.target, change.source, problem)
         _record(conn, change, ChangeState.DONE, problem=f"Kura couldn't put it back. {problem}")
-    with conn:
-        conn.execute("UPDATE plans SET undone_at = ? WHERE id = ?", (_stamp(now), plan_id))
-    kept = tuple(c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE)
-    return Outcome(undone, kept)
+        kept.append(change.id)
+    after = changes_of(conn, plan_id)
+    if not any(change.state is ChangeState.DONE for change in after):
+        with conn:
+            conn.execute("UPDATE plans SET undone_at = ? WHERE id = ?", (stamp, plan_id))
+    return Outcome(_these(after, back), _these(after, kept))
 
 
 def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
@@ -188,7 +198,8 @@ def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
 
     Run it at start, before anything else uses the plans. A move that happened is done, one that
     didn't is planned again (or done again, for an undo), and anything else is marked with what
-    Kura found.
+    Kura found. The changes of a tidy-up Kura hadn't got to are closed (tidying up proposes them
+    again); a conversion's are left to the queue, which finishes or undoes its replacement.
     """
     stamp = _stamp(now or datetime.now(UTC))
     rows = conn.execute("SELECT * FROM changes WHERE state IN ('moving', 'undoing')").fetchall()
@@ -199,7 +210,19 @@ def recover(conn: sqlite3.Connection, *, now: datetime | None = None) -> int:
             _settle(conn, change, change.target, change.source, forward=False, stamp=stamp)
     if rows:
         _log.warning("Settled %d file changes that Kura stopped in the middle of", len(rows))
+    with conn:
+        closed = conn.execute(
+            """UPDATE changes SET state = 'failed', problem = ?
+               WHERE state = 'planned' AND plan_id IN
+                     (SELECT id FROM plans WHERE kind = 'tidy' AND applied_at IS NOT NULL)""",
+            (_STOPPED,),
+        ).rowcount
+    if closed:
+        _log.warning("Closed %d changes of a tidy-up Kura stopped before making", closed)
     return len(rows)
+
+
+_STOPPED = "Kura stopped before making this change. Tidy up proposes it again."
 
 
 def _settle(
@@ -221,8 +244,7 @@ def _settle(
         state = ChangeState.DONE if forward else ChangeState.UNDONE
         if not forward:
             _remove_empty(change.created_dirs)
-        _record(conn, change, state)
-        _follow(conn, change, forward=forward, stamp=stamp)
+        _settled(conn, change, state, None, None, stamp=stamp)
     elif at_old and not at_new:
         if forward:
             _remove_empty(change.created_dirs)
@@ -236,20 +258,36 @@ def _settle(
         _record(conn, change, state, problem=problem)
 
 
+def _settled(
+    conn: sqlite3.Connection,
+    change: SavedChange,
+    state: ChangeState,
+    problem: str | None,
+    created_dirs: Iterable[Path] | None,
+    *,
+    stamp: str,
+) -> None:
+    """Records a change made (DONE) or put back (UNDONE), and moves the video's record with it,
+    together: a crash can't leave the one without the other."""
+    with conn:
+        _write(conn, change, state, problem, created_dirs)
+        _follow(conn, change, forward=state is ChangeState.DONE, stamp=stamp)
+
+
 def _follow(conn: sqlite3.Connection, change: SavedChange, *, forward: bool, stamp: str) -> None:
     """Moves the library's record of a video with it. A record a scan made at the new place
-    meanwhile gives way: it knows nothing the moved one doesn't."""
+    meanwhile gives way: it knows nothing the moved one doesn't. Part of the caller's
+    transaction."""
     old, new = (change.source, change.target) if forward else (change.target, change.source)
     gone = stamp if forward and change.kind is ChangeKind.QUARANTINE else None
-    with conn:
-        conn.execute(
-            """DELETE FROM files
-               WHERE path = :new AND id != (SELECT id FROM files WHERE path = :old)""",
-            {"new": str(new), "old": str(old)},
-        )
-        conn.execute(
-            "UPDATE files SET path = ?, gone_at = ? WHERE path = ?", (str(new), gone, str(old))
-        )
+    conn.execute(
+        """DELETE FROM files
+           WHERE path = :new AND id != (SELECT id FROM files WHERE path = :old)""",
+        {"new": str(new), "old": str(old)},
+    )
+    conn.execute(
+        "UPDATE files SET path = ?, gone_at = ? WHERE path = ?", (str(new), gone, str(old))
+    )
 
 
 def _why_not(source: Path, target: Path) -> str | None:
@@ -360,15 +398,29 @@ def _record(
     created_dirs: Iterable[Path] | None = None,
 ) -> None:
     with conn:
+        _write(conn, change, state, problem, created_dirs)
+
+
+def _write(
+    conn: sqlite3.Connection,
+    change: SavedChange,
+    state: ChangeState,
+    problem: str | None,
+    created_dirs: Iterable[Path] | None,
+) -> None:
+    conn.execute(
+        "UPDATE changes SET state = ?, problem = ? WHERE id = ?", (state.value, problem, change.id)
+    )
+    if created_dirs is not None:
         conn.execute(
-            "UPDATE changes SET state = ?, problem = ? WHERE id = ?",
-            (state.value, problem, change.id),
+            "UPDATE changes SET created_dirs = ? WHERE id = ?",
+            (json.dumps([str(path) for path in created_dirs]), change.id),
         )
-        if created_dirs is not None:
-            conn.execute(
-                "UPDATE changes SET created_dirs = ? WHERE id = ?",
-                (json.dumps([str(path) for path in created_dirs]), change.id),
-            )
+
+
+def _these(changes: Iterable[SavedChange], ids: Iterable[int]) -> tuple[SavedChange, ...]:
+    wanted = set(ids)
+    return tuple(change for change in changes if change.id in wanted)
 
 
 def _saved(row: sqlite3.Row) -> SavedChange:

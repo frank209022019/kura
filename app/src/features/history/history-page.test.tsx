@@ -115,6 +115,16 @@ describe("HistoryPage", () => {
     );
   });
 
+  it("keeps Undo for a tidy-up not all put back", async () => {
+    const partly: PlanDone = { ...TIDIED, moved: 1, quarantined: 0, undone: 29 };
+    fakeEngine({ "/history": { plans: [partly], scans: [] } });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent("1 file moved · 29 put back · plan 13");
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  });
+
   it("shows only scans, or only renames and moves", async () => {
     fakeEngine({ "/history": HISTORY });
     renderHistory();

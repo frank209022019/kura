@@ -263,7 +263,7 @@ export const useLibrary = () => useEngineQuery<Library>("/library");
 
 /**
  * The latest scan, asked again every second while it runs. A scan fills in the library, so when
- * one stops, the library and its folders are asked again too.
+ * one stops, the library, its folders and what Kura proposes from them are asked again too.
  */
 export function useScan() {
   // Every second while a scan runs; every ten seconds otherwise, so a scan Kura starts on its own
@@ -274,7 +274,15 @@ export function useScan() {
   const wasRunning = useRef(running);
   useEffect(() => {
     if (wasRunning.current && !running)
-      void refresh(["/library", "/folders", "/titles", "/franchises", "/review"]);
+      void refresh([
+        "/library",
+        "/folders",
+        "/titles",
+        "/franchises",
+        "/review",
+        "/tidy",
+        "/history",
+      ]);
     wasRunning.current = running;
   }, [running, refresh]);
   return scan;
@@ -608,6 +616,10 @@ export interface TidyProposal {
   broken: number;
 }
 
+/** A proposed change as the owner saw it: what applying sends, so the engine makes exactly
+ * that, or nothing if its proposal changed meanwhile. */
+export type ReviewedChange = Pick<ProposedChange, "source" | "kind" | "target">;
+
 /** What applying or undoing a tidy-up did. */
 export interface TidyResult {
   /** Null when nothing was asked for. */
@@ -626,9 +638,11 @@ export const useTidy = (keep: string[] = []) =>
     true,
   );
 const TIDIED = ["/tidy", "/history", "/titles", "/franchises", "/library", "/review"];
-/** Makes the changes: `apply.mutate({ path: "/tidy", body: { sources, keep } })`. */
+/** Makes the changes: `apply.mutate({ path: "/tidy", body: { changes, keep } })`, `changes`
+ * being ReviewedChange[]. */
 export const useApplyTidy = () => useEngineAction<TidyResult>(TIDIED);
-/** Puts back what a tidy-up moved: `undo.mutate({ path: "/plans/12/undo" })`. */
+/** Puts back what a tidy-up moved (or what couldn't go back last time):
+ * `undo.mutate({ path: "/plans/12/undo" })`. */
 export const useUndoPlan = () => useEngineAction<TidyResult>(TIDIED);
 
 /** A tidy-up that was applied, as History lists it. */

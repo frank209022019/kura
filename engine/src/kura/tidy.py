@@ -4,9 +4,9 @@ kura/core/plan.py decides where every identified video goes. This module gathers
 from the library (each title's name, year and episode titles, the copies of each episode, the
 subtitles beside each video, the paths in use), says which changes rename files in place and
 which move them out of a folder holding several anime, and applies the ones the owner keeps,
-journaled and undoable (kura/changes.py). Each video's record moves with it, so it keeps what it
-was identified as; folders a tidy-up empties go, with the gap analysis Kura had written in them,
-and the reports are written again where the shows are now.
+exactly as they were reviewed, journaled and undoable (kura/changes.py). Each video's record
+moves with it, so it keeps what it was identified as; folders a tidy-up empties go, with the gap
+analysis Kura had written in them, and the reports are written again where the shows are now.
 """
 
 import json
@@ -20,10 +20,8 @@ from pathlib import Path, PureWindowsPath
 from typing import Literal
 
 from kura.changes import (
-    ChangeState,
     SavedChange,
     apply_plan,
-    changes_of,
     remove_emptied,
     save_plan,
     tally,
@@ -94,6 +92,20 @@ class Proposal:
     changes: tuple[Proposed, ...]
     skipped: tuple[tuple[Path, str], ...]  # videos left where they are, and why
     duplicates: tuple[Duplicate, ...]
+
+
+@dataclass(frozen=True)
+class Reviewed:
+    """A change as the owner saw it on the tidy-up screen."""
+
+    source: str
+    kind: ChangeKind
+    target: str
+
+
+class ProposalChangedError(Exception):
+    """A change the owner reviewed isn't what Kura proposes now (a scan or a new match changed
+    it), so nothing was made."""
 
 
 @dataclass(frozen=True)
@@ -193,30 +205,39 @@ def _set_aside(videos: Sequence[_Video], day: date) -> list[str]:
 
 
 def apply(
-    conn: sqlite3.Connection, sources: Iterable[str], *, now: datetime, keep: Iterable[str] = ()
+    conn: sqlite3.Connection,
+    reviewed: Iterable[Reviewed],
+    *,
+    now: datetime,
+    keep: Iterable[str] = (),
 ) -> Tidied:
-    """Makes the proposed changes of these files (videos, and the subtitles that go with them),
-    as Kura proposes them now: anything else in the library stays as it is."""
-    wanted = {str(source).casefold() for source in sources}
-    proposal = propose(conn, day=now.date(), keep=keep)
-    chosen = [p for p in proposal.changes if str(p.change.source).casefold() in wanted]
-    if not chosen:
+    """Makes these changes (of videos, and the subtitles that go with them) exactly as the owner
+    reviewed them; anything else in the library stays as it is. Kura proposes them again first,
+    and makes none (ProposalChangedError) if any isn't proposed as it was."""
+    wanted = {change.source.casefold(): change for change in reviewed}
+    if not wanted:
         return Tidied(None, 0, 0, ())
+    proposal = propose(conn, day=now.date(), keep=keep)
+    now_proposed = {str(p.change.source).casefold(): p.change for p in proposal.changes}
+    for source, change in wanted.items():
+        found = now_proposed.get(source)
+        if found is None or (found.kind, str(found.target)) != (change.kind, change.target):
+            raise ProposalChangedError
+    chosen = [p for p in proposal.changes if str(p.change.source).casefold() in wanted]
     plan_id = save_plan(conn, Plan(tuple(p.change for p in chosen)), _plan_title(chosen), now=now)
     outcome = apply_plan(conn, plan_id, now=now)
-    made = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE]
-    _clear_behind(conn, [change.source for change in made])
+    _clear_behind(conn, [change.source for change in outcome.changed])
     write_reports(conn, now=now)
-    return Tidied(plan_id, *tally(made), outcome.problems)
+    return Tidied(plan_id, *tally(outcome.changed), outcome.problems)
 
 
 def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
-    """Puts back what a tidy-up moved, newest first."""
+    """Puts back what a tidy-up moved, newest first. Asked again, it puts back what couldn't go
+    back the first time."""
     outcome = undo_plan(conn, plan_id, now=now)
-    back = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.UNDONE]
-    _clear_behind(conn, [change.target for change in back])
+    _clear_behind(conn, [change.target for change in outcome.changed])
     write_reports(conn, now=now)
-    return Tidied(plan_id, *tally(back), outcome.problems)
+    return Tidied(plan_id, *tally(outcome.changed), outcome.problems)
 
 
 def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, str]]]:
@@ -237,9 +258,15 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
     ).fetchall()
     parted = _films_in_parts(rows)
     listings: dict[str, list[str]] = {}
+    connected: dict[str, bool] = {}
     videos: list[_Video] = []
     skipped: list[tuple[Path, str]] = []
     for row in rows:
+        if row["root"] not in connected:
+            connected[row["root"]] = Path(row["root"]).is_dir()
+        if not connected[row["root"]]:
+            skipped.append((Path(row["path"]), "Its library folder isn't connected"))
+            continue
         identity = _identity(row, names, parted)
         if identity is None:
             skipped.append((Path(row["path"]), "Kura doesn't know which episode it is"))

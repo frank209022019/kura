@@ -3,14 +3,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
 import {
   type CopyFacts,
   type Duplicate,
   type ProposedChange,
+  type ReviewedChange,
   type TidyCategory,
   type TidyResult,
   useApplyTidy,
+  useScan,
   useTidy,
   useUndoPlan,
 } from "@/lib/engine";
@@ -27,9 +30,11 @@ export function TidyPage() {
   const proposal = useTidy(keep);
   const apply = useApplyTidy();
   const undo = useUndoPlan();
+  const scanning = useScan().data?.state === "running";
   const [only, setOnly] = useState<TidyCategory | null>(null);
   const [leftOut, setLeftOut] = useState<number[]>([]);
   const [done, setDone] = useState<TidyResult | null>(null);
+  const [undone, setUndone] = useState<TidyResult | null>(null);
 
   if (!proposal.data) {
     return (
@@ -40,13 +45,14 @@ export function TidyPage() {
     );
   }
   const found = proposal.data;
-  const chosen = found.changes.filter((change) => !leftOut.includes(change.titleId));
   const shown = only ? found.changes.filter((change) => change.category === only) : found.changes;
-  const busy = apply.isPending || undo.isPending;
+  const chosen = shown.filter((change) => !leftOut.includes(change.titleId)); // what's on screen
+  const busy = apply.isPending || undo.isPending || scanning;
 
   function applyChosen() {
+    setUndone(null);
     apply.mutate(
-      { path: "/tidy", body: { sources: chosen.map((change) => change.source), keep } },
+      { path: "/tidy", body: { changes: chosen.map(reviewed), keep } },
       {
         onSuccess: (result) => {
           setDone(result);
@@ -74,11 +80,20 @@ export function TidyPage() {
           busy={busy}
           onUndo={() =>
             done.planId !== null &&
-            undo.mutate({ path: `/plans/${done.planId}/undo` }, { onSuccess: () => setDone(null) })
+            undo.mutate(
+              { path: `/plans/${done.planId}/undo` },
+              {
+                onSuccess: (result) => {
+                  setDone(null);
+                  setUndone(result.problems.length > 0 ? result : null);
+                },
+              },
+            )
           }
           onHistory={() => void navigate("/history")}
         />
       )}
+      {undone && <Stayed problems={undone.problems} />}
       {(apply.isError || undo.isError) && (
         <p role="alert" className="text-13 text-broken-fg">
           {(apply.error ?? undo.error)?.message}
@@ -136,9 +151,15 @@ export function TidyPage() {
           </section>
           <footer className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-20 border border-edge bg-glass px-5 py-4">
             <span className="text-13 text-fg-muted">
-              {chosen.length} {chosen.length === 1 ? "change" : "changes"} selected.
-              {found.waiting > 0 &&
-                ` ${found.waiting} ${found.waiting === 1 ? "file stays" : "files stay"} where ${found.waiting === 1 ? "it is" : "they are"} until matched.`}
+              {scanning ? (
+                "Kura is scanning. Apply once it's done, so it knows every file."
+              ) : (
+                <>
+                  {chosen.length} {chosen.length === 1 ? "change" : "changes"} selected.
+                  {found.waiting > 0 &&
+                    ` ${found.waiting} ${found.waiting === 1 ? "file stays" : "files stay"} where ${found.waiting === 1 ? "it is" : "they are"} until matched.`}
+                </>
+              )}
             </span>
             <Button variant="primary" disabled={busy || chosen.length === 0} onClick={applyChosen}>
               {applyText(chosen.length)}
@@ -434,6 +455,10 @@ function Staying({ skipped }: { skipped: { path: string; reason: string }[] }) {
       </ul>
     </section>
   );
+}
+
+function reviewed({ source, kind, target }: ProposedChange): ReviewedChange {
+  return { source, kind, target };
 }
 
 /** The changes, a title at a time, in the order Kura proposes them. */

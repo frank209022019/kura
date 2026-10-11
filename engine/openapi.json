@@ -1138,7 +1138,7 @@
       },
       "post": {
         "summary": "Apply Tidy",
-        "description": "Makes the proposed changes of these files, journaled so History can undo them.",
+        "description": "Makes the changes the owner reviewed, journaled so History can undo them. None is made\nwhen Kura proposes any of them differently now.",
         "operationId": "apply_tidy_tidy_post",
         "security": [
           {
@@ -1206,7 +1206,7 @@
     "/plans/{plan_id}/undo": {
       "post": {
         "summary": "Undo Plan",
-        "description": "Puts back what a tidy-up moved.",
+        "description": "Puts back what a tidy-up moved, or what couldn't go back last time.",
         "operationId": "undo_plan_plans__plan_id__undo_post",
         "security": [
           {
@@ -2095,6 +2095,34 @@
         ],
         "title": "Report"
       },
+      "ReviewedChange": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "move",
+              "quarantine"
+            ],
+            "title": "Kind"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "kind",
+          "target"
+        ],
+        "title": "ReviewedChange",
+        "description": "A proposed change, as the owner saw it."
+      },
       "Scan": {
         "properties": {
           "state": {
@@ -2452,12 +2480,12 @@
       },
       "TidyRequest": {
         "properties": {
-          "sources": {
+          "changes": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReviewedChange"
             },
             "type": "array",
-            "title": "Sources"
+            "title": "Changes"
           },
           "keep": {
             "items": {
@@ -2469,7 +2497,7 @@
         },
         "type": "object",
         "required": [
-          "sources"
+          "changes"
         ],
         "title": "TidyRequest"
       },

@@ -390,3 +390,48 @@ def test_a_folder_holding_two_anime_is_counted_as_mixed(
 
     status = scan.status()
     assert (status.titles, status.mixed) == (2, 1)  # Downloads holds both
+
+
+def test_no_scan_starts_or_resumes_while_kura_moves_files(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    add_folder(conn, anime, now=NOW)
+    with conn:
+        conn.execute(
+            "INSERT INTO scans (started_at, state, stage) VALUES (?, 'paused', 'reading')",
+            (NOW.isoformat(),),
+        )
+    scan = scanner(paths)
+
+    with scan.hold():
+        with pytest.raises(ScanBusyError, match="Kura is moving files"):
+            scan.start()
+        with pytest.raises(ScanBusyError, match="Kura is moving files"):
+            scan.resume()
+        with pytest.raises(ScanBusyError, match="Kura is moving files"), scan.hold():
+            pass
+
+    scan.resume()
+    finished(scan)
+    assert scan.status().state == "done"
+
+
+def test_files_never_move_while_a_scan_runs(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    reading, go_on = threading.Event(), threading.Event()
+
+    def slow(path: Path) -> Json:
+        reading.set()
+        go_on.wait(10)
+        return REPORT
+
+    add_folder(conn, anime, now=NOW)
+    scan = scanner(paths, slow)
+    scan.start()
+    assert reading.wait(10)
+
+    with pytest.raises(ScanBusyError, match="A scan is running"), scan.hold():
+        pass
+    go_on.set()
+    finished(scan)

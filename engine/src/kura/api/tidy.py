@@ -1,5 +1,5 @@
 """Tidying up: what Kura proposes, applying the changes the owner keeps, and History, where any
-tidy-up can be undone. Nothing moves while a scan runs."""
+tidy-up can be undone. Nothing moves while a scan runs, and no scan starts while files move."""
 
 from datetime import datetime
 from typing import Annotated, Literal
@@ -10,6 +10,8 @@ from pydantic import Field
 from kura import history, tidy
 from kura.api.common import ApiModel, Database, Scans
 from kura.changes import SavedChange
+from kura.core.plan import ChangeKind
+from kura.scan import ScanBusyError
 
 router = APIRouter()
 
@@ -56,9 +58,17 @@ class TidyProposal(ApiModel):
     broken: int  # videos that won't play
 
 
+class ReviewedChange(ApiModel):
+    """A proposed change, as the owner saw it."""
+
+    source: str
+    kind: Literal["move", "quarantine"]
+    target: str
+
+
 class TidyRequest(ApiModel):
-    # The files (videos, and subtitles that go with them) whose proposed changes to make.
-    sources: list[str]
+    # The changes to make (of videos, and the subtitles that go with them), as reviewed.
+    changes: list[ReviewedChange]
     # Copies the owner chose to keep over others of the same episode.
     keep: list[str] = Field(default_factory=list[str])
 
@@ -145,9 +155,21 @@ def proposal(conn: Database, keep: Keep = []) -> TidyProposal:  # noqa: B006 - F
 
 @router.post("/tidy")
 def apply_tidy(body: TidyRequest, conn: Database, scans: Scans) -> TidyResult:
-    """Makes the proposed changes of these files, journaled so History can undo them."""
-    _not_while_scanning(scans)
-    done = tidy.apply(conn, body.sources, now=_now(), keep=body.keep)
+    """Makes the changes the owner reviewed, journaled so History can undo them. None is made
+    when Kura proposes any of them differently now."""
+    reviewed = [tidy.Reviewed(c.source, ChangeKind(c.kind), c.target) for c in body.changes]
+    try:
+        with scans.hold():
+            done = tidy.apply(conn, reviewed, now=_now(), keep=body.keep)
+    except ScanBusyError as busy:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"{busy} Tidy up once it's done, so Kura knows every file."
+        ) from None
+    except tidy.ProposalChangedError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Kura's proposal changed since you looked at it. Look it over again before applying.",
+        ) from None
     return _result(done)
 
 
@@ -162,19 +184,15 @@ def what_kura_did(conn: Database) -> History:
 
 @router.post("/plans/{plan_id}/undo")
 def undo_plan(plan_id: int, conn: Database, scans: Scans) -> TidyResult:
-    """Puts back what a tidy-up moved."""
+    """Puts back what a tidy-up moved, or what couldn't go back last time."""
     if conn.execute("SELECT 1 FROM plans WHERE id = ?", (plan_id,)).fetchone() is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no such tidy-up.")
-    _not_while_scanning(scans)
-    return _result(tidy.undo(conn, plan_id, now=_now()))
-
-
-def _not_while_scanning(scans: Scans) -> None:
-    if scans.status().state == "running":
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "A scan is running. Tidy up once it's done, so Kura knows every file.",
-        )
+    try:
+        with scans.hold():
+            done = tidy.undo(conn, plan_id, now=_now())
+    except ScanBusyError as busy:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"{busy} Undo it once that's done.") from None
+    return _result(done)
 
 
 def _result(done: tidy.Tidied) -> TidyResult:

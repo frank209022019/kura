@@ -4,15 +4,17 @@ which anime and episode it is (kura/identify.py), then checks the library.
 One scan runs at a time, on a background thread with its own database connection. The scans
 table holds where it is, and everything it learns is saved as it goes, so a scan that's paused, or
 stopped by an exit or a crash, carries on where it was (`recover` at start). Later scans only read
-new and changed files. Nothing in the folders changes: a scan only looks.
+new and changed files. Nothing in the folders changes: a scan only looks. While Kura moves files
+(a tidy-up, a converted file taking its original's place), no scan starts (`hold`): it would see
+them half moved.
 """
 
 import logging
 import sqlite3
 import threading
 import time
-from collections.abc import Callable
-from contextlib import closing
+from collections.abc import Callable, Generator
+from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PureWindowsPath
@@ -39,7 +41,17 @@ type Stage = Literal["finding", "reading", "identifying", "checking", "done"]
 
 
 class ScanBusyError(Exception):
-    """A scan is already running."""
+    """A scan is running, so another can't start and files can't move."""
+
+    def __init__(self, message: str = "A scan is running.") -> None:
+        super().__init__(message)
+
+
+class MovingFilesError(ScanBusyError):
+    """Kura is moving files, so no scan starts until they're in place."""
+
+    def __init__(self) -> None:
+        super().__init__("Kura is moving files.")
 
 
 class _NoReaderError(Exception):
@@ -91,6 +103,7 @@ class Scanner:
         self._lock = threading.Lock()
         self._pause = threading.Event()
         self._thread: threading.Thread | None = None
+        self._held = False  # Kura is moving files
         self._current: str | None = None  # the file, or the anime, being looked at
         self._reading_since: float | None = None
         self._read_live = 0
@@ -103,8 +116,7 @@ class Scanner:
     def start(self) -> ScanStatus:
         """Starts a new scan of every library folder."""
         with self._lock:
-            if self._running():
-                raise ScanBusyError
+            self._not_busy()
             self._pause.clear()
             started = self._now().isoformat()
             with closing(db.connect(self._paths.database)) as conn, conn:
@@ -128,6 +140,8 @@ class Scanner:
     def resume(self) -> ScanStatus:
         """Carries on a paused scan, or keeps a running one going."""
         with self._lock:
+            if self._held:
+                raise MovingFilesError
             was_paused = self._pause.is_set()
             self._pause.clear()
             if was_paused and self._thread is not None:
@@ -143,12 +157,31 @@ class Scanner:
         with self._lock:
             self._carry_on(states=("running",))
 
+    @contextmanager
+    def hold(self) -> Generator[None]:
+        """Keeps scans from starting while Kura moves files. Raises ScanBusyError when a scan is
+        running, or when files are moving already."""
+        with self._lock:
+            self._not_busy()
+            self._held = True
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._held = False
+
     def wait(self, timeout: float | None = None) -> None:
         if thread := self._thread:
             thread.join(timeout)
 
     def _running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
+
+    def _not_busy(self) -> None:
+        if self._held:
+            raise MovingFilesError
+        if self._running():
+            raise ScanBusyError
 
     def _carry_on(self, states: tuple[str, ...]) -> None:
         with closing(db.connect(self._paths.database)) as conn:

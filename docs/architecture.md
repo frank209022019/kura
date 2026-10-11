@@ -141,17 +141,24 @@ when its new name would be too long for Windows (its subtitles' included) or its
 one scans skip (a link, or a name starting with a dot). The owner keeps the titles they want, and
 may keep the other copy instead.
 
-A plan is applied only after review, by `kura/changes.py`: each change is written to the
-database before and after its file moves, so it can be undone (newest first) and so the engine,
-when it starts, can settle any move a crash interrupted. Nothing is overwritten: a taken name
-fails that change, and the rest go ahead. A move to another drive copies, checks the copy, and
+A plan is applied only after review, exactly as reviewed: the app sends back each change it
+showed (source, kind and target), and if Kura proposes any of them differently now (a scan or a
+new match changed it), nothing moves and the owner looks again. `kura/changes.py` writes each
+change to the database before and after its file moves, so it can be undone (newest first) and
+so the engine, when it starts, can settle any move a crash interrupted. A plan counts as applied
+from its first move, so History has it even after a crash, and the moves Kura hadn't reached
+are closed at the next start (tidying up proposes them again). A change and its video's record
+are saved together. Nothing is overwritten: a taken name fails that change, and the rest go
+ahead. A move to another drive copies, checks the copy, and
 only then removes the original. Subtitle files named after a video (`Episode 1.en.srt`) move and
 rename with it, and folders inside a library folder that the moves leave truly empty are removed
 (undo makes them again as it moves the files back). A video's record moves with it, so it keeps
 what it was identified as (a quarantined one counts as gone until it's put back); a gap analysis
 left in a folder that no longer holds a video goes with the folder, and the reports are written
-again where the shows are. Nothing moves while a scan runs. History lists every tidy-up, which
-can be undone from there.
+again where the shows are. Nothing moves while a scan runs, and no scan starts while files move
+(`Scanner.hold`); the watcher's scan waits until they're in place. History lists every tidy-up,
+which can be undone from there, and undone again for any file that couldn't go back the first
+time (the plan counts as undone only once nothing is left).
 
 ## Data
 

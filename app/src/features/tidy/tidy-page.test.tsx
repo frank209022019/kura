@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type ProposedChange, type TidyProposal } from "@/lib/engine";
-import { fakeEngine, READY } from "@/test/engine";
+import { fakeEngine, NO_SCAN, READY } from "@/test/engine";
 import { TidyPage } from "./tidy-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -93,6 +93,11 @@ const PROPOSAL: TidyProposal = {
   waiting: 4,
   broken: 9,
 };
+
+/** A change as the owner saw it, which is what applying sends. */
+function reviewed({ source, kind, target }: ProposedChange) {
+  return { source, kind, target };
+}
 
 function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string) {
   return fetch.mock.calls.filter(
@@ -184,12 +189,81 @@ describe("TidyPage", () => {
     ).toBeInTheDocument();
     const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
     expect(JSON.parse(String(init.body))).toEqual({
-      sources: [DUPLICATE.source, BEBOP_1.source, DEATH_NOTE_7.source],
+      changes: [DUPLICATE, BEBOP_1, DEATH_NOTE_7].map(reviewed),
       keep: [],
     });
 
     screen.getByRole("button", { name: "Undo" }).click();
     await waitFor(() => expect(sent(fetch, "POST", "/plans/13/undo")).toHaveLength(1));
+  });
+
+  it("applies only the changes a filter shows", async () => {
+    const fetch = fakeEngine({
+      "/tidy": PROPOSAL,
+      "POST /tidy": { planId: 14, moved: 1, quarantined: 0, problems: [] },
+    });
+    renderTidy();
+
+    (await screen.findByRole("button", { name: /1 Renames for Plex/ })).click();
+    (await screen.findAllByRole("button", { name: "Apply 1 change" }))[0]?.click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/tidy")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ changes: [reviewed(TRIGUN_3)], keep: [] });
+  });
+
+  it("waits for a scan to finish before applying", async () => {
+    fakeEngine({ "/tidy": PROPOSAL, "/scan": { ...NO_SCAN, state: "running" } });
+    renderTidy();
+
+    expect(
+      await screen.findByText("Kura is scanning. Apply once it's done, so it knows every file."),
+    ).toBeInTheDocument();
+    for (const button of screen.getAllByRole("button", { name: "Apply 4 changes" })) {
+      expect(button).toBeDisabled();
+    }
+  });
+
+  it("says so when the proposal changed since it was shown", async () => {
+    const changed = "Kura's proposal changed since you looked at it. Look it over again.";
+    fakeEngine({
+      "/tidy": PROPOSAL,
+      "POST /tidy": () => Response.json({ detail: changed }, { status: 409 }),
+    });
+    renderTidy();
+
+    (await screen.findAllByRole("button", { name: "Apply 4 changes" }))[0]?.click();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(changed);
+  });
+
+  it("names the files an undo couldn't put back", async () => {
+    fakeEngine({
+      "/tidy": PROPOSAL,
+      "POST /tidy": { planId: 13, moved: 2, quarantined: 1, problems: [] },
+      "POST /plans/13/undo": {
+        planId: 13,
+        moved: 1,
+        quarantined: 1,
+        problems: [
+          {
+            label: "Cowboy Bebop · S01E01",
+            source: BEBOP_1.source,
+            problem: "Kura couldn't put it back. A file with its old name is there now.",
+          },
+        ],
+      },
+    });
+    renderTidy();
+
+    (await screen.findAllByRole("button", { name: "Apply 4 changes" }))[0]?.click();
+    (await screen.findByRole("button", { name: "Undo" })).click();
+
+    const stayed = await screen.findByRole("alert");
+    expect(stayed).toHaveTextContent("Some files stayed where they were");
+    expect(stayed).toHaveTextContent(
+      "Cowboy Bebop · S01E01: Kura couldn't put it back. A file with its old name is there now.",
+    );
   });
 
   it("says when everything is filed", async () => {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import {
@@ -51,19 +52,7 @@ export function HistoryPage() {
           {undo.error.message}
         </p>
       )}
-      {result && result.problems.length > 0 && (
-        <section
-          role="alert"
-          className="flex flex-col gap-1.5 rounded-20 border border-broken/40 bg-broken/8 px-5 py-4 text-13"
-        >
-          <span className="font-extrabold">Some files stayed where they were</span>
-          {result.problems.map((problem) => (
-            <span key={problem.source} className="text-broken-fg">
-              {problem.label}: {problem.problem}
-            </span>
-          ))}
-        </section>
-      )}
+      {result && result.problems.length > 0 && <Stayed problems={result.problems} />}
       {history.data &&
         (events.length === 0 ? (
           <EmptyState title="Nothing yet">
@@ -143,6 +132,7 @@ function words(event: Event): [string, string, string | null] {
     plan.quarantined > 0 && `${count(plan.quarantined, "copy", "copies")} set aside`,
     plan.failed > 0 && `${plan.failed} couldn't be moved`,
     plan.undoneAt !== null && "Put back since",
+    plan.undoneAt === null && plan.undone > 0 && `${plan.undone} put back`, // the rest couldn't be
     `plan ${plan.id}`,
   ].filter(Boolean);
   return [plan.title.startsWith("Renamed") ? "Renamed" : "Moved", plan.title, parts.join(" · ")];

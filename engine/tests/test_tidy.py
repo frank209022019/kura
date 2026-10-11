@@ -1,7 +1,9 @@
 """Tidying up a real library in a temporary folder: what Kura proposes, applying it, undoing it."""
 
-import _winapi
 import sqlite3
+import subprocess
+import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -9,7 +11,7 @@ import pytest
 from kura import credentials
 from kura.config import DataPaths
 from kura.reports import write_reports
-from kura.tidy import apply, propose, undo
+from kura.tidy import ProposalChangedError, Proposed, Reviewed, apply, propose, undo
 from tests.services import internet
 from tests.shelf import NOW, identify, library
 
@@ -38,6 +40,11 @@ def downloads(paths: DataPaths, conn: sqlite3.Connection, root: Path) -> sqlite3
     )
     identify(paths, conn, internet())
     return conn
+
+
+def reviewed(changes: Iterable[Proposed]) -> list[Reviewed]:
+    """Changes as the owner saw them, which is what applying is given."""
+    return [Reviewed(str(p.change.source), p.change.kind, str(p.change.target)) for p in changes]
 
 
 def where(root: Path) -> list[str]:
@@ -89,9 +96,9 @@ def test_applying_files_the_videos_and_keeps_what_they_are(
 ):
     (root / "Dragon Ball Z" / "Dragon Ball Z - 001.en.srt").write_text("subtitles", "utf-8")
     write_reports(downloads, now=NOW)  # a gap analysis in the show's own folder
-    sources = [str(p.change.source) for p in propose(downloads, day=NOW.date()).changes]
+    changes = reviewed(propose(downloads, day=NOW.date()).changes)
 
-    done = apply(downloads, sources, now=NOW)
+    done = apply(downloads, changes, now=NOW)
 
     assert (done.moved, done.quarantined, done.problems) == (5, 0, ())
     assert where(root) == [
@@ -117,8 +124,7 @@ def test_applying_files_the_videos_and_keeps_what_they_are(
 
 def test_undo_puts_it_all_back(downloads: sqlite3.Connection, root: Path):
     before = where(root)
-    sources = [str(p.change.source) for p in propose(downloads, day=NOW.date()).changes]
-    done = apply(downloads, sources, now=NOW)
+    done = apply(downloads, reviewed(propose(downloads, day=NOW.date()).changes), now=NOW)
     assert done.plan_id is not None
 
     back = undo(downloads, done.plan_id, now=NOW)
@@ -131,7 +137,7 @@ def test_undo_puts_it_all_back(downloads: sqlite3.Connection, root: Path):
 
 def test_only_the_files_asked_for_move(downloads: sqlite3.Connection, root: Path):
     proposal = propose(downloads, day=NOW.date())
-    dbz = [str(p.change.source) for p in proposal.changes if p.title == "Dragon Ball Z"]
+    dbz = reviewed(p for p in proposal.changes if p.title == "Dragon Ball Z")
 
     done = apply(downloads, dbz, now=NOW)
 
@@ -139,6 +145,19 @@ def test_only_the_files_asked_for_move(downloads: sqlite3.Connection, root: Path
     assert r"Downloads\[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv" in where(root)
     title = downloads.execute("SELECT title FROM plans WHERE id = ?", (done.plan_id,)).fetchone()
     assert title[0] == "Tidied 2 files: Dragon Ball Z"
+
+
+def test_a_change_proposed_differently_now_stops_them_all(
+    downloads: sqlite3.Connection, root: Path
+):
+    before = where(root)
+    changes = reviewed(propose(downloads, day=NOW.date()).changes)
+    changes[-1] = Reviewed(changes[-1].source, changes[-1].kind, str(root / "Elsewhere.mkv"))
+
+    with pytest.raises(ProposalChangedError):
+        apply(downloads, changes, now=NOW)
+
+    assert where(root) == before
 
 
 def test_nothing_asked_for_changes_nothing(downloads: sqlite3.Connection, root: Path):
@@ -179,9 +198,7 @@ def test_a_quarantined_copy_leaves_the_library_until_its_put_back(
     credentials.save(paths, "tmdb", "a-test-key")
     library(conn, root, ["Bebop/Cowboy Bebop - 01.mkv", "Bebop/Cowboy Bebop - 01 (copy).mkv"])
     identify(paths, conn, internet())
-    sources = [str(p.change.source) for p in propose(conn, day=NOW.date()).changes]
-
-    done = apply(conn, sources, now=NOW)
+    done = apply(conn, reviewed(propose(conn, day=NOW.date()).changes), now=NOW)
 
     assert (done.moved, done.quarantined) == (1, 1)
     gone = conn.execute("SELECT path FROM files WHERE gone_at IS NOT NULL").fetchone()
@@ -244,6 +261,7 @@ def test_one_file_named_part_2_is_a_whole_film(
     assert proposed.change.target.name == "Cowboy Bebop - The Movie (2001).mkv"
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows'")
 def test_a_folder_that_is_a_link_is_never_a_place_to_file(
     paths: DataPaths, conn: sqlite3.Connection, root: Path, tmp_path: Path
 ):
@@ -251,7 +269,11 @@ def test_a_folder_that_is_a_link_is_never_a_place_to_file(
     library(conn, root, ["Bebop/Cowboy Bebop - 01.mkv"])
     identify(paths, conn, internet())
     (tmp_path / "Elsewhere").mkdir()
-    _winapi.CreateJunction(str(tmp_path / "Elsewhere"), str(root / "TV"))
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(root / "TV"), str(tmp_path / "Elsewhere")],  # noqa: S607
+        check=True,
+        capture_output=True,
+    )
 
     proposal = propose(conn, day=NOW.date())
 

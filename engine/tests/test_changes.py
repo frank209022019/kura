@@ -16,7 +16,6 @@ from kura import changes, db
 from kura.changes import (
     PARTIAL,
     ChangeState,
-    Outcome,
     apply_plan,
     changes_of,
     recover,
@@ -99,7 +98,7 @@ def test_applying_moves_each_file_and_makes_its_folders(
 
     outcome = apply_plan(conn, plan_id, now=NOW)
 
-    assert outcome == Outcome(1, ())
+    assert (outcome.count, outcome.problems) == (1, ())
     assert target.read_text(encoding="utf-8") == "video"
     assert not source.exists()
     [change] = changes_of(conn, plan_id)
@@ -158,7 +157,7 @@ def test_applying_again_changes_nothing_more(
     plan_id = saved(conn, move(source, library / "a.mkv"))
     apply_plan(conn, plan_id, now=NOW)
 
-    assert apply_plan(conn, plan_id, now=NOW) == Outcome(0, ())
+    assert apply_plan(conn, plan_id, now=NOW).count == 0
 
 
 def test_a_duplicate_goes_to_quarantine_and_comes_back(
@@ -190,7 +189,7 @@ def test_undo_puts_everything_back_and_removes_only_the_folders_kura_made(
 
     outcome = undo_plan(conn, plan_id, now=NOW)
 
-    assert outcome == Outcome(2, ())
+    assert (outcome.count, outcome.problems) == (2, ())
     assert first.exists()
     assert second.exists()
     assert not (library / "Death Note (2006)").exists()
@@ -244,7 +243,7 @@ def test_a_move_to_another_drive_copies_then_removes_the_original(
     target = library / "Show" / "a.mkv"
     plan_id = saved(conn, move(source, target))
 
-    assert apply_plan(conn, plan_id, now=NOW) == Outcome(1, ())
+    assert apply_plan(conn, plan_id, now=NOW).count == 1
 
     assert target.read_text(encoding="utf-8") == "video"
     assert not source.exists()
@@ -300,7 +299,7 @@ def test_recover_plans_again_a_move_that_had_not_started(
     [change] = changes_of(conn, plan_id)
     assert (change.state, change.created_dirs) == (ChangeState.PLANNED, ())
     assert not (library / "Show").exists()
-    assert apply_plan(conn, plan_id, now=NOW) == Outcome(1, ())  # and applying carries on
+    assert apply_plan(conn, plan_id, now=NOW).count == 1  # and applying carries on
 
 
 def test_recover_removes_an_unfinished_copy(
@@ -544,3 +543,91 @@ def test_putting_back_copies_set_aside_on_one_day_leaves_no_empty_quarantine(
     assert first.exists()
     assert second.exists()
     assert not (tmp_path / "Kura quarantine").exists()
+
+
+def applied_at(conn: sqlite3.Connection, plan_id: int) -> str | None:
+    row = conn.execute("SELECT applied_at FROM plans WHERE id = ?", (plan_id,)).fetchone()
+    return row["applied_at"]
+
+
+def undone_at(conn: sqlite3.Connection, plan_id: int) -> str | None:
+    row = conn.execute("SELECT undone_at FROM plans WHERE id = ?", (plan_id,)).fetchone()
+    return row["undone_at"]
+
+
+def test_a_crash_while_applying_leaves_the_plan_in_history_and_closes_the_rest(
+    conn: sqlite3.Connection, downloads: Path, library: Path, monkeypatch: pytest.MonkeyPatch
+):
+    first, second = video(downloads / "a.mkv"), video(downloads / "b.mkv")
+    plan_id = saved(conn, move(first, library / "a.mkv"), move(second, library / "b.mkv"))
+    renames = 0
+    rename = Path.rename
+
+    def stop_at_the_second(path: Path, target: Path) -> Path:
+        nonlocal renames
+        renames += 1
+        if renames == 2:
+            raise KeyboardInterrupt  # the engine stopping mid-way
+        return rename(path, target)
+
+    monkeypatch.setattr(Path, "rename", stop_at_the_second)
+    with pytest.raises(KeyboardInterrupt):
+        apply_plan(conn, plan_id, now=NOW)
+    monkeypatch.undo()
+
+    assert applied_at(conn, plan_id) == "2026-10-10T20:00:00+00:00"
+    recover(conn, now=NOW)
+
+    [made, closed] = changes_of(conn, plan_id)
+    assert made.state is ChangeState.DONE
+    assert (closed.state, closed.problem) == (
+        ChangeState.FAILED,
+        "Kura stopped before making this change. Tidy up proposes it again.",
+    )
+    assert second.exists()
+
+
+def test_a_change_is_done_only_once_its_record_has_moved_too(
+    conn: sqlite3.Connection,
+    downloads: Path,
+    library: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source = video(downloads / "a.mkv")
+    recorded(conn, tmp_path, source)
+    plan_id = saved(conn, move(source, library / "a.mkv"))
+
+    def stop(*_: object, **__: object) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(changes, "_follow", stop)
+    with pytest.raises(KeyboardInterrupt):
+        apply_plan(conn, plan_id, now=NOW)
+    monkeypatch.undo()
+
+    assert states(conn, plan_id) == [ChangeState.MOVING]  # so recover settles it
+    recover(conn, now=NOW)
+    assert states(conn, plan_id) == [ChangeState.DONE]
+    assert conn.execute("SELECT path FROM files").fetchone()[0] == str(library / "a.mkv")
+
+
+def test_a_plan_stays_undoable_until_everything_is_back(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    a, b = video(downloads / "a.mkv"), video(downloads / "b.mkv")
+    plan_id = saved(conn, move(a, library / "a.mkv"), move(b, library / "b.mkv"))
+    apply_plan(conn, plan_id, now=NOW)
+    blocker = video(a, "a new file with the old name")
+
+    first = undo_plan(conn, plan_id, now=NOW)
+
+    assert [change.source.name for change in first.changed] == ["b.mkv"]
+    assert [change.source.name for change in first.problems] == ["a.mkv"]
+    assert undone_at(conn, plan_id) is None
+    blocker.unlink()
+
+    second = undo_plan(conn, plan_id, now=NOW)
+
+    assert ([c.source.name for c in second.changed], second.problems) == (["a.mkv"], ())
+    assert undone_at(conn, plan_id) == "2026-10-10T20:00:00+00:00"
