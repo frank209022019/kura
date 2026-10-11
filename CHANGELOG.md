@@ -12,7 +12,8 @@ shows these notes when it offers the update.
 - First-run setup in four steps: where Kura keeps its data, your anime folders, your standard and
   how files are named, and the tools Kura needs, with a quick check of the graphics card.
 - Kura downloads ffmpeg (77 MB) the first time it needs it, and uses it only after checking it
-  matches what Kura expects.
+  matches what Kura expects. If a part of it goes missing or it stops working, Kura offers the
+  download again.
 - The installer's first page lists everything Kura downloads to your PC, with what each is for,
   its size, licence and source.
 - Scanning: Kura finds every video in your folders, whatever their layout, and reads each one's
