@@ -18,6 +18,7 @@ class Backup(ApiModel):
     size: int
     before_restoring: bool  # made just before another backup was restored
     from_export: bool  # the database an imported export held
+    by_hand: bool  # made when the owner asked ("Back up now")
 
 
 class Restored(ApiModel):
@@ -42,9 +43,9 @@ def list_backups(conn: Database, paths: Paths) -> Backups:
 
 @router.post("/backups")
 def back_up_now(paths: Paths) -> Backup:
-    """Makes a backup now, checked like the nightly ones."""
+    """Makes a backup now, checked like the nightly ones (and kept apart from them)."""
     try:
-        made = backups.back_up(paths, datetime.now().astimezone())
+        made = backups.back_up(paths, datetime.now().astimezone(), by_hand=True)
     except backups.BackupError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
     return _backup(made)
@@ -80,4 +81,5 @@ def _backup(backup: backups.Backup) -> Backup:
         size=backup.size,
         before_restoring=backup.before_restoring,
         from_export=backup.from_export,
+        by_hand=backup.by_hand,
     )

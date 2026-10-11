@@ -361,6 +361,8 @@ export interface Backup {
   beforeRestoring: boolean;
   /** The database an imported export held. */
   fromExport: boolean;
+  /** Made when the owner asked ("Back up now"); kept apart from the nightly ones. */
+  byHand: boolean;
 }
 
 export interface Backups {

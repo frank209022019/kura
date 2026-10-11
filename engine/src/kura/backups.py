@@ -1,16 +1,22 @@
 """Backups of Kura's database: one a night (the first chance after 03:00), the last seven kept,
-each checked as it's written, in the data folder's `backups`. One can be restored: Kura's records
-go back to that night, and the files themselves stay as they are. The owner asks for it in
-Settings, and it's done as the engine starts again, before anything opens the database; what
-Kura knew till then is backed up first. Importing an export (`kura export`'s zip, from this PC or
-another) is restoring the database it holds, kept beside the backups as one "from an export".
+each checked as it's written, in the data folder's `backups`. The owner can make one by hand too
+(seven of those are kept apart). One can be restored: Kura's records go back to that night, and
+the files themselves stay as they are. The owner asks for it in Settings, and it's done as the
+engine starts again, before anything opens the database; the backup is checked first, and what
+Kura knew till then is backed up before it's replaced, even when it doesn't check out (it's what
+there was). Importing an export (`kura export`'s zip, from this PC or another) is restoring the
+database it holds, kept beside the backups as one "from an export". No backup is ever written
+over: two made in one minute are "(2)" apart.
 """
 
+import itertools
 import json
 import logging
+import os
 import re
 import shutil
 import sqlite3
+import tempfile
 import zipfile
 from contextlib import closing
 from dataclasses import dataclass
@@ -25,10 +31,11 @@ from kura.migrations import MIGRATIONS
 log = logging.getLogger(__name__)
 
 BACKUP_HOUR = 3  # a night's backup is made from 03:00
-KEEP = 7  # nightly backups, and as many made before restoring
+KEEP = 7  # nightly backups, and as many of each other kind
 
 _NAME = re.compile(
-    r"^kura (\d{4}-\d{2}-\d{2}) (\d{2})(\d{2})( before restoring| from an export)?\.db$"
+    r"^kura (\d{4}-\d{2}-\d{2}) (\d{2})(\d{2})( before restoring| from an export| by hand)?"
+    r"(?: \((\d+)\))?\.db$"
 )
 _ASKED = "restore.txt"  # names the backup to restore when the engine next starts
 _RESTORED = "backup_restored"  # the settings row saying how the last restore went
@@ -45,6 +52,8 @@ class Backup:
     size: int
     before_restoring: bool  # made just before another backup was restored
     from_export: bool = False  # the database an imported export held
+    by_hand: bool = False  # made when the owner asked ("Back up now")
+    copy: int = 1  # 2, 3… for one made in the same minute as another of its kind
 
 
 @dataclass(frozen=True)
@@ -75,9 +84,11 @@ def backups(paths: DataPaths) -> list[Backup]:
                 path.stat().st_size,
                 before_restoring=kind == " before restoring",
                 from_export=kind == " from an export",
+                by_hand=kind == " by hand",
+                copy=int(match[5] or 1),
             )
         )
-    return sorted(found, key=lambda backup: (backup.made, backup.name), reverse=True)
+    return sorted(found, key=lambda b: (b.made, b.copy, b.name), reverse=True)
 
 
 def due(paths: DataPaths, now: datetime) -> bool:
@@ -85,34 +96,58 @@ def due(paths: DataPaths, now: datetime) -> bool:
     night = now.replace(hour=BACKUP_HOUR, minute=0, second=0, microsecond=0, tzinfo=None)
     if now.replace(tzinfo=None) < night:
         night -= timedelta(days=1)
-    return not any(
-        b.made >= night and not (b.before_restoring or b.from_export) for b in backups(paths)
-    )
+    return not any(b.made >= night and _nightly(b) for b in backups(paths))
 
 
-def back_up(paths: DataPaths, now: datetime, *, before_restoring: bool = False) -> Backup:
-    """Copies the live database into a backup, checks the copy, and keeps only the last seven
-    (the ones made before restoring don't count)."""
+def back_up(
+    paths: DataPaths,
+    now: datetime,
+    *,
+    before_restoring: bool = False,
+    by_hand: bool = False,
+    keep: str | None = None,
+) -> Backup:
+    """Copies the live database into a backup, checks the copy, and keeps the last seven of its
+    kind (and `keep`, the one about to be restored, whatever its age). A copy that doesn't check
+    out isn't kept, unless it's made before restoring: then it's what Kura had."""
     folder = _folder(paths)
     folder.mkdir(parents=True, exist_ok=True)
-    stamp = now.strftime("%Y-%m-%d %H%M")
-    name = f"kura {stamp}{' before restoring' if before_restoring else ''}.db"
-    target = folder / name
-    partial = target.with_suffix(".partial")
+    kind = " before restoring" if before_restoring else " by hand" if by_hand else ""
+    handle, made = tempfile.mkstemp(prefix="kura ", suffix=".partial", dir=folder)
+    os.close(handle)
+    partial = Path(made)
     try:
         with closing(db.connect(paths.database)) as live, closing(sqlite3.connect(partial)) as copy:
             live.backup(copy)
             copy.execute("PRAGMA journal_mode = DELETE")  # one self-contained file
             [verdict] = copy.execute("PRAGMA integrity_check").fetchone()
-        if verdict != "ok":
+        if verdict != "ok" and not before_restoring:
             raise BackupError(f"The backup didn't check out ({verdict}), so Kura didn't keep it.")
-        partial.replace(target)
+        if verdict != "ok":
+            log.warning("Kura's records didn't check out before restoring (%s)", verdict)
+        name = _name_free(partial, f"kura {now:%Y-%m-%d %H%M}{kind}")
     except (OSError, sqlite3.Error) as error:
         raise BackupError(f"Kura couldn't make a backup: {error}") from error
     finally:
         partial.unlink(missing_ok=True)
-    _prune(paths)
+    _prune(paths, keep=keep)
     return next(backup for backup in backups(paths) if backup.name == name)
+
+
+def _name_free(partial: Path, stem: str) -> str:
+    """Gives a finished copy its name, never another backup's: one made in the same minute as
+    another of its kind is "(2)", "(3)"…"""
+    for count in itertools.count(1):
+        name = f"{stem}.db" if count == 1 else f"{stem} ({count}).db"
+        target = partial.with_name(name)
+        if target.exists():
+            continue
+        try:
+            partial.rename(target)  # Windows never renames over a file
+        except FileExistsError:
+            continue
+        return name
+    raise AssertionError  # never reached: the count goes on
 
 
 def ask_to_import(paths: DataPaths, archive: Path, now: datetime) -> None:
@@ -120,7 +155,9 @@ def ask_to_import(paths: DataPaths, archive: Path, now: datetime) -> None:
     backups, and asks for it to be restored as the engine next starts."""
     folder = _folder(paths)
     folder.mkdir(parents=True, exist_ok=True)
-    target = folder / f"kura {now:%Y-%m-%d %H%M} from an export.db"
+    handle, made = tempfile.mkstemp(prefix="kura ", suffix=".partial", dir=folder)
+    os.close(handle)
+    target = Path(made)
     try:
         with zipfile.ZipFile(archive) as export:
             found = json.loads(export.read("manifest.json"))
@@ -138,14 +175,13 @@ def ask_to_import(paths: DataPaths, archive: Path, now: datetime) -> None:
             [verdict] = conn.execute("PRAGMA integrity_check").fetchone()
         if verdict != "ok":
             raise BackupError(f"The export's database didn't check out ({verdict}).")
-    except BackupError:
-        target.unlink(missing_ok=True)
-        raise
+        name = _name_free(target, f"kura {now:%Y-%m-%d %H%M} from an export")
     except OSError, KeyError, ValueError, zipfile.BadZipFile, sqlite3.Error:
-        target.unlink(missing_ok=True)
         raise BackupError("That zip isn't a Kura export Kura can read.") from None
-    _prune(paths)
-    ask_to_restore(paths, target.name)
+    finally:
+        target.unlink(missing_ok=True)
+    _prune(paths, keep=name)
+    ask_to_restore(paths, name)
 
 
 def ask_to_restore(paths: DataPaths, name: str) -> None:
@@ -194,32 +230,44 @@ def last_restore(conn: sqlite3.Connection) -> Restored | None:
 
 
 def restore(paths: DataPaths, name: str, now: datetime) -> None:
-    """Puts a backup's records in place of the live ones, after backing those up first. The
-    caller makes sure nothing else is writing (no scan, nothing converting)."""
+    """Puts a backup's records in place of the live ones, once the backup checks out and the live
+    ones are backed up. The caller makes sure nothing else is writing (no scan, nothing
+    converting)."""
     source = _folder(paths) / name
     if not _NAME.match(name) or not source.is_file():
         raise BackupError("Kura has no such backup.")
-    back_up(paths, now, before_restoring=True)
     try:
-        with (
-            closing(sqlite3.connect(source)) as backup,
-            closing(db.connect(paths.database)) as live,
-        ):
-            backup.backup(live)
-            db.migrate(live)  # a backup from an older Kura is brought up to date
-            changes.recover(live, now=now)
+        # Opened only to read: a backup that went meanwhile is never made anew, empty.
+        with closing(sqlite3.connect(f"{source.absolute().as_uri()}?mode=ro", uri=True)) as backup:
+            [verdict] = backup.execute("PRAGMA integrity_check").fetchone()
+            if verdict != "ok":
+                raise BackupError(
+                    f"That backup didn't check out ({verdict}), so Kura left its "
+                    "records as they are."
+                )
+            back_up(paths, now, before_restoring=True, keep=name)
+            with closing(db.connect(paths.database)) as live:
+                backup.backup(live)
+                db.migrate(live)  # a backup from an older Kura is brought up to date
+                changes.recover(live, now=now)
     except (OSError, sqlite3.Error) as error:
         raise BackupError(f"Kura couldn't restore that backup: {error}") from error
 
 
-def _prune(paths: DataPaths) -> None:
-    """Keeps the last seven of each kind: nightly backups, those made before restoring, and
-    the databases imported exports held."""
+def _prune(paths: DataPaths, *, keep: str | None = None) -> None:
+    """Keeps the last seven of each kind (nightly backups, those made by hand, those made before
+    restoring, and the databases imported exports held), and `keep`."""
     found = backups(paths)
-    for kind in ((False, False), (True, False), (False, True)):
-        same = [backup for backup in found if (backup.before_restoring, backup.from_export) == kind]
+    kinds = {(backup.before_restoring, backup.from_export, backup.by_hand) for backup in found}
+    for kind in kinds:
+        same = [b for b in found if (b.before_restoring, b.from_export, b.by_hand) == kind]
         for old in same[KEEP:]:
-            (_folder(paths) / old.name).unlink(missing_ok=True)
+            if old.name != keep:
+                (_folder(paths) / old.name).unlink(missing_ok=True)
+
+
+def _nightly(backup: Backup) -> bool:
+    return not (backup.before_restoring or backup.from_export or backup.by_hand)
 
 
 def _folder(paths: DataPaths) -> Path:

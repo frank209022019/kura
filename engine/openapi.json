@@ -1879,7 +1879,7 @@
       },
       "post": {
         "summary": "Back Up Now",
-        "description": "Makes a backup now, checked like the nightly ones.",
+        "description": "Makes a backup now, checked like the nightly ones (and kept apart from them).",
         "operationId": "back_up_now_backups_post",
         "responses": {
           "200": {
@@ -2048,6 +2048,10 @@
           "fromExport": {
             "type": "boolean",
             "title": "Fromexport"
+          },
+          "byHand": {
+            "type": "boolean",
+            "title": "Byhand"
           }
         },
         "type": "object",
@@ -2056,7 +2060,8 @@
           "made",
           "size",
           "beforeRestoring",
-          "fromExport"
+          "fromExport",
+          "byHand"
         ],
         "title": "Backup"
       },

@@ -23,6 +23,7 @@ def test_backups_are_listed_and_one_can_be_made_now(client: TestClient):
     assert made["name"].startswith("kura ")
     assert made["size"] > 0
     assert made["beforeRestoring"] is False
+    assert made["byHand"] is True
 
 
 def test_a_backup_is_restored_as_the_engine_starts_again(client: TestClient, paths: DataPaths):

@@ -57,7 +57,7 @@ function stamp(daysAgo: number, time: string): string {
 function backup(made: string): Backup {
   const [date, time] = made.split("T");
   const name = `kura ${date} ${time?.replace(":", "")}.db`;
-  return { name, made, size: 47_000_000, beforeRestoring: false, fromExport: false };
+  return { name, made, size: 47_000_000, beforeRestoring: false, fromExport: false, byHand: false };
 }
 
 const TONIGHT = backup(stamp(0, "03:00"));
@@ -234,6 +234,28 @@ describe("SettingsPage", () => {
 
     await waitFor(() => expect(sent(fetch, "POST", restore)).toHaveLength(1));
     await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
+  });
+
+  it("says what kind each backup is", async () => {
+    const byHand = { ...backup(stamp(0, "14:12")), byHand: true };
+    const imported = `kura ${stamp(0, "14:20").replace("T", " ").replace(":", "")} from an export (2).db`;
+    fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "/backups": {
+        backups: [byHand, TONIGHT],
+        restored: { name: imported, at: new Date().toISOString(), problem: null },
+      },
+    });
+    renderSettings("data");
+
+    expect(await screen.findByText("Imported the export.")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Restore a backup" }).click();
+    expect(
+      await screen.findByRole("radio", { name: "Today 14:12 · by hand, 47 MB" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Today 03:00, 47 MB" })).toBeInTheDocument();
   });
 
   it("says how today's restore went", async () => {

@@ -176,3 +176,108 @@ def test_an_export_from_a_newer_kura_waits_for_an_update(
 
     with pytest.raises(BackupError, match="newer Kura"):
         ask_to_import(paths, archive, NIGHT)
+
+
+def name_it(conn: sqlite3.Connection, naming: str) -> None:
+    """A record that tells one moment's records from another's."""
+    with conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('naming', ?)"
+            " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            (json.dumps(naming),),
+        )
+
+
+def naming_of(paths: DataPaths) -> str:
+    with closing(db.connect(paths.database)) as conn:
+        return json.loads(
+            conn.execute("SELECT value FROM settings WHERE key = 'naming'").fetchone()[0]
+        )
+
+
+def test_restores_in_one_minute_each_keep_what_they_replaced(
+    paths: DataPaths, conn: sqlite3.Connection
+):
+    name_it(conn, "wrong night")
+    wrong = back_up(paths, NIGHT)
+    name_it(conn, "right night")
+    right = back_up(paths, NIGHT + timedelta(days=1))
+    name_it(conn, "today")
+    at = NIGHT + timedelta(days=1, hours=7, minutes=15)
+
+    restore(paths, wrong.name, at)
+    restore(paths, right.name, at + timedelta(seconds=40))  # the one meant
+
+    before = [b.name for b in backups(paths) if b.before_restoring]
+    assert before == [
+        "kura 2026-10-12 1015 before restoring (2).db",
+        "kura 2026-10-12 1015 before restoring.db",
+    ]
+    restore(paths, before[1], at + timedelta(minutes=1))
+    assert naming_of(paths) == "today"
+
+
+def test_the_oldest_copy_made_before_restoring_can_be_restored(
+    paths: DataPaths, conn: sqlite3.Connection
+):
+    name_it(conn, "oldest")
+    for hour in range(7):
+        back_up(paths, NIGHT + timedelta(hours=hour), before_restoring=True)
+        name_it(conn, f"later {hour}")
+    oldest = [b for b in backups(paths) if b.before_restoring][-1]
+
+    restore(paths, oldest.name, NIGHT + timedelta(hours=8))
+
+    assert naming_of(paths) == "oldest"
+    assert (paths.root / "backups" / oldest.name).is_file()
+
+
+def test_damaged_records_are_kept_aside_and_a_backup_restored_over_them(paths: DataPaths):
+    with closing(db.connect(paths.database)) as conn:
+        db.migrate(conn)
+        name_it(conn, "good")
+    good = back_up(paths, NIGHT)
+    with closing(db.connect(paths.database)) as conn, conn:
+        conn.execute("CREATE TABLE filler (x TEXT)")
+        conn.executemany("INSERT INTO filler VALUES (?)", [(f"{i:06d}" * 50,) for i in range(3000)])
+        conn.execute("CREATE INDEX filler_x ON filler (x)")
+    with closing(sqlite3.connect(paths.database)) as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        page_size, pages = (
+            conn.execute(f"PRAGMA {p}").fetchone()[0] for p in ("page_size", "page_count")
+        )
+    with paths.database.open("r+b") as damaged:  # a page in the middle scribbled over
+        damaged.seek((pages - 5) * page_size + 1000)
+        damaged.write(b"\x00\x01\x02\x03" * 500)
+
+    restore(paths, good.name, NIGHT + timedelta(hours=10))
+
+    assert naming_of(paths) == "good"
+    assert [b.name for b in backups(paths) if b.before_restoring] == [
+        "kura 2026-10-11 1300 before restoring.db"
+    ]
+
+
+def test_a_backup_that_doesnt_check_out_isnt_restored(paths: DataPaths, conn: sqlite3.Connection):
+    name_it(conn, "today")
+    made = back_up(paths, NIGHT)
+    (paths.root / "backups" / made.name).write_bytes(b"not a database any more")
+
+    with pytest.raises(BackupError, match="couldn't restore that backup"):
+        restore(paths, made.name, NIGHT + timedelta(hours=10))
+
+    assert naming_of(paths) == "today"
+
+
+def test_backups_made_by_hand_leave_the_nightly_ones_be(paths: DataPaths, conn: sqlite3.Connection):
+    for night in range(2):
+        back_up(paths, NIGHT + timedelta(days=night))
+    for minute in range(9):  # the next morning, before that night's
+        back_up(paths, NIGHT + timedelta(days=2, hours=7, minutes=minute), by_hand=True)
+
+    kept = backups(paths)
+
+    assert len([b for b in kept if b.by_hand]) == 7
+    assert len([b for b in kept if not b.by_hand]) == 2
+    assert kept[0].name == "kura 2026-10-13 1008 by hand.db"
+    assert due(paths, NIGHT + timedelta(days=2, hours=8)) is True  # by hand isn't tonight's

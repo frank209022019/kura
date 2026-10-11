@@ -36,9 +36,10 @@ shows these notes when it offers the update.
   Analysis.
 - Files are named "Clean names" or "Keep my names": Kura's words don't name a media server.
 - Backups: every night at 03:00 (or the first chance after), Kura backs up its records, keeping
-  the last 7, each checked as it's made. Settings shows the last one, makes one now, and restores
-  one: Kura's records go back to then, your files stay as they are, and what Kura knew till then
-  is backed up first.
+  the last 7, each checked as it's made and never written over. Settings shows the last one,
+  makes one now (kept apart from the nightly ones), and restores one: the backup is checked
+  first, Kura's records go back to then, your files stay as they are, and what Kura knew till
+  then is backed up first, even when it doesn't check out.
 - What waited in quarantine longer than you keep it (30 days unless you choose otherwise) is
   cleared out once a day while Kura is open. A converted file's original goes only once its
   converted copy is in place.

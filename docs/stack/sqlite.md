@@ -62,9 +62,14 @@ server).
 
 - Consistent copies use SQLite's backup API (`source.backup(copy)`), never a file copy of a database
   in use. The export does this, and so do the nightly backups (`backups/kura 2026-10-11 0300.db`,
-  the last 7 kept), each checked with `PRAGMA integrity_check` before it's kept.
-- Restoring a backup copies it into `kura.db` the same way, as the engine starts and before
-  anything else opens the database, then migrates it if an older Kura made it.
+  the last 7 kept), each checked with `PRAGMA integrity_check` before it's kept. Backups made by
+  hand, before a restore and from an export are named so (`kura 2026-10-11 1015 by hand.db`) and
+  kept 7 of each kind; two made in one minute are `(2)` apart, and none is renamed over another.
+- Restoring a backup opens it read-only (`file:…?mode=ro`, so one that went is never made anew,
+  empty), checks it, backs up the live records (kept even when they don't check out: they're what
+  there was, and the backup being restored is never pruned), then copies it into `kura.db` the
+  same way, as the engine starts and before anything else opens the database, and migrates it if
+  an older Kura made it.
 - The exported `kura.db` is switched to `journal_mode = DELETE`, so it is one self-contained file.
 
 ## Looking inside

@@ -217,11 +217,13 @@ Before queueing, the Convert screen shows one frame of a file before and after
 - **The data folder**, `%LOCALAPPDATA%\Kura`: `kura.db` (everything Kura knows), `logs/`
   (`engine.log`, kept 30 days), `tools/` (ffmpeg), `credentials.json` (the TMDB key, encrypted by
   Windows for this user and never exported), `cache/` (answers from TMDB and AniList, safe to
-  delete), `artwork/` (posters), `backups/` (the last 7 nights, each checked as it's made).
-  `kura/care.py` makes tonight's backup from 03:00 (or the first chance after) and clears out of
-  the quarantine, once a day, what has waited longer than the owner keeps it. A backup chosen in
-  Settings is restored as the engine starts again, before anything opens the database, and what
-  Kura knew till then is backed up first.
+  delete), `artwork/` (posters), `backups/` (the last 7 nights, each checked as it's made, and
+  apart from them the last 7 made by hand, before a restore and from an export; none is ever
+  written over). `kura/care.py` makes tonight's backup from 03:00 (or the first chance after) and
+  clears out of the quarantine, once a day, what has waited longer than the owner keeps it. A
+  backup chosen in Settings is restored as the engine starts again, before anything opens the
+  database, once it checks out; what Kura knew till then is backed up first, and kept even when
+  it doesn't check out.
   Development uses `engine/.dev-data`, so it never touches the real folder.
 - **Moving it** to another drive (Settings > Your data, `kura/relocate.py`): the owner picks a
   folder (an empty or new one, outside the data folder, with room); the app starts the engine

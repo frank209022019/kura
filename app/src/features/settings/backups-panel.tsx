@@ -133,7 +133,7 @@ function Outcome({ restored }: { restored: Backups["restored"] }) {
   if (!restored || new Date(restored.at).toDateString() !== new Date().toDateString()) {
     return null;
   }
-  const what = restored.name.endsWith(" from an export.db")
+  const what = / from an export( \(\d+\))?\.db$/.test(restored.name)
     ? "the export"
     : `the backup from ${when(madeOf(restored.name))}`;
   return restored.problem ? (
@@ -164,10 +164,13 @@ function Choose(props: {
       >
         {props.backups.map((backup) => {
           const on = props.chosen === backup.name;
+          const made = capitalised(when(backup.made));
+          const kind = kindOf(backup);
           return (
             <RadioGroup.Item
               key={backup.name}
               value={backup.name}
+              aria-label={`${made}${kind ? ` · ${kind}` : ""}, ${size(backup.size)}`}
               className={cn(
                 "press flex min-h-11 cursor-pointer items-center gap-3 rounded-14 px-3 text-left text-14",
                 on ? "bg-accent/10 font-extrabold text-fg" : "font-bold text-fg-soft",
@@ -175,13 +178,8 @@ function Choose(props: {
             >
               <Dot on={on} />
               <span className="min-w-0 flex-1">
-                {capitalised(when(backup.made))}
-                {backup.beforeRestoring && (
-                  <span className="font-medium text-12 text-fg-muted"> · before a restore</span>
-                )}
-                {backup.fromExport && (
-                  <span className="font-medium text-12 text-fg-muted"> · from an export</span>
-                )}
+                {made}
+                {kind && <span className="font-medium text-12 text-fg-muted"> · {kind}</span>}
               </span>
               <span className="font-medium font-mono text-12 text-fg-muted">
                 {size(backup.size)}
@@ -228,6 +226,13 @@ function when(made: string): string {
 }
 
 /** When a backup was made, from its name: "kura 2026-10-11 0300.db" is "2026-10-11T03:00". */
+/** What kind of backup it is, when it isn't a nightly one. */
+function kindOf(backup: Backup): string | null {
+  if (backup.beforeRestoring) return "before a restore";
+  if (backup.fromExport) return "from an export";
+  return backup.byHand ? "by hand" : null;
+}
+
 function madeOf(name: string): string {
   const found = /^kura (\d{4}-\d{2}-\d{2}) (\d{2})(\d{2})/.exec(name);
   return found ? `${found[1]}T${found[2]}:${found[3]}` : "";
