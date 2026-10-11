@@ -73,7 +73,7 @@ Built so far, in `app/src/components/`:
 | --- | --- |
 | `ui/button.tsx` | Every button. Variants `primary`, `secondary`, `ghost`, `danger`; sizes `md` (44 px) and `sm` (36 px); `asChild` to style a link |
 | `empty-state.tsx` | A place with nothing in it yet, with its one next step |
-| `shell/` | The title bar, nav rail and update card around every screen |
+| `shell/` | The title bar, nav rail, update card and the notes at the window's foot (offline, what the engine tells of) around every screen |
 | `kura-logo.tsx` | The mark |
 
 New primitives start from shadcn/ui (accessible, built on Radix) and are restyled to Cinema; see

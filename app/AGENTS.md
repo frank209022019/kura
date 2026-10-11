@@ -30,7 +30,7 @@ and [../CLAUDE.md](../CLAUDE.md).
 | --- | --- |
 | A screen and its parts | `src/features/<area>/` (`home/`, then `tidy/`, `convert/`, …) |
 | Shared primitives (buttons, switches, dialogs…) | `src/components/ui/` |
-| The window frame (title bar, nav rail, update card) | `src/components/shell/` |
+| The window frame (title bar, nav rail, update card, the notes at its foot) | `src/components/shell/` |
 | Talking to the engine and the shell | `src/lib/engine.tsx`, `src/lib/updates.ts` |
 | Tokens and global styles | `src/styles/` |
 | Routes | `src/app.tsx`; nav items in `src/components/shell/sections.ts` |
