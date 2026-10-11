@@ -520,10 +520,10 @@ class Queue:
             with self._scanner.hold():
                 with self._lock, conn:  # never one skipped or taken out a moment before
                     claimed = conn.execute(
-                        """UPDATE jobs SET state = 'replacing', started_at = ?
+                        """UPDATE jobs SET state = 'replacing'
                            WHERE id = ? AND state = 'queued' AND retry_at IS NOT NULL
                            RETURNING id""",
-                        (self._now().isoformat(), job_id),
+                        (job_id,),
                     ).fetchone()
                 if claimed is None:
                     return
@@ -544,12 +544,15 @@ class Queue:
 
     def _waits(self, conn: sqlite3.Connection, job_id: int, problem: str) -> None:
         """A result whose original another app has open waits beside it, its file keeping its
-        place in the line, and is tried again in a few minutes."""
+        place in the line, and is tried again in a few minutes. It finished when it was made:
+        History says how long that took, not how long it waited."""
+        now = self._now()
         with conn:
             conn.execute(
-                """UPDATE jobs SET state = 'queued', started_at = NULL, problem = ?, retry_at = ?
+                """UPDATE jobs SET state = 'queued', problem = ?, retry_at = ?,
+                          finished_at = COALESCE(finished_at, ?)
                    WHERE id = ?""",
-                (problem, (self._now() + IN_USE_WAIT).isoformat(), job_id),
+                (problem, (now + IN_USE_WAIT).isoformat(), now.isoformat(), job_id),
             )
 
     def _stopped(self, conn: sqlite3.Connection, job_id: int) -> None:

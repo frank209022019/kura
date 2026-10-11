@@ -646,8 +646,8 @@ def finish(conn: sqlite3.Connection, job_id: int, result: Json, now: datetime) -
     _record(conn, job["file_id"], moved.target, stat.st_size, stat.st_mtime_ns, result, now)
     with conn:
         conn.execute(
-            """UPDATE jobs SET state = 'done', finished_at = ?, output_size = ?,
-                      output_probe = ?, problem = NULL, retry_at = NULL
+            """UPDATE jobs SET state = 'done', finished_at = COALESCE(finished_at, ?),
+                      output_size = ?, output_probe = ?, problem = NULL, retry_at = NULL
                WHERE id = ?""",
             (now.isoformat(), stat.st_size, json.dumps(result, separators=(",", ":")), job_id),
         )

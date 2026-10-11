@@ -3,6 +3,7 @@ reordered, tried again, put back, and settled after a crash."""
 
 import json
 import sqlite3
+import subprocess
 import threading
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import replace
@@ -19,6 +20,7 @@ from kura.convert import WORKING, ConvertError, Programs
 from kura.core.fields import Json
 from kura.core.plan import Change, ChangeKind, Plan
 from kura.core.standard import Method
+from kura.history import plans
 from kura.queue import Queue
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
@@ -530,6 +532,38 @@ def test_a_file_open_in_another_app_waits_its_result_kept_and_goes_in_later(
     assert len(made) == 1  # made once: the kept result went in
     [(title, _)] = told
     assert title == "Trigun, season 1 is done"
+
+
+def test_history_times_a_result_that_waited_by_its_making(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    open_in_player = open_elsewhere(monkeypatch)
+    at = [NOW]
+    kit = programs(RESULT)
+
+    def slowly(
+        command: Sequence[str],
+        *,
+        stdin: int | None = None,
+        stdout: int | None = None,
+        stderr: int | None = None,
+    ) -> subprocess.Popen[bytes]:  # each ffmpeg takes ten minutes, by the queue's clock
+        at[0] += timedelta(minutes=10)
+        return kit.start(command, stdin=stdin, stdout=stdout, stderr=stderr)
+
+    scanner = Scanner(paths, Tools(paths, items=()))
+    queue = Queue(paths, scanner, lambda: replace(kit, start=slowly), now=lambda: at[0])
+    queue.add([1])
+    queue.work_once()
+    made = at[0]
+    open_in_player[0] = False
+    at[0] += timedelta(hours=2)  # the player let go two hours later
+
+    queue.try_waiting()
+
+    [plan] = plans(conn)
+    assert plan.conversion is not None
+    assert plan.conversion.seconds == (made - NOW).total_seconds()
 
 
 def test_a_file_still_open_when_tried_again_waits_again(
