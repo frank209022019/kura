@@ -417,7 +417,8 @@ export interface Report {
 /** The library's titles in `sort` order, asked again every two seconds while `poll`. */
 export const useTitles = (sort: TitleSort = "released", poll = false) =>
   useEngineQuery<TitleSummary[]>(`/titles?sort=${sort}`, () => (poll ? 2000 : false), true, true);
-export const useTitle = (id: number) => useEngineQuery<TitleDetail>(`/titles/${id}`);
+export const useTitle = (id: number, enabled = true) =>
+  useEngineQuery<TitleDetail>(`/titles/${id}`, undefined, enabled);
 export const useReport = (id: number) => useEngineQuery<Report>(`/titles/${id}/report`);
 
 export interface FranchiseRef {
@@ -489,7 +490,12 @@ export interface WaitingFile {
   alike: number[];
 }
 
-export const useReview = () => useEngineQuery<WaitingFile[]>("/review");
+/**
+ * The files waiting for a match; with `title`, that title's files as one, to change its match (its
+ * first file, with the others alike).
+ */
+export const useReview = (title: number | null = null) =>
+  useEngineQuery<WaitingFile[]>(title === null ? "/review" : `/review?title=${title}`);
 /**
  * AniList's entries for `text`, scored against one file; asked only for two letters or more. The
  * last answer stays on screen while the next loads.
@@ -503,7 +509,13 @@ export const useMatchSearch = (fileId: number, text: string) =>
   );
 /** The owner's choice: `choose.mutate({ path: "/review/7", body: { anilistId, kind, also, episode } })`. */
 export const useChooseMatch = () =>
-  useEngineAction<{ placed: number }>(["/review", "/titles", "/franchises", "/scan", "/library"]);
+  useEngineAction<{ placed: number; titleId: number | null }>([
+    "/review",
+    "/titles",
+    "/franchises",
+    "/scan",
+    "/library",
+  ]);
 /** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
 export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan"]);
 

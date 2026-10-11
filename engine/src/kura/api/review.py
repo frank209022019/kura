@@ -63,13 +63,15 @@ class Choice(ApiModel):
 
 class Chosen(ApiModel):
     placed: int
+    title_id: int | None  # where the file went
 
 
 @router.get("/review")
-def files_to_review(conn: Database) -> list[WaitingFile]:
-    """Every file Kura couldn't place surely, folder by folder."""
+def files_to_review(conn: Database, title: int | None = None) -> list[WaitingFile]:
+    """Every file Kura couldn't place surely, folder by folder. With `title`, that title's files
+    as one, to change its match: its first file, with the others alike."""
     found: list[WaitingFile] = []
-    for item in review.waiting(conn):
+    for item in review.waiting(conn) if title is None else review.of_title(conn, title):
         guesses = [Guess.model_validate(saved) for saved in item.guesses]
         found.append(
             WaitingFile(
@@ -132,7 +134,8 @@ def choose(
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, _offline(error)) from None
     if placed == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That file isn't in the library any more.")
-    return Chosen(placed=placed)
+    row = conn.execute("SELECT title_id FROM files WHERE id = ?", (file_id,)).fetchone()
+    return Chosen(placed=placed, title_id=row["title_id"] if row else None)
 
 
 @router.get(

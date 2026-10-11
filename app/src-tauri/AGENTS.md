@@ -14,6 +14,7 @@ process or updating belongs in the engine. Start with [../../AGENTS.md](../../AG
 | Updates from the GitHub releases | `src/updater.rs` |
 | Pages opened in the browser (the downloads page) | `src/links.rs` |
 | Windows' dialogs (the folder picker) | `src/dialogs.rs` |
+| Showing a folder or file in Explorer | `src/explorer.rs` |
 | Running console programs without a window | `src/process.rs` |
 | Window, security policy, bundle, updater key | `tauri.conf.json` (installer-only extras: `tauri.bundle.conf.json`) |
 | What the window may call | `capabilities/default.json` |

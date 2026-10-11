@@ -832,29 +832,57 @@
     "/review": {
       "get": {
         "summary": "Files To Review",
-        "description": "Every file Kura couldn't place surely, folder by folder.",
+        "description": "Every file Kura couldn't place surely, folder by folder. With `title`, that title's files\nas one, to change its match: its first file, with the others alike.",
         "operationId": "files_to_review_review_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Title"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/WaitingFile"
                   },
-                  "type": "array",
                   "title": "Response Files To Review Review Get"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/review/{file_id}/search": {
@@ -1107,11 +1135,23 @@
           "placed": {
             "type": "integer",
             "title": "Placed"
+          },
+          "titleId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titleid"
           }
         },
         "type": "object",
         "required": [
-          "placed"
+          "placed",
+          "titleId"
         ],
         "title": "Chosen"
       },

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type Guess, type WaitingFile } from "@/lib/engine";
 import { fakeEngine, READY } from "@/test/engine";
@@ -58,7 +58,7 @@ function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string
   );
 }
 
-function renderMatch() {
+function renderMatch(at = "/match") {
   shell.invoke.mockImplementation(async (command: string) =>
     command === "engine_status" ? READY : undefined,
   );
@@ -66,15 +66,20 @@ function renderMatch() {
   render(
     <QueryClientProvider client={queries}>
       <EngineProvider>
-        <MemoryRouter initialEntries={["/match"]}>
+        <MemoryRouter initialEntries={[at]}>
           <Routes>
             <Route path="/match" element={<MatchPage />} />
+            <Route path="/titles/:id" element={<ShownTitle />} />
             <Route path="*" element={<p>Home</p>} />
           </Routes>
         </MemoryRouter>
       </EngineProvider>
     </QueryClientProvider>,
   );
+}
+
+function ShownTitle() {
+  return <p>Title {useParams().id}</p>;
 }
 
 describe("MatchPage", () => {
@@ -207,6 +212,27 @@ describe("MatchPage", () => {
 
     expect(await screen.findByRole("radio", { name: /Trigun Stampede/ })).toBeInTheDocument();
     expect(sent(fetch, "GET", "/review/3/search")).toHaveLength(1);
+  });
+
+  it("changes a title's match for all its files, then shows where they went", async () => {
+    const fetch = fakeEngine({
+      "/review": [{ ...waiting(3, 1, [4, 5]), guesses: [BEBOP, TRIGUN] }],
+      "/titles/1": { name: "Cowboy Bebop" },
+      "POST /review/3": { placed: 3, titleId: 8 },
+    });
+    renderMatch("/match?title=1");
+
+    expect(await screen.findByText("All 3 files of Cowboy Bebop")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cowboy Bebop" })).toHaveAttribute("href", "/titles/1");
+    expect(screen.getByText("Use this for its other 2 files")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument();
+    expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/review?title=1"))).toBe(
+      true,
+    );
+    fireEvent.keyDown(window, { key: "2" });
+    (await screen.findByRole("button", { name: "Confirm Trigun, episode 1" })).click();
+
+    expect(await screen.findByText("Title 8")).toBeInTheDocument();
   });
 
   it("says when every file is matched", async () => {

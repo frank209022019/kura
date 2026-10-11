@@ -4,6 +4,7 @@
 
 mod dialogs;
 mod engine;
+mod explorer;
 mod links;
 mod process;
 mod updater;
@@ -33,6 +34,8 @@ fn main() {
             links::open_downloads_page,
             links::open_tmdb_api_page,
             dialogs::pick_folder,
+            explorer::open_folder,
+            explorer::show_in_folder,
         ])
         .setup(|app| {
             engine::start(app.handle().clone());

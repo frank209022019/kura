@@ -1,6 +1,6 @@
 """The files waiting for the owner to say which anime they are, with everything that helps decide:
 the file's facts, Kura's best guesses, and the other files beside it that look the same, so one
-choice can settle them all.
+choice can settle them all. A title's files can be asked about again too, to change its match.
 """
 
 import json
@@ -48,23 +48,41 @@ def waiting(conn: sqlite3.Connection) -> list[Waiting]:
             and PureWindowsPath(other["path"]).parent == path.parent
             and _same_release(mine, parsed[other["id"]])
         )
-        audio, subtitles = _languages(row["probe"])
-        found.append(
-            Waiting(
-                id=row["id"],
-                path=row["path"],
-                size=row["size"],
-                minutes=row["duration"] / 60 if row["duration"] else None,
-                height=row["height"],
-                codec=row["codec"],
-                audio=audio,
-                subtitles=subtitles,
-                parsed=mine,
-                guesses=_guesses(row["guesses"]),
-                alike=alike,
-            )
-        )
+        found.append(_waiting(row, mine, alike))
     return found
+
+
+def of_title(conn: sqlite3.Connection, title_id: int) -> list[Waiting]:
+    """A title's files as one choice, to change what it's matched to: its first file, with all
+    the others alike. Empty when the library holds none."""
+    rows = conn.execute(
+        """SELECT id, path, size, duration, height, codec, probe, guesses FROM files
+           WHERE title_id = ? AND gone_at IS NULL
+           ORDER BY season, episode, path""",
+        (title_id,),
+    ).fetchall()
+    if not rows:
+        return []
+    first, *others = rows
+    mine = parse_name(PureWindowsPath(first["path"]))
+    return [_waiting(first, mine, tuple(other["id"] for other in others))]
+
+
+def _waiting(row: sqlite3.Row, parsed: ParsedName, alike: tuple[int, ...]) -> Waiting:
+    audio, subtitles = _languages(row["probe"])
+    return Waiting(
+        id=row["id"],
+        path=row["path"],
+        size=row["size"],
+        minutes=row["duration"] / 60 if row["duration"] else None,
+        height=row["height"],
+        codec=row["codec"],
+        audio=audio,
+        subtitles=subtitles,
+        parsed=parsed,
+        guesses=_guesses(row["guesses"]),
+        alike=alike,
+    )
 
 
 def _same_release(one: ParsedName, other: ParsedName) -> bool:

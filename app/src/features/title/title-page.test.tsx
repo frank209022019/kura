@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type EpisodeState, type TitleDetail } from "@/lib/engine";
 import { fakeEngine, READY } from "@/test/engine";
@@ -87,11 +87,16 @@ function renderTitle(title: TitleDetail, report: unknown = undefined) {
         <MemoryRouter initialEntries={[`/titles/${title.id}`]}>
           <Routes>
             <Route path="/titles/:id" element={<TitlePage />} />
+            <Route path="/match" element={<MatchSearch />} />
           </Routes>
         </MemoryRouter>
       </EngineProvider>
     </QueryClientProvider>,
   );
+}
+
+function MatchSearch() {
+  return <p>Match {useLocation().search}</p>;
 }
 
 describe("TitlePage", () => {
@@ -123,6 +128,34 @@ describe("TitlePage", () => {
       "href",
       "/franchises/7",
     );
+  });
+
+  it("opens its folder, and leads to changing its match", async () => {
+    renderTitle(DBZ);
+
+    (await screen.findByRole("button", { name: "Open folder" })).click();
+    await waitFor(() =>
+      expect(shell.invoke).toHaveBeenCalledWith("open_folder", { path: DBZ.folder }),
+    );
+    screen.getByRole("button", { name: "Change match" }).click();
+
+    expect(await screen.findByText("Match ?title=1")).toBeInTheDocument();
+  });
+
+  it("shows its gap analysis in its folder, or copies it", async () => {
+    const copied = vi.fn<(text: string) => Promise<void>>(async () => {});
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: copied } });
+    const report = { path: `${DBZ.folder}\\Kura - Gap analysis.md`, text: "# Dragon Ball Z" };
+    renderTitle(DBZ, report);
+
+    (await screen.findByRole("button", { name: "Show in folder" })).click();
+    await waitFor(() =>
+      expect(shell.invoke).toHaveBeenCalledWith("show_in_folder", { path: report.path }),
+    );
+    screen.getByRole("button", { name: "Copy" }).click();
+
+    await waitFor(() => expect(copied).toHaveBeenCalledWith("# Dragon Ball Z"));
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
   });
 
   it("lists the seasons, the map, and the missing and broken episodes", async () => {

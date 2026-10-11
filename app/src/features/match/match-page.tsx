@@ -1,8 +1,8 @@
 import { Check, Search } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { type ReactNode, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
-import { Breadcrumb } from "@/components/breadcrumb";
+import { useNavigate, useSearchParams } from "react-router";
+import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   useMatchSearch,
   useReview,
   useStill,
+  useTitle,
   type WaitingFile,
 } from "@/lib/engine";
 import { kindWord } from "@/lib/kinds";
@@ -29,11 +30,16 @@ const KINDS = [
   { value: "special", label: "Special or extra" },
 ] as const;
 
-/** Files Kura couldn't place surely, one at a time: which anime is this? */
+/** Files Kura couldn't place surely, one at a time: which anime is this? With `?title=`, a
+ * title's files all at once, to change its match. */
 export function MatchPage() {
-  const review = useReview();
+  const [params] = useSearchParams();
+  const titleId = params.has("title") ? Number(params.get("title")) : null;
+  const review = useReview(titleId);
+  const title = useTitle(titleId ?? 0, titleId !== null);
   const [skipped, setSkipped] = useState<number[]>([]);
   const [settled, setSettled] = useState(0);
+  const forTitle = titleId === null ? null : { id: titleId, name: title.data?.name ?? "…" };
 
   if (!review.data) {
     return (
@@ -50,10 +56,18 @@ export function MatchPage() {
 
   return (
     <>
-      <Breadcrumb trail={[{ label: "Tidy up", to: "/tidy" }]} current="Need a match" />
+      {forTitle ? (
+        <Breadcrumb
+          trail={[LIBRARY, { label: forTitle.name, to: `/titles/${forTitle.id}` }]}
+          current="Change match"
+        />
+      ) : (
+        <Breadcrumb trail={[{ label: "Tidy up", to: "/tidy" }]} current="Need a match" />
+      )}
       <MatchFile
         key={file.id}
         file={file}
+        forTitle={forTitle}
         position={settled + 1}
         total={settled + queue.length}
         next={next}
@@ -67,13 +81,16 @@ export function MatchPage() {
 
 function MatchFile(props: {
   file: WaitingFile;
+  /** The title whose match changes, all its files at once. */
+  forTitle: { id: number; name: string } | null;
   position: number;
   total: number;
   next: WaitingFile[];
   onSkip: () => void;
   onSettled: (count: number) => void;
 }) {
-  const { file } = props;
+  const { file, forTitle } = props;
+  const navigate = useNavigate();
   const choose = useChooseMatch();
   const ignore = useIgnoreFile();
   const [search, setSearch] = useState("");
@@ -111,7 +128,12 @@ function MatchFile(props: {
     const episode = given ? Number(number) : undefined;
     choose.mutate(
       { path: `/review/${file.id}`, body: { anilistId: chosen.anilistId, kind, also, episode } },
-      { onSuccess: (answer) => props.onSettled(answer.placed) },
+      {
+        onSuccess: (answer) => {
+          if (forTitle && answer.titleId !== null) void navigate(`/titles/${answer.titleId}`);
+          else props.onSettled(answer.placed);
+        },
+      },
     );
   }
 
@@ -122,34 +144,46 @@ function MatchFile(props: {
           <h1 className="font-extrabold text-32 leading-[1.1] tracking-[-0.02em]">
             Which anime is this?
           </h1>
-          <div className="flex items-center gap-3 text-14 text-fg-muted">
-            <span>
-              File {props.position} of {props.total}
+          {forTitle ? (
+            <span className="text-14 text-fg-muted">
+              All {file.alike.length + 1} files of {forTitle.name}
             </span>
-            <span className="h-1.5 w-35 overflow-hidden rounded-3 bg-track" aria-hidden="true">
-              <span
-                className="block h-full rounded-3 bg-accent transition-[width] duration-320 ease-cinema"
-                style={{ width: `${(props.position / props.total) * 100}%` }}
-              />
-            </span>
+          ) : (
+            <div className="flex items-center gap-3 text-14 text-fg-muted">
+              <span>
+                File {props.position} of {props.total}
+              </span>
+              <span className="h-1.5 w-35 overflow-hidden rounded-3 bg-track" aria-hidden="true">
+                <span
+                  className="block h-full rounded-3 bg-accent transition-[width] duration-320 ease-cinema"
+                  style={{ width: `${(props.position / props.total) * 100}%` }}
+                />
+              </span>
+            </div>
+          )}
+        </div>
+        {forTitle ? (
+          <Button disabled={busy} onClick={() => void navigate(`/titles/${forTitle.id}`)}>
+            Cancel
+          </Button>
+        ) : (
+          <div className="flex flex-wrap gap-2.5">
+            <Button disabled={busy} onClick={props.onSkip}>
+              Skip for now
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() =>
+                ignore.mutate(
+                  { path: `/review/${file.id}/ignore` },
+                  { onSuccess: () => props.onSettled(1) },
+                )
+              }
+            >
+              Not anime, ignore it
+            </Button>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2.5">
-          <Button disabled={busy} onClick={props.onSkip}>
-            Skip for now
-          </Button>
-          <Button
-            disabled={busy}
-            onClick={() =>
-              ignore.mutate(
-                { path: `/review/${file.id}/ignore` },
-                { onSuccess: () => props.onSettled(1) },
-              )
-            }
-          >
-            Not anime, ignore it
-          </Button>
-        </div>
+        )}
       </header>
 
       <div className="flex flex-wrap items-start gap-5">
@@ -239,6 +273,7 @@ function MatchFile(props: {
             <Together
               file={file}
               others={props.next.filter((other) => file.alike.includes(other.id))}
+              wholeTitle={forTitle !== null}
               on={together}
               onChange={setTogether}
             />
@@ -391,6 +426,8 @@ function GuessOption({ guess, index, file }: { guess: Guess; index: number; file
 function Together(props: {
   file: WaitingFile;
   others: WaitingFile[];
+  /** The others are the rest of a title's files, wherever they are. */
+  wholeTitle: boolean;
   on: boolean;
   onChange: (on: boolean) => void;
 }) {
@@ -419,8 +456,9 @@ function Together(props: {
       </span>
       <span className="flex flex-col">
         <span className="font-extrabold">
-          Use this for the {count === 1 ? "other" : `${count} other`} {tag}
-          {count === 1 ? "file" : "files"} here
+          {props.wholeTitle
+            ? `Use this for its other ${count === 1 ? "file" : `${count} files`}`
+            : `Use this for the ${count === 1 ? "other" : `${count} other`} ${tag}${count === 1 ? "file" : "files"} here`}
         </span>
         {numbers.length > 0 && (
           <span className="text-12 text-fg-muted">

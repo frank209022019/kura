@@ -98,7 +98,7 @@ def test_the_owners_choice_places_the_files_and_sticks(
         f"/review/{first['id']}", json={"anilistId": 1, "kind": "episode", "also": first["alike"]}
     )
 
-    assert answer.json() == {"placed": 4}
+    assert answer.json()["placed"] == 4
     rows = conn.execute(
         "SELECT episode, season, matched, pinned FROM files ORDER BY episode"
     ).fetchall()
@@ -128,9 +128,37 @@ def test_a_choice_kura_cant_place_asks_which_episode(
         f"/review/{found['id']}", json={"anilistId": 813, "kind": "episode", "episode": 150}
     )
 
-    assert answer.json() == {"placed": 1}
+    assert answer.json()["placed"] == 1
     row = conn.execute("SELECT season, episode, pinned FROM files").fetchone()
     assert tuple(row) == (5, 11, 1)
+
+
+def test_a_titles_match_changes_for_all_its_files_at_once(
+    client: TestClient, paths: DataPaths, conn: sqlite3.Connection, root: Path, web: FakeWeb
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, [f"Cowboy Bebop/Cowboy Bebop - 0{n}.mkv" for n in (1, 2, 3)])
+    identify(paths, conn, internet())
+    web.answers.update(internet().answers)
+    [bebop] = [row[0] for row in conn.execute("SELECT id FROM titles")]
+
+    [first] = client.get("/review", params={"title": bebop}).json()
+    answer = client.post(
+        f"/review/{first['id']}",
+        json={"anilistId": 813, "kind": "episode", "also": first["alike"]},
+    )
+
+    assert (first["episode"], len(first["alike"]), first["guesses"][0]["title"]) == (
+        1,
+        2,
+        "Cowboy Bebop",
+    )
+    assert answer.json()["placed"] == 3
+    moved_to = answer.json()["titleId"]
+    rows = conn.execute("SELECT title_id, season, episode, pinned FROM files ORDER BY episode")
+    assert [tuple(row) for row in rows] == [(moved_to, 1, n, 1) for n in (1, 2, 3)]
+    assert client.get(f"/titles/{moved_to}").json()["name"] == "Dragon Ball Z"
+    assert client.get("/review", params={"title": bebop}).json() == []
 
 
 def test_not_anime_is_left_out_for_good(

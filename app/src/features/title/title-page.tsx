@@ -1,10 +1,11 @@
 import { FileText } from "lucide-react";
-import type { ReactNode } from "react";
-import { useParams } from "react-router";
+import { type ReactNode, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
+import { Button } from "@/components/ui/button";
 import {
   type EpisodeState,
   type SeasonCount,
@@ -12,6 +13,7 @@ import {
   useReport,
   useTitle,
 } from "@/lib/engine";
+import { openFolder, showInFolder } from "@/lib/explorer";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
 
@@ -65,6 +67,7 @@ export function TitlePage() {
 }
 
 function Header({ title }: { title: TitleDetail }) {
+  const navigate = useNavigate();
   const seasons = title.seasons.length;
   const facts = [
     title.year ? String(title.year) : null,
@@ -97,6 +100,16 @@ function Header({ title }: { title: TitleDetail }) {
             {title.folder}
           </span>
         )}
+        <div className="flex flex-wrap gap-2.5 pt-1.5">
+          {title.folder && (
+            <Button size="sm" onClick={() => void openFolder(title.folder ?? "")}>
+              Open folder
+            </Button>
+          )}
+          <Button size="sm" onClick={() => void navigate(`/match?title=${title.id}`)}>
+            Change match
+          </Button>
+        </div>
       </div>
       {title.aired > 0 && (
         <div className="flex flex-col items-center gap-1">
@@ -290,6 +303,7 @@ function ReportPanel({ titleId }: { titleId: number }) {
           <span className="font-mono text-11 text-fg-muted [overflow-wrap:anywhere]">
             {report.data.path}
           </span>
+          <ReportActions path={report.data.path} text={report.data.text} />
         </>
       ) : (
         <p className="text-13 text-fg-muted">
@@ -299,6 +313,28 @@ function ReportPanel({ titleId }: { titleId: number }) {
         </p>
       )}
     </Panel>
+  );
+}
+
+function ReportActions({ path, text }: { path: string; text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex flex-wrap gap-2.5">
+      <Button size="sm" onClick={() => void showInFolder(path)}>
+        Show in folder
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() =>
+          void navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+          })
+        }
+      >
+        {copied ? "Copied" : "Copy"}
+      </Button>
+    </div>
   );
 }
 
