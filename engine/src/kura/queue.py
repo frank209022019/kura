@@ -236,18 +236,18 @@ class Queue:
             if self._job_id == job_id:
                 self._stop_for = "skip"
                 return
-        with closing(db.connect(self._paths.database)) as conn, conn:
-            done = conn.execute(
-                """UPDATE jobs SET state = 'skipped', finished_at = ?
-                   WHERE id = ? AND state = 'queued'""",
-                (self._now().isoformat(), job_id),
-            ).rowcount
+            with closing(db.connect(self._paths.database)) as conn, conn:
+                done = conn.execute(
+                    """UPDATE jobs SET state = 'skipped', finished_at = ?
+                       WHERE id = ? AND state = 'queued'""",
+                    (self._now().isoformat(), job_id),
+                ).rowcount
         if not done:
             raise LookupError("That file isn't waiting or converting.")
 
     def remove(self, job_id: int) -> None:
         """Takes a waiting file out of the queue, as if it had never been added."""
-        with closing(db.connect(self._paths.database)) as conn, conn:
+        with self._lock, closing(db.connect(self._paths.database)) as conn, conn:
             gone = conn.execute(
                 "DELETE FROM jobs WHERE id = ? AND state = 'queued'", (job_id,)
             ).rowcount
@@ -343,27 +343,29 @@ class Queue:
         with closing(db.connect(self._paths.database)) as conn:
             if _paused(conn) or (_schedule(conn) == "nights" and not _at_night(self._now())):
                 return False
-            row = conn.execute(
-                "SELECT id FROM jobs WHERE state = 'queued' ORDER BY position, id LIMIT 1"
-            ).fetchone()
-            if row is None:
-                return False
             programs = self._programs()
             self._problem = None if programs else NO_FFMPEG
             if programs is None:
                 return False
+            # Taken in one step, under the lock skip and remove take too: a file skipped or
+            # taken out a moment before never converts.
+            with self._lock:
+                with conn:
+                    row = conn.execute(
+                        """UPDATE jobs SET state = 'running', started_at = ?, problem = NULL
+                           WHERE id = (SELECT id FROM jobs WHERE state = 'queued'
+                                       ORDER BY position, id LIMIT 1)
+                           RETURNING id""",
+                        (self._now().isoformat(),),
+                    ).fetchone()
+                if row is None:
+                    return False
+                self._job_id, self._stop_for, self._progress = row["id"], None, None
+                self._frames.clear()
             self._work(conn, row["id"], programs)
         return True
 
     def _work(self, conn: sqlite3.Connection, job_id: int, programs: Programs) -> None:
-        with self._lock:
-            self._job_id, self._stop_for, self._progress = job_id, None, None
-            self._frames.clear()
-        with conn:
-            conn.execute(
-                "UPDATE jobs SET state = 'running', started_at = ?, problem = NULL WHERE id = ?",
-                (self._now().isoformat(), job_id),
-            )
         try:
             with _awake():
                 convert(
