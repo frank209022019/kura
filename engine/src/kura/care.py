@@ -44,6 +44,7 @@ class Care:
         self._wake = threading.Event()
         self._cleared_on: date | None = None  # the day the quarantine was last cleared out
         self._resting_until: datetime | None = None  # after a backup failed
+        self._refused: dict[str, datetime] = {}  # pictures refused, and when to ask again
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -76,7 +77,7 @@ class Care:
                 self._resting_until = now + _REST
         if self._transport is not None:
             with closing(db.connect(self._paths.database)) as conn:
-                write_artwork(conn, self._transport, now=now)
+                write_artwork(conn, self._transport, now=now, refused=self._refused)
         if self._cleared_on != now.date():
             try:
                 with self._hold(), closing(db.connect(self._paths.database)) as conn:

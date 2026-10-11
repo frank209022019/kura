@@ -247,7 +247,9 @@ Before queueing, the Convert screen shows one frame of a file before and after
   converted MKV, and, when the owner turns them on, `poster.jpg` and `fanart.jpg` in each show's
   and film's own folder for media servers (`kura/artwork_files.py`, written by Kura's care from
   TMDB's or AniList's larger pictures; never over a file that's there, and only Kura's own,
-  unchanged, taken away again). These survive a reinstall, and Kura can rebuild its
+  unchanged, taken away again, or made way for once the videos are matched to another title; a
+  show whose drive isn't connected waits, and a picture the server refuses is asked for again
+  only a day later). These survive a reinstall, and Kura can rebuild its
   library from the tags.
 - **Export**: one zip, readable without Kura, written to a folder the owner picks in Settings (or
   with `kura export`). It grows with the schema. Settings imports one too, from this PC or

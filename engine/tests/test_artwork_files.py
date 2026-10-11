@@ -1,14 +1,16 @@
 """Poster and background pictures next to each show, for media servers: written when the owner
 wants them, never over a file already there, and only Kura's own, unchanged, taken away."""
 
+import shutil
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from kura.artwork_files import forget_artwork, write_artwork
 from kura.web import Reply
-from tests.fake_web import FakeWeb
+from tests.fake_web import Asked, FakeWeb
 from tests.shelf import NOW, library
 
 POSTER = "GET https://image.tmdb.org/t/p/w780/poster.jpg"
@@ -116,3 +118,92 @@ def test_only_pictures_named_as_kura_names_them_are_ever_taken_away(
     assert forget_artwork(conn) == 0
 
     assert precious.read_text() == "years of work"
+
+
+def jpeg(data: bytes) -> Reply:
+    return Reply(200, {"content-type": "image/jpeg"}, data)
+
+
+def test_a_show_whose_drive_isnt_connected_waits_without_asking(
+    conn: sqlite3.Connection, show: Path, pictures: FakeWeb
+):
+    shutil.rmtree(show)  # its drive unplugged: its videos' records stay, its folder isn't there
+
+    assert write_artwork(conn, pictures, now=NOW) == 0
+
+    assert pictures.asked == []
+
+
+def test_a_picture_the_server_refuses_is_passed_over_and_asked_again_a_day_later(
+    conn: sqlite3.Connection, show: Path
+):
+    web = FakeWeb(answers={BACKDROP: jpeg(b"a background")})  # the poster is gone: a 404
+    refused: dict[str, datetime] = {}
+
+    assert write_artwork(conn, web, now=NOW, refused=refused) == 1
+    write_artwork(conn, web, now=NOW + timedelta(minutes=5), refused=refused)
+    write_artwork(conn, web, now=NOW + timedelta(days=1, minutes=1), refused=refused)
+
+    assert (show / "fanart.jpg").read_bytes() == b"a background"
+    assert web.paths() == [POSTER, BACKDROP, POSTER]
+
+
+def test_anilists_largest_cover_is_the_poster(conn: sqlite3.Connection, show: Path):
+    medium = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6-trigun.png"
+    with conn:  # AniList's "large" cover, as Kura keeps it for the shelf's cards
+        conn.execute("UPDATE titles SET poster = ?, backdrop = NULL", (medium,))
+    largest = "GET https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6-trigun.png"
+    web = FakeWeb(answers={largest: jpeg(b"the largest cover")})
+
+    assert write_artwork(conn, web, now=NOW) == 1
+
+    assert (show / "poster.jpg").read_bytes() == b"the largest cover"
+
+
+def test_after_a_change_of_match_kuras_pictures_of_the_other_title_make_way(
+    conn: sqlite3.Connection, show: Path, pictures: FakeWeb
+):
+    write_artwork(conn, pictures, now=NOW)
+    (show / "fanart.jpg").write_bytes(b"the owner's own background")
+    with conn:  # the owner changed the match: the videos are another title's now
+        conn.execute(
+            "INSERT INTO titles (id, kind, name, year, poster)"
+            " VALUES (2, 'series', 'Trigun Stampede', 2023, '/stampede.jpg')"
+        )
+        conn.execute("UPDATE files SET title_id = 2")
+    web = FakeWeb(answers={"GET https://image.tmdb.org/t/p/w780/stampede.jpg": jpeg(b"its poster")})
+
+    assert write_artwork(conn, web, now=NOW) == 1
+
+    assert (show / "poster.jpg").read_bytes() == b"its poster"
+    assert (show / "fanart.jpg").read_bytes() == b"the owner's own background"
+
+
+def test_after_a_change_of_match_a_picture_the_title_hasnt_goes_too(
+    conn: sqlite3.Connection, show: Path, pictures: FakeWeb
+):
+    write_artwork(conn, pictures, now=NOW)
+    with conn:  # matched anew to a title with neither picture
+        conn.execute("INSERT INTO titles (id, kind, name) VALUES (2, 'series', 'Trigun Stampede')")
+        conn.execute("UPDATE files SET title_id = 2")
+
+    write_artwork(conn, FakeWeb(), now=NOW)
+
+    assert not (show / "poster.jpg").exists()
+    assert not (show / "fanart.jpg").exists()
+    assert conn.execute("SELECT COUNT(*) FROM artwork_files").fetchone()[0] == 0
+
+
+def test_pictures_turned_off_while_they_are_written_all_go(conn: sqlite3.Connection, show: Path):
+    def turned_off_meanwhile(asked: Asked) -> Reply:
+        with conn:  # the owner turns them off as the poster arrives (Settings, on its own thread)
+            conn.execute("UPDATE settings SET value = 'false' WHERE key = 'artwork'")
+        forget_artwork(conn)
+        return jpeg(b"a poster")
+
+    web = FakeWeb(answers={POSTER: turned_off_meanwhile, BACKDROP: jpeg(b"a background")})
+
+    write_artwork(conn, web, now=NOW)
+
+    assert not (show / "poster.jpg").exists()
+    assert not (show / "fanart.jpg").exists()

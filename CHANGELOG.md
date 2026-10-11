@@ -15,7 +15,8 @@ shows these notes when it offers the update.
   file throws the copy away. A tidy-up that meets a file open elsewhere says so in Kura's words.
 - Poster and background pictures next to each show and film (Settings > Your data, off unless you
   turn it on): `poster.jpg` and `fanart.jpg`, which media servers show. Kura never writes over a
-  picture that's there, and turning it off takes away only the ones it wrote, unchanged.
+  picture that's there, and turning it off takes away only the ones it wrote, unchanged. Change
+  a match, and Kura's pictures of the old title make way for the new one's.
 - Import an export (Settings > Your data), from this PC or another: Kura's records become the
   export's as its engine starts again, and what it knew till then is backed up first, so
   Backups can bring it back.

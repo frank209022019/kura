@@ -27,9 +27,10 @@ def poster_address(poster: str | None, size: str = POSTER_SIZE) -> str | None:
 
 
 def large_poster_address(poster: str | None) -> str | None:
-    """A poster big enough for a media server: TMDB's at 780 wide, AniList's largest cover."""
+    """A poster big enough for a media server: TMDB's at 780 wide, AniList's largest cover. Kura
+    keeps AniList's "large" cover, whose address names it medium; its largest is named large."""
     address = poster_address(poster, "w780")
-    return address.replace("/cover/large/", "/cover/extraLarge/") if address else None
+    return address.replace("/cover/medium/", "/cover/large/") if address else None
 
 
 def background_address(backdrop: str | None) -> str | None:
