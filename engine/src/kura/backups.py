@@ -2,27 +2,34 @@
 each checked as it's written, in the data folder's `backups`. One can be restored: Kura's records
 go back to that night, and the files themselves stay as they are. The owner asks for it in
 Settings, and it's done as the engine starts again, before anything opens the database; what
-Kura knew till then is backed up first.
+Kura knew till then is backed up first. Importing an export (`kura export`'s zip, from this PC or
+another) is restoring the database it holds, kept beside the backups as one "from an export".
 """
 
 import json
 import logging
 import re
+import shutil
 import sqlite3
+import zipfile
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 from kura import changes, db
 from kura.config import DataPaths
+from kura.migrations import MIGRATIONS
 
 log = logging.getLogger(__name__)
 
 BACKUP_HOUR = 3  # a night's backup is made from 03:00
 KEEP = 7  # nightly backups, and as many made before restoring
 
-_NAME = re.compile(r"^kura (\d{4}-\d{2}-\d{2}) (\d{2})(\d{2})( before restoring)?\.db$")
+_NAME = re.compile(
+    r"^kura (\d{4}-\d{2}-\d{2}) (\d{2})(\d{2})( before restoring| from an export)?\.db$"
+)
 _ASKED = "restore.txt"  # names the backup to restore when the engine next starts
 _RESTORED = "backup_restored"  # the settings row saying how the last restore went
 
@@ -37,6 +44,7 @@ class Backup:
     made: datetime  # local time, to the minute
     size: int
     before_restoring: bool  # made just before another backup was restored
+    from_export: bool = False  # the database an imported export held
 
 
 @dataclass(frozen=True)
@@ -59,7 +67,16 @@ def backups(paths: DataPaths) -> list[Backup]:
         if not match or not path.is_file():
             continue
         made = datetime.fromisoformat(f"{match[1]}T{match[2]}:{match[3]}")
-        found.append(Backup(path.name, made, path.stat().st_size, match[4] is not None))
+        kind = match[4] or ""
+        found.append(
+            Backup(
+                path.name,
+                made,
+                path.stat().st_size,
+                before_restoring=kind == " before restoring",
+                from_export=kind == " from an export",
+            )
+        )
     return sorted(found, key=lambda backup: (backup.made, backup.name), reverse=True)
 
 
@@ -68,7 +85,9 @@ def due(paths: DataPaths, now: datetime) -> bool:
     night = now.replace(hour=BACKUP_HOUR, minute=0, second=0, microsecond=0, tzinfo=None)
     if now.replace(tzinfo=None) < night:
         night -= timedelta(days=1)
-    return not any(b.made >= night and not b.before_restoring for b in backups(paths))
+    return not any(
+        b.made >= night and not (b.before_restoring or b.from_export) for b in backups(paths)
+    )
 
 
 def back_up(paths: DataPaths, now: datetime, *, before_restoring: bool = False) -> Backup:
@@ -94,6 +113,39 @@ def back_up(paths: DataPaths, now: datetime, *, before_restoring: bool = False) 
         partial.unlink(missing_ok=True)
     _prune(paths)
     return next(backup for backup in backups(paths) if backup.name == name)
+
+
+def ask_to_import(paths: DataPaths, archive: Path, now: datetime) -> None:
+    """Checks a zip is a Kura export this Kura can read, keeps the database it holds beside the
+    backups, and asks for it to be restored as the engine next starts."""
+    folder = _folder(paths)
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / f"kura {now:%Y-%m-%d %H%M} from an export.db"
+    try:
+        with zipfile.ZipFile(archive) as export:
+            found = json.loads(export.read("manifest.json"))
+            manifest = cast("dict[str, object]", found) if isinstance(found, dict) else {}
+            if manifest.get("app") != "Kura":
+                raise BackupError("That zip isn't a Kura export.")
+            version = manifest.get("schemaVersion")
+            if not isinstance(version, int):
+                raise BackupError("That zip isn't a Kura export Kura can read.")
+            if version > len(MIGRATIONS):
+                raise BackupError("That export is from a newer Kura. Update Kura, then import it.")
+            with export.open("kura.db") as source, target.open("wb") as copy:
+                shutil.copyfileobj(source, copy)
+        with closing(sqlite3.connect(target)) as conn:
+            [verdict] = conn.execute("PRAGMA integrity_check").fetchone()
+        if verdict != "ok":
+            raise BackupError(f"The export's database didn't check out ({verdict}).")
+    except BackupError:
+        target.unlink(missing_ok=True)
+        raise
+    except OSError, KeyError, ValueError, zipfile.BadZipFile, sqlite3.Error:
+        target.unlink(missing_ok=True)
+        raise BackupError("That zip isn't a Kura export Kura can read.") from None
+    _prune(paths)
+    ask_to_restore(paths, target.name)
 
 
 def ask_to_restore(paths: DataPaths, name: str) -> None:
@@ -161,11 +213,12 @@ def restore(paths: DataPaths, name: str, now: datetime) -> None:
 
 
 def _prune(paths: DataPaths) -> None:
-    """Keeps the last seven of each: nightly backups, and those made before restoring."""
+    """Keeps the last seven of each kind: nightly backups, those made before restoring, and
+    the databases imported exports held."""
     found = backups(paths)
-    for before_restoring in (False, True):
-        kind = [backup for backup in found if backup.before_restoring is before_restoring]
-        for old in kind[KEEP:]:
+    for kind in ((False, False), (True, False), (False, True)):
+        same = [backup for backup in found if (backup.before_restoring, backup.from_export) == kind]
+        for old in same[KEEP:]:
             (_folder(paths) / old.name).unlink(missing_ok=True)
 
 

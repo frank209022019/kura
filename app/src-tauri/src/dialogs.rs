@@ -15,3 +15,20 @@ pub async fn pick_folder(app: AppHandle, title: String) -> Result<Option<String>
         .and_then(|folder| folder.into_path().ok())
         .map(|folder| folder.display().to_string()))
 }
+
+/// Asks for a Kura export (its zip) with Windows' file picker. `None` when it's cancelled.
+#[tauri::command]
+pub async fn pick_export(app: AppHandle, title: String) -> Result<Option<String>, String> {
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title(title)
+            .add_filter("Kura export", &["zip"])
+            .blocking_pick_file()
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+    Ok(picked
+        .and_then(|file| file.into_path().ok())
+        .map(|file| file.display().to_string()))
+}

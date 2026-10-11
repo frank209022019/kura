@@ -232,7 +232,10 @@ Before queueing, the Convert screen shows one frame of a file before and after
   converted MKV, optional Plex artwork. These survive a reinstall, and Kura can rebuild its
   library from the tags.
 - **Export**: one zip, readable without Kura, written to a folder the owner picks in Settings (or
-  with `kura export`). It grows with the schema.
+  with `kura export`). It grows with the schema. Settings imports one too, from this PC or
+  another: the database it holds is restored like a backup as the engine starts again (kept
+  beside the backups as one "from an export"), and what Kura knew till then is backed up first.
+  An export from a newer Kura waits for an update.
 - **Quarantine**: `Kura quarantine\<day>\` on each drive the library is on, holding copies set
   aside and converted files' originals; Settings shows its size and how long it's kept.
 

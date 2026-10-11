@@ -2,6 +2,7 @@
 restored, which happens as the engine starts again (the app starts it again right after)."""
 
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -16,6 +17,7 @@ class Backup(ApiModel):
     made: str  # local time, to the minute: "2026-10-11T03:00"
     size: int
     before_restoring: bool  # made just before another backup was restored
+    from_export: bool  # the database an imported export held
 
 
 class Restored(ApiModel):
@@ -48,6 +50,20 @@ def back_up_now(paths: Paths) -> Backup:
     return _backup(made)
 
 
+class ImportRequest(ApiModel):
+    path: str  # a Kura export: the zip `kura export` and Settings write
+
+
+@router.post("/backups/import", status_code=status.HTTP_204_NO_CONTENT)
+def import_export(body: ImportRequest, paths: Paths) -> None:
+    """Puts an export's records in place as the engine starts again, the way a backup is
+    restored: the app starts it again right after asking."""
+    try:
+        backups.ask_to_import(paths, Path(body.path), datetime.now().astimezone())
+    except backups.BackupError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
+
+
 @router.post("/backups/{name}/restore", status_code=status.HTTP_204_NO_CONTENT)
 def restore_backup(name: str, paths: Paths) -> None:
     """Restores a backup as the engine starts again: the app starts it again right after."""
@@ -63,4 +79,5 @@ def _backup(backup: backups.Backup) -> Backup:
         made=backup.made.isoformat(timespec="minutes"),
         size=backup.size,
         before_restoring=backup.before_restoring,
+        from_export=backup.from_export,
     )

@@ -1,13 +1,19 @@
 """Backups of the database: one a night from 03:00, the last seven kept, checked, restorable."""
 
+import json
 import sqlite3
+import zipfile
+from contextlib import closing
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
+from kura import db
 from kura.backups import (
     BackupError,
     Restored,
+    ask_to_import,
     ask_to_restore,
     back_up,
     backups,
@@ -17,6 +23,7 @@ from kura.backups import (
     restore_asked,
 )
 from kura.config import DataPaths
+from kura.export import export_data
 
 NIGHT = datetime(2026, 10, 11, 3, 0).astimezone()
 
@@ -129,3 +136,43 @@ def test_the_last_seven_copies_made_before_restoring_are_kept_too(
 
     assert len(kept) == 7
     assert all(backup.before_restoring for backup in kept)
+
+
+def test_an_export_is_imported_as_the_engine_starts_again(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    elsewhere = DataPaths(tmp_path / "Another PC")
+    with closing(db.connect(elsewhere.database)) as other, other:
+        db.migrate(other)
+        other.execute("INSERT INTO settings (key, value) VALUES ('naming', '\"keep\"')")
+    archive = export_data(elsewhere, tmp_path / "Exports", now=NIGHT)
+    assert archive is not None
+
+    ask_to_import(paths, archive, NIGHT + timedelta(hours=10))
+    assert restore_asked(paths, NIGHT + timedelta(hours=10)) is True
+
+    naming = conn.execute("SELECT value FROM settings WHERE key = 'naming'").fetchone()[0]
+    assert naming == '"keep"'
+    kept = backups(paths)
+    assert [(b.from_export, b.before_restoring) for b in kept] == [(True, False), (False, True)]
+
+
+def test_a_zip_that_isnt_a_kura_export_isnt_imported(paths: DataPaths, tmp_path: Path):
+    archive = tmp_path / "photos.zip"
+    with zipfile.ZipFile(archive, "w") as photos:
+        photos.writestr("holiday.jpg", b"a photo")
+
+    with pytest.raises(BackupError, match="isn't a Kura export"):
+        ask_to_import(paths, archive, NIGHT)
+
+
+def test_an_export_from_a_newer_kura_waits_for_an_update(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    archive = tmp_path / "Kura export 2030-01-01.zip"
+    with zipfile.ZipFile(archive, "w") as newer:
+        newer.writestr("manifest.json", json.dumps({"app": "Kura", "schemaVersion": 999}))
+        newer.writestr("kura.db", b"")
+
+    with pytest.raises(BackupError, match="newer Kura"):
+        ask_to_import(paths, archive, NIGHT)

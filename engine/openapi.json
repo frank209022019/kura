@@ -1899,6 +1899,43 @@
         ]
       }
     },
+    "/backups/import": {
+      "post": {
+        "summary": "Import Export",
+        "description": "Puts an export's records in place as the engine starts again, the way a backup is\nrestored: the app starts it again right after asking.",
+        "operationId": "import_export_backups_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/backups/{name}/restore": {
       "post": {
         "summary": "Restore Backup",
@@ -2006,6 +2043,10 @@
           "beforeRestoring": {
             "type": "boolean",
             "title": "Beforerestoring"
+          },
+          "fromExport": {
+            "type": "boolean",
+            "title": "Fromexport"
           }
         },
         "type": "object",
@@ -2013,7 +2054,8 @@
           "name",
           "made",
           "size",
-          "beforeRestoring"
+          "beforeRestoring",
+          "fromExport"
         ],
         "title": "Backup"
       },
@@ -2960,6 +3002,19 @@
           "scans"
         ],
         "title": "History"
+      },
+      "ImportRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "ImportRequest"
       },
       "Job": {
         "properties": {

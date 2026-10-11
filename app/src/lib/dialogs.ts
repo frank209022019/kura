@@ -4,3 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 export function pickFolder(title: string) {
   return invoke<string | null>("pick_folder", { title });
 }
+
+/** Asks for a Kura export (its zip) with Windows' file picker. Null when it's cancelled. */
+export function pickExport(title: string) {
+  return invoke<string | null>("pick_export", { title });
+}

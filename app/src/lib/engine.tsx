@@ -357,6 +357,8 @@ export interface Backup {
   size: number;
   /** Made just before another backup was restored. */
   beforeRestoring: boolean;
+  /** The database an imported export held. */
+  fromExport: boolean;
 }
 
 export interface Backups {
@@ -374,6 +376,11 @@ export const useBackUp = () => useEngineAction<Backup>(["/backups", "/data"]);
  * for next: `restore.mutate({ path: "/backups/<name>/restore" })`.
  */
 export const useRestoreBackup = () => useEngineAction<void>([]);
+/**
+ * Asks for an export's records to be put in place as the engine starts again, the way a backup
+ * is restored: `importing.mutate({ path: "/backups/import", body: { path } })`.
+ */
+export const useImportExport = () => useEngineAction<void>([]);
 
 /** Whether Kura has a TMDB key, for episode lists, episode titles and artwork. */
 export interface TmdbStatus {

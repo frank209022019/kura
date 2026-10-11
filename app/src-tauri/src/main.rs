@@ -39,6 +39,7 @@ fn main() {
             links::open_downloads_page,
             links::open_tmdb_api_page,
             dialogs::pick_folder,
+            dialogs::pick_export,
             explorer::open_folder,
             explorer::show_in_folder,
             tray::start_with_windows,

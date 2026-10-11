@@ -133,15 +133,17 @@ function Outcome({ restored }: { restored: Backups["restored"] }) {
   if (!restored || new Date(restored.at).toDateString() !== new Date().toDateString()) {
     return null;
   }
-  const from = when(madeOf(restored.name));
+  const what = restored.name.endsWith(" from an export.db")
+    ? "the export"
+    : `the backup from ${when(madeOf(restored.name))}`;
   return restored.problem ? (
     <p role="alert" className="text-13 text-broken-fg">
-      The backup from {from} wasn't restored: {restored.problem}
+      {capitalised(what)} wasn't restored: {restored.problem}
     </p>
   ) : (
     <p className="flex items-center gap-2 text-13 text-fg-soft">
       <Check size={16} aria-hidden="true" className="shrink-0 text-accent-fg" />
-      Restored the backup from {from}.
+      {what === "the export" ? "Imported the export." : `Restored ${what}.`}
     </p>
   );
 }
@@ -176,6 +178,9 @@ function Choose(props: {
                 {capitalised(when(backup.made))}
                 {backup.beforeRestoring && (
                   <span className="font-medium text-12 text-fg-muted"> · before a restore</span>
+                )}
+                {backup.fromExport && (
+                  <span className="font-medium text-12 text-fg-muted"> · from an export</span>
                 )}
               </span>
               <span className="font-medium font-mono text-12 text-fg-muted">

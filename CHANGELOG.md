@@ -9,6 +9,9 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Import an export (Settings > Your data), from this PC or another: Kura's records become the
+  export's as its engine starts again, and what it knew till then is backed up first, so
+  Backups can bring it back.
 - Move Kura's data to another drive (Settings > Your data): Kura copies it, checks the copy, and
   only then removes the old one, as its engine starts again. If the drive it's on isn't
   connected, Kura says so instead of starting empty, and uninstalling cleans up only Kura's own

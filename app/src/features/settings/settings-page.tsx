@@ -1,4 +1,4 @@
-import { Check, Folder, Info, Lock } from "lucide-react";
+import { Folder, Info, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
@@ -13,19 +13,18 @@ import {
   type Settings,
   useAddFolder,
   useDataSizes,
-  useExport,
   useFolders,
   useForgetFolder,
   useHealth,
   useSaveSettings,
   useSettings,
 } from "@/lib/engine";
-import { showInFolder, useExplorer } from "@/lib/explorer";
 import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
 import { useSetStartWithWindows, useStartWithWindows } from "@/lib/startup";
 import { cn } from "@/lib/utils";
 import { BackupsPanel } from "./backups-panel";
+import { ExportPanel } from "./export-panel";
 import { Panel } from "./panel";
 import { WhereItLives } from "./where-it-lives";
 
@@ -344,73 +343,6 @@ function Choice(props: {
         </span>
       </span>
     </div>
-  );
-}
-
-function ExportPanel() {
-  const exporting = useExport();
-  const explorer = useExplorer();
-  const [picking, setPicking] = useState(false);
-
-  async function exportEverything() {
-    setPicking(true);
-    try {
-      const folder = await pickFolder("Where should the export go?");
-      if (folder) exporting.mutate({ path: "/export", body: { folder } });
-    } finally {
-      setPicking(false);
-    }
-  }
-
-  const done = exporting.data;
-  return (
-    <Panel
-      title="Export"
-      note="One zip with everything, in files you can open without Kura."
-      className="flex-[1_1_300px] border-accent/35 bg-accent/5"
-    >
-      <ul className="flex flex-col gap-1.5 text-13">
-        {[
-          "The database, as SQLite",
-          "Every file change, as CSV",
-          "The library's videos, as CSV",
-          "Your settings",
-        ].map((item) => (
-          <li key={item} className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
-            {item}
-          </li>
-        ))}
-      </ul>
-      {done && (
-        <div className="flex flex-wrap items-center gap-2.5 rounded-14 bg-glass px-3.5 py-2.5 text-13">
-          <Check size={16} aria-hidden="true" className="text-accent-fg" />
-          <span className="min-w-0 flex-1 font-mono text-12 [overflow-wrap:anywhere]">
-            {done.path} · {size(done.size)}
-          </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => explorer.run(() => showInFolder(done.path))}
-          >
-            Show in folder
-          </Button>
-        </div>
-      )}
-      {(exporting.isError || explorer.problem) && (
-        <p role="alert" className="text-13 text-broken-fg">
-          {exporting.error?.message ?? explorer.problem}
-        </p>
-      )}
-      <Button
-        variant="primary"
-        className="mt-auto self-start"
-        disabled={picking || exporting.isPending}
-        onClick={() => void exportEverything()}
-      >
-        {exporting.isPending ? "Exporting…" : "Export everything"}
-      </Button>
-    </Panel>
   );
 }
 

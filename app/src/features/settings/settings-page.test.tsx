@@ -57,20 +57,22 @@ function stamp(daysAgo: number, time: string): string {
 function backup(made: string): Backup {
   const [date, time] = made.split("T");
   const name = `kura ${date} ${time?.replace(":", "")}.db`;
-  return { name, made, size: 47_000_000, beforeRestoring: false };
+  return { name, made, size: 47_000_000, beforeRestoring: false, fromExport: false };
 }
 
 const TONIGHT = backup(stamp(0, "03:00"));
 const LAST_NIGHT = backup(stamp(1, "03:00"));
 
-function renderSettings(section = "libraries") {
-  shell.invoke.mockImplementation(async (command: string, args?: { on?: boolean }) => {
-    if (command === "engine_status") return READY;
-    if (command === "pick_folder") return "D:\\Backups";
-    if (command === "start_with_windows") return false;
-    if (command === "set_start_with_windows") return args?.on;
-    return undefined;
-  });
+function renderSettings(section = "libraries", shellAnswers = true) {
+  if (shellAnswers) {
+    shell.invoke.mockImplementation(async (command: string, args?: { on?: boolean }) => {
+      if (command === "engine_status") return READY;
+      if (command === "pick_folder") return "D:\\Backups";
+      if (command === "start_with_windows") return false;
+      if (command === "set_start_with_windows") return args?.on;
+      return undefined;
+    });
+  }
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queries}>
@@ -264,6 +266,31 @@ describe("SettingsPage", () => {
 
     await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
     expect(body(fetch, "POST", "/data/move")).toEqual({ folder: "D:\\Backups\\Kura" });
+  });
+
+  it("imports an export once asked, as the engine starts again", async () => {
+    shell.invoke.mockImplementation(async (command: string) => {
+      if (command === "engine_status") return READY;
+      if (command === "pick_export") return "D:\\Backups\\Kura export 2026-10-10.zip";
+      return undefined;
+    });
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": SETTINGS,
+      "/data": DATA,
+      "/backups": { backups: [], restored: null },
+      "POST /backups/import": null,
+    });
+    renderSettings("data", false);
+
+    (await screen.findByRole("button", { name: "Import an export" })).click();
+    const asking = await screen.findByRole("group", { name: "Import Kura export 2026-10-10.zip?" });
+    within(asking).getByRole("button", { name: "Import it" }).click();
+
+    await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
+    expect(body(fetch, "POST", "/backups/import")).toEqual({
+      path: "D:\\Backups\\Kura export 2026-10-10.zip",
+    });
   });
 
   it("takes an unknown section to the first", async () => {
