@@ -15,6 +15,7 @@ from kura.core.copies import Copy, choose_copy
 from kura.core.naming import PathTooLongError, episode_path, movie_path, unique_path
 
 QUARANTINE_FOLDER = "Kura quarantine"
+SUBTITLE_EXTENSIONS = frozenset({".srt", ".ass", ".ssa", ".sub", ".idx", ".vtt", ".sup"})
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,20 @@ class PlacedFile:
 
     copy: Copy
     identity: Identity
+    sidecars: tuple[PurePath, ...] = ()  # subtitles beside it, named after it (see sidecars_of)
+
+
+def sidecars_of(video: PurePath, names: Iterable[str]) -> tuple[PurePath, ...]:
+    """The subtitle files among `names` (a folder's contents) named after `video`:
+    `Episode 1.en.srt` belongs to `Episode 1.mkv`, `Episode 10.en.srt` doesn't."""
+    stem = video.stem.casefold() + "."
+    found = [
+        video.parent / name
+        for name in names
+        if name.casefold().startswith(stem)
+        and PurePath(name).suffix.casefold() in SUBTITLE_EXTENSIONS
+    ]
+    return tuple(sorted(found, key=lambda path: path.name.casefold()))
 
 
 class ChangeKind(StrEnum):
@@ -94,6 +109,9 @@ def plan_tidy(
                     quarantines.append(
                         Change(ChangeKind.QUARANTINE, dropped.copy.path, place, label, reason)
                     )
+                    quarantines.extend(
+                        _with_it(dropped, place, used, ChangeKind.QUARANTINE, reason)
+                    )
         try:
             target = _target(keep, library)
         except PathTooLongError:
@@ -101,6 +119,7 @@ def plan_tidy(
             continue
         if move := _move(keep, target, used):
             moves.append(move)
+            moves.extend(_with_it(keep, move.target, used, ChangeKind.MOVE, "Follows its video"))
     moves.sort(key=lambda change: str(change.target).casefold())
     return Plan(tuple(quarantines + moves), tuple(skipped))
 
@@ -118,6 +137,20 @@ def _move(placed: PlacedFile, target: PurePath, used: set[str]) -> Change | None
     if place != target:
         reason += ". A file with this name is already there; both are kept"
     return Change(ChangeKind.MOVE, source, place, _label(placed.identity), reason)
+
+
+def _with_it(
+    placed: PlacedFile, place: PurePath, used: set[str], kind: ChangeKind, reason: str
+) -> list[Change]:
+    """Moves for a file's subtitles, renamed to match where the file itself goes."""
+    changes: list[Change] = []
+    for sidecar in placed.sidecars:
+        tail = sidecar.name[len(placed.copy.path.stem) :]  # ".en.srt"
+        spot = unique_path(place.with_name(place.stem + tail), used)
+        used.add(str(spot).casefold())
+        label = f"{_label(placed.identity)} · subtitles"
+        changes.append(Change(kind, sidecar, spot, label, reason))
+    return changes
 
 
 def _target(placed: PlacedFile, library: PurePath) -> PurePath:

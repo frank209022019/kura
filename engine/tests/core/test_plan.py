@@ -6,7 +6,15 @@ from pathlib import PureWindowsPath
 
 from kura.core.copies import Copy
 from kura.core.media import Audio, MediaInfo, Subtitle, Video
-from kura.core.plan import Change, ChangeKind, EpisodeOf, MovieOf, PlacedFile, plan_tidy
+from kura.core.plan import (
+    Change,
+    ChangeKind,
+    EpisodeOf,
+    MovieOf,
+    PlacedFile,
+    plan_tidy,
+    sidecars_of,
+)
 
 LIBRARY = PureWindowsPath(r"D:\Anime")
 DAY = date(2026, 10, 10)
@@ -181,3 +189,69 @@ def test_a_change_is_a_plain_value():
     change = Change(ChangeKind.MOVE, LIBRARY / "a", LIBRARY / "b", "label", "reason")
 
     assert change == Change(ChangeKind.MOVE, LIBRARY / "a", LIBRARY / "b", "label", "reason")
+
+
+def test_subtitles_beside_a_video_move_and_rename_with_it():
+    video = LIBRARY / "Downloads" / "Death Note 01.avi"
+    subtitles = (video.with_name("Death Note 01.en.srt"), video.with_name("Death Note 01.ja.ass"))
+    files = [PlacedFile(Copy(video, media(480)), DEATH_NOTE_1, sidecars=subtitles)]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY).changes
+
+    season = r"D:\Anime\TV\Death Note (2006)\Season 01"
+    assert [(c.source.name, str(c.target), c.label, c.reason) for c in changes] == [
+        (
+            "Death Note 01.avi",
+            season + r"\Death Note (2006) - S01E01 - Rebirth.avi",
+            "Death Note · S01E01",
+            "Named for Plex",
+        ),
+        (
+            "Death Note 01.en.srt",
+            season + r"\Death Note (2006) - S01E01 - Rebirth.en.srt",
+            "Death Note · S01E01 · subtitles",
+            "Follows its video",
+        ),
+        (
+            "Death Note 01.ja.ass",
+            season + r"\Death Note (2006) - S01E01 - Rebirth.ja.ass",
+            "Death Note · S01E01 · subtitles",
+            "Follows its video",
+        ),
+    ]
+
+
+def test_a_quarantined_copys_subtitles_go_with_it():
+    better = placed(r"Downloads\[DB] Death_Note_07 (720p).mkv", DEATH_NOTE_7, media(720))
+    worse = LIBRARY / "Downloads" / "Death Note 07.avi"
+    files = [
+        better,
+        PlacedFile(Copy(worse, media(480)), DEATH_NOTE_7, (worse.with_suffix(".srt"),)),
+    ]
+
+    changes = plan_tidy(files, LIBRARY, day=DAY).changes
+
+    quarantined = [str(c.target) for c in changes if c.kind is ChangeKind.QUARANTINE]
+    assert quarantined == [
+        r"D:\Kura quarantine\2026-10-10\Death Note 07.avi",
+        r"D:\Kura quarantine\2026-10-10\Death Note 07.srt",
+    ]
+
+
+def test_only_subtitles_named_after_the_video_belong_to_it():
+    video = LIBRARY / "Show" / "Episode 1.mkv"
+    names = [
+        "Episode 1.mkv",
+        "Episode 1.srt",
+        "Episode 1.en.forced.ass",
+        "EPISODE 1.EN.SRT",
+        "Episode 10.en.srt",  # another episode's
+        "Episode 1.nfo",  # not subtitles
+        "Episode 1 extra.srt",  # not named after it
+    ]
+
+    assert [path.name for path in sidecars_of(video, names)] == [
+        "Episode 1.en.forced.ass",
+        "EPISODE 1.EN.SRT",
+        "Episode 1.srt",
+    ]

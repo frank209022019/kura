@@ -115,6 +115,8 @@ def apply_plan(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Outc
         _record(conn, change, ChangeState.FAILED, problem=problem, created_dirs=created)
     with conn:
         conn.execute("UPDATE plans SET applied_at = ? WHERE id = ?", (_stamp(now), plan_id))
+    done = [c for c in changes_of(conn, plan_id) if c.state is ChangeState.DONE]
+    _remove_emptied(conn, (change.source.parent for change in done))
     failed = tuple(c for c in changes_of(conn, plan_id) if c.state is ChangeState.FAILED)
     return Outcome(made, failed)
 
@@ -241,6 +243,23 @@ def _remove_empty(folders: Iterable[Path]) -> None:
     for folder in sorted(folders, key=lambda path: len(path.parts), reverse=True):
         with suppress(OSError):  # not empty, or already gone
             folder.rmdir()
+
+
+def _remove_emptied(conn: sqlite3.Connection, folders: Iterable[Path]) -> None:
+    """Remove the folders that moves left empty, and parents they leave empty in turn.
+
+    Only inside a library folder, never the library folder itself, and only when there is truly
+    nothing left in them. Undoing moves the files back and makes the folders again.
+    """
+    roots = [Path(row["path"]) for row in conn.execute("SELECT path FROM folders")]
+    for folder in sorted(set(folders), key=lambda path: len(path.parts), reverse=True):
+        current = folder
+        while any(current != root and current.is_relative_to(root) for root in roots):
+            try:
+                current.rmdir()  # fails unless it's empty
+            except OSError:
+                break
+            current = current.parent
 
 
 def _is_there(path: Path) -> bool:

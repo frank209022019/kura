@@ -377,3 +377,56 @@ def test_there_is_nothing_to_recover_after_a_clean_stop(
     apply_plan(conn, plan_id, now=NOW)
 
     assert recover(conn) == 0
+
+
+def in_library(conn: sqlite3.Connection, folder: Path) -> None:
+    with conn:
+        conn.execute("INSERT INTO folders (path, added_at) VALUES (?, ?)", (str(folder), "now"))
+
+
+def test_folders_a_tidy_up_empties_are_removed_and_come_back_on_undo(
+    conn: sqlite3.Connection, library: Path
+):
+    in_library(conn, library)
+    release = library / "[Group] Dragon Ball Z [480p]" / "Extras"
+    source = video(release / "DBZ - 001.mkv")
+    target = (
+        library / "TV" / "Dragon Ball Z (1989)" / "Season 01" / "Dragon Ball Z (1989) - S01E01.mkv"
+    )
+    plan_id = saved(conn, move(source, target))
+
+    apply_plan(conn, plan_id, now=NOW)
+
+    assert not (library / "[Group] Dragon Ball Z [480p]").exists()  # emptied, so removed
+    assert library.exists()  # the library folder itself always stays
+
+    undo_plan(conn, plan_id, now=NOW)
+
+    assert source.read_text(encoding="utf-8") == "video"
+    assert not (library / "TV").exists()
+
+
+def test_a_folder_with_anything_else_in_it_stays(conn: sqlite3.Connection, library: Path):
+    in_library(conn, library)
+    release = library / "[Group] Dragon Ball Z [480p]"
+    source = video(release / "DBZ - 001.mkv")
+    (release / "folder.jpg").write_bytes(b"cover")
+    target = (
+        library / "TV" / "Dragon Ball Z (1989)" / "Season 01" / "Dragon Ball Z (1989) - S01E01.mkv"
+    )
+
+    apply_plan(conn, saved(conn, move(source, target)), now=NOW)
+
+    assert (release / "folder.jpg").exists()
+
+
+def test_a_folder_outside_the_library_is_left_alone(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    in_library(conn, library)
+    source = video(downloads / "Season 1" / "Death Note 07.mkv")
+    target = library / "TV" / "Death Note (2006)" / "Season 01" / "Death Note (2006) - S01E07.mkv"
+
+    apply_plan(conn, saved(conn, move(source, target)), now=NOW)
+
+    assert (downloads / "Season 1").exists()
