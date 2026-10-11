@@ -12,17 +12,19 @@ import pytest
 from kura.convert import (
     WORKING,
     ConvertError,
+    InUseError,
     Programs,
     Progress,
     Stopped,
     convert,
     lighter,
+    put_in,
     restore,
     start,
 )
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.standard import CINEMA_1080, Method
-from tests.converting import BEST_TAG, FAKE_FFMPEG, programs, report
+from tests.converting import BEST_TAG, FAKE_FFMPEG, open_elsewhere, programs, report
 from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
@@ -224,6 +226,54 @@ def test_a_file_that_changed_since_it_was_read_waits_for_a_scan(
 
     with pytest.raises(ConvertError, match="changed since Kura read it"):
         run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+
+def test_a_file_saved_over_while_it_converted_keeps_what_was_saved(
+    conn: sqlite3.Connection, episode: Path
+):
+    def heard(progress: Progress) -> None:
+        if progress.stage == "checking":  # a better copy saved over it meanwhile
+            episode.write_bytes(b"a better copy")
+
+    with pytest.raises(ConvertError, match="changed since Kura read it"):
+        convert(
+            conn,
+            1,
+            programs(report(1440, 1080, tag=BEST_TAG)),
+            CINEMA_1080,
+            now=lambda: NOW,
+            report=heard,
+            stop=lambda: False,
+            discard=lambda: False,
+        )
+
+    assert episode.read_bytes() == b"a better copy"
+    assert not list(episode.parent.glob(f"*{WORKING}"))
+
+
+def test_a_result_whose_original_is_open_in_another_app_waits_beside_it(
+    conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    open_in_player = open_elsewhere(monkeypatch)
+    original = episode.read_bytes()
+    kept = episode.with_name(episode.stem + WORKING)
+
+    with pytest.raises(InUseError, match=r"^Trigun \(1998\) - S01E03 is open in another app"):
+        run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+    assert episode.read_bytes() == original
+    assert kept.read_bytes().startswith(b"converted")
+    with pytest.raises(InUseError):
+        put_in(conn, 1, now=NOW)  # still open
+
+    open_in_player[0] = False
+    put_in(conn, 1, now=NOW)
+
+    assert episode.read_bytes().startswith(b"converted")
+    assert not kept.exists()
+    job = conn.execute("SELECT state, output_probe FROM jobs").fetchone()
+    assert job["state"] == "done"
+    assert json.loads(job["output_probe"])["format"]["tags"] == {"KURA": BEST_TAG}
 
 
 def test_a_picture_ffprobe_couldnt_place_is_looked_at_for_interlacing(

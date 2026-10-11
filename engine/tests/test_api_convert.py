@@ -17,7 +17,7 @@ from kura.core.standard import Method
 from kura.queue import Queue
 from kura.scan import Scanner
 from tests.conftest import TOKEN
-from tests.converting import BEST_TAG, programs, report
+from tests.converting import BEST_TAG, open_elsewhere, programs, report
 from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
@@ -150,6 +150,26 @@ def test_waiting_files_can_be_moved_skipped_removed_and_tried_again(
     assert [job["id"] for job in client.get("/queue").json()["queued"]] == [second]
     assert client.delete(f"/queue/{first}").status_code == 404
     assert client.post("/queue/99/skip").status_code == 404
+
+
+def test_a_file_open_in_another_app_waits_and_can_be_tried_now(
+    client: TestClient, converting: Queue, shelf: Path, monkeypatch: pytest.MonkeyPatch
+):
+    open_in_player = open_elsewhere(monkeypatch)
+    client.post("/queue", json={"files": [1]})
+    converting.work_once()
+
+    [waiting] = client.get("/queue").json()["queued"]
+    assert waiting["retryAt"] == "2026-10-11T09:35:00+00:00"  # in 5 minutes
+    assert waiting["problem"].startswith("Trigun · S01E01 is open in another app")
+    assert waiting["gpuSeconds"] == 0
+
+    open_in_player[0] = False
+    assert client.post(f"/queue/{waiting['id']}/retry").status_code == 204
+    converting.try_waiting()
+
+    [done] = client.get("/queue").json()["today"]
+    assert (done["state"], done["retryAt"]) == ("done", None)
 
 
 def test_a_converted_file_is_listed_today_and_its_original_can_come_back(

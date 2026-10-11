@@ -173,7 +173,7 @@
     "/folders/{folder_id}": {
       "delete": {
         "summary": "Forget Folder",
-        "description": "Takes a folder out of the library. Its files stay exactly where they are. Not while a\nfile in it is converting: its result is about to take the original's place.",
+        "description": "Takes a folder out of the library. Its files stay exactly where they are. Not while a\nfile in it is converting, or made and waiting for another app to let go of its original:\nits result is about to take the original's place.",
         "operationId": "forget_folder_folders__folder_id__delete",
         "security": [
           {
@@ -1677,6 +1677,7 @@
     "/queue/{job_id}/retry": {
       "post": {
         "summary": "Retry Job",
+        "description": "A failed or skipped file goes back in the queue, last; one made and waiting for another\napp to let go of its original is tried again now (\"Try now\").",
         "operationId": "retry_job_queue__job_id__retry_post",
         "security": [
           {
@@ -3182,6 +3183,17 @@
           "driveMissing": {
             "type": "boolean",
             "title": "Drivemissing"
+          },
+          "retryAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retryat"
           }
         },
         "type": "object",
@@ -3205,7 +3217,8 @@
           "outputSize",
           "width",
           "height",
-          "driveMissing"
+          "driveMissing",
+          "retryAt"
         ],
         "title": "Job"
       },

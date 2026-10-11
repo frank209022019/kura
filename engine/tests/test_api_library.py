@@ -135,8 +135,11 @@ def test_only_one_scan_at_a_time(
     assert busy.json() == {"detail": "A scan is already running."}
 
 
+@pytest.mark.parametrize(  # converting, or made and waiting for another app to let go of it
+    ("state", "retry_at"), [("running", None), ("queued", "2026-10-11T10:05:00+02:00")]
+)
 def test_a_folder_with_a_file_converting_isnt_forgotten(
-    client: TestClient, conn: sqlite3.Connection, anime: Path
+    client: TestClient, conn: sqlite3.Connection, anime: Path, state: str, retry_at: str | None
 ):
     folder = client.post("/folders", json={"path": str(anime)}).json()
     with conn:
@@ -146,8 +149,9 @@ def test_a_folder_with_a_file_converting_isnt_forgotten(
             (folder["id"], str(anime / "x.mkv")),
         )
         conn.execute(
-            "INSERT INTO jobs (file_id, method, position, state, added_at)"
-            " VALUES (last_insert_rowid(), 'best', 1, 'running', 'now')"
+            "INSERT INTO jobs (file_id, method, position, state, added_at, retry_at)"
+            " VALUES (last_insert_rowid(), 'best', 1, ?, 'now', ?)",
+            (state, retry_at),
         )
 
     answer = client.delete(f"/folders/{folder['id']}")

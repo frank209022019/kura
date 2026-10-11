@@ -83,6 +83,9 @@ class Job(ApiModel):
     width: int | None  # the result's picture, for a file still to finish
     height: int | None
     drive_missing: bool  # waiting, and its drive isn't connected
+    # Made, and waiting beside its original for another app (a player) to let go of it: when
+    # Kura tries again to put it in place.
+    retry_at: str | None
 
 
 class Running(ApiModel):
@@ -297,6 +300,8 @@ def move_job(job_id: int, body: MoveRequest, queue: Queue) -> None:
 
 @router.post("/queue/{job_id}/retry", status_code=status.HTTP_204_NO_CONTENT)
 def retry_job(job_id: int, queue: Queue) -> None:
+    """A failed or skipped file goes back in the queue, last; one made and waiting for another
+    app to let go of its original is tried again now ("Try now")."""
     with _known():
         queue.retry(job_id)
 

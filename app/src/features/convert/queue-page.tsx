@@ -1,4 +1,12 @@
-import { AlertTriangle, Check, EllipsisVertical, GripVertical, Pause, Play } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  EllipsisVertical,
+  GripVertical,
+  Lock,
+  Pause,
+  Play,
+} from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -14,6 +22,7 @@ import {
   jobGroups,
   METHOD_ENGINES,
   METHOD_NAMES,
+  retryIn,
 } from "@/lib/convert";
 import {
   type Job,
@@ -86,6 +95,7 @@ export function QueuePage() {
     );
   }
   const idle = !status.running && status.queued.length === 0;
+  const held = status.queued.filter((job) => job.retryAt !== null);
   return (
     <>
       {header}
@@ -99,10 +109,14 @@ export function QueuePage() {
           {status.problem}
         </p>
       )}
+      {status.queued.map(
+        (job) =>
+          job.retryAt !== null && <OpenElsewhere key={job.id} job={job} retryAt={job.retryAt} />,
+      )}
       {status.running ? (
         <NowConverting running={status.running} gpu={status.gpu} paused={status.paused} />
       ) : (
-        !idle && <Waiting status={status} />
+        held.length < status.queued.length && <Waiting status={status} />
       )}
       {idle && (
         <EmptyState
@@ -138,6 +152,7 @@ function StatusLine({ status }: { status: QueueStatus }) {
   const left = status.gpuSeconds > 0 ? `about ${gpuTime(status.gpuSeconds)} of GPU time` : null;
   const queued = `${waiting} in the queue`;
   const missing = drivesMissing(status.queued);
+  const held = status.queued.every((job) => job.retryAt !== null);
   const [dot, words] = status.paused
     ? ["bg-fg-faint", ["Paused", queued]]
     : status.running
@@ -146,9 +161,11 @@ function StatusLine({ status }: { status: QueueStatus }) {
         ? ["bg-convert", ["Waiting for the night", queued, "starts at 23:00"]]
         : missing
           ? ["bg-fg-faint", [`Waiting for ${either(missing) || "a drive"}`, queued]]
-          : waiting > 0
-            ? ["animate-pulse bg-accent", ["Starting", queued]]
-            : ["bg-fg-faint", ["Nothing waiting"]];
+          : waiting > 0 && held
+            ? ["bg-fg-faint", ["Waiting for another app", queued]]
+            : waiting > 0
+              ? ["animate-pulse bg-accent", ["Starting", queued]]
+              : ["bg-fg-faint", ["Nothing waiting"]];
   return (
     <span className="inline-flex items-center gap-2 text-14 text-fg-muted">
       <span aria-hidden="true" className={cn("size-2 rounded-full", dot)} />
@@ -447,11 +464,52 @@ function Waiting({ status }: { status: QueueStatus }) {
   );
 }
 
-/** When every file waiting is on a drive that isn't connected: those drives ("D:"), else null. */
+/**
+ * When every file still to convert is on a drive that isn't connected: those drives ("D:"), else
+ * null. One made already waits for another app instead.
+ */
 function drivesMissing(jobs: Job[]): string[] | null {
-  if (jobs.length === 0 || jobs.some((job) => !job.driveMissing)) return null;
-  const drives = jobs.map((job) => /^[a-z]:/i.exec(job.path)?.[0].toUpperCase() ?? "");
+  const unmade = jobs.filter((job) => job.retryAt === null);
+  if (unmade.length === 0 || unmade.some((job) => !job.driveMissing)) return null;
+  const drives = unmade.map((job) => /^[a-z]:/i.exec(job.path)?.[0].toUpperCase() ?? "");
   return [...new Set(drives)].filter(Boolean);
+}
+
+/** A converted file waiting beside its original, which another app (a player, say) has open. */
+function OpenElsewhere({ job, retryAt }: { job: Job; retryAt: string }) {
+  const action = useQueueAction();
+  return (
+    <div
+      role="status"
+      className="flex animate-fade-up flex-col gap-3 rounded-18 border border-white/10 bg-raised px-4.5 py-4"
+    >
+      <span className="flex gap-3 text-14">
+        <Lock size={20} aria-hidden="true" className="shrink-0 text-convert-fg" />
+        <span>
+          <strong className="font-extrabold">{job.label} is open in another app,</strong> maybe your
+          player. Kura will try again {retryIn(retryAt, Date.now())}.
+        </span>
+      </span>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          disabled={action.isPending}
+          onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
+        >
+          Try now
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={action.isPending}
+          onClick={() => action.mutate({ path: `/queue/${job.id}/skip` })}
+        >
+          Skip this file
+        </Button>
+      </div>
+      <Problem error={action.error} />
+    </div>
+  );
 }
 
 /** "D:", "D: or F:", "D:, E: or F:"; empty when there are none. */
@@ -533,7 +591,11 @@ function JobRow({ job, first, top }: { job: Job; first: number | null; top: bool
         <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
         <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
         <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
-        {job.driveMissing ? (
+        {job.retryAt !== null ? (
+          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+            Open in another app
+          </span>
+        ) : job.driveMissing ? (
           <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Its drive isn't connected
           </span>
@@ -543,7 +605,7 @@ function JobRow({ job, first, top }: { job: Job; first: number | null; top: bool
           </span>
         )}
         <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
-          ≈ {gpuTimeShort(job.gpuSeconds)}
+          {job.retryAt === null && `≈ ${gpuTimeShort(job.gpuSeconds)}`}
         </span>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger

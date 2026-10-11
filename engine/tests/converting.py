@@ -8,6 +8,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 from kura.convert import Programs, start
 from kura.core.fields import Json
 from kura.upscale import Frame
@@ -29,6 +31,18 @@ def report(width: int, height: int, *, codec: str = "hevc", tag: str | None = No
     format_ = {**cast("dict[str, object]", made["format"]), "duration": "1440.0"}
     made["format"] = {**format_, "tags": {"KURA": tag}} if tag else format_
     return made
+
+
+def open_elsewhere(monkeypatch: pytest.MonkeyPatch, only: Path | None = None) -> list[bool]:
+    """Windows saying another app has an original open (a player playing it: `only` that one,
+    when given) till the list's one item is set False."""
+    still = [True]
+
+    def in_use(path: Path) -> bool:
+        return still[0] and only in (None, path)
+
+    monkeypatch.setattr("kura.convert.in_use", in_use)
+    return still
 
 
 def doubled(frame: Frame) -> Frame:

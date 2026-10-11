@@ -9,10 +9,13 @@ drive. Both moves are journaled (kura/changes.py), so a crash leaves nothing hal
 
 The work happens beside the original, in a file whose name ends in .kura-converting: no scan or
 watcher counts it as a video, and it moves into place on the same drive at once. A crash while
-it moves leaves the job "replacing": `settle` finishes it, or puts the original back.
+it moves leaves the job "replacing": `settle` finishes it, or puts the original back. When
+another app has the original open (a player playing it), the checked result waits beside it
+(InUseError) and `put_in` puts it in place once the app lets go.
 """
 
 import json
+import logging
 import shutil
 import sqlite3
 import subprocess
@@ -20,8 +23,8 @@ import threading
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, ExitStack, nullcontext
 from dataclasses import dataclass, field, replace
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timedelta
+from pathlib import Path, PurePath
 from typing import IO, Literal, Protocol, cast
 
 from kura import __version__
@@ -51,7 +54,10 @@ from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
 from kura.core.standard import Decision, Method, Standard, decide, deinterlaced
 from kura.probe import ProbeError, ProbeToolError
+from kura.system import in_use
 from kura.upscale import UpscaleError, Upscaler, pipe, upscaled_size
+
+log = logging.getLogger(__name__)
 
 WORKING = ".kura-converting"  # the end of a result's name while it's being made
 SHADER = Path(__file__).parent / "assets" / "anime4k-mode-a-hq.glsl"  # the fast upscale
@@ -61,6 +67,7 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _PLAY_SECONDS = 5  # how much of the result a test play decodes, at each of three points
 _LOOK_TIMEOUT = 300  # seconds for idet or a test play
 _SPACE_MARGIN = 1.25  # free space wanted, over the estimated size of the result
+IN_USE_WAIT = timedelta(minutes=5)  # before a result waiting for its original is tried again
 
 type Stage = Literal["looking", "converting", "checking", "replacing"]
 
@@ -78,6 +85,11 @@ class ConvertError(Exception):
 
 class NoRoomError(ConvertError):
     """There isn't room on the file's drive for the result: no file there can go till there is."""
+
+
+class InUseError(ConvertError):
+    """Another app has the original open (a player playing it), so it can't be set aside: the
+    checked result waits beside it, and the job is tried again with `put_in`."""
 
 
 class Stopped(Exception):  # noqa: N818 - not an error: the owner paused or skipped it
@@ -187,10 +199,74 @@ def convert(
             held.enter_context(hold())
             if discard():
                 raise Stopped
+            _still_as_read(source, row["size"], row["modified"])  # nothing saved over it since
         except BaseException:
             work.unlink(missing_ok=True)  # never put in place: nothing to keep
             raise
-        _replace(conn, row, source, work, made, result, now())
+        if in_use(source):
+            _keep(conn, row, result, made.method)
+            raise InUseError(_open_elsewhere(row))
+        _replace(conn, row, source, work, made.output, made.method, result, now())
+
+
+def put_in(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
+    """Puts a result that waited beside its original (InUseError) in the original's place. The
+    caller holds scans off. Raises InUseError while the original is still open, and ConvertError
+    when the result can't go in: it went, or the original changed since it was made."""
+    row = _job(conn, job_id)
+    source = Path(row["path"])
+    work = source.with_name(source.stem + WORKING)
+    if row["output_probe"] is None or not work.is_file():
+        raise ConvertError("Its converted copy isn't there any more. Try again to convert it anew.")
+    _still_as_read(source, row["source_size"], row["source_modified"])
+    if in_use(source):
+        raise InUseError(_open_elsewhere(row))
+    result: Json = json.loads(row["output_probe"])
+    method = Method(row["method"])
+    _replace(conn, row, source, work, source.with_suffix(".mkv"), method, result, now)
+
+
+def throw_away_kept(conn: sqlite3.Connection, job_id: int) -> None:
+    """Takes away the result a job kept beside its original (InUseError), once the job won't put
+    it in place: skipped, taken out of the queue, or failed. A job without one keeps its file."""
+    row = conn.execute(
+        """SELECT f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+           WHERE j.id = ? AND j.retry_at IS NOT NULL""",
+        (job_id,),
+    ).fetchone()
+    if row is None:
+        return
+    path = Path(row["path"])
+    kept = path.with_name(path.stem + WORKING)
+    try:
+        kept.unlink(missing_ok=True)
+    except OSError:  # held open a moment (an antivirus, say): it's only Kura's own copy
+        log.warning("Couldn't remove %s", kept)
+
+
+def _keep(conn: sqlite3.Connection, row: sqlite3.Row, result: Json, method: Method) -> None:
+    """What `put_in` needs of a result kept beside its original: what it is, how it was made,
+    and the original as it was made from."""
+    with conn:
+        conn.execute(
+            """UPDATE jobs SET method = ?, output_probe = ?, source_size = ?, source_modified = ?
+               WHERE id = ?""",
+            (
+                method.value,
+                json.dumps(result, separators=(",", ":")),
+                row["size"],
+                row["modified"],
+                row["id"],
+            ),
+        )
+
+
+def _open_elsewhere(row: sqlite3.Row) -> str:
+    minutes = round(IN_USE_WAIT.total_seconds() / 60)
+    return (
+        f"{label_of(row)} is open in another app, maybe your player. Kura will try again in "
+        f"{minutes} minutes."
+    )
 
 
 def lighter(decided: Method, chosen: Method) -> Method:
@@ -266,10 +342,12 @@ def settle(
         undo_plan(conn, plan_id, now=now)
         if moved is not None:
             moved.source.unlink(missing_ok=True)  # the result, never in place
-    with conn:
+    with conn:  # a result kept beside its original (InUseError) that never began going in waits on
         conn.execute(
-            "UPDATE jobs SET state = 'queued', plan_id = NULL, started_at = NULL WHERE id = ?",
-            (job_id,),
+            """UPDATE jobs SET state = 'queued', plan_id = NULL, started_at = NULL,
+                      retry_at = CASE WHEN ? THEN retry_at END
+               WHERE id = ?""",
+            (plan_id is None, job_id),
         )
 
 
@@ -311,8 +389,8 @@ def _follow_the_copy(conn: sqlite3.Connection, plan_id: int, file_id: int) -> No
 
 def _job(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
     row = conn.execute(
-        """SELECT j.id, j.file_id, j.method, f.path, f.size, f.modified, f.probe, f.season,
-                  f.episode, t.name AS title
+        """SELECT j.id, j.file_id, j.method, j.output_probe, j.source_size, j.source_modified,
+                  f.path, f.size, f.modified, f.probe, f.season, f.episode, t.name AS title
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            LEFT JOIN titles AS t ON t.id = f.title_id
            WHERE j.id = ? AND f.gone_at IS NULL""",
@@ -489,7 +567,8 @@ def _replace(
     row: sqlite3.Row,
     source: Path,
     work: Path,
-    made: Recipe,
+    output: PurePath,
+    method: Method,
     result: Json,
     now: datetime,
 ) -> None:
@@ -506,17 +585,24 @@ def _replace(
                 f"{label} · original",
                 "Set aside: its converted copy takes its place",
             ),
-            Change(ChangeKind.MOVE, work, made.output, label, f"Converted ({made.method})"),
+            Change(ChangeKind.MOVE, work, output, label, f"Converted ({method})"),
         )
     )
     plan_id = save_plan(conn, plan, f"Converted {label}", now=now, kind="convert")
     original = source.stat()
     with conn:
         conn.execute(
-            """UPDATE jobs SET state = 'replacing', plan_id = ?, source_size = ?,
+            """UPDATE jobs SET state = 'replacing', plan_id = ?, method = ?, source_size = ?,
                       source_modified = ?, source_probe = ?
                WHERE id = ?""",
-            (plan_id, original.st_size, original.st_mtime_ns, row["probe"], row["id"]),
+            (
+                plan_id,
+                method.value,
+                original.st_size,
+                original.st_mtime_ns,
+                row["probe"],
+                row["id"],
+            ),
         )
     outcome = apply_plan(conn, plan_id, now=now)
     if outcome.problems:
@@ -554,7 +640,7 @@ def finish(conn: sqlite3.Connection, job_id: int, result: Json, now: datetime) -
     with conn:
         conn.execute(
             """UPDATE jobs SET state = 'done', finished_at = ?, output_size = ?,
-                      output_probe = ?, problem = NULL
+                      output_probe = ?, problem = NULL, retry_at = NULL
                WHERE id = ?""",
             (now.isoformat(), stat.st_size, json.dumps(result, separators=(",", ":")), job_id),
         )

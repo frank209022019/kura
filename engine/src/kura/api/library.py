@@ -83,10 +83,12 @@ def new_folder(body: NewFolder, conn: Database) -> LibraryFolder:
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 def forget_folder(folder_id: int, conn: Database) -> Response:
     """Takes a folder out of the library. Its files stay exactly where they are. Not while a
-    file in it is converting: its result is about to take the original's place."""
+    file in it is converting, or made and waiting for another app to let go of its original:
+    its result is about to take the original's place."""
     converting = conn.execute(
         """SELECT 1 FROM jobs AS j JOIN files AS f ON f.id = j.file_id
-           WHERE f.folder_id = ? AND j.state IN ('running', 'replacing')""",
+           WHERE f.folder_id = ?
+             AND (j.state IN ('running', 'replacing') OR j.retry_at IS NOT NULL)""",
         (folder_id,),
     ).fetchone()
     if converting is not None:

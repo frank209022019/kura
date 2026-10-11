@@ -30,6 +30,7 @@ from kura.core.extensions import is_video
 from kura.core.plan import ChangeKind, Plan
 
 PARTIAL = ".kura-partial"  # added to a copy's name until the copy is complete
+_IN_USE = (32, 33)  # Windows' ERROR_SHARING_VIOLATION and ERROR_LOCK_VIOLATION: another app has it
 
 _log = logging.getLogger(__name__)
 
@@ -388,6 +389,8 @@ def _partial(target: Path) -> Path:
 
 
 def _could_not(error: OSError) -> str:
+    if getattr(error, "winerror", None) in _IN_USE:
+        return "It's open in another app, maybe your player. Close it, then try again."
     return f"{error.strerror or error}."
 
 

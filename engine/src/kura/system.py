@@ -6,10 +6,15 @@ import os
 import subprocess
 import sys
 from collections.abc import Iterable
+from pathlib import Path
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _MAKERS = ("nvidia", "geforce", "quadro", "radeon", "amd", "intel arc")
 _KILL_ON_JOB_CLOSE = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+_DELETE = 0x00010000  # the right to move or delete a file
+_SHARE_READ_WRITE = 0x1 | 0x2  # FILE_SHARE_READ | FILE_SHARE_WRITE
+_OPEN_EXISTING = 3
+_SHARING_VIOLATION = 32  # ERROR_SHARING_VIOLATION
 _EXTENDED_LIMITS = 9  # JobObjectExtendedLimitInformation
 
 
@@ -95,3 +100,30 @@ def graphics_card() -> str | None:
     except OSError, subprocess.TimeoutExpired:
         return None
     return best_card(result.stdout.splitlines())
+
+
+def in_use(path: Path) -> bool:
+    """Whether another program has a file open so that it can't be moved now: a player playing
+    it, say. Windows says so when asked for the right to move it, which this asks and gives
+    straight back."""
+    if sys.platform != "win32":
+        return False
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    kernel.CreateFileW.argtypes = (
+        ctypes.c_wchar_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+    )
+    kernel.CloseHandle.argtypes = (ctypes.c_void_p,)
+    handle = kernel.CreateFileW(
+        str(path), _DELETE, _SHARE_READ_WRITE, None, _OPEN_EXISTING, 0, None
+    )
+    if handle is None or handle == ctypes.c_void_p(-1).value:  # INVALID_HANDLE_VALUE
+        return ctypes.get_last_error() == _SHARING_VIOLATION
+    kernel.CloseHandle(handle)
+    return False

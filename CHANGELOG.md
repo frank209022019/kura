@@ -9,6 +9,10 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- A file open in another app (a player playing it) as its conversion finishes no longer fails:
+  the queue says so, keeps the converted copy beside it, goes on with the next file, and puts the
+  copy in place once the app lets go, trying every 5 minutes or at once with Try now. Skip this
+  file throws the copy away. A tidy-up that meets a file open elsewhere says so in Kura's words.
 - Poster and background pictures next to each show and film (Settings > Your data, off unless you
   turn it on): `poster.jpg` and `fanart.jpg`, which media servers show. Kura never writes over a
   picture that's there, and turning it off takes away only the ones it wrote, unchanged.
@@ -55,9 +59,9 @@ shows these notes when it offers the update.
   History, which lists every conversion with what it made. A file whose drive isn't connected
   waits while the others go, a drive without room for the result pauses the queue and says so,
   and a file whose new name is taken (an MKV beside an MP4 of the same name) says so before
-  converting. Paused once its result is made, a file is still checked and put in place. Kura
-  keeps the PC awake while a file converts, and nothing it starts keeps running once it's
-  closed.
+  converting. Paused once its result is made, a file is still checked and put in place, and a
+  file saved over while it converts keeps what was saved. Kura keeps the PC awake while a file
+  converts, and nothing it starts keeps running once it's closed.
 - Tidy up: Kura proposes where every identified video goes (`TV\Show (Year)\Season 01`,
   `Movies\Title (Year)`), title by title: moves out of folders holding several anime, renames in
   place, and second copies of an episode set aside in a quarantine folder on the same drive, the

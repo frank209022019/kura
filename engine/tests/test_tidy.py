@@ -317,15 +317,22 @@ def test_a_folder_already_there_keeps_its_own_spelling(
     )
 
 
+# Converting, or made and waiting beside its original for another app to let go of it.
+BUSY = pytest.mark.parametrize(
+    ("state", "retry_at"), [("running", None), ("queued", "2026-10-11T10:05:00+02:00")]
+)
+
+
+@BUSY
 def test_a_video_being_converted_stays_where_it_is_till_its_done(
-    downloads: sqlite3.Connection, root: Path
+    downloads: sqlite3.Connection, root: Path, state: str, retry_at: str | None
 ):
     bebop = downloads.execute("SELECT id FROM files WHERE path LIKE '%Bebop_-_01%'").fetchone()[0]
     with downloads:
         downloads.execute(
-            "INSERT INTO jobs (file_id, method, position, state, added_at)"
-            " VALUES (?, 'best', 1, 'running', ?)",
-            (bebop, NOW.isoformat()),
+            "INSERT INTO jobs (file_id, method, position, state, added_at, retry_at)"
+            " VALUES (?, 'best', 1, ?, ?, ?)",
+            (bebop, state, NOW.isoformat(), retry_at),
         )
 
     proposal = propose(downloads, day=NOW.date())

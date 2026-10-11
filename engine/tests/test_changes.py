@@ -139,6 +139,22 @@ def test_a_file_that_has_gone_is_reported(conn: sqlite3.Connection, downloads: P
     assert not (library / "Show").exists()
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' sharing rules")
+def test_a_file_open_in_another_app_stays_and_says_so(
+    conn: sqlite3.Connection, downloads: Path, library: Path
+):
+    source = video(downloads / "[DB] Death_Note_07 (720p).mkv")
+    plan_id = saved(conn, move(source, library / "Death Note (2006)" / "Death Note - 07.mkv"))
+
+    with source.open("rb"):  # a player playing it
+        outcome = apply_plan(conn, plan_id, now=NOW)
+
+    assert [change.problem for change in outcome.problems] == [
+        "It's open in another app, maybe your player. Close it, then try again."
+    ]
+    assert source.exists()
+
+
 def test_a_change_of_case_alone_renames_the_file(conn: sqlite3.Connection, library: Path):
     source = video(library / "Show" / "show - s01e01.mkv")
     target = library / "Show" / "Show - S01E01.mkv"

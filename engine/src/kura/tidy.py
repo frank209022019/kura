@@ -279,7 +279,8 @@ def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) 
     rows = conn.execute(
         f"""SELECT f.id, f.path, f.season, f.episode, t.name AS title,
                    EXISTS (SELECT 1 FROM jobs AS j
-                           WHERE j.file_id = f.id AND j.state IN ('running', 'replacing'))
+                           WHERE j.file_id = f.id
+                             AND (j.state IN ('running', 'replacing') OR j.retry_at IS NOT NULL))
                        AS converting
             FROM files AS f LEFT JOIN titles AS t ON t.id = f.title_id
             WHERE f.id IN ({marks}) AND f.gone_at IS NULL
@@ -332,7 +333,8 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
         """SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.episode_end,
                   t.id AS title_id, t.name, t.year, t.kind, t.tmdb_type, d.path AS root,
                   EXISTS (SELECT 1 FROM jobs AS j
-                          WHERE j.file_id = f.id AND j.state IN ('running', 'replacing'))
+                          WHERE j.file_id = f.id
+                            AND (j.state IN ('running', 'replacing') OR j.retry_at IS NOT NULL))
                       AS converting
            FROM files AS f
            JOIN titles AS t ON t.id = f.title_id

@@ -200,9 +200,15 @@ files only between 23:00 and 07:00. Pausing or skipping stops ffmpeg at once and
 original as it was (a paused file starts over); a result made already is still checked and put in
 place when the queue pauses, and thrown away when it's skipped. A file whose result would take a
 name that's taken fails before anything is made, and Windows doesn't sleep while a file converts.
-After a crash, a file that was converting waits in line again, and one whose result was taking
-its original's place is finished, or its original put back. A file being converted, and any
-copy of it, stays out of tidy-ups. History lists each conversion with what it made, and puts the original back on asking.
+A file saved over while it converted is left as it is now, and its result goes. When another app
+has the original open as its result is ready (a player playing it: `system.in_use` asks Windows
+for the right to move it), the checked result waits beside it and the next file goes; a second
+thread of the queue puts it in place once the app lets go, trying every 5 minutes, or at once on
+"Try now", though another file is converting (`Queue.try_waiting`, `convert.put_in`). Skipping it
+throws the result away. After a crash, a file that was converting waits in line again, and one
+whose result was taking its original's place is finished, or its original put back. A file being
+converted (its result waiting beside it too), and any copy of it, stays out of tidy-ups and
+deletes. History lists each conversion with what it made, and puts the original back on asking.
 Before queueing, the Convert screen shows one frame of a file before and after
 (`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the cache.
 

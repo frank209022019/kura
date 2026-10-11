@@ -916,6 +916,11 @@ export interface Job {
   height: number | null;
   /** Waiting, and its drive isn't connected: it goes when the drive is back. */
   driveMissing: boolean;
+  /**
+   * Made, and waiting beside its original for another app (a player) to let go of it: when Kura
+   * tries again to put it in place.
+   */
+  retryAt: string | null;
 }
 
 /** The file converting now, and how it's going. */

@@ -4,7 +4,7 @@ reordered, tried again, put back, and settled after a crash."""
 import json
 import sqlite3
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
@@ -21,7 +21,7 @@ from kura.core.standard import Method
 from kura.queue import Queue
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
-from tests.converting import BEST_TAG, programs, report
+from tests.converting import BEST_TAG, open_elsewhere, programs, report
 from tests.shelf import NOW, library
 
 pytestmark = pytest.mark.usefixtures("quarantine")
@@ -488,3 +488,130 @@ def test_a_full_drive_is_told_of(
     [(title, body)] = told
     assert title == "The queue paused"
     assert body.startswith("There isn't room on")
+
+
+def test_a_file_open_in_another_app_waits_its_result_kept_and_goes_in_later(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    episode = shows / "Trigun (1998) - S01E01.mkv"
+    open_in_player = open_elsewhere(monkeypatch, episode)
+    commands: list[Sequence[str]] = []
+    told: list[tuple[str, str]] = []
+    queue = make_queue(paths, programs(RESULT, commands), told=told)
+    queue.add([1, 2])
+    kept = shows / f"Trigun (1998) - S01E01{WORKING}"
+
+    queue.work_once()  # made and checked, but the player has the original
+    [waiting, _] = queue.status().queued
+    assert waiting.file_id == 1
+    assert waiting.problem == (
+        "Trigun · S01E01 is open in another app, maybe your player. Kura will try again in 5 "
+        "minutes."
+    )
+    assert waiting.retry_at is not None
+    assert waiting.gpu_seconds == 0  # made already
+    assert kept.is_file()  # the result, kept beside it
+
+    queue.work_once()  # the next file goes meanwhile
+    assert states(conn) == [(1, "queued"), (2, "done")]
+    assert queue.work_once() is False  # the waiting one is never made again
+    assert told == []  # one still waits
+
+    open_in_player[0] = False
+    assert queue.try_waiting() is False  # not due for 5 minutes
+    queue.retry(waiting.id)  # Try now
+    assert queue.try_waiting() is True
+
+    assert states(conn) == [(1, "done"), (2, "done")]
+    assert episode.read_text().startswith("converted")
+    assert not kept.exists()
+    made = [command for command in commands if command[-1] == str(kept)]
+    assert len(made) == 1  # made once: the kept result went in
+    [(title, _)] = told
+    assert title == "Trigun, season 1 is done"
+
+
+def test_a_file_still_open_when_tried_again_waits_again(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    open_elsewhere(monkeypatch)
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+    queue.work_once()
+    [waiting] = queue.status().queued
+
+    queue.retry(waiting.id)
+    queue.try_waiting()
+
+    [still] = queue.status().queued
+    assert still.retry_at is not None
+    assert waiting.retry_at is not None
+    assert still.retry_at > waiting.retry_at  # 5 minutes from this try
+    assert still.problem == waiting.problem
+    assert (shows / f"Trigun (1998) - S01E01{WORKING}").is_file()
+
+
+def test_a_file_waiting_for_its_player_can_be_skipped_and_its_result_goes(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    open_elsewhere(monkeypatch)
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1, 2])
+    queue.work_once()
+    [first, second] = queue.status().queued
+
+    queue.skip(first.id)
+    assert states(conn) == [(1, "skipped"), (2, "queued")]
+    assert not list(shows.glob(f"*{WORKING}"))
+
+    queue.work_once()  # waits for its player too
+    queue.remove(second.id)
+    assert states(conn) == [(1, "skipped")]
+    assert not list(shows.glob(f"*{WORKING}"))
+
+
+def test_a_file_changed_while_its_result_waited_isnt_replaced(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    open_in_player = open_elsewhere(monkeypatch)
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+    queue.work_once()
+    [waiting] = queue.status().queued
+    episode = shows / "Trigun (1998) - S01E01.mkv"
+    episode.write_bytes(b"a better copy, saved over it")
+    with conn:  # and a scan read it since
+        stat = episode.stat()
+        conn.execute(
+            "UPDATE files SET size = ?, modified = ? WHERE id = 1",
+            (stat.st_size, stat.st_mtime_ns),
+        )
+
+    open_in_player[0] = False
+    queue.retry(waiting.id)
+    queue.try_waiting()
+
+    [failed] = queue.status().today
+    assert failed.state == "failed"
+    assert failed.problem is not None
+    assert failed.problem.startswith("It changed since Kura read it")
+    assert episode.read_bytes() == b"a better copy, saved over it"
+    assert not list(shows.glob(f"*{WORKING}"))
+
+
+def test_after_a_crash_a_result_going_in_from_waiting_waits_again(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    open_elsewhere(monkeypatch)
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+    queue.work_once()
+    with conn:  # the engine stopped as it began putting it in place
+        conn.execute("UPDATE jobs SET state = 'replacing'")
+
+    changes.recover(conn)
+    queue.recover()
+
+    [waiting] = queue.status().queued
+    assert waiting.retry_at is not None
+    assert (shows / f"Trigun (1998) - S01E01{WORKING}").is_file()

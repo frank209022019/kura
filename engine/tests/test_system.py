@@ -3,8 +3,11 @@
 import ctypes
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
+
+from kura.system import in_use
 
 # A stand-in engine: ends its programs with it, starts one that would run a minute, and says
 # whether that's so and which program it started.
@@ -48,3 +51,15 @@ def _ends(pid: int, *, within: float) -> bool:
         return kernel.WaitForSingleObject(handle, int(within * 1000)) == 0  # it ended
     finally:
         kernel.CloseHandle(handle)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows' sharing rules")
+def test_a_file_another_program_has_open_is_in_use(tmp_path: Path):
+    video = tmp_path / "Trigun - 03.mkv"
+    video.write_bytes(b"an episode")
+
+    assert in_use(video) is False
+    with video.open("rb"):  # as a player holds it: reading, and moving it refused
+        assert in_use(video) is True
+    assert in_use(video) is False
+    assert in_use(tmp_path / "not there.mkv") is False

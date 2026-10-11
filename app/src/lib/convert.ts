@@ -157,6 +157,13 @@ export function gpuTimeShort(seconds: number): string {
   return gpuTime(seconds).replace(/ days$/, " d");
 }
 
+/** When Kura tries again, from now: "in 5 minutes", "in a minute", "in a moment". */
+export function retryIn(retryAt: string, now: number): string {
+  const minutes = Math.ceil((Date.parse(retryAt) - now) / 60_000);
+  if (minutes <= 0) return "in a moment";
+  return minutes === 1 ? "in a minute" : `in ${minutes} minutes`;
+}
+
 /** Nights of 23:00 to 07:00 that GPU time takes: "about 5 nights", or "less than a night". */
 export function nights(seconds: number): string {
   if (seconds < 8 * 3600) return "less than a night";

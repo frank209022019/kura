@@ -77,11 +77,21 @@ def test_deleting_a_whole_show_takes_the_folders_it_empties_and_its_report(
     ]
 
 
-def test_a_video_being_converted_isnt_deleted(conn: sqlite3.Connection, season: Path):
+# Converting, or made and waiting beside its original for another app to let go of it.
+BUSY = pytest.mark.parametrize(
+    ("state", "retry_at"), [("running", None), ("queued", "2026-10-11T10:05:00+02:00")]
+)
+
+
+@BUSY
+def test_a_video_being_converted_isnt_deleted(
+    conn: sqlite3.Connection, season: Path, state: str, retry_at: str | None
+):
     with conn:
         conn.execute(
-            "INSERT INTO jobs (file_id, method, position, state, added_at)"
-            " VALUES (1, 'best', 1, 'running', 'now')"
+            "INSERT INTO jobs (file_id, method, position, state, added_at, retry_at)"
+            " VALUES (1, 'best', 1, ?, 'now', ?)",
+            (state, retry_at),
         )
 
     with pytest.raises(ConvertingError, match=r"^Trigun · S01E01 is being converted"):

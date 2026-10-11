@@ -200,4 +200,10 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         written_at TEXT NOT NULL
     ) STRICT;
     """,
+    # 11. A converted file whose original another app had open (a player playing it): the result
+    #     waits beside the original, checked (`output_probe` describes it), and Kura tries again
+    #     to put it in place from this time.
+    """
+    ALTER TABLE jobs ADD COLUMN retry_at TEXT;
+    """,
 )

@@ -8,6 +8,7 @@ import {
   nights,
   open,
   playTime,
+  retryIn,
   sizeClass,
   totals,
   tree,
@@ -139,5 +140,15 @@ describe("the queue's groups", () => {
     expect(episodeCode(job(7, { season: null, episode: null, path: "D:\\Akira.mkv" }))).toBe(
       "Akira.mkv",
     );
+  });
+});
+
+describe("retryIn", () => {
+  it("says when Kura tries again, in whole minutes", () => {
+    const now = Date.parse("2026-10-11T10:00:00+02:00");
+    expect(retryIn("2026-10-11T10:05:00+02:00", now)).toBe("in 5 minutes");
+    expect(retryIn("2026-10-11T08:01:30+00:00", now)).toBe("in 2 minutes");
+    expect(retryIn("2026-10-11T10:00:30+02:00", now)).toBe("in a minute");
+    expect(retryIn("2026-10-11T09:59:00+02:00", now)).toBe("in a moment");
   });
 });

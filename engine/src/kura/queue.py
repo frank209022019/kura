@@ -14,6 +14,11 @@ one that's running. While a file converts, Windows doesn't put the PC to sleep. 
 `recover` puts a job that was converting back in line and settles one whose result was taking
 its original's place. Once nothing waits, the app is told what the batch came to, and it's told
 when the queue pauses itself: a Windows notification while Kura is in the tray.
+
+When another app has an original open as its result is ready (a player playing it), the result
+waits beside it and the next file goes. A second thread puts such results in place, five minutes
+after each try or at once when the owner asks (`retry`), though another file is converting:
+`try_waiting`. Skipping the file, or taking it out of the queue, throws its result away.
 """
 
 import ctypes
@@ -36,9 +41,11 @@ from kura import db
 from kura.config import DataPaths
 from kura.convert import (
     CONVERTED,
+    IN_USE_WAIT,
     SHADER,
     WORKING,
     ConvertError,
+    InUseError,
     NoRoomError,
     Programs,
     Progress,
@@ -46,8 +53,10 @@ from kura.convert import (
     convert,
     label_of,
     lighter,
+    put_in,
     restore,
     settle,
+    throw_away_kept,
 )
 from kura.core.estimate import estimate
 from kura.core.media import media_from_ffprobe
@@ -66,6 +75,7 @@ type Schedule = Literal["now", "nights"]  # convert whenever files wait, or only
 
 _IDLE = 30.0  # seconds the worker rests with nothing to do; adding or resuming wakes it at once
 _HOLD_RETRY = 2.0  # seconds between asks for scans to hold off
+_WAITING_LOOK = 30.0  # seconds between looks for results due to go in; `retry` wakes it at once
 _SPEED_WINDOW = 600.0  # seconds of frames the speed is measured over, as the queue board shows
 _PAUSED = "queue_paused"  # the settings rows that keep the queue's state across restarts
 _SCHEDULE = "queue_schedule"
@@ -97,6 +107,9 @@ class Job:
     width: int | None = None  # the result's picture, for a file still to finish
     height: int | None = None
     drive_missing: bool = False  # waiting, and its library folder's drive isn't connected
+    # Made, and waiting beside its original for another app to let go of it: when Kura tries
+    # again to put it in place.
+    retry_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -141,14 +154,17 @@ class Queue:
         self._paths = paths
         self._notify = notify
         self._batch: list[int] = []  # files converted (or failed) since nothing last waited
+        self._noting = threading.Lock()  # both threads add to the batch
         self._scanner = scanner
         self._programs = programs
         self._now = now
         self._clock = clock
         self._lock = threading.Lock()
         self._wake = threading.Event()
+        self._try_now = threading.Event()  # wakes the thread that puts waiting results in place
         self._stopping = threading.Event()
         self._thread: threading.Thread | None = None
+        self._waiting: threading.Thread | None = None
         self._job_id: int | None = None  # the job converting now
         self._stop_for: Literal["pause", "skip"] | None = None
         self._progress: Progress | None = None
@@ -159,13 +175,17 @@ class Queue:
         """Converts until `stop`. Call `recover` first, before any scan starts."""
         self._thread = threading.Thread(target=self._loop, name="queue", daemon=True)
         self._thread.start()
+        self._waiting = threading.Thread(target=self._loop_waiting, name="waiting", daemon=True)
+        self._waiting.start()
 
     def stop(self) -> None:
         """Stops the worker: the file converting now is first in line at the next start."""
         self._stopping.set()
         self._wake.set()
-        if self._thread is not None:
-            self._thread.join(timeout=30)
+        self._try_now.set()
+        for thread in (self._thread, self._waiting):
+            if thread is not None:
+                thread.join(timeout=30)
 
     def recover(self) -> None:
         """At start: a job a crash stopped while converting waits in line again (its unfinished
@@ -246,27 +266,34 @@ class Queue:
         self._wake.set()
 
     def skip(self, job_id: int) -> None:
-        """Passes over a file: the one converting now stops, and one waiting leaves the line.
-        Raises LookupError when it's neither."""
+        """Passes over a file: the one converting now stops, and one waiting leaves the line,
+        with its result when one waited beside it. Raises LookupError when it's neither."""
         with self._lock:
             if self._job_id == job_id:
                 self._stop_for = "skip"
                 return
-            with closing(db.connect(self._paths.database)) as conn, conn:
-                done = conn.execute(
-                    """UPDATE jobs SET state = 'skipped', finished_at = ?
-                       WHERE id = ? AND state = 'queued'""",
-                    (self._now().isoformat(), job_id),
-                ).rowcount
+            with closing(db.connect(self._paths.database)) as conn:
+                if _waiting_job(conn, job_id):
+                    throw_away_kept(conn, job_id)
+                with conn:
+                    done = conn.execute(
+                        """UPDATE jobs SET state = 'skipped', finished_at = ?, retry_at = NULL
+                           WHERE id = ? AND state = 'queued'""",
+                        (self._now().isoformat(), job_id),
+                    ).rowcount
         if not done:
             raise LookupError("That file isn't waiting or converting.")
 
     def remove(self, job_id: int) -> None:
-        """Takes a waiting file out of the queue, as if it had never been added."""
-        with self._lock, closing(db.connect(self._paths.database)) as conn, conn:
-            gone = conn.execute(
-                "DELETE FROM jobs WHERE id = ? AND state = 'queued'", (job_id,)
-            ).rowcount
+        """Takes a waiting file out of the queue, as if it had never been added: a result that
+        waited beside it goes too."""
+        with self._lock, closing(db.connect(self._paths.database)) as conn:
+            if _waiting_job(conn, job_id):
+                throw_away_kept(conn, job_id)
+            with conn:
+                gone = conn.execute(
+                    "DELETE FROM jobs WHERE id = ? AND state = 'queued'", (job_id,)
+                ).rowcount
         if not gone:
             raise LookupError("That file isn't waiting in the queue.")
 
@@ -292,8 +319,17 @@ class Queue:
             )
 
     def retry(self, job_id: int) -> None:
-        """A failed or skipped file goes back in the queue, last."""
+        """A failed or skipped file goes back in the queue, last. One made and waiting for its
+        original to be free is tried again now."""
         with closing(db.connect(self._paths.database)) as conn, conn:
+            due = conn.execute(
+                """UPDATE jobs SET retry_at = ?
+                   WHERE id = ? AND state = 'queued' AND retry_at IS NOT NULL""",
+                (self._now().isoformat(), job_id),
+            ).rowcount
+            if due:
+                self._try_now.set()
+                return
             last: int = conn.execute("SELECT COALESCE(MAX(position), 0) FROM jobs").fetchone()[0]
             again = conn.execute(
                 """UPDATE jobs SET state = 'queued', position = ?, problem = NULL,
@@ -335,8 +371,8 @@ class Queue:
             progress, running_id = self._progress, self._job_id
             fps = self._fps()
         running: Running | None = None
-        for job in jobs:
-            if job.state in ("running", "replacing"):
+        for job in jobs:  # the worker's file, before one that waited going in meanwhile
+            if job.state in ("running", "replacing") and (running is None or job.id == running_id):
                 running = self._running(job, progress if job.id == running_id else None, fps)
         queued = tuple(job for job in jobs if job.state == "queued")
         today = sorted(
@@ -373,14 +409,16 @@ class Queue:
             if programs is None:
                 return False
             # Taken under the lock skip and remove take too, so a file skipped or taken out a
-            # moment before never converts; one whose drive isn't connected waits.
+            # moment before never converts; one whose drive isn't connected waits, and one made
+            # already waits for its original (try_waiting).
             with self._lock:
                 connected = _Drives()
                 waiting = conn.execute(
                     """SELECT j.id, d.path AS root FROM jobs AS j
                        JOIN files AS f ON f.id = j.file_id
                        JOIN folders AS d ON d.id = f.folder_id
-                       WHERE j.state = 'queued' ORDER BY j.position, j.id"""
+                       WHERE j.state = 'queued' AND j.retry_at IS NULL
+                       ORDER BY j.position, j.id"""
                 ).fetchall()
                 first = next((job["id"] for job in waiting if connected(job["root"])), None)
                 if first is None:
@@ -414,6 +452,8 @@ class Queue:
                 )
         except Stopped:
             self._stopped(conn, job_id)
+        except InUseError as error:
+            self._waits(conn, job_id, str(error))
         except NoRoomError as error:
             self._back_in_line(conn, job_id)  # it, and the rest, wait for room
             problem = f"{error} Make room, then resume the queue."
@@ -434,25 +474,83 @@ class Queue:
     def _noted(self, conn: sqlite3.Connection, job_id: int) -> None:
         """A file converted (or failed) joins the batch, and once nothing waits, the app is told
         what the batch came to."""
-        row = conn.execute("SELECT state FROM jobs WHERE id = ?", (job_id,)).fetchone()
-        if row is not None and row["state"] in ("done", "failed"):
-            self._batch.append(job_id)
-        waiting = conn.execute(
-            "SELECT 1 FROM jobs WHERE state IN ('queued', 'running', 'replacing') LIMIT 1"
-        ).fetchone()
-        if waiting is not None or not self._batch:
-            return
-        marks = ", ".join("?" * len(self._batch))
-        rows = conn.execute(
-            f"""SELECT j.state, j.source_size, j.output_size, f.season, f.episode, f.title_id,
-                       t.name AS title
-                FROM jobs AS j JOIN files AS f ON f.id = j.file_id
-                LEFT JOIN titles AS t ON t.id = f.title_id
-                WHERE j.id IN ({marks})""",  # noqa: S608 - only placeholders go in
-            self._batch,
-        ).fetchall()
-        self._batch.clear()
+        with self._noting:
+            row = conn.execute("SELECT state FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is not None and row["state"] in ("done", "failed"):
+                self._batch.append(job_id)
+            waiting = conn.execute(
+                "SELECT 1 FROM jobs WHERE state IN ('queued', 'running', 'replacing') LIMIT 1"
+            ).fetchone()
+            if waiting is not None or not self._batch:
+                return
+            marks = ", ".join("?" * len(self._batch))
+            rows = conn.execute(
+                f"""SELECT j.state, j.source_size, j.output_size, f.season, f.episode,
+                           f.title_id, t.name AS title
+                    FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+                    LEFT JOIN titles AS t ON t.id = f.title_id
+                    WHERE j.id IN ({marks})""",  # noqa: S608 - only placeholders go in
+                self._batch,
+            ).fetchall()
+            self._batch.clear()
         self._notify(*_told(rows))
+
+    def try_waiting(self) -> bool:
+        """Puts in place each result waiting beside its original for another app to let go of
+        it, once it's due: five minutes after the last try, or now when the owner asked. It goes
+        in though the queue pauses (it's made), and the worker may be converting another file
+        meanwhile. False when none was due."""
+        with closing(db.connect(self._paths.database)) as conn:
+            due = conn.execute(
+                """SELECT j.id, d.path AS root FROM jobs AS j
+                   JOIN files AS f ON f.id = j.file_id
+                   JOIN folders AS d ON d.id = f.folder_id
+                   WHERE j.state = 'queued' AND j.retry_at <= ?
+                   ORDER BY j.position, j.id""",
+                (self._now().isoformat(),),
+            ).fetchall()
+            connected = _Drives()
+            tried = [job["id"] for job in due if connected(job["root"])]
+            for job_id in tried:
+                self._put_in(conn, job_id)
+        return bool(tried)
+
+    def _put_in(self, conn: sqlite3.Connection, job_id: int) -> None:
+        try:
+            with self._scanner.hold():
+                with self._lock, conn:  # never one skipped or taken out a moment before
+                    claimed = conn.execute(
+                        """UPDATE jobs SET state = 'replacing', started_at = ?
+                           WHERE id = ? AND state = 'queued' AND retry_at IS NOT NULL
+                           RETURNING id""",
+                        (self._now().isoformat(), job_id),
+                    ).fetchone()
+                if claimed is None:
+                    return
+                put_in(conn, job_id, now=self._now())
+        except ScanBusyError:
+            return  # a scan, or files moving: the next look tries again
+        except InUseError as error:
+            self._waits(conn, job_id, str(error))
+            return
+        except ConvertError as error:
+            throw_away_kept(conn, job_id)
+            self._finished(conn, job_id, "failed", str(error))
+        except Exception:
+            log.exception("Putting job %d's result in place hit a problem", job_id)
+            throw_away_kept(conn, job_id)
+            self._finished(conn, job_id, "failed", "Kura hit a problem putting it in place.")
+        self._noted(conn, job_id)
+
+    def _waits(self, conn: sqlite3.Connection, job_id: int, problem: str) -> None:
+        """A result whose original another app has open waits beside it, its file keeping its
+        place in the line, and is tried again in a few minutes."""
+        with conn:
+            conn.execute(
+                """UPDATE jobs SET state = 'queued', started_at = NULL, problem = ?, retry_at = ?
+                   WHERE id = ?""",
+                (problem, (self._now() + IN_USE_WAIT).isoformat(), job_id),
+            )
 
     def _stopped(self, conn: sqlite3.Connection, job_id: int) -> None:
         """A file stopped on purpose: skipped, or first in line again (paused, or Kura closing)."""
@@ -480,7 +578,8 @@ class Queue:
     ) -> None:
         with conn:
             conn.execute(
-                "UPDATE jobs SET state = ?, problem = ?, finished_at = ? WHERE id = ?",
+                """UPDATE jobs SET state = ?, problem = ?, finished_at = ?, retry_at = NULL
+                   WHERE id = ?""",
                 (state, problem, self._now().isoformat(), job_id),
             )
 
@@ -552,6 +651,15 @@ class Queue:
                 self._wake.wait(_IDLE)
                 self._wake.clear()
 
+    def _loop_waiting(self) -> None:
+        while not self._stopping.is_set():
+            try:
+                self.try_waiting()
+            except Exception:
+                log.exception("Putting a waiting result in place hit a problem")
+            self._try_now.wait(_WAITING_LOOK)
+            self._try_now.clear()
+
 
 def _told(rows: list[sqlite3.Row]) -> tuple[str, str]:
     """What a finished batch is called and what it came to: "Dragon Ball Z, season 1 is done",
@@ -610,6 +718,14 @@ _JOBS = """SELECT j.*, f.path, f.probe, f.size, f.season, f.episode, f.title_id,
            LEFT JOIN titles AS t ON t.id = f.title_id"""
 
 
+def _waiting_job(conn: sqlite3.Connection, job_id: int) -> bool:
+    """Whether a job's result waits beside its original (see try_waiting)."""
+    row = conn.execute(
+        "SELECT 1 FROM jobs WHERE id = ? AND state = 'queued' AND retry_at IS NOT NULL", (job_id,)
+    ).fetchone()
+    return row is not None
+
+
 class _Drives:
     """Whether library folders are there (a drive plugged in), each looked at once."""
 
@@ -633,7 +749,8 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
         decision = decide(media, standard)
         decision = replace(decision, method=lighter(decision.method, method))
         method, width, height = decision.method, decision.width, decision.height
-        gpu_seconds = estimate(media, decision, standard).gpu_seconds
+        if row["retry_at"] is None:  # one waiting for its original is made already
+            gpu_seconds = estimate(media, decision, standard).gpu_seconds
     return Job(
         id=row["id"],
         file_id=row["file_id"],
@@ -655,6 +772,7 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
         output_size=row["output_size"],
         width=width,
         height=height,
+        retry_at=row["retry_at"],
     )
 
 

@@ -34,6 +34,7 @@ function job(id: number, more: Partial<Job> = {}): Job {
     width: 1440,
     height: 1080,
     driveMissing: false,
+    retryAt: null,
     ...more,
   };
 }
@@ -244,6 +245,38 @@ describe("QueuePage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Waiting for D: · 2 in the queue")).toBeInTheDocument();
     expect(screen.queryByText(/in a moment/)).not.toBeInTheDocument();
+  });
+
+  it("tells of a file open in another app, and tries it now or skips it", async () => {
+    const waiting = job(4, {
+      problem:
+        "Dragon Ball Z · S01E04 is open in another app, maybe your player. Kura will try again in 5 minutes.",
+      retryAt: new Date(Date.now() + 5 * 60_000 - 1000).toISOString(),
+      gpuSeconds: 0,
+    });
+    const fetch = fakeEngine({
+      "/queue": { ...RUNNING, running: null, queued: [waiting], gpuSeconds: 0, today: [] },
+      "POST /queue/4/retry": null,
+      "POST /queue/4/skip": null,
+    });
+    renderQueue();
+
+    const said = await screen.findByText("Dragon Ball Z · S01E04 is open in another app,");
+    expect(said.closest("[role=status]")).toHaveTextContent(
+      "Dragon Ball Z · S01E04 is open in another app, maybe your player. Kura will try again in 5 minutes.",
+    );
+    expect(screen.getByText("Waiting for another app · 1 in the queue")).toBeInTheDocument();
+    expect(screen.queryByText(/starts in a moment/)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Up next" })).toHaveTextContent(
+      "S01E04Dragon Ball Z (1989) - S01E04.mkvOpen in another app",
+    );
+
+    screen.getByRole("button", { name: "Try now" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/4/retry")).toHaveLength(1));
+    const skip = screen.getByRole("button", { name: "Skip this file" });
+    await waitFor(() => expect(skip).toBeEnabled());
+    skip.click();
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/4/skip")).toHaveLength(1));
   });
 
   it("says why skipping, taking out or trying again didn't work", async () => {
