@@ -15,6 +15,9 @@ shows these notes when it offers the update.
 - A gap analysis next to each anime that has a folder of its own (`Kura - Gap analysis.md`): the
   episodes TMDB lists as aired that the library doesn't hold, with specials and OVAs listed apart
   and never counted as missing.
+- Kura keeps the library current while it's open: it catches up at start on what changed while it
+  was closed, notices new, removed and renamed videos in your folders and scans once copying is
+  done, and checks for new episodes every hour for shows still airing (weekly for finished ones).
 - Setup takes your TMDB key, for episode lists, episode titles and artwork. It's optional: Kura
   checks the key with TMDB, then keeps it on this PC only, encrypted for your Windows account and
   never in an export. Home says whether TMDB is connected.

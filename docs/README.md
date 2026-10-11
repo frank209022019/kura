@@ -41,6 +41,7 @@ Every tool Kura uses, its version on 2026-10-10, and the page that explains how 
 | ffmpeg | 9.0.2 (downloaded on first run) | Reading what each video holds, and converting it | [ffmpeg.md](stack/ffmpeg.md) |
 | AniList | GraphQL API, no key | Which anime a file is: titles, kinds, how series connect | [anilist.md](stack/anilist.md) |
 | TMDB | API v3, the owner's key | Episode lists, titles, air dates and artwork, as Plex shows them | [tmdb.md](stack/tmdb.md) |
+| watchdog | 6.0 | Noticing new, removed and renamed videos in the library folders | [watchdog.md](stack/watchdog.md) |
 | PyInstaller | 6.22 | Bundles the engine with its own Python | [pyinstaller.md](stack/pyinstaller.md) |
 | Vitest, Testing Library, pytest | 5.0, 16.3, 9.1 | Tests | [testing.md](stack/testing.md) |
 | GitHub Actions | | CI and releases | [github-actions.md](stack/github-actions.md) |

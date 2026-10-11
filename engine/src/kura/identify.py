@@ -235,7 +235,7 @@ class Identifier:
                 hit = _find(tmdb, entry, "movie")  # a one-off OVA is often a film on TMDB
             if hit is not None:
                 return self._tmdb_title(conn, entry, hit, tmdb)
-        return _anilist_title(conn, entry), None
+        return save_anilist_title(conn, entry, self._now()), None
 
     def _tmdb_title(
         self, conn: sqlite3.Connection, entry: Anime, hit: Hit, tmdb: Tmdb
@@ -247,13 +247,13 @@ class Identifier:
         if hit.media == "movie":
             film = tmdb.film(hit.id)
             if film is None:
-                return _anilist_title(conn, entry), None
+                return save_anilist_title(conn, entry, self._now()), None
             return _save_film(conn, row, film, entry, self._now()), None
-        if row is not None and not _due(row, self._now()):
+        if row is not None and not due(row, self._now()):
             return row["id"], show_of(conn, row["id"])
         found = tmdb.show(hit.id)
         if found is None:
-            return _anilist_title(conn, entry), None
+            return save_anilist_title(conn, entry, self._now()), None
         return save_show(conn, found, kind, entry.id, self._now()), found
 
 
@@ -340,17 +340,19 @@ def _save_film(
     return title_id
 
 
-def _anilist_title(conn: sqlite3.Connection, entry: Anime) -> int:
+def save_anilist_title(conn: sqlite3.Connection, entry: Anime, now: datetime) -> int:
     """A title known only from AniList (no TMDB key, or TMDB doesn't have it): its episodes are
     numbered 1 to N, as AniList counts them."""
     kind = entry.kind or TitleKind.SERIES
     with conn:
         row = conn.execute(
-            """INSERT INTO titles (kind, name, year, released, anilist_id, airing, poster)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+            """INSERT INTO titles (kind, name, year, released, anilist_id, airing, poster,
+                                   checked_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (anilist_id) WHERE tmdb_id IS NULL DO UPDATE SET
                    name = excluded.name, year = excluded.year, released = excluded.released,
-                   airing = excluded.airing, poster = excluded.poster
+                   airing = excluded.airing, poster = excluded.poster,
+                   checked_at = excluded.checked_at
                RETURNING id""",
             (
                 kind.value,
@@ -360,6 +362,7 @@ def _anilist_title(conn: sqlite3.Connection, entry: Anime) -> int:
                 entry.id,
                 int(entry.airing),
                 entry.cover,
+                now.isoformat(),
             ),
         ).fetchone()
         title_id: int = row["id"]
@@ -416,7 +419,7 @@ def _kind_for(entry: Anime, hit: Hit) -> TitleKind:
     return TitleKind.SERIES
 
 
-def _due(row: sqlite3.Row, now: datetime) -> bool:
+def due(row: sqlite3.Row, now: datetime) -> bool:
     """Whether a show's episode list is old enough to ask TMDB again."""
     checked = row["checked_at"]
     if checked is None:

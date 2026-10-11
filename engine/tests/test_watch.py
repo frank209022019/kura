@@ -1,0 +1,198 @@
+"""Keeping the library current while Kura is open: catching up, watching, refreshing lists."""
+
+import json
+import sqlite3
+import time
+from collections.abc import Iterator
+from datetime import timedelta
+from pathlib import Path
+
+import pytest
+
+from kura import credentials
+from kura.config import DataPaths
+from kura.library import add_folder
+from kura.scan import ScanBusyError, ScanStatus, State
+from kura.tmdb import API as TMDB
+from kura.watch import QUIET, Watcher
+from tests.fake_web import FakeWeb
+from tests.services import internet
+from tests.shelf import NOW, identify, library
+
+
+class Scans:
+    """A scanner that only counts the scans it's asked for."""
+
+    def __init__(self, state: State = "done") -> None:
+        self.state: State = state
+        self.started = 0
+        self.busy = False
+
+    def start(self) -> ScanStatus:
+        if self.busy:
+            raise ScanBusyError
+        self.started += 1
+        return self.status()
+
+    def status(self) -> ScanStatus:
+        return ScanStatus(self.state, None, None, None, 0, 0, 0, 0, None, None, (), None)
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 100.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def scans() -> Scans:
+    return Scans()
+
+
+@pytest.fixture
+def clock() -> Clock:
+    return Clock()
+
+
+@pytest.fixture
+def watcher(paths: DataPaths, scans: Scans, clock: Clock) -> Iterator[Watcher]:
+    found = Watcher(paths, scans, FakeWeb(), now=lambda: NOW, clock=clock)
+    yield found
+    found.stop()
+
+
+def set_up(conn: sqlite3.Connection, folder: Path) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    add_folder(conn, folder, now=NOW)
+    with conn:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('set_up', ?)", (json.dumps(True),))
+
+
+def test_at_start_a_scan_catches_up(
+    watcher: Watcher, scans: Scans, conn: sqlite3.Connection, tmp_path: Path
+):
+    set_up(conn, tmp_path / "Anime")
+
+    assert watcher.catch_up()
+    assert scans.started == 1
+
+
+def test_no_catching_up_before_setup_or_while_a_scan_is_paused(
+    watcher: Watcher, scans: Scans, conn: sqlite3.Connection, tmp_path: Path
+):
+    assert not watcher.catch_up()  # setup isn't done
+
+    set_up(conn, tmp_path / "Anime")
+    scans.state = "paused"
+    assert not watcher.catch_up()
+    assert scans.started == 0
+
+
+def test_a_change_starts_a_scan_once_the_folder_is_quiet(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection
+):
+    watcher.notice()
+
+    watcher.tick()
+    assert scans.started == 0  # still settling: a season may be copying
+
+    clock.now += QUIET
+    watcher.tick()
+    assert scans.started == 1
+
+    watcher.tick()
+    assert scans.started == 1  # once per change
+
+
+def test_a_busy_scanner_gets_the_change_on_a_later_tick(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection
+):
+    watcher.notice()
+    clock.now += QUIET
+    scans.busy = True
+
+    watcher.tick()
+    scans.busy = False
+    watcher.tick()
+
+    assert scans.started == 1
+
+
+def test_a_change_while_the_owner_paused_the_scan_waits(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection
+):
+    scans.state = "paused"
+    watcher.notice()
+    clock.now += QUIET
+
+    watcher.tick()
+
+    assert scans.started == 0
+
+
+def test_a_new_video_in_a_watched_folder_is_noticed(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection, tmp_path: Path
+):
+    folder = tmp_path / "Anime"
+    set_up(conn, folder)
+    watcher.tick()  # starts watching the folder
+    time.sleep(0.5)  # Windows takes a moment to start telling
+
+    (folder / "Trigun - 01.mkv").write_bytes(b"new")
+    for _ in range(50):  # Windows tells the watcher within moments
+        if watcher.pending:
+            break
+        time.sleep(0.1)
+    time.sleep(0.5)  # "created" comes with "modified" just after; both count
+    clock.now += QUIET
+    watcher.tick()
+
+    assert scans.started == 1
+
+
+def test_files_that_arent_videos_go_unnoticed(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection, tmp_path: Path
+):
+    folder = tmp_path / "Anime"
+    set_up(conn, folder)
+    watcher.tick()
+    time.sleep(0.5)
+
+    (folder / "notes.txt").write_text("not a video", encoding="utf-8")
+    time.sleep(1)
+
+    assert not watcher.pending
+
+
+def test_episode_lists_are_asked_for_again_when_due(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, tmp_path / "Anime", ["Dragon Ball Z (1989)/Dragon Ball Z - 001.mkv"])
+    identify(paths, conn, internet())
+    web = internet()
+
+    soon = Watcher(paths, Scans(), web, now=lambda: NOW + timedelta(days=1), clock=clock)
+    assert soon.refresh() == 0  # a finished show waits a week
+    later = Watcher(paths, Scans(), web, now=lambda: NOW + timedelta(days=8), clock=clock)
+    assert later.refresh() == 1
+
+    assert f"GET {TMDB}/tv/12971" in web.paths()
+    report = tmp_path / "Anime" / "Dragon Ball Z (1989)" / "Kura - Gap analysis.md"
+    assert report.exists()
+
+
+def test_offline_the_lists_wait_for_the_next_hour(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, tmp_path / "Anime", ["Dragon Ball Z (1989)/Dragon Ball Z - 001.mkv"])
+    identify(paths, conn, internet())
+    offline = internet()
+    offline.offline = True
+
+    later = Watcher(paths, Scans(), offline, now=lambda: NOW + timedelta(days=8), clock=clock)
+
+    assert later.refresh() == 0

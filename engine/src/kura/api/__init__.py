@@ -8,6 +8,7 @@ routes as an APIRouter in its own module, included below.
 import secrets
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, closing
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -21,6 +22,7 @@ from kura.api import health, library, review, scan, settings, system, titles, tm
 from kura.config import DataPaths
 from kura.scan import Scanner
 from kura.tools import Tools
+from kura.watch import Watcher
 from kura.web import Send, send
 
 # The app's own pages: the installed app, and the Vite dev server in development.
@@ -36,9 +38,12 @@ def create_app(
     toolbox: Tools | None = None,
     scanner: Scanner | None = None,
     transport: Send = send,
+    *,
+    watch: bool = False,
 ) -> FastAPI:
     """The API, with its parts. Tests pass their own tools, scanner and transport (the
-    internet as TMDB and AniList see it)."""
+    internet as TMDB and AniList see it). `watch` keeps the library current while the engine
+    runs (kura/watch.py): `kura serve` turns it on."""
     expected = token.encode()
 
     def require_token(
@@ -59,7 +64,12 @@ def create_app(
             changes.recover(conn)  # settle file moves that a crash interrupted
         scans: Scanner = running.state.scanner
         scans.recover()  # carry on a scan that an exit or a crash stopped
+        watcher = Watcher(paths, scans, transport, now=_now) if watch else None
+        if watcher is not None:
+            watcher.start()
         yield
+        if watcher is not None:
+            watcher.stop()
 
     app = FastAPI(
         title="Kura engine",
@@ -90,6 +100,10 @@ def create_app(
     app.include_router(titles.router)
     app.include_router(review.router)
     return app
+
+
+def _now() -> datetime:
+    return datetime.now().astimezone()
 
 
 def openapi_schema() -> dict[str, Any]:

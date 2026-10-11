@@ -73,6 +73,7 @@ kura/
   titles.py       the library's titles with their gaps, sorted by release date or otherwise
   reports.py      the gap analysis written next to each anime with a folder of its own
   artwork.py      posters, fetched once from TMDB or AniList and kept
+  watch.py        keeping the library current while Kura is open: watching, refreshing
   probe.py        running ffprobe on one file
   tools.py        downloading what downloads.json lists (ffmpeg)
   changes.py      applying and undoing tidy-up plans, journaled
@@ -111,6 +112,11 @@ Last, the scan checks the library: each series with a folder of its own gets its
 `Kura - Gap analysis.md` (`kura/reports.py`), rewritten only when its news changes. The missing
 episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`); specials and
 OVAs are listed apart and never counted as missing.
+
+While Kura is open, `kura/watch.py` keeps the library current: a scan at start catches up on what
+changed while Kura was closed; the library folders are watched (`watchdog`), so a new, removed or
+renamed video starts a scan once its folder is quiet; and episode lists are asked for again on
+schedule, hourly for shows still airing and weekly for finished ones.
 A folder on an unplugged drive is skipped and its files stay as they were,
 and so do the files in a folder the walk couldn't open; only a file whose folder is there without
 it is marked gone. Links and junctions aren't followed. Files that couldn't be read are read again

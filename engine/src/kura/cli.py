@@ -50,7 +50,8 @@ def serve(
     sock = socket.socket()
     sock.bind(("127.0.0.1", port))
     sock.listen()  # early requests wait in the queue until the server is up
-    config = uvicorn.Config(create_app(token, paths), log_config=None, access_log=False)
+    app = create_app(token, paths, watch=True)  # keeps the library current while it runs
+    config = uvicorn.Config(app, log_config=None, access_log=False)
     server = uvicorn.Server(config)
     if watch_stdin:
         threading.Thread(target=_stop_when_stdin_closes, args=(server,), daemon=True).start()
