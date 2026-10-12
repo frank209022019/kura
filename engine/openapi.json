@@ -2149,6 +2149,72 @@
           }
         ]
       }
+    },
+    "/records": {
+      "get": {
+        "summary": "Records",
+        "description": "Whether Kura's records are damaged, and what can bring them back; null while they're\nfine.",
+        "operationId": "records_records_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Damage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Records Records Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/records/restore": {
+      "post": {
+        "summary": "Restore Records",
+        "description": "Restores the newest backup that opens over the damaged records, which are kept beside it\nas they are. The app starts the engine again right after.",
+        "operationId": "restore_records_records_restore_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/records/new": {
+      "post": {
+        "summary": "New Records",
+        "description": "Sets the damaged records aside as they are, so Kura starts again with new ones, as on its\nfirst day. The app starts the engine again right after.",
+        "operationId": "new_records_records_new_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2647,6 +2713,44 @@
           "plays"
         ],
         "title": "CopyFacts"
+      },
+      "Damage": {
+        "properties": {
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          },
+          "backup": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup"
+          },
+          "made": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Made"
+          }
+        },
+        "type": "object",
+        "required": [
+          "problem",
+          "backup",
+          "made"
+        ],
+        "title": "Damage",
+        "description": "Kura's records are damaged: what's wrong, and the newest backup that opens."
       },
       "DataSizes": {
         "properties": {

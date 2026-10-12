@@ -64,11 +64,38 @@ def test_serve_announces_its_port_and_stops_when_the_app_goes_away(tmp_path: Pat
         assert engine.wait(timeout=30) == 0
 
 
-def test_an_engine_that_cant_start_says_so_and_ends_cleanly(tmp_path: Path):
-    """Its records damaged past opening: it announced its port, then couldn't start."""
+def test_an_engine_with_damaged_records_stays_up_to_offer_the_way_back(tmp_path: Path):
+    """Its records damaged past opening: it starts anyway, answering only what the way back
+    needs, and ends when the app goes away."""
     home = tmp_path / "Kura"
     home.mkdir()
     (home / "kura.db").write_bytes(b"not a database at all" * 200)
+    env = {**os.environ, "KURA_TOKEN": TOKEN, "KURA_DATA_DIR": str(home)}
+    command = [*_engine(), "serve", "--watch-stdin"]
+    with subprocess.Popen(
+        command, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+    ) as engine:
+        assert engine.stdin is not None
+        assert engine.stdout is not None
+        ready = json.loads(engine.stdout.readline())
+        found = httpx2.get(
+            f"http://127.0.0.1:{ready['port']}/records",
+            headers={"Authorization": f"Bearer {TOKEN}"},
+            timeout=30,
+        ).json()
+
+        engine.stdin.close()
+        assert engine.wait(timeout=30) == 0
+
+    assert found == {"problem": "file is not a database", "backup": None, "made": None}
+
+
+def test_an_engine_that_cant_start_says_so_and_ends_cleanly(tmp_path: Path):
+    """Its records from a newer Kura: it announced its port, then couldn't start."""
+    home = tmp_path / "Kura"
+    home.mkdir()
+    with closing(db.connect(home / "kura.db")) as conn:
+        conn.execute("PRAGMA user_version = 999")
     env = {**os.environ, "KURA_TOKEN": TOKEN, "KURA_DATA_DIR": str(home)}
     command = [*_engine(), "serve", "--watch-stdin"]
     with subprocess.Popen(

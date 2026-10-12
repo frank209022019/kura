@@ -229,6 +229,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   (`.kura-converting`, `.kura-partial`) and its own `poster.jpg` and `fanart.jpg`; and,
   finishing a move to another drive that a stop cut short, the original once the same file is
   in place.
+- Records damaged past use (the owner, 2026-10-12): as the engine starts, Kura says so and
+  offers the newest backup that opens (with none, new records, as on its first day), keeping the
+  damaged file beside them as it is, never deleting it.
 - Uninstall: offer the export first, keep the data folder unless the owner ticks "Delete the
   application data", never touch anime files.
 
@@ -311,10 +314,9 @@ Everything decided so far. Don't ask again; change only with the owner.
 8. The small-things board: done for a file open in another app, a crash or power cut, a failed
    conversion, a finished batch, being offline, and a name that's taken (a tidy-up keeps both,
    the new one with "(2)", and its review says so), and not enough space (empty the drive's
-   quarantine first, or convert what fits). Still to build: a taken name's "Compare the two" and
-   "Skip", the overnight keep-awake note, and records damaged past opening (the owner,
-   2026-10-12: as the engine starts, Kura offers the newest backup that opens, keeping the
-   damaged file beside it).
+   quarantine first, or convert what fits), and records damaged past use (the newest backup
+   that opens, or new records). Still to build: a taken name's "Compare the two" and "Skip",
+   and the overnight keep-awake note.
 9. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's

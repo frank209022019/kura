@@ -5,6 +5,7 @@ carry the per-launch token the app passes in KURA_TOKEN. Each feature adds its
 routes as an APIRouter in its own module, included below.
 """
 
+import logging
 import secrets
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, closing
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -26,6 +27,7 @@ from kura.api import (
     data,
     health,
     library,
+    records,
     recovery,
     review,
     scan,
@@ -45,6 +47,7 @@ from kura.gpu import Gpu
 from kura.queue import Queue, programs_from
 from kura.recovery import Recovery, stopped_on_purpose
 from kura.recovery import note as note_recovery
+from kura.rescue import Damage, damage
 from kura.scan import Scanner
 from kura.tools import Tools
 from kura.watch import Watcher
@@ -55,6 +58,8 @@ APP_ORIGINS = ["http://tauri.localhost", "http://localhost:1420"]
 LOCAL_HOSTS = ["127.0.0.1", "localhost"]
 
 _bearer = HTTPBearer(auto_error=False)
+
+log = logging.getLogger(__name__)
 
 
 def create_app(
@@ -85,10 +90,27 @@ def create_app(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+    def require_records(request: Request) -> None:
+        """While Kura's records are damaged, only the way back (and the health check) answers."""
+        if request.app.state.damage is not None and not request.url.path.startswith(
+            ("/records", "/health")
+        ):
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "Kura's records are damaged, so it can't do that till they're back.",
+            )
+
     @asynccontextmanager
     async def lifespan(running: FastAPI) -> AsyncGenerator[None]:
         restored = restore_asked(paths, _now())  # a backup chosen, before anything opens it
         on_purpose = stopped_on_purpose(paths)  # the last engine was asked to stop
+        found = damage(paths)  # records damaged past use: nothing else can start
+        running.state.damage = found
+        if found is not None:
+            log.error("Kura's records are damaged: %s", found.problem)
+            notify("Kura's records are damaged", _way_back(found), link="/")
+            yield
+            return
         with closing(db.connect(paths.database)) as conn:
             db.migrate(conn)
             moves = changes.recover(conn)  # settle file moves that a crash interrupted
@@ -123,9 +145,11 @@ def create_app(
         title="Kura engine",
         version=__version__,
         lifespan=lifespan,
-        dependencies=[Depends(require_token)],
+        dependencies=[Depends(require_token), Depends(require_records)],
     )
     app.state.paths = paths
+    app.state.damage = None  # Kura's records damaged past use, found as the engine starts
+    app.state.rescued = False  # a way back was taken: the app starts the engine again
     app.state.transport = transport
     app.state.tools = toolbox or Tools(paths)
     # One AniList client for the engine: its limit (about 30 requests a minute) is the engine's.
@@ -164,11 +188,20 @@ def create_app(
     app.include_router(data.router)
     app.include_router(backups.router)
     app.include_router(recovery.router)
+    app.include_router(records.router)
     return app
 
 
 def _now() -> datetime:
     return datetime.now().astimezone()
+
+
+def _way_back(found: Damage) -> str:
+    """What a notification says to do about damaged records."""
+    if found.backup is None:
+        return "Open Kura to start again with new records."
+    made = found.backup.made
+    return f"Open Kura to restore the backup from {made.day} {made:%B}, {made:%H:%M}."
 
 
 def openapi_schema() -> dict[str, Any]:

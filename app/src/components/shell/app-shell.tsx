@@ -1,5 +1,7 @@
 import { Outlet, useLocation } from "react-router";
 import { ScreenError } from "@/components/screen-error";
+import { DamagedRecords } from "@/features/records/damaged-records";
+import { useRecords } from "@/lib/engine";
 import { NavRail } from "./nav-rail";
 import { Notices } from "./notices";
 import { Offline } from "./offline";
@@ -8,10 +10,12 @@ import { UpdateCard } from "./update-card";
 
 /**
  * The window: title bar on top, the nav rail and the current page below. Only the page scrolls:
- * the title bar and the nav rail stay where they are.
+ * the title bar and the nav rail stay where they are. While Kura's records are damaged, the way
+ * back stands in for every page.
  */
 export function AppShell() {
   const location = useLocation();
+  const damage = useRecords().data;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -25,9 +29,7 @@ export function AppShell() {
           id="main"
           className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-y-auto pr-8 pb-14 pl-3.5"
         >
-          <ScreenError>
-            <Outlet />
-          </ScreenError>
+          <ScreenError>{damage ? <DamagedRecords damage={damage} /> : <Outlet />}</ScreenError>
         </main>
       </div>
       <UpdateCard />

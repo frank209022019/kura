@@ -179,6 +179,24 @@ export interface Health {
 
 export const useHealth = () => useEngineQuery<Health>("/health");
 
+/** Kura's records are damaged (kura.db won't open): what's wrong, and the newest backup that opens. */
+export interface Damage {
+  /** In SQLite's words: "file is not a database". */
+  problem: string;
+  /** The backup's name ("kura 2026-10-11 0300.db"), or null when none opens. */
+  backup: string | null;
+  /** When it was made, local time. */
+  made: string | null;
+}
+
+/** Whether Kura's records are damaged; null while they're fine. */
+export const useRecords = () => useEngineQuery<Damage | null>("/records");
+/**
+ * The way back from damaged records: `/records/restore` (the newest backup that opens) or
+ * `/records/new`. The app starts the engine again right after (`restartEngine`).
+ */
+export const useRecordsAction = () => useEngineAction<void>([]);
+
 export type ToolState = "missing" | "downloading" | "unpacking" | "ready" | "failed";
 
 /** Something Kura downloads to work with, such as ffmpeg (engine/src/kura/downloads.json). */

@@ -6,7 +6,8 @@ engine starts again, before anything opens the database; the backup is checked f
 Kura knew till then is backed up before it's replaced, even when it doesn't check out (it's what
 there was). Importing an export (`kura export`'s zip, from this PC or another) is restoring the
 database it holds, kept beside the backups as one "from an export". No backup is ever written
-over: two made in one minute are "(2)" apart.
+over: two made in one minute are "(2)" apart. Records damaged past opening can't be backed up,
+so they're set aside as they are instead, "kura (damaged 2026-10-12 0930).db" (kura/rescue.py).
 """
 
 import itertools
@@ -18,7 +19,7 @@ import shutil
 import sqlite3
 import tempfile
 import zipfile
-from contextlib import closing
+from contextlib import closing, suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -39,6 +40,7 @@ _NAME = re.compile(
 )
 _ASKED = "restore.txt"  # names the backup to restore when the engine next starts
 _RESTORED = "backup_restored"  # the settings row saying how the last restore went
+_DAMAGE = (11, 26)  # SQLite's codes for a database that's corrupt, or isn't one any more
 
 
 class BackupError(Exception):
@@ -207,6 +209,12 @@ def restore_asked(paths: DataPaths, now: datetime) -> bool:
     except BackupError as error:
         problem = str(error)
         log.warning("The backup %s wasn't restored: %s", name, problem)
+    note_restored(paths, name, now, problem)
+    return problem is None
+
+
+def note_restored(paths: DataPaths, name: str, now: datetime, problem: str | None) -> None:
+    """Keeps how a restore went, for Settings to show (`last_restore`)."""
     outcome = {"name": name, "at": now.isoformat(timespec="seconds"), "problem": problem}
     try:
         with closing(db.connect(paths.database)) as conn, conn:
@@ -217,7 +225,6 @@ def restore_asked(paths: DataPaths, now: datetime) -> bool:
             )
     except sqlite3.Error:
         log.exception("Kura couldn't note how restoring %s went", name)
-    return problem is None
 
 
 def last_restore(conn: sqlite3.Connection) -> Restored | None:
@@ -229,10 +236,10 @@ def last_restore(conn: sqlite3.Connection) -> Restored | None:
     return Restored(str(found["name"]), str(found["at"]), found.get("problem"))
 
 
-def restore(paths: DataPaths, name: str, now: datetime) -> None:
+def restore(paths: DataPaths, name: str, now: datetime, *, damaged: bool = False) -> None:
     """Puts a backup's records in place of the live ones, once the backup checks out and the live
-    ones are backed up. The caller makes sure nothing else is writing (no scan, nothing
-    converting)."""
+    ones are kept: backed up, or set aside as they are when they're `damaged` or won't open at
+    all. The caller makes sure nothing else is writing (no scan, nothing converting)."""
     source = _folder(paths) / name
     if not _NAME.match(name) or not source.is_file():
         raise BackupError("Kura has no such backup.")
@@ -245,13 +252,81 @@ def restore(paths: DataPaths, name: str, now: datetime) -> None:
                     f"That backup didn't check out ({verdict}), so Kura left its "
                     "records as they are."
                 )
-            back_up(paths, now, before_restoring=True, keep=name)
+            if damaged or unreadable(paths.database) is not None:
+                set_aside(paths, now)
+            else:
+                back_up(paths, now, before_restoring=True, keep=name)
             with closing(db.connect(paths.database)) as live:
                 backup.backup(live)
                 db.migrate(live)  # a backup from an older Kura is brought up to date
                 changes.recover(live, now=now)
     except (OSError, sqlite3.Error) as error:
         raise BackupError(f"Kura couldn't restore that backup: {error}") from error
+
+
+def checks_out(paths: DataPaths, backup: Backup) -> bool:
+    """Whether a backup opens and checks out, as restoring it asks."""
+    path = (_folder(paths) / backup.name).absolute()
+    try:
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as conn:
+            [verdict] = conn.execute("PRAGMA integrity_check").fetchone()
+    except sqlite3.Error:
+        return False
+    return verdict == "ok"
+
+
+def unreadable(database: Path) -> str | None:
+    """Why a database won't open at all (its first page scribbled over, say), in SQLite's words;
+    None when it opens, or isn't there. Only damage counts: one another program holds a moment is
+    still fine."""
+    if not database.exists():
+        return None
+    try:
+        with closing(sqlite3.connect(database)) as conn:
+            conn.execute("PRAGMA schema_version").fetchone()
+    except sqlite3.DatabaseError as error:
+        if damaged(error):
+            return str(error)
+        raise
+    return None
+
+
+def damaged(error: sqlite3.Error) -> bool:
+    """Whether SQLite failed because the database is corrupt, or isn't one any more."""
+    return error.sqlite_errorcode & 0xFF in _DAMAGE
+
+
+def set_aside(paths: DataPaths, now: datetime) -> Path | None:
+    """Moves damaged records out of the way as they are, never deleting them or writing over
+    another file: kura.db, with its -wal and -shm, becomes "kura (damaged 2026-10-12 0930).db"
+    beside where it was. Its -wal goes first, so a new kura.db never meets it. None when there
+    were none."""
+    live = paths.database
+    if not live.exists():
+        return None
+    for count in itertools.count(1):
+        name = f"kura (damaged {now:%Y-%m-%d %H%M})" + ("" if count == 1 else f" ({count})")
+        target = live.with_name(f"{name}.db")
+        moves = [
+            (live.with_name(live.name + end), target.with_name(target.name + end))
+            for end in ("-wal", "-shm")
+        ]
+        if target.exists() or any(moved.exists() for _, moved in moves):
+            continue
+        done: list[tuple[Path, Path]] = []
+        try:
+            for source, moved in [*moves, (live, target)]:
+                if source.exists():
+                    source.rename(moved)
+                    done.append((source, moved))
+        except OSError as error:
+            for source, moved in reversed(done):  # as it was, as far as it can be
+                with suppress(OSError):
+                    moved.rename(source)
+            raise BackupError(f"Kura couldn't set its damaged records aside: {error}") from error
+        log.warning("Kura's damaged records were set aside as %s", target.name)
+        return target
+    raise AssertionError  # never reached: the count goes on
 
 
 def _prune(paths: DataPaths, *, keep: str | None = None) -> None:

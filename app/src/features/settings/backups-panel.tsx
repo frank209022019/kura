@@ -11,7 +11,7 @@ import {
   useEngine,
   useRestoreBackup,
 } from "@/lib/engine";
-import { size } from "@/lib/format";
+import { madeAt, size } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Panel } from "./panel";
 
@@ -53,7 +53,7 @@ export function BackupsPanel({ className }: { className?: string }) {
     <Panel title="Backups" note="Every night at 03:00, keeping the last 7." className={className}>
       {restoring ? (
         <p className="text-13 text-fg-soft">
-          Kura is starting again to restore the backup from {when(madeOf(asked?.name ?? ""))}.
+          Kura is starting again to restore the backup from {madeAt(madeOf(asked?.name ?? ""))}.
         </p>
       ) : (
         <>
@@ -118,7 +118,7 @@ function Last({ backup, loading }: { backup: Backup | undefined; loading: boolea
       )}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-extrabold text-14">
-          {backup ? `Last backup ${when(backup.made)}` : "No backup yet"}
+          {backup ? `Last backup ${madeAt(backup.made)}` : "No backup yet"}
         </span>
         <span className="text-12 text-fg-muted">
           {backup ? `${size(backup.size)} · checked` : "The first is made tonight at 03:00."}
@@ -135,7 +135,7 @@ function Outcome({ restored }: { restored: Backups["restored"] }) {
   }
   const what = / from an export( \(\d+\))?\.db$/.test(restored.name)
     ? "the export"
-    : `the backup from ${when(madeOf(restored.name))}`;
+    : `the backup from ${madeAt(madeOf(restored.name))}`;
   return restored.problem ? (
     <p role="alert" className="text-13 text-broken-fg">
       {capitalised(what)} wasn't restored: {restored.problem}
@@ -164,7 +164,7 @@ function Choose(props: {
       >
         {props.backups.map((backup) => {
           const on = props.chosen === backup.name;
-          const made = capitalised(when(backup.made));
+          const made = capitalised(madeAt(backup.made));
           const kind = kindOf(backup);
           return (
             <RadioGroup.Item
@@ -213,19 +213,6 @@ function Dot({ on }: { on: boolean }) {
 }
 
 /** "today 03:00", "yesterday 03:00", "9 October 03:00", from a local time ("2026-10-11T03:00"). */
-function when(made: string): string {
-  const moment = new Date(made);
-  if (Number.isNaN(moment.getTime())) return "a backup Kura no longer has";
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const time = moment.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  if (moment.toDateString() === today.toDateString()) return `today ${time}`;
-  if (moment.toDateString() === yesterday.toDateString()) return `yesterday ${time}`;
-  return `${moment.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} ${time}`;
-}
-
-/** When a backup was made, from its name: "kura 2026-10-11 0300.db" is "2026-10-11T03:00". */
 /** What kind of backup it is, when it isn't a nightly one. */
 function kindOf(backup: Backup): string | null {
   if (backup.beforeRestoring) return "before a restore";
@@ -233,6 +220,7 @@ function kindOf(backup: Backup): string | null {
   return backup.byHand ? "by hand" : null;
 }
 
+/** When a backup was made, from its name: "kura 2026-10-11 0300.db" is "2026-10-11T03:00". */
 function madeOf(name: string): string {
   const found = /^kura (\d{4}-\d{2}-\d{2}) (\d{2})(\d{2})/.exec(name);
   return found ? `${found[1]}T${found[2]}:${found[3]}` : "";

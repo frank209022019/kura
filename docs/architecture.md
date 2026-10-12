@@ -108,6 +108,7 @@ kura/
   export.py       the export zip
   data.py         how big each part of the data folder and each drive's quarantine is
   backups.py      the nightly backups of the database, and restoring one as the engine starts
+  rescue.py       records damaged past use: what's wrong, and the way back
   quarantine.py   clearing out what has waited in quarantine longer than the owner keeps it,
                   or all of it on one drive when the owner empties it to make room
   care.py         looking after Kura while it's open: tonight's backup, the daily clear-out
@@ -274,7 +275,14 @@ Before queueing, the Convert screen shows one frame of a file before and after
   short (a power cut, the app ended) is settled at the next start: finished when the data had
   switched to its new place, or else the part-made copy goes and Settings says so.
 - **The database** is SQLite, upgraded in place by migrations (see [stack/sqlite.md](stack/sqlite.md)).
-  A database written by a newer Kura is refused, not damaged.
+  A database written by a newer Kura is refused, not damaged. Records damaged past use (a disk
+  fault, a power cut mid-write: `kura/rescue.py`) are found as the engine starts, before anything
+  else opens them; the engine then answers only `/records` and `/health`, tells the app (a
+  notification, while Kura waits in the tray), and the app's window shows the way back in place
+  of every page: the newest backup that opens, restored over them, or, with none, new records as
+  on Kura's first day. Either way the damaged file is set aside as it is, never deleted
+  (`kura (damaged 2026-10-12 0930).db`, with its `-wal`, beside where it was), and the app starts
+  the engine again.
 - **With the anime**: `Kura - Gap analysis.md` per anime (the owner can turn these off in
   Settings, which takes them out of the folders), later `Kura - History.md`, a tag inside each
   converted MKV, and, when the owner turns them on, `poster.jpg` and `fanart.jpg` in each show's

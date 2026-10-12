@@ -22,6 +22,19 @@ export function clockLength(minutes: number): string {
 }
 
 /** "233 MB", "1.1 GB" from a billion bytes, "16 GB" from ten billion, "320 KB" under a million. */
+/** When a backup was made, as the owner reads it: "today 03:00", "yesterday 03:00", "11 October 03:00". */
+export function madeAt(made: string): string {
+  const moment = new Date(made);
+  if (Number.isNaN(moment.getTime())) return "a backup Kura no longer has";
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const time = moment.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  if (moment.toDateString() === today.toDateString()) return `today ${time}`;
+  if (moment.toDateString() === yesterday.toDateString()) return `yesterday ${time}`;
+  return `${moment.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} ${time}`;
+}
+
 /** How long what's set aside is kept, as Settings says: "for 30 days", or "for good". */
 export function keptFor(days: number | null | undefined): string {
   return days === null ? "for good" : `for ${days ?? 30} days`;
