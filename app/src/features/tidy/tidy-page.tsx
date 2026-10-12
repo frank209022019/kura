@@ -446,7 +446,11 @@ function Taken(props: { change: ProposedChange; skipped: boolean; onSkip: (on: b
       {comparing && change.compared && (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
           {change.compared.there ? (
-            <CopyCard copy={change.compared.there} heading="Already there" note="Stays as it is" />
+            <CopyCard
+              copy={change.compared.there}
+              heading="Already there"
+              note={change.compared.thereMoves ? "Moves in this tidy-up" : "Stays as it is"}
+            />
           ) : (
             <p className="rounded-16 border border-edge bg-white/3 p-4 text-12 text-fg-muted">
               Kura doesn't know the file that's there: it isn't in your library.

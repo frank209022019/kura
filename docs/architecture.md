@@ -208,11 +208,11 @@ the same kind: each video and the subtitles named after it go to the quarantine 
 drive (subtitles another copy of the video shares stay with it), folders left empty go, a video
 waiting to be converted leaves the queue once it's gone (one converting can't be deleted), the
 page says what stayed and why, and History, or the page right after, puts them back until the
-quarantine is cleared out. Kura never deletes a file outright. Whatever its records say (a damaged database,
-or one an imported export held), Kura deletes only a file in a day's folder of a quarantine
-(`core.plan.in_quarantine`), its own unfinished results (`.kura-converting`, `.kura-partial`)
-and its own `poster.jpg` and `fanart.jpg`; and, finishing a move to another drive that a stop cut
-short, the original once the same file is in place (`changes._settle`).
+quarantine is cleared out. Kura never deletes a file outright. Whatever its records say (a damaged
+database, or one an imported export held), Kura deletes only a file in a day's folder of a
+quarantine (`core.plan.in_quarantine`), its own unfinished results (`.kura-converting`,
+`.kura-partial`) and its own `poster.jpg` and `fanart.jpg`; and, finishing a move to another
+drive that a stop cut short, the original once the same file is in place (`changes._settle`).
 
 Converting (`kura/convert.py`) brings one file to the standard by the method its recipe names
 (`kura/core/convert.py`): the AI model between two ffmpegs (`kura/upscale.py`), or one ffmpeg
@@ -222,9 +222,10 @@ original's place, journaled like a tidy-up, the original going to quarantine; no
 meanwhile. The queue (`kura/queue.py`) holds the files waiting, in the owner's order, and its
 worker converts them one at a time while Kura is open; on the nights-only schedule it starts
 files only between 23:00 and 07:00, or till 03:00 on a night the owner says to stop then (the
-queue page's overnight note, `Queue.stop_early`), so Windows' sleep comes back sooner. Pausing or skipping stops ffmpeg at once and leaves the
-original as it was (a paused file starts over); a result made already is still checked and put in
-place when the queue pauses, and thrown away when it's skipped. A file whose result would take a
+queue page's overnight note, `Queue.stop_early`), so Windows' sleep comes back sooner. Pausing
+or skipping stops ffmpeg at once and leaves the original as it was (a paused file starts over); a
+result made already is still checked and put in place when the queue pauses, and thrown away
+when it's skipped. A file whose result would take a
 name that's taken fails before anything is made, and Windows doesn't sleep while a file converts.
 A file saved over while it converted is left as it is now, and its result goes. When another app
 has the original open as its result is ready (a player playing it: `system.in_use` asks Windows
@@ -241,7 +242,10 @@ unexpectedly: `kura/recovery.py` keeps what was settled, and Home says so in a s
 owner looks (History has each file), for a day. A stop the app asked for isn't told of, even one
 the app cut short (the engine notes `stopping.txt` as it starts stopping), and nor is a start that
 restored a backup. A file being converted (its result waiting beside it too), and any copy of
-it, stays out of tidy-ups and deletes.
+it, stays out of tidy-ups and deletes. History lists each conversion with what it made, and puts
+the original back on asking. Before queueing, the Convert screen shows one frame of a file before
+and after (`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the
+cache.
 
 A drive without room for a result (its estimated size with a margin, `convert.room_for`) pauses
 the queue, which says what the files waiting there want and what's free (`queue.Room`); the
@@ -249,9 +253,7 @@ Convert screen works out the same before queueing a choice. The owner can empty 
 quarantine first (`quarantine.empty`: everything set aside there goes for good, so the app asks
 once more), or convert what fits (`Queue.convert_what_fits`): the files there that fit convert
 in turn and the rest wait for room while the others go, starting by themselves once there is,
-till none waits there (then a full drive pauses the queue again, to ask). History lists each conversion with what it made, and puts the original back on asking.
-Before queueing, the Convert screen shows one frame of a file before and after
-(`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the cache.
+till none waits there (then a full drive pauses the queue again, to ask).
 
 ## Data
 

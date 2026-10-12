@@ -171,7 +171,7 @@ describe("TidyPage", () => {
       ...BEBOP_1,
       target: `${ROOT}\\${wanted} (2).mkv`,
       taken: true,
-      compared: { there, coming },
+      compared: { there, coming, thereMoves: false },
     };
     const subtitles = change(
       "Downloads\\[Hi10] Cowboy_Bebop_-_01_(BD_720p).en.srt",
@@ -196,7 +196,7 @@ describe("TidyPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Compare the two" }));
-    expect(named).toHaveTextContent("Already there");
+    expect(named).toHaveTextContent("Already thereStays as it is");
     expect(named).toHaveTextContent("1080p · HEVC");
     expect(named).toHaveTextContent("720p · H.264");
 

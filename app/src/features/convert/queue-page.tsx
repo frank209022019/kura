@@ -540,7 +540,7 @@ function RoomCard({ room, queued }: { room: Room; queued: Job[] }) {
   const empty = useEmptyQuarantine();
   const drive = room.drive.toUpperCase();
   const waiting = queued.filter(
-    (job) => job.retryAt === null && !job.driveMissing && driveOf(job.path) === drive,
+    (job) => job.retryAt === null && !job.driveMissing && driveOf(job.path).toUpperCase() === drive,
   );
   return (
     <NoRoom

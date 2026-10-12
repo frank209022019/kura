@@ -12,6 +12,7 @@ import { madeAt } from "@/lib/format";
 export function DamagedRecords({ damage }: { damage: Damage }) {
   const action = useRecordsAction();
   const [starting, setStarting] = useState(false);
+  const [trying, setTrying] = useState(false); // starting again as it was, to look once more
   const when = damage.made ? madeAt(damage.made) : null;
 
   function take(path: string) {
@@ -41,7 +42,9 @@ export function DamagedRecords({ damage }: { damage: Damage }) {
       >
         {starting ? (
           <p role="status" className="text-15">
-            Kura is starting again {when ? `with the backup from ${when}` : "with new records"}.
+            {trying
+              ? "Kura is starting again, to look at its records once more."
+              : `Kura is starting again ${when ? `with the backup from ${when}` : "with new records"}.`}
           </p>
         ) : when ? (
           <>
@@ -79,7 +82,22 @@ export function DamagedRecords({ damage }: { damage: Damage }) {
         )}
         <p className="text-12 text-fg-faint">
           Kura keeps the damaged file beside its records, as it is. SQLite says: {damage.problem}.
+          If the disk was only busy a moment, trying again may be all it needs.
         </p>
+        {!starting && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={action.isPending}
+            onClick={() => {
+              setStarting(true);
+              setTrying(true);
+              void restartEngine();
+            }}
+          >
+            Try again
+          </Button>
+        )}
       </section>
     </>
   );

@@ -135,6 +135,27 @@ def test_a_video_left_out_keeps_its_subtitles_with_it(downloads: sqlite3.Connect
     assert (root / "Dragon Ball Z" / "Dragon Ball Z - 001.en.srt").exists()  # stayed with it
 
 
+def test_subtitles_two_copies_share_go_with_the_copy_kept(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(
+        conn,
+        root,
+        ["Dragon Ball Z/Dragon Ball Z - 001.mkv", "Dragon Ball Z/Dragon Ball Z - 001.mp4"],
+    )
+    (root / "Dragon Ball Z" / "Dragon Ball Z - 001.en.srt").write_text("subtitles", "utf-8")
+    identify(paths, conn, internet())
+    proposal = propose(conn, day=NOW.date()).changes
+    [kept] = [p for p in proposal if p.change.source.suffix == ".mkv"]
+    [subtitles] = [p for p in proposal if p.change.source.name.endswith(".en.srt")]
+    assert subtitles.video == kept.change.source  # not the copy set aside, whose name fits too
+
+    apply(conn, reviewed(p for p in proposal if p.category != "duplicate"), now=NOW)
+
+    assert r"TV\Dragon Ball Z (1989)\Season 01\Dragon Ball Z (1989) - S01E01.en.srt" in where(root)
+
+
 def test_undo_puts_it_all_back(downloads: sqlite3.Connection, root: Path):
     before = where(root)
     done = apply(downloads, reviewed(propose(downloads, day=NOW.date()).changes), now=NOW)

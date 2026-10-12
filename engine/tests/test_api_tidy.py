@@ -76,6 +76,27 @@ def test_a_name_another_file_has_gets_2_and_the_proposal_says_so(
     assert compared["there"]["path"] == str(root / there)
     assert (compared["there"]["height"], compared["there"]["plays"]) == (540, True)
     assert compared["coming"]["path"] == bebop["source"]
+    assert compared["thereMoves"] is False  # it stays where it is
+
+
+def test_comparing_says_when_the_file_at_the_name_moves_too(
+    client: TestClient, mixed: sqlite3.Connection, root: Path
+):
+    [_, bebop, dbz] = client.get("/tidy").json()["changes"]
+    there = Path(bebop["target"]).relative_to(root)
+    library(mixed, root, [str(there)])
+    with mixed:  # the file there, matched to another episode by hand, goes to its own name
+        mixed.execute(
+            """UPDATE files SET title_id = (SELECT title_id FROM files WHERE path = ?),
+                      season = 5, episode = 12, matched = 'sure', pinned = 1
+               WHERE path = ?""",
+            (dbz["source"], str(root / there)),
+        )
+
+    [bebop] = [c for c in client.get("/tidy").json()["changes"] if c["source"] == bebop["source"]]
+
+    assert bebop["taken"] is True
+    assert bebop["compared"]["thereMoves"] is True
 
 
 def reviewed(changes: list[dict[str, str]]) -> list[dict[str, str]]:

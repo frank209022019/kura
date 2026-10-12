@@ -80,6 +80,16 @@ describe("DamagedRecords", () => {
     );
   });
 
+  it("tries again without changing anything, in case the disk was only busy", async () => {
+    const fetch = fakeEngine({ "/records": DAMAGED });
+    renderShell();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
+    expect(fetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+  });
+
   it("offers new records when no backup opens", async () => {
     const fetch = fakeEngine({
       "/records": { ...DAMAGED, backup: null, made: null },

@@ -261,7 +261,24 @@ describe("QueuePage", () => {
     }
   });
 
-  it("offers to go on till 07:00 once stopping early, and to stop after this file past 03:00", async () => {
+  it("past 03:00, offers to stop after the file converting", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T04:10:00"));
+    try {
+      fakeEngine({
+        "/queue": { ...RUNNING, schedule: "nights", endsAt: "2026-10-13T07:00:00" },
+      });
+      renderQueue();
+
+      expect(
+        await screen.findByRole("button", { name: "Stop after this file" }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("offers to go on till 07:00 once stopping early", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-13T03:20:00"));
     try {

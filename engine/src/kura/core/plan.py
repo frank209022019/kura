@@ -6,7 +6,7 @@ to deletion, and no file is ever overwritten.
 """
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
 from pathlib import PurePath
@@ -84,6 +84,9 @@ class Change:
     target: PurePath
     label: str  # "Death Note · S01E07", "Cowboy Bebop: The Movie"
     reason: str
+    # For subtitles, the video they go with: two copies of an episode can share a name, and so
+    # their subtitles, which go with the one kept. Not saved: the journal knows by name.
+    of: PurePath | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)
@@ -252,7 +255,7 @@ def _with_it(
         else:
             spot = unique_path(target, used)
             used.add(str(spot).casefold())
-        changes.append(Change(kind, sidecar, spot, f"{label} · subtitles", reason))
+        changes.append(Change(kind, sidecar, spot, f"{label} · subtitles", reason, of=video))
     return changes
 
 

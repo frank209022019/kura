@@ -22,7 +22,11 @@ and [../CLAUDE.md](../CLAUDE.md).
 - Say what a thing does, never which media server reads it: no "Plex" anywhere in the UI.
 - Markdown (Kura's reports) shows through `components/markdown.tsx`, as a reader sees it.
 - Deleting asks first, beside what goes (`features/title/delete.tsx`), says where it goes and for
-  how long, and offers it back right after. Nothing is ever deleted outright.
+  how long, and offers it back right after. Nothing is ever deleted outright; emptying a drive's
+  quarantine early to make room (`features/convert/no-room.tsx`) asks once more and says it can't
+  come back.
+- While Kura's records are damaged, the way back (`features/records/`) stands in for every page
+  (`components/shell/app-shell.tsx`): the engine answers nothing else.
 
 ## Where things go
 

@@ -41,6 +41,7 @@ _NAME = re.compile(
 _ASKED = "restore.txt"  # names the backup to restore when the engine next starts
 _RESTORED = "backup_restored"  # the settings row saying how the last restore went
 _DAMAGE = (11, 26)  # SQLite's codes for a database that's corrupt, or isn't one any more
+_BAD_READS = (266, 522)  # and for a disk that can't read it (SQLITE_IOERR_READ, _SHORT_READ)
 
 
 class BackupError(Exception):
@@ -292,8 +293,10 @@ def unreadable(database: Path) -> str | None:
 
 
 def damaged(error: sqlite3.Error) -> bool:
-    """Whether SQLite failed because the database is corrupt, or isn't one any more."""
-    return error.sqlite_errorcode & 0xFF in _DAMAGE
+    """Whether SQLite failed because the database is corrupt, isn't one any more, or can't be
+    read off the disk (a bad sector)."""
+    code = error.sqlite_errorcode
+    return code & 0xFF in _DAMAGE or code in _BAD_READS
 
 
 def set_aside(paths: DataPaths, now: datetime) -> Path | None:

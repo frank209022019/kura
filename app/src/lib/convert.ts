@@ -157,9 +157,11 @@ export function gpuTimeShort(seconds: number): string {
   return gpuTime(seconds).replace(/ days$/, " d");
 }
 
-/** The drive a path is on, as Kura writes it: "D:" (empty for one it can't tell). */
+/** The drive a path is on, as Kura writes it: "D:", or a share, "\\\\nas\\anime" (empty for none). */
 export function driveOf(path: string): string {
-  return /^[a-z]:/i.exec(path)?.[0].toUpperCase() ?? "";
+  const letter = /^[a-z]:/i.exec(path)?.[0];
+  if (letter) return letter.toUpperCase();
+  return /^\\\\[^\\]+\\[^\\]+/.exec(path)?.[0] ?? "";
 }
 
 /** Free space wanted on a drive, over a result's size (the engine wants the same). */

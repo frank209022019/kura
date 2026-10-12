@@ -41,6 +41,7 @@ class Compared(ApiModel):
 
     there: CopyFacts | None
     coming: CopyFacts
+    there_moves: bool  # the file there moves (or is set aside) in the same tidy-up
 
 
 class ProposedChange(ApiModel):
@@ -279,11 +280,13 @@ def _problem(change: SavedChange) -> ChangeProblem:
     )
 
 
-def _compared(found: tuple[tidy.CopyFacts | None, tidy.CopyFacts] | None) -> Compared | None:
+def _compared(
+    found: tuple[tidy.CopyFacts | None, tidy.CopyFacts, bool] | None,
+) -> Compared | None:
     if found is None:
         return None
-    there, coming = found
-    return Compared(there=_copy(there) if there else None, coming=_copy(coming))
+    there, coming, moves = found
+    return Compared(there=_copy(there) if there else None, coming=_copy(coming), there_moves=moves)
 
 
 def _copy(copy: tidy.CopyFacts) -> CopyFacts:

@@ -102,6 +102,7 @@ class NoRoomError(ConvertError):
             f" and {size_words(free)} is free."
         )
         self.drive = drive
+        self.needed = needed
 
 
 class InUseError(ConvertError):

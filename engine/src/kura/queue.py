@@ -205,6 +205,9 @@ class Queue:
         self._progress: Progress | None = None
         self._frames: deque[tuple[float, int]] = deque()  # (when, frames done) while converting
         self._problem: str | None = None
+        # The room files were found to want as converting began, more than the queue reckoned
+        # (a picture found interlaced is made anew rather than copied): job id -> bytes.
+        self._needs: dict[int, int] = {}
 
     def start(self) -> None:
         """Converts until `stop`. Call `recover` first, before any scan starts."""
@@ -468,9 +471,13 @@ class Queue:
                 if row["state"] == "queued" and row["retry_at"] is None and connected(row["root"])
             ]
             held = short if paused and isinstance(short, str) else None
-            # Paused by the owner, files waiting for room don't say so: the queue is paused.
-            fitting = [] if paused else _fitting(conn)
-            room, no_room = _room(unmade, standard, held, fitting)
+            # Paused by the owner, or waiting for the night, files waiting for room don't say
+            # so: that's what the queue says.
+            resting = schedule == "nights" and not _converting_tonight(self._now(), stop)
+            fitting = [] if paused or resting else _fitting(conn)
+            with self._lock:
+                known = dict(self._needs)
+            room, no_room = _room(unmade, standard, held, fitting, known)
             if room is not None:
                 found = set_aside_by_drive(conn)
                 aside = next((n for d, n in found.items() if _among(d, [room.drive])), 0)
@@ -545,15 +552,16 @@ class Queue:
                 ).fetchall()
                 fitting = _still_fitting(conn, waiting)
                 standard = library_standard(conn)
+                ids = {job["id"] for job in waiting}
+                self._needs = {job: need for job, need in self._needs.items() if job in ids}
 
                 def goes(job: sqlite3.Row) -> bool:
                     if not connected(job["root"]):
                         return False
-                    drive = drive_of(job["path"])
-                    if not _among(drive, fitting):
+                    if not _among(drive_of(job["path"]), fitting):
                         return True  # converting checks for room, and pauses without it
-                    room = free(drive)
-                    return room is None or room >= _wanted(job, standard)
+                    room = free(str(Path(job["path"]).parent))  # where converting measures
+                    return room is None or room >= _wanted(job, standard, self._needs)
 
                 first = next((job["id"] for job in waiting if goes(job)), None)
                 if first is None:
@@ -591,6 +599,8 @@ class Queue:
         except InUseError as error:
             self._waits(conn, job_id, str(error))
         except NoRoomError as error:
+            with self._lock:  # what it wants, though the queue reckoned less
+                self._needs[job_id] = error.needed
             self._back_in_line(conn, job_id)  # it, and the rest, wait for room
             if not _among(error.drive, _fitting(conn)):  # there, it waits while the others go
                 with conn:
@@ -867,11 +877,16 @@ def _waiting_job(conn: sqlite3.Connection, job_id: int) -> bool:
 
 
 def _room(
-    unmade: list[sqlite3.Row], standard: Standard, held: str | None, fitting: list[str]
+    unmade: list[sqlite3.Row],
+    standard: Standard,
+    held: str | None,
+    fitting: list[str],
+    known: dict[int, int],
 ) -> tuple[Room | None, set[int]]:
     """The drive without room for what waits on it, of those that matter: the one the queue
     paused for (`held`), else one where files that don't fit wait while the others go
-    (`fitting`). With the jobs waiting for room there."""
+    (`fitting`). With the jobs waiting for room there. `known` holds what files were found to
+    want as converting began."""
     by_drive: dict[str, list[sqlite3.Row]] = {}
     for row in unmade:
         by_drive.setdefault(drive_of(row["path"]), []).append(row)
@@ -880,10 +895,10 @@ def _room(
     no_room: set[int] = set()
     for drive, rows in by_drive.items():
         paused = held is not None and _among(drive, [held])
-        room = free(drive)
+        room = free(f"{drive}\\")
         if room is None or not (paused or _among(drive, fitting)):
             continue
-        needed, fits = _fits(rows, standard, room)
+        needed, fits = _fits(rows, standard, room, known)
         if len(fits) == len(rows):
             continue  # room for them all now
         if not paused:
@@ -893,12 +908,14 @@ def _room(
     return found, no_room
 
 
-def _fits(rows: list[sqlite3.Row], standard: Standard, free: int) -> tuple[int, set[int]]:
+def _fits(
+    rows: list[sqlite3.Row], standard: Standard, free: int, known: dict[int, int]
+) -> tuple[int, set[int]]:
     """Of the files waiting on one drive, in turn: the free space their results all want, and
     those that fit in `free` now, each result taking its size of what's left."""
     needed, fits, left = 0, set[int](), free
     for row in rows:
-        wanted = _wanted(row, standard)
+        wanted = _wanted(row, standard, known)
         needed += wanted
         if left >= wanted:
             fits.add(row["id"])
@@ -906,14 +923,15 @@ def _fits(rows: list[sqlite3.Row], standard: Standard, free: int) -> tuple[int, 
     return needed, fits
 
 
-def _wanted(row: sqlite3.Row, standard: Standard) -> int:
-    """The free space a waiting file's result wants on its drive, as converting checks."""
+def _wanted(row: sqlite3.Row, standard: Standard, known: dict[int, int]) -> int:
+    """The free space a waiting file's result wants on its drive, as converting checks, or what
+    converting found it wants (`known`), when that's more."""
     if row["probe"] is None:
-        return 0
+        return known.get(row["id"], 0)
     media = media_from_ffprobe(json.loads(row["probe"]))
     decision = decide(media, standard)
     decision = replace(decision, method=lighter(decision.method, Method(row["method"])))
-    return room_for(media, decision, standard)
+    return max(room_for(media, decision, standard), known.get(row["id"], 0))
 
 
 def _fitting(conn: sqlite3.Connection) -> list[str]:
@@ -939,18 +957,19 @@ def _among(drive: str, drives: Iterable[str]) -> bool:
 
 
 class _Free:
-    """Bytes free on drives ("D:"), each looked at once; None for one that isn't there."""
+    """Bytes free where folders are ("D:\\", or a file's own folder, which may be another volume
+    mounted there), each looked at once; None for one that isn't there."""
 
     def __init__(self) -> None:
         self._seen: dict[str, int | None] = {}
 
-    def __call__(self, drive: str) -> int | None:
-        if drive not in self._seen:
+    def __call__(self, folder: str) -> int | None:
+        if folder not in self._seen:
             try:
-                self._seen[drive] = shutil.disk_usage(f"{drive}\\").free
+                self._seen[folder] = shutil.disk_usage(folder).free
             except OSError:
-                self._seen[drive] = None
-        return self._seen[drive]
+                self._seen[folder] = None
+        return self._seen[folder]
 
 
 class _Drives:
@@ -1035,8 +1054,9 @@ def _early_stop(now: datetime) -> datetime:
 
 
 def _stopping(now: datetime, stop: datetime | None) -> bool:
-    """Whether the night `now` is in stops early: `stop` falls in it, before its 07:00."""
-    return stop is not None and _morning(now) == _morning(stop)
+    """Whether the night `now` is in stops early: `stop` falls in it, before its 07:00. Nights
+    are told apart by their dates, so a clock change that night doesn't lose it."""
+    return stop is not None and _morning(now).date() == _morning(stop).date()
 
 
 def _converting_tonight(now: datetime, stop: datetime | None) -> bool:

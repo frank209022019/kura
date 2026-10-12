@@ -7,7 +7,7 @@ import subprocess
 import threading
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -519,6 +519,24 @@ def test_stopping_at_three_takes_no_file_after_it_tonight_only(
     assert queue.work_once() is True
 
 
+def test_stopping_at_three_holds_though_the_clocks_change_that_night(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    summer, winter = timezone(timedelta(hours=2)), timezone(timedelta(hours=1))
+    at = [datetime(2026, 10, 24, 23, 30, tzinfo=summer)]
+    queue = Queue(
+        paths, Scanner(paths, Tools(paths, items=())), lambda: programs(RESULT), now=lambda: at[0]
+    )
+    queue.add([1])
+    queue.plan("nights")
+    queue.stop_early(early=True)
+
+    at[0] = datetime(2026, 10, 25, 2, 10, tzinfo=winter)  # the clocks went back at 03:00
+
+    assert queue.status().early is True
+    assert queue.work_once() is False  # 03:00 summer time has come and gone
+
+
 def test_going_on_till_seven_undoes_stopping_early(
     paths: DataPaths, shows: Path, conn: sqlite3.Connection
 ):
@@ -664,6 +682,54 @@ def test_paused_by_the_owner_files_waiting_for_room_say_nothing_of_it(
 
     status = queue.status()
     assert status.room is None  # the queue is paused: that's what it says
+    assert [job.no_room for job in status.queued] == [False]
+
+
+def test_room_is_measured_where_the_file_is_as_converting_measures_it(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def usage(path: object) -> SimpleNamespace:  # the library folder is a full volume, mounted
+        free = 10**12 if str(path).rstrip("\\").endswith(":") else 10**6
+        return SimpleNamespace(total=10**13, used=10**13 - free, free=free)
+
+    monkeypatch.setattr("kura.convert.shutil.disk_usage", usage)
+    queue.add([1], fit=[shows.drive])
+
+    assert queue.work_once() is False  # it waits for room, rather than failing to start
+
+
+def test_a_file_converting_finds_without_room_waits_rather_than_starting_again_and_again(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Converting can want more room than the queue reckoned (a picture found interlaced is
+    made anew, not copied): the file then waits for that much room."""
+    free_space(monkeypatch, 10**6)
+    queue.add([1], fit=[shows.drive])
+
+    def reckoned(*_: object) -> int:  # the queue reckons it fits
+        return 1
+
+    monkeypatch.setattr("kura.queue.room_for", reckoned)
+
+    assert queue.work_once() is True  # taken, and converting finds no room
+    assert queue.work_once() is False  # it waits for room, not taken again at once
+    status = queue.status()
+    assert status.paused is False
+    assert [job.no_room for job in status.queued] == [True]
+
+
+def test_by_day_on_nights_only_files_waiting_for_room_wait_for_the_night_first(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    queue = make_queue(paths, programs(RESULT))
+    free_space(monkeypatch, 10**6)
+    queue.plan("nights")  # 09:30
+    queue.add([1], fit=[shows.drive])
+
+    status = queue.status()
+
+    assert status.waits_for_night is True
+    assert status.room is None  # the night comes first: that's what the queue says
     assert [job.no_room for job in status.queued] == [False]
 
 

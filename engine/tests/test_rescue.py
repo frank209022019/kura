@@ -6,7 +6,7 @@ from contextlib import closing
 from datetime import datetime, timedelta
 
 from kura import db
-from kura.backups import back_up, last_restore
+from kura.backups import back_up, damaged, last_restore
 from kura.config import DataPaths
 from kura.rescue import damage, restore_newest, start_afresh
 from tests.damaged import naming_of, records, scribble
@@ -51,14 +51,24 @@ def test_records_that_open_but_dont_check_out_are_damaged_too(paths: DataPaths):
         page_size, pages = (
             conn.execute(f"PRAGMA {p}").fetchone()[0] for p in ("page_size", "page_count")
         )
-    with paths.database.open("r+b") as damaged:  # a page in the middle scribbled over
-        damaged.seek((pages - 5) * page_size + 1000)
-        damaged.write(b"\x00\x01\x02\x03" * 500)
+    with paths.database.open("r+b") as disk:  # a page in the middle scribbled over
+        disk.seek((pages - 5) * page_size + 1000)
+        disk.write(b"\x00\x01\x02\x03" * 500)
 
     found = damage(paths)
 
     assert found is not None
     assert found.problem != "ok"
+
+
+def test_a_disk_that_cant_read_the_records_is_damage_and_a_busy_one_isnt():
+    bad_sector = sqlite3.DatabaseError("disk I/O error")
+    bad_sector.sqlite_errorcode = 266  # SQLITE_IOERR_READ
+    busy = sqlite3.OperationalError("database is locked")
+    busy.sqlite_errorcode = 5  # SQLITE_BUSY
+
+    assert damaged(bad_sector) is True
+    assert damaged(busy) is False
 
 
 def test_with_no_backup_that_opens_none_is_offered(paths: DataPaths):

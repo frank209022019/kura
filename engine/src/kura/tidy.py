@@ -82,8 +82,9 @@ class Proposed:
     title: str
     video: Path  # the video the change is of: itself, or the one subtitles go with
     # A name another file had, so it gets "(2)": the file there (one in the library, or another
-    # video going there; None when Kura doesn't know it), and this one, to compare.
-    compared: tuple[CopyFacts | None, CopyFacts] | None = None
+    # video going there; None when Kura doesn't know it), this one, to compare, and whether the
+    # one there moves in the same tidy-up.
+    compared: tuple[CopyFacts | None, CopyFacts, bool] | None = None
 
 
 @dataclass(frozen=True)
@@ -164,19 +165,20 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
     linked = _into_links(plan, of)
     mixed = _mixed_folders(conn)
     going = {
-        str(c.target).casefold(): of[str(c.source).casefold()]
-        for c in plan.changes
-        if c.kind is ChangeKind.MOVE
+        str(c.target).casefold(): _owner(c, of) for c in plan.changes if c.kind is ChangeKind.MOVE
     }
+    leaving = {str(c.source).casefold() for c in plan.changes}  # what moves or is set aside
     folders: dict[str, dict[str, str]] = {}
     proposed: list[Proposed] = []
     for change in plan.changes:
-        video = of[str(change.source).casefold()]
+        video = _owner(change, of)
         if video.id in linked:
             continue
         compared = None
         if change.reason.endswith(KEPT_BOTH):
-            compared = (_there(change, files, going), _facts(video.placed.copy))
+            there = _there(change, files, going)
+            moves = there is not None and str(there.path).casefold() in leaving
+            compared = (there, _facts(video.placed.copy), moves)
         category: Category = (
             "duplicate"
             if change.kind is ChangeKind.QUARANTINE
@@ -209,6 +211,11 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
 _LINKED = "Its new folder is a link to another place, which scans skip"
 
 
+def _owner(change: Change, of: dict[str, _Video]) -> _Video:
+    """The video a change is of: the one it moves, or the one its subtitles go with."""
+    return of[str(change.of or change.source).casefold()]
+
+
 def _into_links(plan: Plan, of: dict[str, _Video]) -> set[int]:
     """The videos the plan would move into a link or junction inside their library folder. Scans
     don't follow links (they can lead anywhere), so a video filed there would seem to have gone."""
@@ -225,7 +232,7 @@ def _into_links(plan: Plan, of: dict[str, _Video]) -> set[int]:
 
     found: set[int] = set()
     for change in plan.changes:
-        video = of[str(change.source).casefold()]
+        video = _owner(change, of)
         root = Path(video.placed.root or "")
         if change.kind is ChangeKind.MOVE and linked(Path(change.target).parent, root):
             found.add(video.id)

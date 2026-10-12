@@ -2511,12 +2511,17 @@
           },
           "coming": {
             "$ref": "#/components/schemas/CopyFacts"
+          },
+          "thereMoves": {
+            "type": "boolean",
+            "title": "Theremoves"
           }
         },
         "type": "object",
         "required": [
           "there",
-          "coming"
+          "coming",
+          "thereMoves"
         ],
         "title": "Compared",
         "description": "A name another file has: that file, when Kura knows it, and the one coming, to compare."

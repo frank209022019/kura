@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FranchiseSummary, Job, TitleSummary } from "@/lib/engine";
 import { convertible } from "@/test/convert";
 import {
+  driveOf,
   episodeCode,
   gpuTime,
   jobGroups,
@@ -140,6 +141,14 @@ describe("the queue's groups", () => {
     expect(episodeCode(job(7, { season: null, episode: null, path: "D:\\Akira.mkv" }))).toBe(
       "Akira.mkv",
     );
+  });
+});
+
+describe("driveOf", () => {
+  it("names a path's drive as Kura writes it, a letter or a share", () => {
+    expect(driveOf("d:\\Anime\\Ep 01.mkv")).toBe("D:");
+    expect(driveOf("\\\\nas\\anime\\TV\\Ep 01.mkv")).toBe("\\\\nas\\anime");
+    expect(driveOf("Ep 01.mkv")).toBe("");
   });
 });
 
