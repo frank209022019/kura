@@ -43,6 +43,9 @@ overnight note). No release has been tagged yet. Next is in [What's next](#whats
   `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
   installer, and titles appear only as example data. The one exception is TMDB's logo, which its
   terms ask for beside its credit line (the owner, 2026-10-12; `app/src/assets/README.md`).
+  Microsoft's redistributable files the AI model needs (its C++ runtime, and DirectML inside ONNX
+  Runtime) aren't open source but are Microsoft's to let programs carry: the notices list them
+  apart, under Microsoft's terms.
 - **Every change you'd notice goes in CHANGELOG.md**, in the same commit, under "Unreleased"
   (see [docs/releasing.md](docs/releasing.md)). Versions are semantic, and every release must be
   newer than the last so installed copies see it as an update.
@@ -87,6 +90,7 @@ cd engine; uv run ruff format --check; uv run ruff check; uv run pyright; uv run
 cd app; pnpm check; pnpm build
 cd app/src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; cargo test
 node --test "scripts/*.test.mjs"
+cd app; pnpm build:engine; pnpm build:notices
 ```
 
 Fix formatting: `uv run ruff format` (engine), `pnpm fix` (app), `cargo fmt` (shell).

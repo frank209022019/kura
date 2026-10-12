@@ -3,7 +3,17 @@
 from pathlib import Path
 
 import pytest
-from third_party_notices import Part, allowed, is_licence_file, render, sources_in
+from third_party_notices import (
+    MICROSOFT,
+    WINDOWS,
+    Part,
+    allowed,
+    cpp_runtime,
+    is_licence_file,
+    is_windows_runtime,
+    render,
+    sources_in,
+)
 
 MIT = """MIT License
 
@@ -24,6 +34,8 @@ Permission is hereby granted, free of charge, to any person obtaining a copy..."
         "GPL-2.0-or-later WITH Bootloader-exception",  # PyInstaller
         "MIT OR GPL-3.0-only",  # Kura takes the MIT choice
         "MPL-2.0",
+        MICROSOFT,  # not open source, but free to pass on: its C++ runtime
+        f"MIT AND {MICROSOFT}",  # ONNX Runtime, with Microsoft's DirectML inside
     ],
 )
 def test_licences_kura_can_meet(expression: str):
@@ -61,13 +73,18 @@ def test_licences_that_stop_the_build(expression: str):
         "COPYING",
         "NOTICE",
         "AUTHORS.md",
+        "ThirdPartyNotices.txt",  # ONNX Runtime's, for what's built into it
+        "THIRD-PARTY-NOTICES.txt",
     ],
 )
 def test_licence_files_are_recognised(name: str):
     assert is_licence_file(name)
 
 
-@pytest.mark.parametrize("name", ["license.py", "license.rs", "README.md", "Cargo.toml", "lib.rs"])
+@pytest.mark.parametrize(
+    "name",
+    ["license.py", "license.rs", "README.md", "Cargo.toml", "lib.rs", "third_party_notices.py"],
+)
 def test_other_files_are_not(name: str):
     assert not is_licence_file(name)
 
@@ -84,6 +101,26 @@ def test_files_are_read_from_pyinstallers_records():
     )
 
     assert list(sources_in(record)) == [Path(fastapi), Path(r"C:\x\pyi_rth_inspect.py")]
+
+
+def test_microsofts_cpp_runtime_is_known_only_as_windows_own_copy():
+    """ONNX Runtime needs it; a copy another program left on PATH could be any version."""
+    assert is_windows_runtime(WINDOWS / "MSVCP140_1.dll")
+    assert is_windows_runtime(Path(str(WINDOWS).upper()) / "vcruntime140.dll")
+    assert not is_windows_runtime(Path(r"C:\Program Files\ImageMagick-7.1\MSVCP140_1.dll"))
+    assert not is_windows_runtime(Path(r"C:\Program Files\Java\jdk-25\bin\msvcp140.dll"))
+    assert not is_windows_runtime(WINDOWS / "d3d12.dll")  # Windows' own, never carried
+
+
+def test_microsofts_cpp_runtime_is_one_part_of_the_engine():
+    (part,) = cpp_runtime(["vcruntime140.dll", "msvcp140_1.dll", "msvcp140.dll"])
+
+    assert (
+        part.name == "Microsoft Visual C++ runtime (msvcp140.dll, msvcp140_1.dll, vcruntime140.dll)"
+    )
+    assert part.licence == MICROSOFT
+    assert "Kura's licence doesn't cover it" in " ".join(part.texts[0].split())
+    assert cpp_runtime([]) == []
 
 
 def test_the_notices_show_each_licence_text_once():

@@ -3,8 +3,8 @@
 `pnpm build:installer` runs this once the engine and the UI are built. The installer puts the file
 next to Kura, and every release carries it (see docs/releasing.md). It lists what actually ships:
 
-- the engine: every file PyInstaller bundled, traced to the package it came from, Python, and
-  the AI model and shader it carries (engine/src/kura/assets);
+- the engine: every file PyInstaller bundled, traced to the package it came from, Python,
+  Microsoft's C++ runtime, and the AI model and shader it carries (engine/src/kura/assets);
 - the shell: the Rust standard library and the crates Cargo links into kura.exe on Windows;
 - the interface: the packages Vite bundled (from its licence report), the styles and the fonts;
 - the installer's own parts;
@@ -63,6 +63,30 @@ ALLOWED = frozenset(
 )
 # Copyleft made fine by its exception: PyInstaller's lets its bootloader be part of any program.
 ALLOWED_WITH = frozenset({"GPL-2.0-or-later WITH Bootloader-exception"})
+# Not open source, but free to pass on: Microsoft's redistributable files, which programs may carry
+# unchanged, as Python carries vcruntime140.dll. The engine carries two: the Visual C++ runtime,
+# which ONNX Runtime needs and Windows doesn't always have, and DirectML, inside ONNX Runtime.
+MICROSOFT = "LicenseRef-Microsoft-Redistributable"
+_CPP_RUNTIME_TERMS = (
+    "Microsoft's Visual C++ runtime ships with the engine unchanged, as Microsoft allows for\n"
+    'programs built with its Visual C++ compilers (its "Distributable Code", listed at\n'
+    "https://learn.microsoft.com/visualstudio/releases/2022/redistribution). It is Microsoft's,\n"
+    "copyright Microsoft Corporation, and stays under Microsoft's terms: Kura's licence doesn't\n"
+    "cover it."
+)
+_DIRECTML_TERMS = (
+    "DirectML.dll, in ONNX Runtime's folder, is Microsoft's DirectML Redistributable Library,\n"
+    "which runs the AI model on the graphics card. ONNX Runtime ships it unchanged, as Microsoft\n"
+    "allows (https://www.nuget.org/packages/Microsoft.AI.DirectML). It is Microsoft's, copyright\n"
+    "Microsoft Corporation, and stays under Microsoft's terms: neither the MIT licence above nor\n"
+    "Kura's covers it."
+)
+# The runtime's files, and where the engine takes them from: Windows' own copy, which Microsoft's
+# Visual C++ Redistributable installs (kura-engine.spec sees to it, with the same pattern).
+CPP_RUNTIME = re.compile(
+    r"(concrt140|msvcp140(_\w+)?|vccorlib140|vcruntime140(_\w+)?)\.dll", re.IGNORECASE
+)
+WINDOWS = Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32"
 
 # Python packages whose metadata has no SPDX licence expression, checked by hand.
 PYTHON_LICENCES = {
@@ -70,9 +94,12 @@ PYTHON_LICENCES = {
     "colorama": "BSD-3-Clause",
     "markdown-it-py": "MIT",
     "mdurl": "MIT",
+    "onnxruntime-directml": f"MIT AND {MICROSOFT}",  # ONNX Runtime, and DirectML inside it
     "pyinstaller": "GPL-2.0-or-later WITH Bootloader-exception",
     "shellingham": "ISC",
 }
+# What a package carries that its own licence files don't speak for, said by hand.
+PYTHON_NOTES = {"onnxruntime-directml": _DIRECTML_TERMS}
 
 # Marks Kura shows because their owners ask it to: not software, and not under any licence above.
 MARKS = (
@@ -89,7 +116,10 @@ STYLES_AND_FONTS = (
     "@fontsource-variable/geist-mono",
 )
 
-_LICENCE_FILE = re.compile(r"((un)?licen[cs]es?|copying|notice|authors)([-._].*)?", re.IGNORECASE)
+_LICENCE_FILE = re.compile(
+    r"((un)?licen[cs]es?|copying|notice|authors|third[-_]?party[-_]?notices?)([-._].*)?",
+    re.IGNORECASE,
+)
 _CODE = frozenset({".py", ".pyc", ".pyi", ".rs", ".js", ".ts"})
 
 
@@ -157,7 +187,7 @@ def allowed(expression: str) -> bool:
             words.pop()
             exception = words.pop()  # an exception only ever adds permissions
             return word in ALLOWED or f"{word} WITH {exception}" in ALLOWED_WITH
-        return word in ALLOWED
+        return word in ALLOWED or word == MICROSOFT
 
     try:
         return either() and not words
@@ -171,9 +201,10 @@ def render(version: str, sections: dict[str, list[Part]]) -> str:
         f"Third-party notices for Kura {version}",
         "",
         "Kura is free software under the MIT licence (see LICENSE.txt next to this file). It is",
-        "built with the open-source software below, which ships inside it. Each part keeps its own",
-        "licence, reproduced here as its authors wrote it, and its source code is available at the",
-        "address given for it.",
+        "built with the software below, which ships inside it: open-source software, and a few",
+        "of Microsoft's libraries that programs may carry. Each part keeps its own licence,",
+        "reproduced here as its authors wrote it, and the address given for it is where it comes",
+        "from: for open-source software, its source code.",
         "",
         "Contents",
     ]
@@ -203,19 +234,44 @@ def render(version: str, sections: dict[str, list[Part]]) -> str:
 
 
 def engine_parts() -> list[Part]:
-    """Python, and every package that has a file in the engine bundle."""
+    """Python, every package that has a file in the engine bundle, and Microsoft's C++ runtime."""
     owners = _installed_files()
     shipped: dict[str, Distribution] = {}
+    runtime: set[str] = set()  # the C++ runtime's files
     for file in _bundled_files():
         owner = owners.get(os.path.normcase(file))
         if owner is not None:
             shipped[_normalise(owner.name)] = owner
+        elif is_windows_runtime(file):
+            runtime.add(file.name.lower())
         elif not (file.is_relative_to(sys.base_prefix) or file.is_relative_to(ROOT)):
             # Neither Python's own files nor Kura's: say so rather than guess its licence.
             sys.exit(f"The engine bundle holds {file}, and it isn't clear where that comes from.")
     shipped.pop("kura", None)
     packages = [_python_package(shipped[name]) for name in sorted(shipped)]
-    return [_python(), *packages, *_assets()]
+    return [_python(), *packages, *cpp_runtime(runtime), *_assets()]
+
+
+def is_windows_runtime(file: Path) -> bool:
+    """Whether a bundled file is Microsoft's C++ runtime as Windows has it, not a copy that
+    another program (ImageMagick, a JDK) keeps on PATH, which could be any version."""
+    return file.parent == WINDOWS and CPP_RUNTIME.fullmatch(file.name) is not None
+
+
+def cpp_runtime(files: Iterable[str]) -> list[Part]:
+    """Microsoft's C++ runtime as one part, when the engine carries any of its files."""
+    names = sorted(set(files))
+    if not names:
+        return []
+    return [
+        Part(
+            f"Microsoft Visual C++ runtime ({', '.join(names)})",
+            "",
+            MICROSOFT,
+            "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
+            (_CPP_RUNTIME_TERMS,),
+        )
+    ]
 
 
 def _assets() -> list[Part]:
@@ -294,12 +350,13 @@ def _python_package(dist: Distribution) -> Part:
         or _spdx_id(dist.metadata.get("License") or "")
     )
     files = [Path(str(dist.locate_file(file))) for file in dist.files or ()]
+    note = PYTHON_NOTES.get(_normalise(name))
     return Part(
         name,
         version,
         licence,
         f"https://pypi.org/project/{name}/{version}/",
-        _read(file for file in files if is_licence_file(file.name)),
+        _read(file for file in files if is_licence_file(file.name)) + ((note,) if note else ()),
     )
 
 

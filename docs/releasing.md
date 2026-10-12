@@ -139,13 +139,15 @@ node scripts/downloads-page.mjs site --releases releases.json   # then open site
 ## Third-party notices
 
 Kura is MIT-licensed and ships other people's open-source software, whose licences ask for their
-notices to travel with it. `pnpm build:installer` runs `pnpm build:notices`
-([engine/tools/third_party_notices.py](../engine/tools/third_party_notices.py)) after building the
-engine and the UI. It writes `app/src-tauri/target/THIRD-PARTY-NOTICES.txt` from what was actually
-bundled:
+notices to travel with it, and a few of Microsoft's libraries. `pnpm build:installer` runs
+`pnpm build:notices` ([engine/tools/third_party_notices.py](../engine/tools/third_party_notices.py))
+after building the engine and the UI. It writes `app/src-tauri/target/THIRD-PARTY-NOTICES.txt` from
+what was actually bundled:
 
 - the engine: every file in PyInstaller's records (`engine/build/kura-engine/*.toc`), traced to its
-  Python package, and Python's own licence;
+  Python package (with the package's own third-party notices, such as ONNX Runtime's), Python's
+  own licence, and Microsoft's C++ runtime, taken from Windows (see
+  [stack/pyinstaller.md](stack/pyinstaller.md));
 - the shell: the crates Cargo links into `kura.exe` for Windows (normal dependencies only), and
   Rust's standard library;
 - the UI: Vite's licence report (`app/dist/.vite/licenses.json`), Tailwind's styles, the fonts, and
@@ -153,9 +155,12 @@ bundled:
 - the installer: NSIS and Tauri's NSIS plugin.
 
 The installer puts it next to Kura with `LICENSE.txt`, and the release workflow attaches it to the
-release. If a part's licence isn't on the allowed list (permissive licences, MPL-2.0, and
-PyInstaller's bootloader exception), the build stops and names it: read the licence, then add it to
-`ALLOWED`, or the package to `PYTHON_LICENCES` when its metadata has no SPDX expression.
+release. If a part's licence isn't on the allowed list (permissive licences, MPL-2.0,
+PyInstaller's bootloader exception, and Microsoft's terms for the files it lets programs carry:
+its C++ runtime, and DirectML inside ONNX Runtime), the build stops and names it: read the licence,
+then add it to `ALLOWED`, or the package to `PYTHON_LICENCES` when its metadata has no SPDX
+expression. A file that comes from neither a package, Python nor Kura stops it too. CI's Bundle
+job runs the same check on every push, so a release doesn't meet it first.
 
 ## The installer
 

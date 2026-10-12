@@ -38,6 +38,12 @@ dist\kura-engine\kura-engine.exe version
   and pytest (anyio's test runner). The filter after `Analysis` drops the Universal C Runtime
   DLLs, which Windows 10 and 11 have built in; otherwise PyInstaller copies whichever ones it
   finds on PATH (a JDK's, on the owner's PC), and builds would differ between PCs.
+- Microsoft's Visual C++ runtime (`msvcp140.dll` and its kin), which ONNX Runtime needs and not
+  every PC has, ships with the engine from Windows' own copy in `System32`, which Microsoft's Visual
+  C++ Redistributable installs. Left alone, PyInstaller takes the first copy on PATH (ImageMagick's
+  on GitHub's runners, a JDK's on the owner's PC), which could be any version, and the notices
+  couldn't say what it is. A PC that builds the engine needs the Redistributable; GitHub's runners
+  have it.
 - PyInstaller's records of what it bundled (`build/kura-engine/*.toc`) feed the third-party
   notices (see [../releasing.md](../releasing.md#third-party-notices)).
 

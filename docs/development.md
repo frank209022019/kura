@@ -49,9 +49,12 @@ CI runs exactly these; run them before every push.
 cd engine; uv run ruff format --check; uv run ruff check; uv run pyright; uv run pytest
 cd app; pnpm check; pnpm build
 cd app/src-tauri; cargo fmt --check; cargo clippy --all-targets -- -D warnings; cargo test
+cd app; pnpm build:engine; pnpm build:notices
 ```
 
-`pnpm check` runs Biome, the TypeScript compiler and Vitest. To fix formatting:
+`pnpm check` runs Biome, the TypeScript compiler and Vitest. The last line builds the engine as
+the installer bundles it and checks every bundled part's licence (it needs `pnpm build` first);
+CI then also starts the bundled engine once (`tests/test_cli.py` with `KURA_ENGINE_EXE` set). To fix formatting:
 `uv run ruff format` and `uv run ruff check --fix` in `engine/`, `pnpm fix` in `app/`, `cargo fmt` in
 `app/src-tauri/`.
 
