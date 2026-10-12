@@ -24,6 +24,7 @@ import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
 import { useSetStartWithWindows, useStartWithWindows } from "@/lib/startup";
 import { cn } from "@/lib/utils";
+import { AboutPanel } from "./about-panel";
 import { BackupsPanel } from "./backups-panel";
 import { ExportPanel } from "./export-panel";
 import { Panel } from "./panel";
@@ -98,7 +99,7 @@ function Content({ section }: { section: Section }) {
     case "updates":
       return <Updates />;
     case "about":
-      return <About />;
+      return <AboutPanel />;
   }
 }
 
@@ -418,27 +419,6 @@ function Updates() {
         </span>
         <Button onClick={() => void openDownloadsPage()}>Every version</Button>
       </div>
-    </Panel>
-  );
-}
-
-function About() {
-  const health = useHealth();
-  return (
-    <Panel title="About Kura" note="蔵, a storehouse: a personal tool for one anime library.">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-13">
-        <dt className="text-fg-muted">Version</dt>
-        <dd className="font-mono">{health.data?.version ?? "…"}</dd>
-        <dt className="text-fg-muted">Data</dt>
-        <dd className="font-mono [overflow-wrap:anywhere]">{health.data?.dataDir ?? "…"}</dd>
-        <dt className="text-fg-muted">Licence</dt>
-        <dd>MIT. Anyone may fork it; the repo takes no contributions.</dd>
-      </dl>
-      <p className="text-13 text-fg-muted">
-        Kura stands on others' work: ffmpeg reads and converts the videos, Real-ESRGAN's anime model
-        and Anime4K's shaders upscale them, AniList and TMDB say what each one is.
-        THIRD-PARTY-NOTICES.txt, next to Kura, lists every part with its licence.
-      </p>
     </Panel>
   );
 }

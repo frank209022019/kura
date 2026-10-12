@@ -136,6 +136,8 @@ Everything decided so far. Don't ask again; change only with the owner.
 - Kura's words never name Plex (the owner, 2026-10-11): the files keep the layout media servers
   read, but the app calls it "clean names" and says what it does, not who reads it. The naming
   choice is "Clean names" or "Keep my names".
+- Home shows the library (the owner, 2026-10-12): what this copy of Kura is up to (the engine,
+  the data folder, the database, TMDB, updates) is in Settings › About.
 - Picture: crisp and clean; 720p or 1080p are both fine. **Every** file goes to the library standard,
   even 720p to 720p; a file already exactly at the standard is only renamed.
 - Everything ends up neatly filed (the owner, 2026-10-11): seasons, specials and OVAs (Season 00)
@@ -325,9 +327,9 @@ Everything decided so far. Don't ask again; change only with the owner.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's
 terms (free for non-commercial use, within its rate limit). TMDB's terms are met in the app: its
-credit line with its logo, on Home and in Settings. Real-ESRGAN's model (BSD-3-Clause) and
-Anime4K's shaders (MIT) are in `engine/src/kura/assets` with their licences, which the notices
-carry.
+credit line with its logo, in Settings (About, and Titles and artwork). Real-ESRGAN's model
+(BSD-3-Clause) and Anime4K's shaders (MIT) are in `engine/src/kura/assets` with their licences,
+which the notices carry.
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.

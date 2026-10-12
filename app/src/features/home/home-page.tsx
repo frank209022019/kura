@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
-import { TmdbCredit } from "@/components/tmdb-credit";
 import { Button } from "@/components/ui/button";
 import { pickFolder } from "@/lib/dialogs";
 import {
@@ -14,15 +13,11 @@ import {
   useEngine,
   useFolders,
   useFranchises,
-  useHealth,
   useLibrary,
   useScan,
   useScanAction,
   useSettings,
-  useTmdb,
 } from "@/lib/engine";
-import { openDownloadsPage } from "@/lib/links";
-import { useReadyUpdate } from "@/lib/updates";
 import { Attention } from "./attention";
 import { Recovered } from "./recovered";
 import { Shelf } from "./shelf";
@@ -88,8 +83,6 @@ export function HomePage() {
       {working && library.data && scan.data && !empty && (
         <Overview library={library.data} scan={scan.data} />
       )}
-
-      <ThisCopy />
     </>
   );
 }
@@ -201,86 +194,4 @@ function summary(library: Library, titles: number | undefined): string {
       : `${(library.size / 1e9).toFixed(1)} GB`;
   const folders = `${library.folders} ${library.folders === 1 ? "folder" : "folders"}`;
   return `${videos} · ${size} · ${folders}`;
-}
-
-/** Engine, data folder, database, lookups and updates at a glance. */
-function ThisCopy() {
-  const engine = useEngine();
-  const health = useHealth();
-  const tmdb = useTmdb();
-  const update = useReadyUpdate();
-  const navigate = useNavigate();
-
-  const engineText = {
-    starting: "Starting…",
-    ready: health.data ? `Running · version ${health.data.version}` : "Running",
-    failed: "Not running",
-  }[engine.state];
-
-  let updateText = "Checked in installed copies of Kura";
-  if (import.meta.env.PROD) {
-    if (update.isPending) updateText = "Checking…";
-    else if (update.isError) updateText = `Can't check right now: ${String(update.error)}`;
-    else if (update.data) updateText = `Kura ${update.data.version} is ready to install`;
-    else updateText = "Up to date";
-  }
-
-  return (
-    <section
-      aria-labelledby="this-copy-title"
-      className="flex animate-fade-up flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5 [animation-delay:120ms]"
-    >
-      <h2 id="this-copy-title" className="font-extrabold text-16">
-        This copy of Kura
-      </h2>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 text-13">
-        <dt className="text-fg-muted">Engine</dt>
-        <dd className="flex items-center gap-2">
-          {engine.state === "starting" && (
-            <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-          )}
-          {engineText}
-        </dd>
-        <dt className="text-fg-muted">Data folder</dt>
-        <dd className="font-mono text-12 text-fg-soft [overflow-wrap:anywhere]">
-          {health.data?.dataDir ?? "…"}
-        </dd>
-        <dt className="text-fg-muted">Database</dt>
-        <dd>{health.data ? `Ready · schema version ${health.data.schemaVersion}` : "…"}</dd>
-        <dt className="text-fg-muted">Titles and artwork</dt>
-        <dd>
-          {tmdb.data?.connected && `TMDB connected · key ending ${tmdb.data.keyEnd}`}
-          {tmdb.data && !tmdb.data.connected && (
-            <>
-              AniList only: no episode titles yet ·{" "}
-              <button
-                type="button"
-                className="cursor-pointer text-accent-fg underline-offset-3 hover:text-accent-fg-hover hover:underline"
-                onClick={() => void navigate("/setup?step=tools")}
-              >
-                Add your TMDB key
-              </button>
-            </>
-          )}
-          {!tmdb.data && "…"}
-        </dd>
-        <dt className="text-fg-muted">Updates</dt>
-        <dd>{updateText}</dd>
-        <dt className="text-fg-muted">Versions</dt>
-        <dd>
-          <button
-            type="button"
-            className="cursor-pointer text-accent-fg underline-offset-3 hover:text-accent-fg-hover hover:underline"
-            onClick={() => void openDownloadsPage()}
-          >
-            Every version and what changed
-          </button>
-        </dd>
-      </dl>
-      <TmdbCredit>
-        Episode lists and artwork come from TMDB, anime details from AniList. This product uses the
-        TMDB API but is not endorsed or certified by TMDB.
-      </TmdbCredit>
-    </section>
-  );
 }

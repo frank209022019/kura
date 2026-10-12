@@ -2,7 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Backup, type DataSizes, EngineProvider, type LibraryFolder } from "@/lib/engine";
+import {
+  type Backup,
+  type DataSizes,
+  EngineProvider,
+  type Health,
+  type LibraryFolder,
+} from "@/lib/engine";
 import { fakeEngine, READY, SETTINGS } from "@/test/engine";
 import { SettingsPage } from "./settings-page";
 
@@ -31,6 +37,13 @@ const FOLDERS: LibraryFolder[] = [
     problems: 0,
   },
 ];
+
+const HEALTH: Health = {
+  status: "ok",
+  version: "0.1.0",
+  dataDir: "C:\\Users\\Someone\\AppData\\Local\\Kura",
+  schemaVersion: 3,
+};
 
 const DATA: DataSizes = {
   folder: "C:\\Users\\Someone\\AppData\\Local\\Kura",
@@ -332,6 +345,59 @@ describe("SettingsPage", () => {
     expect(body(fetch, "POST", "/backups/import")).toEqual({
       path: "D:\\Backups\\Kura export 2026-10-10.zip",
     });
+  });
+
+  it("says what this copy of Kura is up to, and where to add the TMDB key", async () => {
+    fakeEngine({
+      "/folders": FOLDERS,
+      "/health": HEALTH,
+      "/tmdb": { connected: false, keyEnd: null },
+    });
+    renderSettings("about");
+
+    expect(await screen.findByText("0.1.0")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
+    expect(screen.getByText(HEALTH.dataDir)).toBeInTheDocument();
+    expect(screen.getByText("Ready · schema version 3")).toBeInTheDocument();
+    expect(screen.getByText("Checked in installed copies of Kura")).toBeInTheDocument();
+    expect(await screen.findByText(/AniList only: no episode titles yet/)).toBeInTheDocument();
+    screen.getByRole("link", { name: "Add your TMDB key" }).click();
+
+    expect(await screen.findByLabelText("TMDB API Read Access Token")).toBeInTheDocument();
+  });
+
+  it("names the TMDB key in use, beside TMDB's credit", async () => {
+    fakeEngine({
+      "/folders": FOLDERS,
+      "/health": HEALTH,
+      "/tmdb": { connected: true, keyEnd: "ab12" },
+    });
+    renderSettings("about");
+
+    expect(await screen.findByText("TMDB connected · key ending ab12")).toBeInTheDocument();
+    expect(screen.getByText(/not endorsed or certified by TMDB/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "TMDB" })).toBeInTheDocument(); // its logo, as it asks
+  });
+
+  it("says when the engine isn't running", async () => {
+    shell.invoke.mockImplementation(async (command: string) =>
+      command === "engine_status"
+        ? { state: "failed", message: "It stopped unexpectedly.", details: "" }
+        : undefined,
+    );
+    fakeEngine({});
+    renderSettings("about", false);
+
+    expect(await screen.findByText("Not running")).toBeInTheDocument();
+  });
+
+  it("opens the downloads page to show every version and what changed", async () => {
+    fakeEngine({ "/folders": FOLDERS, "/health": HEALTH });
+    renderSettings("about");
+
+    (await screen.findByRole("button", { name: "Every version and what changed" })).click();
+
+    expect(shell.invoke).toHaveBeenCalledWith("open_downloads_page");
   });
 
   it("takes an unknown section to the first", async () => {

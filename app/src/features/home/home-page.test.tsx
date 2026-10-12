@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type EngineStatus, type Health, type TitleSummary } from "@/lib/engine";
+import { EngineProvider, type EngineStatus, type TitleSummary } from "@/lib/engine";
 import { fakeEngine, franchiseOf, NO_LIBRARY, NO_SCAN, READY, SETTINGS } from "@/test/engine";
 import { HomePage } from "./home-page";
 
@@ -10,13 +10,6 @@ const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: shell.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
-
-const health: Health = {
-  status: "ok",
-  version: "0.1.0",
-  dataDir: "C:\\Users\\you\\AppData\\Local\\Kura",
-  schemaVersion: 3,
-};
 
 const FOLDER = {
   id: 1,
@@ -71,12 +64,10 @@ const MOVIE: TitleSummary = {
 /** The engine's answers for a library that's empty and already set up. */
 function engineWith(answers: Record<string, unknown> = {}) {
   return fakeEngine({
-    "/health": health,
     "/settings": SETTINGS,
     "/folders": [],
     "/library": NO_LIBRARY,
     "/scan": NO_SCAN,
-    "/tmdb": { connected: false, keyEnd: null },
     "/franchises": [],
     "/recovery": () => Response.json(null),
     ...answers,
@@ -121,15 +112,14 @@ describe("HomePage", () => {
     shell.invoke.mockReset();
   });
 
-  it("shows an empty shelf and where the data lives once the engine runs", async () => {
+  it("shows an empty shelf once the engine runs, and only the library", async () => {
     engineWith();
     renderHome(READY);
 
     expect(await screen.findByRole("heading", { name: "Your shelf is empty" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a folder" })).toBeEnabled();
-    expect(await screen.findByText("Running · version 0.1.0")).toBeInTheDocument();
-    expect(screen.getByText(health.dataDir)).toBeInTheDocument();
-    expect(screen.getByText("Ready · schema version 3")).toBeInTheDocument();
+    // What this copy of Kura is up to is in Settings › About.
+    expect(screen.queryByRole("heading", { name: "This copy of Kura" })).not.toBeInTheDocument();
   });
 
   it("says what Kura settled after it closed unexpectedly, till it's seen", async () => {
@@ -283,7 +273,6 @@ describe("HomePage", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Kura's engine isn't running. It stopped unexpectedly.");
     expect(alert).toHaveTextContent("Nothing in your folders was touched.");
-    expect(screen.getByText("Not running")).toBeInTheDocument();
 
     screen.getByRole("button", { name: "Try again" }).click();
 
@@ -297,34 +286,6 @@ describe("HomePage", () => {
     await screen.findByRole("alert");
 
     expect(screen.queryByRole("button", { name: "Copy details" })).not.toBeInTheDocument();
-  });
-
-  it("says whether TMDB is connected, and where to add the key", async () => {
-    engineWith();
-    renderHome(READY);
-
-    expect(await screen.findByText(/AniList only: no episode titles yet/)).toBeInTheDocument();
-    screen.getByRole("button", { name: "Add your TMDB key" }).click();
-
-    expect(await screen.findByText("Setup")).toBeInTheDocument();
-  });
-
-  it("names the TMDB key in use", async () => {
-    engineWith({ "/tmdb": { connected: true, keyEnd: "ab12" } });
-    renderHome(READY);
-
-    expect(await screen.findByText("TMDB connected · key ending ab12")).toBeInTheDocument();
-    expect(screen.getByText(/not endorsed or certified by TMDB/)).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "TMDB" })).toBeInTheDocument(); // its logo, as it asks
-  });
-
-  it("opens the downloads page to show every version and what changed", async () => {
-    engineWith();
-    renderHome(READY);
-
-    (await screen.findByRole("button", { name: "Every version and what changed" })).click();
-
-    expect(shell.invoke).toHaveBeenCalledWith("open_downloads_page");
   });
 
   it("lists the franchises and series oldest release first, each saying what it is", async () => {

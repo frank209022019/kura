@@ -104,8 +104,8 @@ The releases are public, so updates need no login.
    version on the downloads page. "Restart and update" stops the engine, runs the installer in
    passive mode (a progress bar, no questions), and the installer opens Kura again.
 
-If a check fails (no internet, say), the Home page's "This copy of Kura" panel says so ("Can't
-check right now: …") and Kura tries again the next day. The code is
+If a check fails (no internet, say), Settings › About says so ("Can't check right now: …") and
+Kura tries again the next day. The code is
 [app/src-tauri/src/updater.rs](../app/src-tauri/src/updater.rs).
 
 ## Installing for the first time
@@ -126,7 +126,7 @@ new, and every earlier one below with its installer and notes. Drafts never appe
 [downloads.yml](../.github/workflows/downloads.yml) publishes it on GitHub Pages: after every
 release, when the page's code changes, and by hand (Actions › Downloads page › Run workflow, for
 example after editing a release's notes on GitHub). In Kura, the update card's "Every version"
-and the Home page's "Every version and what changed" open it in the browser
+and Settings' "Every version" and "Every version and what changed" open it in the browser
 (`app/src-tauri/src/links.rs`).
 
 To preview it locally from the current releases:

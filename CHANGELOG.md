@@ -8,6 +8,10 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Changed
+- Home shows just your library: what it said about this copy of Kura (the engine, the data
+  folder, the database, TMDB and updates) is in Settings > About now.
+
 ### Fixed
 - The nav rail keeps your place: Home stays lit on the scan, a franchise's page and a title's
   page, and Tidy up on "Which anime is this?".
