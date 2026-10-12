@@ -449,7 +449,7 @@ function Taken(props: { change: ProposedChange; skipped: boolean; onSkip: (on: b
             <CopyCard
               copy={change.compared.there}
               heading="Already there"
-              note={change.compared.thereMoves ? "Moves in this tidy-up" : "Stays as it is"}
+              note={THERE_GOES[change.compared.thereGoes]}
             />
           ) : (
             <p className="rounded-16 border border-edge bg-white/3 p-4 text-12 text-fg-muted">
@@ -469,6 +469,13 @@ function Taken(props: { change: ProposedChange; skipped: boolean; onSkip: (on: b
     </fieldset>
   );
 }
+
+/** What the file at a taken name does in the same tidy-up, as the comparison says it. */
+const THERE_GOES = {
+  stays: "Stays as it is",
+  leaves: "Moves in this tidy-up",
+  arrives: "Filed there in this tidy-up",
+} as const;
 
 /** The name a "(2)" was added to: "Ep 05 (2).mkv" wanted "Ep 05.mkv". */
 function unnumbered(path: string): string {

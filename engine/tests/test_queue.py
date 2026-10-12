@@ -17,6 +17,7 @@ from kura import changes
 from kura.changes import changes_of, save_plan
 from kura.config import DataPaths
 from kura.convert import WORKING, ConvertError, Programs, room_for, work_of
+from kura.convert import room_for as converting_reckons
 from kura.core.fields import Json
 from kura.core.media import media_from_ffprobe
 from kura.core.plan import Change, ChangeKind, Plan
@@ -685,17 +686,64 @@ def test_paused_by_the_owner_files_waiting_for_room_say_nothing_of_it(
     assert [job.no_room for job in status.queued] == [False]
 
 
-def test_room_is_measured_where_the_file_is_as_converting_measures_it(
-    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
-):
-    def usage(path: object) -> SimpleNamespace:  # the library folder is a full volume, mounted
+def mounted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The library folder is a full volume mounted into a drive that has plenty of room."""
+
+    def usage(path: object) -> SimpleNamespace:
         free = 10**12 if str(path).rstrip("\\").endswith(":") else 10**6
         return SimpleNamespace(total=10**13, used=10**13 - free, free=free)
 
     monkeypatch.setattr("kura.convert.shutil.disk_usage", usage)
+
+
+def test_room_is_measured_where_the_file_is_as_converting_measures_it(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    mounted(monkeypatch)
     queue.add([1], fit=[shows.drive])
 
     assert queue.work_once() is False  # it waits for room, rather than failing to start
+    status = queue.status()  # and says so
+    assert status.room is not None
+    assert status.room.free == 10**6
+    assert [job.no_room for job in status.queued] == [True]
+
+
+def test_a_mounted_volume_without_room_pauses_the_queue_and_says_why(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    mounted(monkeypatch)
+    queue.add([1])
+
+    queue.work_once()
+
+    status = queue.status()
+    assert status.paused is True
+    assert status.room is not None  # the card, with its ways on
+    assert (status.room.paused, status.room.free) == (True, 10**6)
+
+
+def test_what_a_removed_file_wanted_is_forgotten_though_its_number_comes_again(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    free_space(monkeypatch, 10**9)  # room for an episode, not a film
+    a_film(conn, 1)
+    queue.add([1], fit=[shows.drive])
+
+    def reckoned(*_: object) -> int:  # the queue reckons the film fits
+        return 1
+
+    monkeypatch.setattr("kura.queue.room_for", reckoned)
+    queue.work_once()  # converting finds it doesn't
+    monkeypatch.setattr("kura.queue.room_for", converting_reckons)
+    [film] = queue.status().queued
+    queue.remove(film.id)
+
+    queue.add([2], fit=[shows.drive])  # an episode, which SQLite numbers as the film was
+
+    [episode] = queue.status().queued
+    assert episode.id == film.id
+    assert queue.work_once() is True  # what the film wanted isn't held against it
 
 
 def test_a_file_converting_finds_without_room_waits_rather_than_starting_again_and_again(

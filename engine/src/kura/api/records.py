@@ -20,6 +20,7 @@ class Damage(ApiModel):
     """Kura's records are damaged: what's wrong, and the newest backup that opens."""
 
     problem: str  # in SQLite's words: "file is not a database"
+    bad_read: bool  # the disk couldn't read them: trying again may be all it needs
     backup: str | None  # the backup's name: "kura 2026-10-11 0300.db"
     made: str | None  # when it was made, local time: "2026-10-11T03:00:00"
 
@@ -34,6 +35,7 @@ def records(request: Request) -> Damage | None:
     backup = found.backup
     return Damage(
         problem=found.problem,
+        bad_read=found.bad_read,
         backup=backup.name if backup else None,
         made=backup.made.isoformat() if backup else None,
     )

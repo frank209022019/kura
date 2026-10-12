@@ -87,7 +87,12 @@ def test_an_engine_with_damaged_records_stays_up_to_offer_the_way_back(tmp_path:
         engine.stdin.close()
         assert engine.wait(timeout=30) == 0
 
-    assert found == {"problem": "file is not a database", "backup": None, "made": None}
+    assert found == {
+        "problem": "file is not a database",
+        "badRead": False,
+        "backup": None,
+        "made": None,
+    }
 
 
 def test_an_engine_that_cant_start_says_so_and_ends_cleanly(tmp_path: Path):

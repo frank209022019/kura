@@ -49,6 +49,7 @@ function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string
 
 const DAMAGED = {
   problem: "file is not a database",
+  badRead: false,
   backup: "kura 2026-09-20 0300.db",
   made: "2026-09-20T03:00:00",
 };
@@ -68,6 +69,7 @@ describe("DamagedRecords", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("The home page")).not.toBeInTheDocument();
     expect(screen.getByText(/SQLite says: file is not a database\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument(); // no use
 
     fireEvent.click(
       screen.getByRole("button", { name: "Restore the backup from 20 September 03:00" }),
@@ -80,11 +82,16 @@ describe("DamagedRecords", () => {
     );
   });
 
-  it("tries again without changing anything, in case the disk was only busy", async () => {
-    const fetch = fakeEngine({ "/records": DAMAGED });
+  it("offers to try again first when the disk couldn't read them", async () => {
+    const fetch = fakeEngine({
+      "/records": { ...DAMAGED, problem: "disk I/O error", badRead: true },
+    });
     renderShell();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("button", { name: "Restore the backup from 20 September 03:00" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("restart_engine"));
     expect(fetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);

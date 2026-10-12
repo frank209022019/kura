@@ -71,10 +71,12 @@ server).
   same way, as the engine starts and before anything else opens the database, and migrates it if
   an older Kura made it.
 - As the engine starts, `kura/rescue.py` checks the records (`PRAGMA quick_check`): damaged ones
-  (SQLite's `SQLITE_CORRUPT` or `SQLITE_NOTADB`, or a check that doesn't come back `ok`) can't be
-  backed up with the backup API, so restoring over them renames them aside instead, `-wal` first,
-  so a new `kura.db` never meets an old write-ahead log. Another program holding the file isn't
-  damage: the engine fails to start, saying why.
+  (SQLite's `SQLITE_CORRUPT` or `SQLITE_NOTADB`, a disk that can't read them,
+  `SQLITE_IOERR_READ` or `_SHORT_READ`, or a check that doesn't come back `ok`) can't be backed up
+  with the backup API, so restoring over them renames them aside instead, `-wal` first, so a new
+  `kura.db` never meets an old write-ahead log. For a read error the app offers Try again first
+  (the drive may have been away a moment). Another program holding the file isn't damage
+  (`SQLITE_BUSY`): the engine fails to start, saying why.
 - The exported `kura.db` is switched to `journal_mode = DELETE`, so it is one self-contained file.
 
 ## Looking inside

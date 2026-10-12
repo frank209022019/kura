@@ -41,7 +41,9 @@ class Compared(ApiModel):
 
     there: CopyFacts | None
     coming: CopyFacts
-    there_moves: bool  # the file there moves (or is set aside) in the same tidy-up
+    # What the file there does in the same tidy-up: stays, leaves (moved or set aside), or
+    # arrives there (another video filed to that name).
+    there_goes: Literal["stays", "leaves", "arrives"]
 
 
 class ProposedChange(ApiModel):
@@ -281,12 +283,12 @@ def _problem(change: SavedChange) -> ChangeProblem:
 
 
 def _compared(
-    found: tuple[tidy.CopyFacts | None, tidy.CopyFacts, bool] | None,
+    found: tuple[tidy.CopyFacts | None, tidy.CopyFacts, tidy.Goes] | None,
 ) -> Compared | None:
     if found is None:
         return None
-    there, coming, moves = found
-    return Compared(there=_copy(there) if there else None, coming=_copy(coming), there_moves=moves)
+    there, coming, goes = found
+    return Compared(there=_copy(there) if there else None, coming=_copy(coming), there_goes=goes)
 
 
 def _copy(copy: tidy.CopyFacts) -> CopyFacts:

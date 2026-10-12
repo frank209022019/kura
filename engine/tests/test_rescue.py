@@ -6,7 +6,7 @@ from contextlib import closing
 from datetime import datetime, timedelta
 
 from kura import db
-from kura.backups import back_up, damaged, last_restore
+from kura.backups import back_up, bad_read, damaged, last_restore
 from kura.config import DataPaths
 from kura.rescue import damage, restore_newest, start_afresh
 from tests.damaged import naming_of, records, scribble
@@ -69,6 +69,17 @@ def test_a_disk_that_cant_read_the_records_is_damage_and_a_busy_one_isnt():
 
     assert damaged(bad_sector) is True
     assert damaged(busy) is False
+    assert bad_read(bad_sector) is True  # trying again may be all it needs
+
+
+def test_a_scribbled_file_isnt_a_bad_read(paths: DataPaths):
+    records(paths, "keep")
+    scribble(paths)
+
+    found = damage(paths)
+
+    assert found is not None
+    assert found.bad_read is False  # trying again won't help: it's in the file
 
 
 def test_with_no_backup_that_opens_none_is_offered(paths: DataPaths):

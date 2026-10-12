@@ -200,6 +200,7 @@ def what_to_convert(conn: Database) -> ConvertOptions:
            ORDER BY t.released, t.name, f.season, f.episode, f.path"""
     ).fetchall()
     found: list[Convertible] = []
+    places: dict[str, str] = {}  # each drive, by where a file on it is
     for row in rows:
         media = media_from_ffprobe(json.loads(row["probe"]))
         video = media.video
@@ -207,6 +208,7 @@ def what_to_convert(conn: Database) -> ConvertOptions:
         if video is None or decision.method not in CONVERTED:
             continue
         broken = row["problem"] is not None
+        places.setdefault(drive_of(row["path"]), str(Path(row["path"]).parent))
         ways: dict[str, Estimate] = {}
         output = 0
         if not broken:
@@ -239,7 +241,7 @@ def what_to_convert(conn: Database) -> ConvertOptions:
     return ConvertOptions(
         standard=standard.name,
         files=found,
-        free=_free({file.drive for file in found}),
+        free=_free(places),
         set_aside=set_aside_by_drive(conn),
     )
 
@@ -440,11 +442,13 @@ def _job(job: conversions.Job) -> Job:
     return Job.model_validate({**job.__dict__, "method": job.method.value})
 
 
-def _free(drives: set[str]) -> dict[str, int]:
+def _free(places: dict[str, str]) -> dict[str, int]:
+    """Bytes free on each drive, measured where a file on it is (a folder can be another volume,
+    mounted there), as converting measures."""
     free: dict[str, int] = {}
-    for drive in sorted(drives):
+    for drive, folder in sorted(places.items()):
         try:
-            free[drive] = shutil.disk_usage(f"{drive}\\").free
+            free[drive] = shutil.disk_usage(folder).free
         except OSError:
             continue  # unplugged
     return free

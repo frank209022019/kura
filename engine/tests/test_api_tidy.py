@@ -76,7 +76,7 @@ def test_a_name_another_file_has_gets_2_and_the_proposal_says_so(
     assert compared["there"]["path"] == str(root / there)
     assert (compared["there"]["height"], compared["there"]["plays"]) == (540, True)
     assert compared["coming"]["path"] == bebop["source"]
-    assert compared["thereMoves"] is False  # it stays where it is
+    assert compared["thereGoes"] == "stays"
 
 
 def test_comparing_says_when_the_file_at_the_name_moves_too(
@@ -96,7 +96,7 @@ def test_comparing_says_when_the_file_at_the_name_moves_too(
     [bebop] = [c for c in client.get("/tidy").json()["changes"] if c["source"] == bebop["source"]]
 
     assert bebop["taken"] is True
-    assert bebop["compared"]["thereMoves"] is True
+    assert bebop["compared"]["thereGoes"] == "leaves"
 
 
 def reviewed(changes: list[dict[str, str]]) -> list[dict[str, str]]:

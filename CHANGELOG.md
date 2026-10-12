@@ -15,8 +15,8 @@ shows these notes when it offers the update.
 - Records damaged so badly they won't open (a disk fault, a power cut mid-write) no longer stop
   Kura starting: it says so, offers the newest backup that opens, and keeps the damaged file
   beside the records as it is. With no backup, it starts again with new records, as on its first
-  day; Try again looks once more, in case the disk was only busy. While Kura waits in the tray,
-  a notification says so.
+  day. When it was the disk that couldn't read them (a drive away a moment), Try again comes
+  first. While Kura waits in the tray, a notification says so.
 - Not enough space: when a drive hasn't room for what's queued, the queue pauses and says what
   the files there need and what's free. Empty quarantine first (Kura asks once more, since
   what's set aside there goes for good), or convert the ones that fit now: the rest wait for room

@@ -58,6 +58,10 @@ type Category = Literal["rename", "mixed", "duplicate"]
 _PLACEHOLDER = re.compile(r"^Episode \d+$")
 
 
+# What the file at a taken name does in the same tidy-up: stays, leaves, or arrives there.
+type Goes = Literal["stays", "leaves", "arrives"]
+
+
 @dataclass(frozen=True)
 class CopyFacts:
     """What decides between two copies of one episode, as the screen compares them."""
@@ -82,9 +86,9 @@ class Proposed:
     title: str
     video: Path  # the video the change is of: itself, or the one subtitles go with
     # A name another file had, so it gets "(2)": the file there (one in the library, or another
-    # video going there; None when Kura doesn't know it), this one, to compare, and whether the
-    # one there moves in the same tidy-up.
-    compared: tuple[CopyFacts | None, CopyFacts, bool] | None = None
+    # video going there; None when Kura doesn't know it), this one, to compare, and what the one
+    # there does in the same tidy-up.
+    compared: tuple[CopyFacts | None, CopyFacts, Goes] | None = None
 
 
 @dataclass(frozen=True)
@@ -176,9 +180,8 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
             continue
         compared = None
         if change.reason.endswith(KEPT_BOTH):
-            there = _there(change, files, going)
-            moves = there is not None and str(there.path).casefold() in leaving
-            compared = (there, _facts(video.placed.copy), moves)
+            there, goes = _there(change, files, going, leaving)
+            compared = (there, _facts(video.placed.copy), goes)
         category: Category = (
             "duplicate"
             if change.kind is ChangeKind.QUARANTINE
@@ -556,18 +559,19 @@ def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
 
 
 def _there(
-    change: Change, files: dict[str, sqlite3.Row], going: dict[str, _Video]
-) -> CopyFacts | None:
-    """The file at the name a change wanted, which it gets "(2)" beside: one in the library, or
-    another video going there in the same tidy-up."""
+    change: Change, files: dict[str, sqlite3.Row], going: dict[str, _Video], leaving: set[str]
+) -> tuple[CopyFacts | None, Goes]:
+    """The file at the name a change wanted, which it gets "(2)" beside: one in the library
+    (which stays, or leaves in the same tidy-up), or another video filed there in it."""
     target = PureWindowsPath(change.target)
     wanted = str(target.with_name(_NUMBERED.sub("", target.stem) + target.suffix)).casefold()
     if (row := files.get(wanted)) is not None:
         path = PureWindowsPath(row["path"])
-        return _facts(Copy(path, _media(row["probe"]), broken=row["problem"] is not None))
+        facts = _facts(Copy(path, _media(row["probe"]), broken=row["problem"] is not None))
+        return facts, "leaves" if wanted in leaving else "stays"
     if (video := going.get(wanted)) is not None:
-        return _facts(video.placed.copy)
-    return None
+        return _facts(video.placed.copy), "arrives"
+    return None, "stays"
 
 
 _NUMBERED = re.compile(r" \(\d+\)$")  # the "(2)" a name gets beside a file that has it

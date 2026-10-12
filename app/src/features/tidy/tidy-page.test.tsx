@@ -171,7 +171,7 @@ describe("TidyPage", () => {
       ...BEBOP_1,
       target: `${ROOT}\\${wanted} (2).mkv`,
       taken: true,
-      compared: { there, coming, thereMoves: false },
+      compared: { there, coming, thereGoes: "stays" as const },
     };
     const subtitles = change(
       "Downloads\\[Hi10] Cowboy_Bebop_-_01_(BD_720p).en.srt",

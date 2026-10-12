@@ -183,6 +183,8 @@ export const useHealth = () => useEngineQuery<Health>("/health");
 export interface Damage {
   /** In SQLite's words: "file is not a database". */
   problem: string;
+  /** The disk couldn't read them (a drive away a moment): trying again may be all it needs. */
+  badRead: boolean;
   /** The backup's name ("kura 2026-10-11 0300.db"), or null when none opens. */
   backup: string | null;
   /** When it was made, local time. */
@@ -761,10 +763,14 @@ export interface ProposedChange {
   /** Its name was another file's, so it gets "(2)": Kura never overwrites a file. */
   taken: boolean;
   /**
-   * When it was taken: the file there (null when Kura doesn't know it), this one, and whether the
-   * one there moves (or is set aside) in the same tidy-up.
+   * When it was taken: the file there (null when Kura doesn't know it), this one, and what the
+   * one there does in the same tidy-up: stays, leaves (moved or set aside), or arrives there.
    */
-  compared: { there: CopyFacts | null; coming: CopyFacts; thereMoves: boolean } | null;
+  compared: {
+    there: CopyFacts | null;
+    coming: CopyFacts;
+    thereGoes: "stays" | "leaves" | "arrives";
+  } | null;
   /** The video the change is of: itself, or the one subtitles go with. */
   video: string;
 }

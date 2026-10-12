@@ -15,12 +15,12 @@ from kura.backups import (
     Backup,
     BackupError,
     backups,
+    bad_read,
     checks_out,
     damaged,
     note_restored,
     restore,
     set_aside,
-    unreadable,
 )
 from kura.config import DataPaths
 
@@ -31,15 +31,18 @@ class Damage:
 
     problem: str  # in SQLite's words: "file is not a database"
     backup: Backup | None  # the newest backup that opens, if there is one
+    bad_read: bool = False  # the disk couldn't read them: trying again may be all it needs
 
 
 def damage(paths: DataPaths) -> Damage | None:
     """As the engine starts: what's wrong with Kura's records, if they're damaged, and the newest
     backup that opens. None when they're fine, or there are none yet (a first start)."""
-    problem = unreadable(paths.database) or _fault(paths)
-    if problem is None:
+    found = _fault(paths)
+    if found is None:
         return None
-    return Damage(problem, next((b for b in backups(paths) if checks_out(paths, b)), None))
+    problem, unread = found
+    newest = next((b for b in backups(paths) if checks_out(paths, b)), None)
+    return Damage(problem, newest, bad_read=unread)
 
 
 def restore_newest(paths: DataPaths, now: datetime) -> Backup:
@@ -59,15 +62,18 @@ def start_afresh(paths: DataPaths, now: datetime) -> None:
     set_aside(paths, now)
 
 
-def _fault(paths: DataPaths) -> str | None:
-    """What's wrong inside records that open, in SQLite's words; None when they check out."""
+def _fault(paths: DataPaths) -> tuple[str, bool] | None:
+    """What's wrong with Kura's records, in SQLite's words, and whether it's the disk that
+    couldn't read them; None when they open and check out, or aren't there yet."""
     if not paths.database.exists():
         return None
     try:
+        with closing(sqlite3.connect(paths.database)) as conn:  # its first page, as it is
+            conn.execute("PRAGMA schema_version").fetchone()
         with closing(db.connect(paths.database)) as conn:
             [verdict] = conn.execute("PRAGMA quick_check(1)").fetchone()
     except sqlite3.DatabaseError as error:
         if not damaged(error):
             raise  # not damage (another program holding it, say): the engine says why
-        return str(error)
-    return None if verdict == "ok" else str(verdict)
+        return str(error), bad_read(error)
+    return None if verdict == "ok" else (str(verdict), False)

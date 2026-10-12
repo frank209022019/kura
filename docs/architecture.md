@@ -247,13 +247,16 @@ the original back on asking. Before queueing, the Convert screen shows one frame
 and after (`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the
 cache.
 
-A drive without room for a result (its estimated size with a margin, `convert.room_for`) pauses
-the queue, which says what the files waiting there want and what's free (`queue.Room`); the
-Convert screen works out the same before queueing a choice. The owner can empty that drive's
-quarantine first (`quarantine.empty`: everything set aside there goes for good, so the app asks
-once more), or convert what fits (`Queue.convert_what_fits`): the files there that fit convert
-in turn and the rest wait for room while the others go, starting by themselves once there is,
-till none waits there (then a full drive pauses the queue again, to ask).
+A drive without room for a result (its estimated size with a margin, `convert.room_for`, free
+space measured at the file's own folder, which may be another volume mounted there) pauses the
+queue, which says what the files waiting there want and what's free (`queue.Room`); the Convert
+screen works out the same before queueing a choice. A file that turns out, as converting starts,
+to want more than the queue reckoned (a picture found interlaced is made anew) is remembered as
+wanting that much. The owner can empty that drive's quarantine first (`quarantine.empty`:
+everything set aside there goes for good, so the app asks once more), or convert what fits
+(`Queue.convert_what_fits`): the files there that fit convert in turn and the rest wait for room
+while the others go, starting by themselves once there is, till none waits there (then a full
+drive pauses the queue again, to ask).
 
 ## Data
 
@@ -286,9 +289,9 @@ till none waits there (then a full drive pauses the queue again, to ask).
   else opens them; the engine then answers only `/records` and `/health`, tells the app (a
   notification, while Kura waits in the tray), and the app's window shows the way back in place
   of every page: the newest backup that opens, restored over them, or, with none, new records as
-  on Kura's first day. Either way the damaged file is set aside as it is, never deleted
-  (`kura (damaged 2026-10-12 0930).db`, with its `-wal`, beside where it was), and the app starts
-  the engine again.
+  on Kura's first day (when the disk couldn't read them, Try again comes first). Either way the
+  damaged file is set aside as it is, never deleted (`kura (damaged 2026-10-12 0930).db`, with its
+  `-wal`, beside where it was), and the app starts the engine again.
 - **With the anime**: `Kura - Gap analysis.md` per anime (the owner can turn these off in
   Settings, which takes them out of the folders), later `Kura - History.md`, a tag inside each
   converted MKV, and, when the owner turns them on, `poster.jpg` and `fanart.jpg` in each show's

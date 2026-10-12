@@ -181,6 +181,18 @@ def test_waiting_files_can_be_moved_skipped_removed_and_tried_again(
     assert client.post("/queue/99/skip").status_code == 404
 
 
+def test_the_room_said_is_where_the_files_are(
+    client: TestClient, shelf: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def usage(path: object) -> SimpleNamespace:  # a full volume, mounted into a roomy drive
+        free = 10**12 if str(path).rstrip("\\").endswith(":") else 10**6
+        return SimpleNamespace(total=10**13, used=10**13 - free, free=free)
+
+    monkeypatch.setattr("kura.convert.shutil.disk_usage", usage)
+
+    assert client.get("/convert").json()["free"] == {shelf.drive: 10**6}
+
+
 def test_a_drive_without_room_pauses_the_queue_till_it_converts_what_fits(
     client: TestClient, converting: Queue, shelf: Path, monkeypatch: pytest.MonkeyPatch
 ):

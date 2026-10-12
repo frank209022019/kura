@@ -40,6 +40,7 @@ def test_damaged_records_leave_only_the_way_back(paths: DataPaths):
     with started(paths, told) as client:
         assert client.get("/records").json() == {
             "problem": "file is not a database",
+            "badRead": False,
             "backup": made.name,
             "made": "2026-10-11T03:00:00",
         }

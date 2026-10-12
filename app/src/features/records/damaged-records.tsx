@@ -7,24 +7,43 @@ import { madeAt } from "@/lib/format";
  * Kura's records are damaged past use (kura.db won't open): the engine answers nothing else, so
  * this stands in for every page till a way back is taken. The newest backup that opens takes the
  * records back to when it was made; with none, Kura starts again with new records, as on its
- * first day. The damaged file stays beside them either way, and the library isn't touched.
+ * first day. The damaged file stays beside them either way, and the library isn't touched. When
+ * it was the disk that couldn't read them (a drive away a moment), trying again comes first.
  */
 export function DamagedRecords({ damage }: { damage: Damage }) {
   const action = useRecordsAction();
-  const [starting, setStarting] = useState(false);
-  const [trying, setTrying] = useState(false); // starting again as it was, to look once more
+  const [starting, setStarting] = useState<string | null>(null); // what Kura starts again with
   const when = damage.made ? madeAt(damage.made) : null;
+  const way = when
+    ? {
+        path: "/records/restore",
+        label: `Restore the backup from ${when}`,
+        offer: `The newest backup that opens is from ${when}. Restoring it takes Kura's records back to then.`,
+        after: `Kura is starting again with the backup from ${when}.`,
+      }
+    : {
+        path: "/records/new",
+        label: "Start with new records",
+        offer:
+          "No backup opens either. Kura can start again with new records, as on its first day: you choose your folders again, and nothing in them changes.",
+        after: "Kura is starting again with new records.",
+      };
 
-  function take(path: string) {
+  function takeTheWayBack() {
     action.mutate(
-      { path },
+      { path: way.path },
       {
         onSuccess: () => {
-          setStarting(true);
+          setStarting(way.after);
           void restartEngine();
         },
       },
     );
+  }
+
+  function tryAgain() {
+    setStarting("Kura is starting again, to read its records once more.");
+    void restartEngine();
   }
 
   return (
@@ -32,8 +51,10 @@ export function DamagedRecords({ damage }: { damage: Damage }) {
       <header className="page-top flex max-w-2xl animate-fade-up flex-col gap-1.5">
         <h1 className="type-title">Kura's records are damaged</h1>
         <p className="text-14 text-fg-muted">
-          Kura can't read kura.db, where it keeps what it knows about your library. Your anime files
-          are as they were.
+          {damage.badRead
+            ? "Kura couldn't read kura.db, where it keeps what it knows about your library, off its disk."
+            : "Kura can't read kura.db, where it keeps what it knows about your library."}{" "}
+          Your anime files are as they were.
         </p>
       </header>
       <section
@@ -42,36 +63,27 @@ export function DamagedRecords({ damage }: { damage: Damage }) {
       >
         {starting ? (
           <p role="status" className="text-15">
-            {trying
-              ? "Kura is starting again, to look at its records once more."
-              : `Kura is starting again ${when ? `with the backup from ${when}` : "with new records"}.`}
+            {starting}
           </p>
-        ) : when ? (
+        ) : damage.badRead ? (
           <>
             <p className="text-15">
-              The newest backup that opens is from {when}. Restoring it takes Kura's records back to
-              then.
+              If its drive was away for a moment, trying again is all it needs. {way.offer}
             </p>
-            <Button
-              variant="primary"
-              disabled={action.isPending}
-              onClick={() => take("/records/restore")}
-            >
-              Restore the backup from {when}
-            </Button>
+            <div className="flex flex-wrap gap-2.5">
+              <Button variant="primary" onClick={tryAgain}>
+                Try again
+              </Button>
+              <Button disabled={action.isPending} onClick={takeTheWayBack}>
+                {way.label}
+              </Button>
+            </div>
           </>
         ) : (
           <>
-            <p className="text-15">
-              No backup opens either. Kura can start again with new records, as on its first day:
-              you choose your folders again, and nothing in them changes.
-            </p>
-            <Button
-              variant="primary"
-              disabled={action.isPending}
-              onClick={() => take("/records/new")}
-            >
-              Start with new records
+            <p className="text-15">{way.offer}</p>
+            <Button variant="primary" disabled={action.isPending} onClick={takeTheWayBack}>
+              {way.label}
             </Button>
           </>
         )}
@@ -82,22 +94,7 @@ export function DamagedRecords({ damage }: { damage: Damage }) {
         )}
         <p className="text-12 text-fg-faint">
           Kura keeps the damaged file beside its records, as it is. SQLite says: {damage.problem}.
-          If the disk was only busy a moment, trying again may be all it needs.
         </p>
-        {!starting && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={action.isPending}
-            onClick={() => {
-              setStarting(true);
-              setTrying(true);
-              void restartEngine();
-            }}
-          >
-            Try again
-          </Button>
-        )}
       </section>
     </>
   );

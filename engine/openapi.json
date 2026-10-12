@@ -2512,16 +2512,21 @@
           "coming": {
             "$ref": "#/components/schemas/CopyFacts"
           },
-          "thereMoves": {
-            "type": "boolean",
-            "title": "Theremoves"
+          "thereGoes": {
+            "type": "string",
+            "enum": [
+              "stays",
+              "leaves",
+              "arrives"
+            ],
+            "title": "Theregoes"
           }
         },
         "type": "object",
         "required": [
           "there",
           "coming",
-          "thereMoves"
+          "thereGoes"
         ],
         "title": "Compared",
         "description": "A name another file has: that file, when Kura knows it, and the one coming, to compare."
@@ -2793,6 +2798,10 @@
             "type": "string",
             "title": "Problem"
           },
+          "badRead": {
+            "type": "boolean",
+            "title": "Badread"
+          },
           "backup": {
             "anyOf": [
               {
@@ -2819,6 +2828,7 @@
         "type": "object",
         "required": [
           "problem",
+          "badRead",
           "backup",
           "made"
         ],

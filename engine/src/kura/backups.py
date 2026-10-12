@@ -292,6 +292,12 @@ def unreadable(database: Path) -> str | None:
     return None
 
 
+def bad_read(error: sqlite3.Error) -> bool:
+    """Whether SQLite failed because the disk couldn't read the database (a bad sector, a drive
+    that went a moment): trying again may be all it needs."""
+    return error.sqlite_errorcode in _BAD_READS
+
+
 def damaged(error: sqlite3.Error) -> bool:
     """Whether SQLite failed because the database is corrupt, isn't one any more, or can't be
     read off the disk (a bad sector)."""
