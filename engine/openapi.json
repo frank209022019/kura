@@ -2497,6 +2497,30 @@
         ],
         "title": "Chosen"
       },
+      "Compared": {
+        "properties": {
+          "there": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CopyFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coming": {
+            "$ref": "#/components/schemas/CopyFacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "there",
+          "coming"
+        ],
+        "title": "Compared",
+        "description": "A name another file has: that file, when Kura knows it, and the one coming, to compare."
+      },
       "Conversion": {
         "properties": {
           "jobId": {
@@ -3977,6 +4001,20 @@
           "taken": {
             "type": "boolean",
             "title": "Taken"
+          },
+          "compared": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Compared"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "video": {
+            "type": "string",
+            "title": "Video"
           }
         },
         "type": "object",
@@ -3990,7 +4028,9 @@
           "category",
           "titleId",
           "title",
-          "taken"
+          "taken",
+          "compared",
+          "video"
         ],
         "title": "ProposedChange"
       },

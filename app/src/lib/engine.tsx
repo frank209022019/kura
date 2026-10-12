@@ -760,6 +760,10 @@ export interface ProposedChange {
   title: string;
   /** Its name was another file's, so it gets "(2)": Kura never overwrites a file. */
   taken: boolean;
+  /** When it was taken: the file there (null when Kura doesn't know it) and this one. */
+  compared: { there: CopyFacts | null; coming: CopyFacts } | null;
+  /** The video the change is of: itself, or the one subtitles go with. */
+  video: string;
 }
 
 /** What decides between two copies of one episode. */

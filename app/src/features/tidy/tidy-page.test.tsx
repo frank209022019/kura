@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type ProposedChange, type TidyProposal } from "@/lib/engine";
@@ -30,6 +30,8 @@ function change(
     titleId: 1,
     title: "Cowboy Bebop",
     taken: false,
+    compared: null,
+    video: `${ROOT}\\${source}`,
     ...more,
   };
 }
@@ -152,22 +154,61 @@ describe("TidyPage", () => {
     expect(screen.getAllByRole("button", { name: "Apply 4 changes" })).toHaveLength(2);
   });
 
-  it("says when a name was another file's, so the new one gets (2)", async () => {
+  it("says when a name was another file's, compares the two, and skips this one", async () => {
+    const wanted =
+      "TV\\Cowboy Bebop (1998)\\Season 01\\Cowboy Bebop (1998) - S01E01 - Asteroid Blues";
+    const there = {
+      path: `${ROOT}\\${wanted}.mkv`,
+      height: 1080,
+      codec: "hevc",
+      audio: ["jpn"],
+      subtitles: 2,
+      size: 1_200_000_000,
+      plays: true,
+    };
+    const coming = { ...there, path: BEBOP_1.source, height: 720, codec: "h264" };
     const taken = {
       ...BEBOP_1,
-      target: BEBOP_1.target.replace("Blues.mkv", "Blues (2).mkv"),
+      target: `${ROOT}\\${wanted} (2).mkv`,
       taken: true,
+      compared: { there, coming },
     };
-    fakeEngine({ "/tidy": { ...PROPOSAL, changes: [taken, DEATH_NOTE_7] } });
+    const subtitles = change(
+      "Downloads\\[Hi10] Cowboy_Bebop_-_01_(BD_720p).en.srt",
+      `${wanted} (2).en.srt`,
+      "Cowboy Bebop · S01E01",
+      { reason: "Follows its video", video: BEBOP_1.source },
+    );
+    const fetch = fakeEngine({
+      "/tidy": { ...PROPOSAL, changes: [taken, subtitles, DEATH_NOTE_7] },
+      "POST /tidy": { planId: 4, moved: 1, quarantined: 0, problems: [] },
+    });
     renderTidy();
 
-    const bebop = await screen.findByRole("region", { name: "Cowboy Bebop" });
-    expect(bebop).toHaveTextContent(
-      "A file with this name is already there, so this one gets (2). Kura never overwrites a file.",
+    const named = await screen.findByRole("group", { name: "Name already taken" });
+    expect(named).toHaveTextContent("A file with this name is already there");
+    expect(named).toHaveTextContent(`${wanted}.mkv`);
+    expect(named).toHaveTextContent(
+      "Kura never overwrites a file. Keep both adds (2) to the new one.",
     );
     expect(screen.getByRole("region", { name: "Death Note" })).not.toHaveTextContent(
       "already there",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Compare the two" }));
+    expect(named).toHaveTextContent("Already there");
+    expect(named).toHaveTextContent("1080p · HEVC");
+    expect(named).toHaveTextContent("720p · H.264");
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(named).toHaveTextContent("Skipped: it stays where it is this time");
+    const [applying] = screen.getAllByRole("button", { name: "Apply 1 change" });
+    fireEvent.click(applying as HTMLElement);
+
+    await waitFor(() => expect(sent(fetch, "POST", "/tidy")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
+    const applied = JSON.parse(String(init.body)).changes as { source: string }[];
+    expect(applied.map((c) => c.source)).toEqual([DEATH_NOTE_7.source]); // with its subtitles
   });
 
   it("compares two copies, and keeps the other one when asked", async () => {

@@ -36,6 +36,13 @@ class Duplicate(ApiModel):
     reason: str
 
 
+class Compared(ApiModel):
+    """A name another file has: that file, when Kura knows it, and the one coming, to compare."""
+
+    there: CopyFacts | None
+    coming: CopyFacts
+
+
 class ProposedChange(ApiModel):
     kind: Literal["move", "quarantine"]
     source: str
@@ -47,6 +54,8 @@ class ProposedChange(ApiModel):
     title_id: int
     title: str
     taken: bool  # its name was another file's, so it gets "(2)": Kura never overwrites a file
+    compared: Compared | None  # when it was taken: the file there and this one
+    video: str  # the video the change is of: itself, or the one subtitles go with
 
 
 class SkippedFile(ApiModel):
@@ -158,6 +167,8 @@ def proposal(conn: Database, keep: Keep = []) -> TidyProposal:  # noqa: B006 - F
                 title_id=p.title_id,
                 title=p.title,
                 taken=p.change.reason.endswith(KEPT_BOTH),
+                compared=_compared(p.compared),
+                video=str(p.video),
             )
             for p in found.changes
         ],
@@ -266,6 +277,13 @@ def _problem(change: SavedChange) -> ChangeProblem:
     return ChangeProblem(
         label=change.label, source=str(change.source), problem=change.problem or "It failed."
     )
+
+
+def _compared(found: tuple[tidy.CopyFacts | None, tidy.CopyFacts] | None) -> Compared | None:
+    if found is None:
+        return None
+    there, coming = found
+    return Compared(there=_copy(there) if there else None, coming=_copy(coming))
 
 
 def _copy(copy: tidy.CopyFacts) -> CopyFacts:

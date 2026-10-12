@@ -63,7 +63,7 @@ def test_a_name_another_file_has_gets_2_and_the_proposal_says_so(
     client: TestClient, mixed: sqlite3.Connection, root: Path
 ):
     [_, bebop, _] = client.get("/tidy").json()["changes"]
-    assert bebop["taken"] is False
+    assert (bebop["taken"], bebop["compared"]) == (False, None)
     there = Path(bebop["target"]).relative_to(root)
     library(mixed, root, [str(there)])  # another file at that name, not this episode
 
@@ -71,6 +71,11 @@ def test_a_name_another_file_has_gets_2_and_the_proposal_says_so(
 
     assert bebop["taken"] is True
     assert Path(bebop["target"]).name.endswith(" (2).mkv")
+    assert bebop["video"] == bebop["source"]
+    compared = bebop["compared"]  # the file there, and this one
+    assert compared["there"]["path"] == str(root / there)
+    assert (compared["there"]["height"], compared["there"]["plays"]) == (540, True)
+    assert compared["coming"]["path"] == bebop["source"]
 
 
 def reviewed(changes: list[dict[str, str]]) -> list[dict[str, str]]:

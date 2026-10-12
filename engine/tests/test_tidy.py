@@ -122,6 +122,19 @@ def test_applying_files_the_videos_and_keeps_what_they_are(
     assert propose(downloads, day=NOW.date()).changes == ()  # nothing left to tidy
 
 
+def test_a_video_left_out_keeps_its_subtitles_with_it(downloads: sqlite3.Connection, root: Path):
+    (root / "Dragon Ball Z" / "Dragon Ball Z - 001.en.srt").write_text("subtitles", "utf-8")
+    proposal = propose(downloads, day=NOW.date()).changes
+    [video] = [p for p in proposal if p.change.source.name == "Dragon Ball Z - 001.mkv"]
+    [subtitles] = [p for p in proposal if p.change.source.name.endswith(".en.srt")]
+    assert (video.video, subtitles.video) == (video.change.source, video.change.source)
+
+    apply(downloads, reviewed(p for p in proposal if p is not video), now=NOW)  # skipped
+
+    assert (root / "Dragon Ball Z" / "Dragon Ball Z - 001.mkv").exists()
+    assert (root / "Dragon Ball Z" / "Dragon Ball Z - 001.en.srt").exists()  # stayed with it
+
+
 def test_undo_puts_it_all_back(downloads: sqlite3.Connection, root: Path):
     before = where(root)
     done = apply(downloads, reviewed(propose(downloads, day=NOW.date()).changes), now=NOW)

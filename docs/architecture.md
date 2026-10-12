@@ -186,8 +186,11 @@ change to the database before and after its file moves, so it can be undone (new
 so the engine, when it starts, can settle any move a crash interrupted. A plan counts as applied
 from its first move, so History has it even after a crash, and the moves Kura hadn't reached
 are closed at the next start (tidying up proposes them again). A change and its video's record
-are saved together. Nothing is overwritten: a taken name fails that change, and the rest go
-ahead. A move to another drive copies, checks the copy, and
+are saved together. Nothing is overwritten: a name another file has gets "(2)" in the plan, and
+the review shows the two side by side ("Compare the two") or leaves that video out this time
+("Skip"); a video left out keeps its subtitles with it, whatever was sent, and a name taken
+after the review fails that change while the rest go ahead. A move to another drive copies,
+checks the copy, and
 only then removes the original. Subtitle files named after a video (`Episode 1.en.srt`) move and
 rename with it (and stay with one that couldn't move: another app had it open, say), and folders
 inside a library folder that the moves leave truly empty are removed

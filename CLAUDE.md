@@ -15,10 +15,10 @@ this?"; the watcher; Home's shelf of franchises and series, a page per franchise
 History's undo; converting with the queue (the AI model for SD, Anime4K for 720p, NVENC HEVC
 10-bit, every result checked before it takes its original's place, nights only, full and
 unplugged drives handled); Settings; nightly backups and restoring one; the quarantine cleared
-out daily; the tray with "Start with Windows" and notifications; and most of the small-things
-board (a file open in another app, a crash told on Home, a failed conversion's log and "Mark as
-broken", offline, notes in the window). No release has been tagged yet. Next is in
-[What's next](#whats-next).
+out daily; the tray with "Start with Windows" and notifications; and the small-things board (a
+file open in another app, a crash told on Home, a failed conversion's log and "Mark as broken",
+offline, notes in the window, a name that's taken, not enough space, damaged records, the
+overnight note). No release has been tagged yet. Next is in [What's next](#whats-next).
 
 ## Ground rules
 
@@ -311,13 +311,12 @@ Everything decided so far. Don't ask again; change only with the owner.
    with "Start with Windows" and notifications).
 7. Poster and background pictures next to each show, for media servers: done (optional, off
    unless turned on; the UI never names Plex).
-8. The small-things board: done for a file open in another app, a crash or power cut, a failed
-   conversion, a finished batch, being offline, and a name that's taken (a tidy-up keeps both,
-   the new one with "(2)", and its review says so), not enough space (empty the drive's
-   quarantine first, or convert what fits), records damaged past use (the newest backup that
-   opens, or new records), and the overnight note (keeping the PC awake till 07:00; "Stop at
-   03:00" starts no file after 03:00 that night, the one converting finishing). Still to build:
-   a taken name's "Compare the two" and "Skip".
+8. The small-things board: done (a file open in another app, a crash or power cut, a failed
+   conversion, a finished batch, being offline, a name that's taken: "(2)" beside it, "Compare
+   the two" or "Skip"; not enough space: empty the drive's quarantine first, or convert what
+   fits; records damaged past use: the newest backup that opens, or new records; and the
+   overnight note: keeping the PC awake till 07:00, "Stop at 03:00" starting no file after 03:00
+   that night, the one converting finishing).
 9. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's

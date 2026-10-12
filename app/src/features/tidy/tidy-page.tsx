@@ -33,6 +33,7 @@ export function TidyPage() {
   const scanning = useScan().data?.state === "running";
   const [only, setOnly] = useState<TidyCategory | null>(null);
   const [leftOut, setLeftOut] = useState<number[]>([]);
+  const [skipped, setSkipped] = useState<string[]>([]); // videos left where they are, this time
   const [done, setDone] = useState<TidyResult | null>(null);
   const [undone, setUndone] = useState<TidyResult | null>(null);
 
@@ -46,7 +47,9 @@ export function TidyPage() {
   }
   const found = proposal.data;
   const shown = only ? found.changes.filter((change) => change.category === only) : found.changes;
-  const chosen = shown.filter((change) => !leftOut.includes(change.titleId)); // what's on screen
+  const chosen = shown.filter(
+    (change) => !leftOut.includes(change.titleId) && !skipped.includes(change.video),
+  ); // what's on screen, and not skipped
   const busy = apply.isPending || undo.isPending || scanning;
 
   function applyChosen() {
@@ -57,6 +60,7 @@ export function TidyPage() {
         onSuccess: (result) => {
           setDone(result);
           setLeftOut([]);
+          setSkipped([]);
           setKeep([]);
         },
       },
@@ -144,6 +148,12 @@ export function TidyPage() {
                 onInclude={(on) =>
                   setLeftOut((before) =>
                     on ? before.filter((id) => id !== titleId) : [...before, titleId],
+                  )
+                }
+                skipped={skipped}
+                onSkip={(video, on) =>
+                  setSkipped((before) =>
+                    on ? [...before, video] : before.filter((path) => path !== video),
                   )
                 }
               />
@@ -292,6 +302,8 @@ function TitleChanges(props: {
   changes: ProposedChange[];
   included: boolean;
   onInclude: (on: boolean) => void;
+  skipped: string[];
+  onSkip: (video: string, on: boolean) => void;
 }) {
   const [all, setAll] = useState(false);
   const [first] = props.changes;
@@ -331,7 +343,12 @@ function TitleChanges(props: {
       </label>
       <ul className="flex flex-col">
         {listed.map((change) => (
-          <ChangeRow key={change.source} change={change} />
+          <ChangeRow
+            key={change.source}
+            change={change}
+            skipped={props.skipped.includes(change.video)}
+            onSkip={(on) => props.onSkip(change.video, on)}
+          />
         ))}
       </ul>
       {more > 0 && (
@@ -343,11 +360,21 @@ function TitleChanges(props: {
   );
 }
 
-function ChangeRow({ change }: { change: ProposedChange }) {
+function ChangeRow(props: {
+  change: ProposedChange;
+  skipped: boolean;
+  onSkip: (on: boolean) => void;
+}) {
+  const { change } = props;
   const [name] = split(change.source);
   const quarantine = change.kind === "quarantine";
   return (
-    <li className="flex flex-col gap-1 border-white/6 border-b py-2.5 text-13 last:border-b-0">
+    <li
+      className={cn(
+        "flex flex-col gap-1 border-white/6 border-b py-2.5 text-13 transition-opacity duration-200 last:border-b-0",
+        props.skipped && !change.taken && "opacity-55",
+      )}
+    >
       <span className="flex flex-wrap items-center gap-2">
         <span
           className={cn(
@@ -364,14 +391,84 @@ function ChangeRow({ change }: { change: ProposedChange }) {
         <ArrowRight size={13} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-faint" />
         {quarantine ? change.target : within(change.target, change.root)}
       </span>
-      {change.taken && (
-        <span className="text-12 text-fg-muted">
-          A file with this name is already there, so this one gets (2). Kura never overwrites a
-          file.
-        </span>
+      {change.taken && change.video === change.source && (
+        <Taken change={change} skipped={props.skipped} onSkip={props.onSkip} />
       )}
     </li>
   );
+}
+
+/**
+ * A name another file has (board 5.3): Kura never writes over it, so this one gets "(2)" beside
+ * it, unless the owner skips it this time and it stays where it is, with its subtitles. Comparing
+ * the two shows which is which.
+ */
+function Taken(props: { change: ProposedChange; skipped: boolean; onSkip: (on: boolean) => void }) {
+  const { change } = props;
+  const [comparing, setComparing] = useState(false);
+  const there = change.compared?.there?.path ?? unnumbered(change.target);
+  return (
+    <fieldset
+      aria-label="Name already taken"
+      className="mt-1.5 flex flex-col gap-3 rounded-20 border border-white/10 bg-raised p-4.5"
+    >
+      <span className="font-extrabold text-14">
+        {props.skipped
+          ? "Skipped: it stays where it is this time"
+          : "A file with this name is already there"}
+      </span>
+      <span className="font-mono text-12 text-fg-muted [overflow-wrap:anywhere]">
+        {within(there, change.root)}
+      </span>
+      <div className="flex flex-wrap gap-2">
+        {change.compared && (
+          <Button
+            size="sm"
+            variant="primary"
+            aria-expanded={comparing}
+            onClick={() => setComparing(!comparing)}
+          >
+            Compare the two
+          </Button>
+        )}
+        <Button size="sm" aria-pressed={!props.skipped} onClick={() => props.onSkip(false)}>
+          Keep both
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-pressed={props.skipped}
+          onClick={() => props.onSkip(true)}
+        >
+          Skip
+        </Button>
+      </div>
+      {comparing && change.compared && (
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+          {change.compared.there ? (
+            <CopyCard copy={change.compared.there} heading="Already there" note="Stays as it is" />
+          ) : (
+            <p className="rounded-16 border border-edge bg-white/3 p-4 text-12 text-fg-muted">
+              Kura doesn't know the file that's there: it isn't in your library.
+            </p>
+          )}
+          <CopyCard
+            copy={change.compared.coming}
+            heading="This one"
+            note={props.skipped ? "Stays where it is" : "Gets (2)"}
+          />
+        </div>
+      )}
+      <span className="text-12 text-fg-faint">
+        Kura never overwrites a file. Keep both adds (2) to the new one.
+      </span>
+    </fieldset>
+  );
+}
+
+/** The name a "(2)" was added to: "Ep 05 (2).mkv" wanted "Ep 05.mkv". */
+function unnumbered(path: string): string {
+  return path.replace(/ \(\d+\)(\.[^.\\/]+)$/, "$1");
 }
 
 function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => void }) {
@@ -390,9 +487,9 @@ function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => voi
         <span className="text-12 text-fg-muted">Kura keeps the better one</span>
       </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
-        <CopyCard copy={duplicate.keep} kept />
+        <CopyCard copy={duplicate.keep} heading="Keep" note="Better" kept />
         {duplicate.drop.map((copy) => (
-          <CopyCard key={copy.path} copy={copy} kept={false} />
+          <CopyCard key={copy.path} copy={copy} heading="Quarantine" note="Set aside" />
         ))}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -405,18 +502,19 @@ function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => voi
   );
 }
 
-function CopyCard({ copy, kept }: { copy: CopyFacts; kept: boolean }) {
+function CopyCard(props: { copy: CopyFacts; heading: string; note: string; kept?: boolean }) {
+  const { copy } = props;
   const [name] = split(copy.path);
   return (
     <div
       className={cn(
         "flex flex-col gap-2.5 rounded-16 border p-4",
-        kept ? "border-accent/50 bg-accent/6" : "border-edge bg-white/3",
+        props.kept ? "border-accent/50 bg-accent/6" : "border-edge bg-white/3",
       )}
     >
       <span className="flex items-center justify-between gap-2">
-        <span className="font-extrabold text-13">{kept ? "Keep" : "Quarantine"}</span>
-        <span className="text-11 text-fg-muted">{kept ? "Better" : "Set aside"}</span>
+        <span className="font-extrabold text-13">{props.heading}</span>
+        <span className="text-11 text-fg-muted">{props.note}</span>
       </span>
       <span className="font-mono text-12 [overflow-wrap:anywhere]">{name}</span>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-12">

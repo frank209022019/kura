@@ -35,6 +35,7 @@ from kura.core.library import QUARANTINE_FOLDER
 from kura.core.media import MediaInfo, media_from_ffprobe
 from kura.core.names import film_part
 from kura.core.plan import (
+    KEPT_BOTH,
     Change,
     ChangeKind,
     EpisodeOf,
@@ -58,17 +59,6 @@ _PLACEHOLDER = re.compile(r"^Episode \d+$")
 
 
 @dataclass(frozen=True)
-class Proposed:
-    """A change Kura proposes, with what the tidy-up screen shows of it."""
-
-    change: Change
-    root: Path  # the library folder it's in
-    category: Category  # a rename in place, a move out of a folder of several anime, or a copy
-    title_id: int
-    title: str
-
-
-@dataclass(frozen=True)
 class CopyFacts:
     """What decides between two copies of one episode, as the screen compares them."""
 
@@ -79,6 +69,21 @@ class CopyFacts:
     subtitles: int  # tracks that can be switched off
     size: int
     plays: bool
+
+
+@dataclass(frozen=True)
+class Proposed:
+    """A change Kura proposes, with what the tidy-up screen shows of it."""
+
+    change: Change
+    root: Path  # the library folder it's in
+    category: Category  # a rename in place, a move out of a folder of several anime, or a copy
+    title_id: int
+    title: str
+    video: Path  # the video the change is of: itself, or the one subtitles go with
+    # A name another file had, so it gets "(2)": the file there (one in the library, or another
+    # video going there; None when Kura doesn't know it), and this one, to compare.
+    compared: tuple[CopyFacts | None, CopyFacts] | None = None
 
 
 @dataclass(frozen=True)
@@ -138,7 +143,11 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
     """The changes that would file every identified video for Plex. Nothing changes on disk.
     `keep` holds the copies the owner chose to keep over others of the same episode."""
     videos, skipped = _videos(conn)
-    taken = [row["path"] for row in conn.execute("SELECT path FROM files WHERE gone_at IS NULL")]
+    files = {
+        row["path"].casefold(): row
+        for row in conn.execute("SELECT path, probe, problem FROM files WHERE gone_at IS NULL")
+    }
+    taken = [row["path"] for row in files.values()]
     plan = plan_tidy(
         [video.placed for video in videos],
         PureWindowsPath(),  # every video names its own library folder
@@ -154,12 +163,20 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
             of[str(sidecar).casefold()] = video
     linked = _into_links(plan, of)
     mixed = _mixed_folders(conn)
+    going = {
+        str(c.target).casefold(): of[str(c.source).casefold()]
+        for c in plan.changes
+        if c.kind is ChangeKind.MOVE
+    }
     folders: dict[str, dict[str, str]] = {}
     proposed: list[Proposed] = []
     for change in plan.changes:
         video = of[str(change.source).casefold()]
         if video.id in linked:
             continue
+        compared = None
+        if change.reason.endswith(KEPT_BOTH):
+            compared = (_there(change, files, going), _facts(video.placed.copy))
         category: Category = (
             "duplicate"
             if change.kind is ChangeKind.QUARANTINE
@@ -170,7 +187,17 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
         root = Path(video.placed.root or "")
         if change.kind is ChangeKind.MOVE:
             change = replace(change, target=_as_spelled(change.target, root, folders))
-        proposed.append(Proposed(change, root, category, video.title_id, video.title))
+        proposed.append(
+            Proposed(
+                change,
+                root,
+                category,
+                video.title_id,
+                video.title,
+                Path(video.placed.copy.path),
+                compared,
+            )
+        )
     left = [(Path(video.placed.copy.path), _LINKED) for video in videos if video.id in linked]
     return Proposal(
         tuple(proposed),
@@ -260,7 +287,13 @@ def apply(
         found = now_proposed.get(source)
         if found is None or (found.kind, str(found.target)) != (change.kind, change.target):
             raise ProposalChangedError
-    chosen = [p for p in proposal.changes if str(p.change.source).casefold() in wanted]
+    # Subtitles go only with their video: one the owner left out keeps its subtitles with it.
+    left_out = {key for key in now_proposed if key not in wanted}
+    chosen = [
+        p
+        for p in proposal.changes
+        if str(p.change.source).casefold() in wanted and str(p.video).casefold() not in left_out
+    ]
     plan_id = save_plan(conn, Plan(tuple(p.change for p in chosen)), _plan_title(chosen), now=now)
     outcome = apply_plan(conn, plan_id, now=now)
     _clear_behind(conn, [change.source for change in outcome.changed])
@@ -513,6 +546,24 @@ def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
             )
         )
     return tuple(found)
+
+
+def _there(
+    change: Change, files: dict[str, sqlite3.Row], going: dict[str, _Video]
+) -> CopyFacts | None:
+    """The file at the name a change wanted, which it gets "(2)" beside: one in the library, or
+    another video going there in the same tidy-up."""
+    target = PureWindowsPath(change.target)
+    wanted = str(target.with_name(_NUMBERED.sub("", target.stem) + target.suffix)).casefold()
+    if (row := files.get(wanted)) is not None:
+        path = PureWindowsPath(row["path"])
+        return _facts(Copy(path, _media(row["probe"]), broken=row["problem"] is not None))
+    if (video := going.get(wanted)) is not None:
+        return _facts(video.placed.copy)
+    return None
+
+
+_NUMBERED = re.compile(r" \(\d+\)$")  # the "(2)" a name gets beside a file that has it
 
 
 def _facts(copy: Copy) -> CopyFacts:
