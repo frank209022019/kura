@@ -75,6 +75,33 @@ def test_identification_keeps_every_scan_and_file_from_before(tmp_path: Path):
         )
 
 
+def test_files_waiting_for_a_match_are_looked_up_again(tmp_path: Path):
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:13]))
+        conn.execute("PRAGMA user_version = 13")
+        conn.execute("INSERT INTO folders (path, added_at) VALUES ('D:/Anime', 'then')")
+        for name, matched, pinned in [
+            ("no guess", "none", 0),
+            ("a guess", "unsure", 0),
+            ("matched", "sure", 0),
+            ("chosen", "sure", 1),
+            ("not anime", "ignored", 1),
+            ("an extra", "extra", 0),
+        ]:
+            conn.execute(
+                """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at, matched,
+                                      pinned, identified_at)
+                   VALUES (1, ?, 1, 1, 'then', 'then', ?, ?, 'then')""",
+                (name, matched, pinned),
+            )
+        conn.commit()
+
+        db.migrate(conn)
+
+        again = conn.execute("SELECT path FROM files WHERE identified_at IS NULL").fetchall()
+        assert {row["path"] for row in again} == {"no guess", "a guess"}
+
+
 def test_earlier_tidy_ups_stop_naming_a_media_server(tmp_path: Path):
     with closing(db.connect(tmp_path / "kura.db")) as conn:
         conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:8]))

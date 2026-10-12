@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -200,6 +201,43 @@ def test_a_name_kura_cant_match_waits_for_the_owner(
 
     row = conn.execute("SELECT matched, title_id, guesses FROM files").fetchone()
     assert (row["matched"], row["title_id"], json.loads(row["guesses"])) == ("none", None, [])
+
+
+def test_a_numbered_film_is_found_by_its_own_name(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    film = "Dragon Ball Z - Movie 03 - The Tree of Might (1990 BluRay - 1080p TRI AUDIO).mkv"
+    library(conn, root, [f"DRAGON BALL Z (1989-2019)/2a. Movies (1989-2018)/{film}"], minutes=61)
+
+    identify(paths, conn, internet(tmdb=False))
+
+    assert placed(conn) == {film: ("sure", "Dragon Ball Z: The Tree of Might", "movie", None, None)}
+
+
+def test_a_series_anilist_writes_otherwise_is_asked_for_its_way(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    names = [
+        "Dragonball.GT.01.Ein.fataler.Wunsch.mkv",
+        "Dragonball.GT.02.Ein.blinder.Passagier.mkv",
+        "Dragonball.GT.64.Das.grosse.Finale.mkv",
+    ]
+    library(conn, root, [f"DragonBall GT Remastered Uncut/{name}" for name in names], minutes=21)
+    web = internet(tmdb=False)
+
+    identify(paths, conn, web)
+
+    assert placed(conn) == {
+        names[0]: ("sure", "Dragon Ball GT", "series", 1, 1),
+        names[1]: ("sure", "Dragon Ball GT", "series", 1, 2),
+        names[2]: ("sure", "Dragon Ball GT", "series", 1, 64),
+    }
+    searched = [
+        variables["search"]
+        for asked in web.asked
+        if "search" in (variables := cast("dict[str, object]", asked.payload["variables"]))
+    ]
+    assert searched == ["Dragonball GT", "Dragonball", "dragon ball gt"]
 
 
 def test_extras_are_marked_and_never_looked_up(

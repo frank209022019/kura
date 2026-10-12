@@ -14,7 +14,15 @@ from tests.tmdb_data import DBZ_SEASONS, movie_details, movie_search, tv_details
 
 SAVED = Path(__file__).parent / "data" / "anilist"
 
-# What AniList answers, by what it's asked: real answers saved in tests/data/anilist.
+# What AniList answers, by what it's asked: real answers saved in tests/data/anilist. These are
+# the answers to exactly these searches; as AniList does, a search with a word none of an entry's
+# names has finds nothing ("Dragonball GT", "Dragon Ball Z - Movie 03 - The Tree of Might").
+ANILIST_EXACT = {
+    "dragon ball z: the tree of might": "dragon-ball-z-the-tree-of-might",
+    "dragonball": "dragonball",
+    "dragon ball gt": "dragon-ball-gt",
+}
+# These answer any search that starts with them, more kindly than AniList.
 ANILIST_ANSWERS = {
     "dragon ball z": "dragon-ball-z",
     "dbz": "dragon-ball-z",
@@ -48,7 +56,9 @@ def anilist(airing: Mapping[int, int]) -> Callable[[Asked], object]:
                 media = {**known, "nextAiringEpisode": {"episode": airing[anime_id]}}
             return {"data": {"Media": media}}
         search = str(variables.get("search", "")).casefold()
-        file = next((f for name, f in ANILIST_ANSWERS.items() if search.startswith(name)), None)
+        file = ANILIST_EXACT.get(search) or next(
+            (f for name, f in ANILIST_ANSWERS.items() if search.startswith(name)), None
+        )
         if file is None:
             return {"data": {"Page": {"media": []}}}
         return json.loads((SAVED / f"{file}.json").read_text(encoding="utf-8"))

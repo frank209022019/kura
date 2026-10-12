@@ -4,6 +4,8 @@ import json
 from datetime import date
 from pathlib import Path, PureWindowsPath
 
+import pytest
+
 from kura.core.catalog import Anime, Show, anime_list, show
 from kura.core.names import parse_name
 from kura.core.placing import How, Placement, lists_special, place
@@ -156,6 +158,75 @@ def test_a_series_says_nothing_about_which_special_a_file_is():
     bebop = anilist("cowboy-bebop", 1)  # first aired 3 April 1998, the day TMDB's S00E01 did
 
     assert placed("D:/Anime/Cowboy Bebop/Cowboy Bebop - OVA.mkv", BEBOP, bebop) is None
+
+
+# Dragon Ball Z with some of its specials, named as TMDB names them.
+DBZ_SPECIALS = tmdb_show(
+    tv_details(
+        12971,
+        "Dragon Ball Z",
+        DBZ_SEASONS,
+        first_aired=date(1989, 4, 26),
+        specials=6,
+        titles={
+            (0, 1): "Bardock - The Father of Goku",
+            (0, 2): "Summer Vacation Special",
+            (0, 3): "The History of Trunks",
+            (0, 4): "Plan to Eradicate the Saiyans (1)",
+            (0, 5): "Plan to Eradicate the Saiyans (2)",
+            (0, 6): "Episode of Bardock",
+        },
+    )
+)
+SPECIALS = r"D:\Anime\DRAGON BALL Z (1989-2019) - The COMPLETE Series\3. TV Specials (1990-2013)"
+
+
+@pytest.mark.parametrize(
+    ("name", "number"),
+    [
+        ("Dragon Ball Z - Special 01 - Bardock, The Father of Goku (1990 BluRay).mkv", 1),
+        ("Dragon Ball Z - Special 06 - The History of Trunks (1995 BluRay).mkv", 3),
+        ("Dragon Ball Z - OVA 01a - Plan to Eradicate The Saiyans, Part 1 of 2 (1993).mkv", 4),
+        ("Dragon Ball Z - OVA 01b - Plan to Eradicate The Saiyans, Part 2 of 2 (1993).mkv", 5),
+        ("Dragon Ball Z - OVA 04 - The Episode of Bardock (2011 - 1080p JAP Audio).mkv", 6),
+    ],
+)
+def test_a_special_goes_by_its_own_name_among_the_shows_specials(name: str, number: int):
+    series = anilist("dragon-ball-z", 813)
+
+    found = placed(rf"{SPECIALS}\{name}", DBZ_SPECIALS, series)
+
+    assert found == Placement(0, number, None, How.BY_NAME)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Dragon Ball Z - Special 02a - Summer Vacation aka Movie Overview (1992).mkv",
+        "Dragon Ball Z - Special 02b - Summer Vacation COMMERCIALS (1992).mkv",
+        "Dragon Ball Z - Special 05 (GT) - A Hero's Legacy (1997 DVDRip).mkv",
+    ],
+)
+def test_a_special_whose_name_fits_none_of_the_shows_well_isnt_placed(name: str):
+    assert placed(rf"{SPECIALS}\{name}", DBZ_SPECIALS, anilist("dragon-ball-z", 813)) is None
+
+
+def test_a_one_off_special_is_the_one_from_its_day_whatever_the_release_numbers_it():
+    gt = tmdb_show(
+        tv_details(
+            888,
+            "Dragon Ball GT",
+            (64,),
+            first_aired=date(1996, 2, 7),
+            specials=2,
+            special_dates=(date(1997, 3, 26), date(2023, 1, 1)),
+        )
+    )
+    legacy = anilist("dragon-ball-gt", 987)  # one episode, first aired 26 March 1997
+
+    found = placed(rf"{SPECIALS}\Dragon Ball Z - Special 05 (GT) - A Hero's Legacy.mkv", gt, legacy)
+
+    assert found == Placement(0, 1, None, How.BY_DATE)
 
 
 def test_episode_zero_of_a_later_part_isnt_the_episode_before_it():

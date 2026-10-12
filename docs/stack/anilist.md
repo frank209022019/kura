@@ -17,8 +17,9 @@ requests run out (`X-RateLimit-Remaining: 0`), [kura/web.py](../../engine/src/ku
 for `X-RateLimit-Reset` before the next one, and a 429 is retried after its `Retry-After`. The
 engine has one AniList client (`create_app` makes it), so scans, the hourly check and the match
 screen's search share the minute's requests; the search asks once the owner stops typing. Kura
-asks once per anime, with everything it needs in that one answer, and keeps the answers, so a
-library of a hundred anime costs a few minutes on the first scan and nothing after.
+asks once per anime (a few times for a name that finds nothing, see below), with everything it
+needs in that one answer, and keeps the answers, so a library of a hundred anime costs a few
+minutes on the first scan and nothing after.
 
 ## What Kura asks
 
@@ -42,6 +43,17 @@ Answers are kept a week in the data folder's `cache/`, so a rescan asks nothing 
 still airing is the exception: whenever its episode list is due (every hour), a scan or the hourly
 check asks AniList afresh, or a new episode would go unnoticed for a week.
 
+## When a name finds nothing
+
+AniList's search finds an entry only when every word asked for is in one of its names, so a
+release's own words empty the answer: `Dragon Ball Z - Movie 03 - The Tree of Might` finds
+nothing, `Dragon Ball Z: The Tree of Might` (how Kura reads that name) finds the film. While
+nothing found is sure, a numbered film is asked for again by its name up to a comma, its own name
+alone, and its series (`searches` in [kura/core/identify.py](../../engine/src/kura/core/identify.py)).
+When nothing at all is found, the name may be one AniList writes otherwise: what its first word
+finds says how ("Dragonball" finds "Dragon Ball"), and `Dragonball GT` is asked for as
+`dragon ball gt` (`respelled`). Every answer is kept a week, like any other.
+
 ## Without a TMDB key
 
 AniList's count stands in for TMDB's episode list: the episodes aired so far, numbered 1 to N in
@@ -53,5 +65,7 @@ count as aired when Kura looks for gaps.
 ## Tests
 
 `tests/data/anilist/` holds real AniList answers (Dragon Ball Z, Cowboy Bebop, Attack on Titan
-Season 3 Part 2, One Piece), saved once, so parsing is tested against what AniList really sends.
-No test reaches AniList itself: `tests/fake_web.py` answers instead.
+Season 3 Part 2, One Piece, and the searches for The Tree of Might, "Dragonball" and Dragon Ball
+GT), saved once, so parsing is tested against what AniList really sends. No test reaches AniList
+itself: `tests/fake_web.py` answers instead, with `tests/services.py`'s answers to exact searches
+first (as AniList, a search with a word no name has finds nothing) and kinder ones after.

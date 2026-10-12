@@ -7,24 +7,30 @@ Releases number episodes in three ways, and all of them land in TMDB's seasons:
 - per AniList entry: "Attack on Titan Season 3 Part 2 - 03" is the third episode of a part that
   TMDB folds into its season 3, found by the part's first air date.
 
-Specials and OVAs go to season 0 by the date they first aired. Anything Kura can't place surely is
-left for the owner to review.
+Specials and OVAs go to season 0 by the date they first aired, or by their own name ("Dragon Ball
+Z - Special 06 - The History of Trunks"). Anything Kura can't place surely is left for the owner to
+review.
 """
 
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
 
 from kura.core.catalog import Anime, Episode, Show, TitleKind
+from kura.core.identify import similarity
 from kura.core.names import Kind, ParsedName
 
 _SAME_DAY = timedelta(days=3)  # air dates differ by time zone and listing, never by much more
+_SAME_NAME = 0.85  # how alike a file's own name and a special's must be, at the least
 
 
 class How(StrEnum):
     NUMBERED = "numbered"  # by its season and episode numbers
     STRAIGHT = "straight"  # its number counted through every season
     BY_DATE = "by date"  # from its AniList entry's first air date
+    BY_NAME = "by name"  # a special by its own name, among the show's
 
 
 @dataclass(frozen=True)
@@ -116,14 +122,49 @@ def _special(parsed: ParsedName, show: Show, entry: Anime | None) -> Placement |
     # An OVA or special entry is the special that first aired on its day. A series' first day
     # says nothing about which of its specials a file is.
     if entry is not None and entry.start is not None and entry.kind not in (TitleKind.SERIES, None):
+        # A one-off is its day's special, whatever a release numbers it ("Special 05").
+        offset = 0 if entry.episodes == 1 else number - 1
         for index, episode in enumerate(specials):
             if episode.aired is not None and _same_day(episode.aired, entry.start):
-                at = index + number - 1
+                at = index + offset
                 if 0 <= at < len(specials):
                     return Placement(0, specials[at].number, None, How.BY_DATE)
+    # "Dragon Ball Z - Special 06 - The History of Trunks": the release's own count says nothing
+    # of TMDB's, but the name does.
+    if parsed.episode_title and (named := _named(parsed.episode_title, specials)):
+        return Placement(0, named.number, None, How.BY_NAME)
     if parsed.folder_season == 0 and known:
         return Placement(0, number, None, How.NUMBERED)  # "03" in a "Specials" folder
     return None
+
+
+def _named(title: str, specials: Sequence[Episode]) -> Episode | None:
+    """The special a file's own name names, when one fits it clearly better than the rest:
+    "Bardock, The Father of Goku" is "Bardock - The Father of Goku". A part goes by its number
+    ("Part 1 of 2" is TMDB's "(1)"), and a name with an "aka" by either name."""
+    names = [_part_number(name) for name in _AKA.split(title)]
+    scored = sorted(
+        (
+            (max(similarity(name, _part_number(special.title)) for name in names), special)
+            for special in specials
+            if special.title
+        ),
+        key=lambda pair: pair[0],
+        reverse=True,
+    )
+    if not scored or scored[0][0] < _SAME_NAME:
+        return None
+    if len(scored) > 1 and scored[1][0] == scored[0][0]:
+        return None  # two fit as well: it could be either
+    return scored[0][1]
+
+
+_AKA = re.compile(r"\s+aka\s+", re.IGNORECASE)
+_PART = re.compile(r"\bpart\s*(\d+)(?:\s*of\s*\d+)?\b", re.IGNORECASE)
+
+
+def _part_number(name: str) -> str:
+    return _PART.sub(r"\1", name)
 
 
 def _same_day(a: date, b: date) -> bool:

@@ -214,4 +214,11 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     """
     ALTER TABLE files ADD COLUMN marked_at TEXT;
     """,
+    # 14. Kura finds numbered films and specials by their own names now, and a series AniList
+    #     writes otherwise ("Dragonball GT"): the files waiting for a match are looked up again
+    #     by the next scan. The owner's own choices stay as they are.
+    """
+    UPDATE files SET identified_at = NULL
+        WHERE matched IN ('none', 'unsure') AND pinned = 0;
+    """,
 )

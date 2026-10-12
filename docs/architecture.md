@@ -140,10 +140,13 @@ Scanning (`kura/scan.py`) runs on a background thread: it walks each library fol
 time, then reads the new and changed ones with ffprobe (`kura/probe.py`). Everything is saved as it
 goes and the scan's stage is in the `scans` table, so a pause, an exit or a crash loses nothing: the
 next start carries on. Then each video read is identified (`kura/identify.py`): files that look
-like the same anime are looked up together on AniList, and with the owner's TMDB key the same show
-or film is found on TMDB, whose episode lists say where each file sits. An OVA or special goes
-into its show's season 0 when the library has the show and TMDB lists it among the show's
-specials on the day it first aired; otherwise it's a title of its own. Titles AniList ties
+like the same anime are looked up together on AniList (a release's numbered film by its own name,
+asked again in shorter forms while nothing found is sure, and a name AniList writes otherwise as
+it writes it; see [stack/anilist.md](stack/anilist.md)), and with the owner's TMDB key the same
+show or film is found on TMDB, whose episode lists say where each file sits. An OVA or special
+goes into its show's season 0 when the library has the show and TMDB lists it among the show's
+specials on the day it first aired, or by its own name ("Special 06 - The History of Trunks");
+otherwise it's a title of its own. Titles AniList ties
 together by story (sequels, prequels, alternative versions, films, side stories) make a franchise
 (`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own (an entry
 matched before Kura kept these links is asked about at the next scan). A file

@@ -26,6 +26,7 @@ class Kind(StrEnum):
 class ParsedName:
     kind: Kind
     title: str | None = None  # from the file name
+    series: str | None = None  # a numbered film's series: "Dragon Ball Z" in "… - Movie 03 - …"
     folder_title: str | None = None  # from the show's folder
     season: int | None = None  # from the file name
     folder_season: int | None = None  # from a "Season 03" or "Specials" folder
@@ -52,8 +53,24 @@ def parse_name(path: PurePath) -> ParsedName:
     stem, is_copy = _without_copy_marker(path.stem)
     stem = _DISC.sub("", stem)  # "Akira (1988) CD2" is Akira's second part, not an episode 2
     found = _anitopy(stem + path.suffix)
+    year = _number(_first(found, "anime_year")) or _bracket_year(stem) or folder_year
 
-    types = {value.casefold() for value in _all(found, "anime_type")}
+    if film := _numbered_film(found):
+        series, name = film
+        return ParsedName(
+            kind=Kind.MOVIE,
+            title=f"{series}: {name}",
+            series=series,
+            folder_title=folder_title,
+            folder_season=folder_season,
+            year=year,
+            group=_first(found, "release_group"),
+            height=_height(_first(found, "video_resolution")),
+            version=_number(_first(found, "release_version")),
+            is_copy=is_copy,
+        )
+
+    types = {value.casefold() for value in _all(found, "anime_type")} | _type_at_end(found)
     episodes = [_number(value) for value in _all(found, "episode_number")]
     numbers = [number for number in episodes if number is not None]
     title = _clean_title(_first(found, "anime_title"), drop=types | _release_words(found))
@@ -75,7 +92,7 @@ def parse_name(path: PurePath) -> ParsedName:
         episode=episode,
         episode_end=numbers[-1] if len(numbers) > 1 else None,
         episode_title=_episode_title(episode_title),
-        year=_number(_first(found, "anime_year")) or folder_year,
+        year=year,
         group=_first(found, "release_group"),
         height=_height(_first(found, "video_resolution")),
         version=_number(_first(found, "release_version")),
@@ -114,8 +131,23 @@ _EPISODE_WORDS = frozenset({"session", "episode", "ep", "eps"})
 _EXTRA_TYPES = frozenset(
     {"ncop", "nced", "op", "ed", "opening", "ending", "pv", "preview", "menu", "cm", "trailer"}
 )
-_SPECIAL_TYPES = frozenset({"ova", "oad", "ona", "sp", "special", "specials"})
+# A public service announcement ("Dragon Ball - PSA 01") is a special too.
+_SPECIAL_TYPES = frozenset({"ova", "oad", "ona", "sp", "special", "specials", "psa"})
 _MOVIE_TYPES = frozenset({"movie", "gekijouban", "film"})
+# A whole series' release numbers its films: "Dragon Ball Z - Movie 03 - The Tree of Might".
+# anitopy reads no number after "Movie", so that's all title to it; with a letter ("Movie 14b")
+# it takes the number for an episode's, the title ending at the word, and the film's name for the
+# episode's title.
+_NUMBERED_FILM = re.compile(
+    r"^(?P<series>.+?)\s+-\s+(?:movie|film|gekijouban)\s*\d{1,3}[a-z]?\s+-\s+(?P<name>.+)$",
+    re.IGNORECASE,
+)
+_FILM_AT_END = re.compile(r"^(?P<series>.+?)\s+-\s+(?:movie|film|gekijouban)$", re.IGNORECASE)
+_TYPE_AT_END = re.compile(r"\s+-\s+(?P<word>[a-z]+)$", re.IGNORECASE)
+_AKA = re.compile(r"\s+aka\s+", re.IGNORECASE)
+# A year opening brackets with more in them, "(1990 BluRay - 1080p)", which anitopy passes over;
+# not a span of years ("1989-2019") or a checksum ("[2016ABCD]").
+_BRACKET_YEAR = re.compile(r"[(\[]\s*((?:19|20)\d{2})\b(?!-\d)[^)\]]*[)\]]")
 
 # Folders that say where files are kept, not which show they are.
 _GENERAL_FOLDERS = frozenset(
@@ -165,6 +197,41 @@ def _folder_context(path: PurePath) -> tuple[str | None, int | None, int | None]
     if match := _TITLE_AND_YEAR.match(name):
         return match["title"], int(match["year"]), season
     return name, None, season
+
+
+def _numbered_film(found: dict[str, str | list[str]]) -> tuple[str, str] | None:
+    """A film a release numbers among its series' films, as its series and its own name:
+    "Dragon Ball Z - Movie 03 - The Tree of Might" is ("Dragon Ball Z", "The Tree of Might").
+    The number counts the release's films, not AniList's, so it's left out."""
+    title = _first(found, "anime_title")
+    if title is None:
+        return None
+    if match := _NUMBERED_FILM.match(title):
+        series, name = match["series"], match["name"]
+    elif (match := _FILM_AT_END.match(title)) and _all(found, "episode_number"):
+        series, name = match["series"], _first(found, "episode_title") or ""
+    else:
+        return None
+    # What a release adds after the name: "Resurrection 'F' aka Frieza", "Battle of Gods, UNCut"
+    # (anitopy takes "UNCut" off, but not the comma).
+    name = _AKA.split(name, maxsplit=1)[0].strip(" ,-:")
+    return (series.strip(), name) if name else None
+
+
+def _type_at_end(found: dict[str, str | list[str]]) -> set[str]:
+    """A kind of file named at the end of the title, "Dragon Ball - PSA", which anitopy doesn't
+    know for one."""
+    title = _first(found, "anime_title") or ""
+    if (match := _TYPE_AT_END.search(title)) and (word := match["word"].casefold()) in (
+        _SPECIAL_TYPES | _MOVIE_TYPES
+    ):
+        return {word}
+    return set()
+
+
+def _bracket_year(stem: str) -> int | None:
+    found = _BRACKET_YEAR.search(stem)
+    return int(found[1]) if found else None
 
 
 def _title_and_part(stem: str, episode_title: str | None) -> tuple[str | None, int | None]:

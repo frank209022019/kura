@@ -257,6 +257,103 @@ class TestKinds:
         assert (result.kind, result.title, result.episode) == (Kind.DVD, None, None)
 
 
+class TestNumberedFilmsAndSpecials:
+    """A whole series' release numbers its films and specials: "Dragon Ball Z - Movie 03 - The
+    Tree of Might". The number counts the release's films, so a film goes by its own name."""
+
+    FOLDER = r"D:\Anime\DRAGON BALL Z (1989-2019) - The COMPLETE Series\2a. Movies (1989-2018)"
+
+    @pytest.mark.parametrize(
+        ("name", "title", "year"),
+        [
+            (
+                "Dragon Ball Z - Movie 03 - The Tree of Might (1990 BluRay - 1080p TRI AUDIO).mkv",
+                "Dragon Ball Z: The Tree of Might",
+                1990,
+            ),
+            (
+                "Dragon Ball Z - Movie 08 - Broly, The Legendary Super Saiyan (1993 BluRay - 1080p"
+                " TRI AUDIO).mkv",
+                "Dragon Ball Z: Broly, The Legendary Super Saiyan",
+                1993,
+            ),
+            (
+                "Dragon Ball Z - Movie 14b - Battle of Gods, UNCut (2013 BluRay - 1080p DUAL"
+                " AUDIO).mkv",
+                "Dragon Ball Z: Battle of Gods",
+                2013,
+            ),
+            (
+                "Dragon Ball Z - Movie 15a (Theatrical Cut) - Resurrection 'F' aka Frieza (2015"
+                " BluRay - 1080p DUAL AUDIO).mkv",
+                "Dragon Ball Z: Resurrection 'F'",
+                2015,
+            ),
+            (
+                "Dragon Ball Z - Movie 15b (Future Trunks Special Edition) - Resurrection 'F' (2016"
+                " WebRip - 1080p JAP Audio).mp4",
+                "Dragon Ball Z: Resurrection 'F'",
+                2016,
+            ),
+            (
+                "Dragon Ball Z - Movie 16 - DB Super BROLY, MangaUK Version (2018 BluRay - 1080p"
+                " DUAL Audio).mkv",
+                "Dragon Ball Z: DB Super BROLY, MangaUK Version",
+                2018,
+            ),
+        ],
+    )
+    def test_a_numbered_film_goes_by_its_own_name(self, name: str, title: str, year: int):
+        result = parsed(rf"{self.FOLDER}\{name}")
+
+        assert (result.kind, result.title, result.series, result.year) == (
+            Kind.MOVIE,
+            title,
+            "Dragon Ball Z",
+            year,
+        )
+        assert (result.episode, result.episode_title) == (None, None)
+
+    def test_a_film_with_no_number_has_no_series_of_its_own(self):
+        result = parsed(r"D:\Anime\Movies\Cowboy Bebop - The Movie (2001).mkv")
+
+        assert (result.title, result.series) == ("Cowboy Bebop", None)
+
+    def test_a_numbered_special_keeps_its_series_and_its_own_name(self):
+        result = parsed(
+            r"D:\Anime\DRAGON BALL Z\3. TV Specials (1990-2013)\Dragon Ball Z - Special 06 - The"
+            r" History of Trunks (1995 BluRay - 1080p TRI Audio).mkv"
+        )
+
+        assert (result.kind, result.title, result.episode_title, result.year) == (
+            Kind.SPECIAL,
+            "Dragon Ball Z",
+            "The History of Trunks",
+            1995,
+        )
+
+    def test_a_public_service_announcement_is_a_special(self):
+        result = parsed(
+            r"D:\Anime\DRAGON BALL Z\5. PSAs (1988)\Dragon Ball - PSA 01 - Goku's Fire Brigade"
+            r" (1988 - 480p JAP Audio).mp4"
+        )
+
+        assert (result.kind, result.title, result.episode, result.episode_title) == (
+            Kind.SPECIAL,
+            "Dragon Ball",
+            1,
+            "Goku's Fire Brigade",
+        )
+
+    def test_a_year_in_brackets_with_other_words_is_the_year(self):
+        result = parsed(r"D:\Anime\Akira (1988 BluRay - 1080p).mkv")
+
+        assert (result.title, result.year) == ("Akira", 1988)
+
+    def test_a_span_of_years_is_no_year(self):
+        assert parsed(r"D:\Anime\Akira (1988-2019 BluRay).mkv").year is None
+
+
 class TestNamesThatNeedAMatch:
     def test_a_group_and_an_episode_but_no_title(self):
         result = parsed(r"D:\Anime\Downloads\[subs] ep03 final.mkv")

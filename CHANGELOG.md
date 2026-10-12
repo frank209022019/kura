@@ -20,6 +20,11 @@ shows these notes when it offers the update.
 ### Fixed
 - The nav rail keeps your place: Home stays lit on the scan, a franchise's page and a title's
   page, and Tidy up on "Which anime is this?".
+- Films a release numbers among its series' ("Dragon Ball Z - Movie 03 - The Tree of Might") are
+  found by their own names, and specials and OVAs go among their show's specials by theirs
+  ("Special 06 - The History of Trunks"). A series AniList writes otherwise ("Dragonball GT") is
+  found too, and a year in brackets with more in them, "(1990 BluRay)", counts. The files waiting
+  for a match are looked up again at the next scan.
 
 ## 0.1.0 - 2026-10-12
 

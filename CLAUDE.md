@@ -192,9 +192,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   plus a CLI. SQLite for data.
 - A pure core behind small interfaces: parse → match → plan → check → estimate.
 - Identification: anitopy parses names (chosen over guessit and aniparse after testing them on
-  real names, see docs/stack/anitopy.md), AniList's search matches titles (falling back to
-  TMDB's), results map to TMDB IDs, low confidence goes to a review screen, and manual fixes are
-  pinned so a rescan never undoes them. The manami offline database was the first plan, but its
+  real names, see docs/stack/anitopy.md), AniList's search matches titles (a name that finds
+  nothing is asked again in shorter forms and as AniList writes it, docs/stack/anilist.md; the
+  fallback to TMDB's search that was planned isn't built), results map to TMDB IDs, low
+  confidence goes to a review screen, and manual fixes are pinned so a rescan never undoes them. The manami offline database was the first plan, but its
   repository was archived in 2026 and stopped updating, so AniList's search, which is always
   current and needs no download, took its place (2026-10-11).
 - Metadata from TMDB and AniList together, for full coverage (the owner, 2026-10-11). TMDB gives

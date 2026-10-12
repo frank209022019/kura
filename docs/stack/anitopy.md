@@ -25,10 +25,18 @@ Kura's rules cover its gaps, and the tests pin the behaviour, so swapping parser
   (`Dragon Ball Z (1989)`) gives `folder_title` and the year. General folders (`Downloads`,
   `Extras`, `TV`…) never count as titles.
 - **Copies.** `(copy)`, ` - Copy` and ` (2)` are removed before parsing and set `is_copy`.
-- **Kinds.** Episode, special (OVA, season 0), movie (no episode number), extra (NCOP, NCED, PV)
-  or DVD file (`VTS_01_1.VOB`).
-- **Clean titles.** Type and release words glued to the title (`OVA`, `Movie`, `Session`, `final`)
-  are removed; a title that is only a number becomes the episode.
+- **Kinds.** Episode, special (OVA, season 0, a PSA), movie (no episode number), extra (NCOP,
+  NCED, PV) or DVD file (`VTS_01_1.VOB`).
+- **Clean titles.** Type and release words at the end of the title (`OVA`, `Movie`, `Session`,
+  `final`) are removed; a title that is only a number becomes the episode.
+- **Numbered films.** A whole series' release numbers its films: `Dragon Ball Z - Movie 03 - The
+  Tree of Might`. anitopy reads no number after `Movie`, so that's all title to it; with a letter
+  (`Movie 14b`) it takes the number for an episode's and the film's name for the episode's title.
+  Either way Kura makes it a film titled `Dragon Ball Z: The Tree of Might`, with `series`
+  `Dragon Ball Z`, leaving out what the release adds after the name (`aka Frieza`, a comma). The
+  release's number counts its own films, not AniList's.
+- **Years in brackets.** `(1990 BluRay - 1080p)` gives the year, which anitopy passes over; a span
+  (`1989-2019`) or a checksum doesn't.
 - File-name values (`title`, `season`) and folder values (`folder_title`, `folder_season`) stay
   apart, because they can disagree: `Season 07\Naruto Shippuden - 143.mkv` has an absolute episode
   number. Matching decides.

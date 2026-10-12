@@ -13,6 +13,8 @@ from kura.core.identify import (
     guesses,
     normalize,
     pick_hit,
+    respelled,
+    searches,
     similarity,
 )
 from kura.core.names import parse_name
@@ -106,6 +108,100 @@ def test_a_film_file_matches_the_film_not_the_series():
 
     assert best.anime.kind is TitleKind.MOVIE
     assert best.anime.id == 5
+
+
+MOVIES = r"D:\Anime\DRAGON BALL Z (1989-2019) - The COMPLETE Series\2a. Movies (1989-2018)"
+SPECIALS = r"D:\Anime\DRAGON BALL Z (1989-2019) - The COMPLETE Series\3. TV Specials (1990-2013)"
+
+
+def test_a_numbered_film_is_matched_by_its_own_name():
+    [group] = group_files(
+        [
+            facts(
+                rf"{MOVIES}\Dragon Ball Z - Movie 03 - The Tree of Might (1990 BluRay - 1080p TRI"
+                " AUDIO).mkv",
+                minutes=61,
+            )
+        ]
+    )
+
+    best = guesses(group, entries("dragon-ball-z-the-tree-of-might"))[0]
+
+    assert (best.anime.id, best.confidence >= SURE) == (896, True)
+    assert best.reasons == ("Title matches", "1990 fits", "A film, like the file", "61 min fits")
+
+
+def test_a_film_is_looked_up_by_its_whole_name_then_by_shorter_ones():
+    [group] = group_files(
+        [
+            facts(
+                rf"{MOVIES}\Dragon Ball Z - Movie 16 - DB Super BROLY, MangaUK Version (2018"
+                " BluRay - 1080p DUAL Audio).mkv",
+                minutes=100,
+            )
+        ]
+    )
+
+    assert searches(group) == [
+        "Dragon Ball Z: DB Super BROLY, MangaUK Version",
+        "Dragon Ball Z DB Super BROLY",
+        "DB Super BROLY, MangaUK Version",
+        "DB Super BROLY",
+        "Dragon Ball Z",
+    ]
+
+
+def test_the_same_search_isnt_asked_twice():
+    [group] = group_files(
+        [
+            facts(
+                rf"{MOVIES}\Dragon Ball Z - Movie 14b - Battle of Gods, UNCut (2013 BluRay - 1080p"
+                " DUAL AUDIO).mkv",
+                minutes=105,
+            )
+        ]
+    )
+
+    assert searches(group) == ["Dragon Ball Z: Battle of Gods", "Battle of Gods", "Dragon Ball Z"]
+
+
+def test_a_series_is_looked_up_by_its_name_alone():
+    [group] = group_files([facts(r"D:\Anime\Dragon Ball Z\Dragon Ball Z - 001.mkv")])
+
+    assert searches(group) == ["Dragon Ball Z"]
+
+
+def test_a_name_anilist_writes_otherwise_is_put_its_way():
+    found = entries("dragonball")  # what AniList finds for "Dragonball": "Dragon Ball", …
+
+    assert respelled("Dragonball GT", found) == "dragon ball gt"
+    assert respelled("Dragon Ball GT", found) is None  # nothing to put otherwise
+    assert respelled("Mystery Show", found) is None
+
+
+def test_specials_from_after_their_series_began_still_fit_it():
+    group = group_files(
+        [
+            facts(
+                rf"{SPECIALS}\Dragon Ball Z - Special 06 - The History of Trunks (1995 BluRay -"
+                " 1080p TRI Audio).mkv",
+                minutes=48,
+                number=1,
+            ),
+            facts(
+                rf"{SPECIALS}\Dragon Ball Z - Special 01 - Bardock, The Father of Goku (1990"
+                " BluRay - 1080p TRI Audio).mkv",
+                minutes=48,
+                number=2,
+            ),
+        ]
+    )[0]
+
+    best = guesses(group, entries("dragon-ball-z"))[0]
+
+    # A special's year and length are its own, not its series' episodes'.
+    assert (best.anime.id, best.confidence >= SURE) == (813, True)
+    assert not [reason for reason in best.reasons if reason.startswith(("From", "48 min"))]
 
 
 def test_a_film_in_two_parts_is_as_long_as_both_together():

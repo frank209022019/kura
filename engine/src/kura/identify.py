@@ -21,7 +21,17 @@ from kura.anilist import AniList
 from kura.cache import Cache
 from kura.config import DataPaths
 from kura.core.catalog import Anime, Film, Hit, Show, TitleKind
-from kura.core.identify import SURE, FileFacts, Group, Guess, base_title, group_files, guesses
+from kura.core.identify import (
+    SURE,
+    FileFacts,
+    Group,
+    Guess,
+    base_title,
+    group_files,
+    guesses,
+    respelled,
+    searches,
+)
 from kura.core.identify import pick_hit as pick_tmdb
 from kura.core.names import Kind, ParsedName, parse_name
 from kura.core.placing import How, Placement, lists_special, place
@@ -111,7 +121,7 @@ class Identifier:
                 return None
             looking_at(group.query)
             try:
-                found.append((group, guesses(group, self._anilist.search(group.query))))
+                found.append((group, self._look_up(group)))
             except WebError as error:
                 log.warning("AniList couldn't be asked about %s: %s", group.query, error)
                 return Identified(0, 0, _waiting("AniList", error))
@@ -132,6 +142,24 @@ class Identifier:
                 break
             sure, unsure = sure + placed, unsure + waiting
         return Identified(sure, unsure, note)
+
+    def _look_up(self, group: Group) -> list[Guess]:
+        """AniList's entries for a group, as guesses. While none is sure, shorter forms of a
+        numbered film's name are asked for too (core/identify.py's `searches`). When nothing at
+        all is found, the name may be one AniList writes otherwise ("Dragonball GT"): what its
+        first word finds says how ("Dragon Ball"), and the name is asked for that way."""
+        entries: dict[int, Anime] = {}
+        ranked: list[Guess] = []
+        for text in searches(group):
+            for entry in self._anilist.search(text):
+                entries.setdefault(entry.id, entry)
+            ranked = guesses(group, list(entries.values()))
+            if ranked and ranked[0].confidence >= SURE:
+                return ranked
+        first, *rest = group.query.split()
+        if not ranked and rest and (again := respelled(group.query, self._anilist.search(first))):
+            ranked = guesses(group, self._anilist.search(again))
+        return ranked
 
     def choose(
         self,

@@ -5,6 +5,7 @@ Every guess gets a confidence from 0 to 100 and the reasons for it, in the words
 shows. Kura accepts a guess on its own only when it's sure; the rest wait for the owner.
 """
 
+import itertools
 import re
 import statistics
 import unicodedata
@@ -39,6 +40,7 @@ class Group:
     year: int | None
     movie: bool  # every file looks like a film
     files: tuple[FileFacts, ...]
+    series: str | None = None  # a numbered film's series, whose name its own follows
 
     @property
     def longest_episode(self) -> int | None:
@@ -80,6 +82,7 @@ def group_files(files: Iterable[FileFacts]) -> list[Group]:
     groups: list[Group] = []
     for key, members in grouped.items():
         years = Counter(f.parsed.year for f in members if f.parsed.year)
+        series = Counter(f.parsed.series for f in members if f.parsed.series)
         title = names[key].most_common(1)[0][0]  # the spelling most files use
         groups.append(
             Group(
@@ -87,9 +90,40 @@ def group_files(files: Iterable[FileFacts]) -> list[Group]:
                 year=years.most_common(1)[0][0] if years else None,
                 movie=key[2],
                 files=tuple(members),
+                series=series.most_common(1)[0][0] if series else None,
             )
         )
     return sorted(groups, key=lambda group: (group.query.casefold(), group.movie))
+
+
+def searches(group: Group) -> list[str]:
+    """What to ask AniList for a group, in turn while nothing it finds is sure: the group's name,
+    then for a numbered film ("Dragon Ball Z: Battle of Gods, UNCut") its name up to a comma, its
+    own name alone, and its series. AniList finds nothing for a name with a word none of an
+    entry's names has, such as a release's own "UNCut"."""
+    texts = [group.query]
+    own = group.query.removeprefix(f"{group.series}: ") if group.series else group.query
+    if group.series and own != group.query:
+        first = own.split(",")[0].strip()
+        texts += [f"{group.series} {first}", own, first, group.series]
+    unique: dict[str, str] = {}
+    for text in texts:
+        if words := normalize(text):  # each asked once, and nothing asked for no name
+            unique.setdefault(words, text)
+    return list(unique.values())
+
+
+def respelled(text: str, entries: Sequence[Anime]) -> str | None:
+    """`text` with a word that the entries' names write as two written their way: "Dragonball
+    GT" is "dragon ball gt" beside an entry called "Dragon Ball". None when nothing changes."""
+    split: dict[str, str] = {}
+    for entry in entries:
+        for title in entry.titles:
+            for first, second in itertools.pairwise(normalize(title).split()):
+                split.setdefault(first + second, f"{first} {second}")
+    words = normalize(text).split()
+    put = [split.get(word, word) for word in words]
+    return " ".join(put) if put != words else None
 
 
 def _part_words(parsed: ParsedName) -> str | None:
@@ -111,6 +145,10 @@ def _guess(group: Group, entry: Anime, rank: int) -> Guess:
     name = max(similarity(group.query, title) for title in entry.titles)
     score = name * 70
     reasons: list[str] = ["Title matches" if name >= 0.95 else f"Title {round(name * 100)}% alike"]
+    # A series' specials came after it began, and are as long as they are.
+    its_specials = entry.kind is TitleKind.SERIES and all(
+        f.parsed.kind is Kind.SPECIAL for f in group.files
+    )
 
     if group.year and entry.year:
         if group.year == entry.year:
@@ -118,7 +156,7 @@ def _guess(group: Group, entry: Anime, rank: int) -> Guess:
             reasons.append(f"{entry.year} fits")
         elif abs(group.year - entry.year) == 1:
             score += 5
-        else:
+        elif not (its_specials and group.year > entry.year):
             score -= 25
             reasons.append(f"From {entry.year}, not {group.year}")
 
@@ -136,7 +174,7 @@ def _guess(group: Group, entry: Anime, rank: int) -> Guess:
             reasons.append(f"Only {_episodes(entry.episodes)}, files go up to {longest}")
 
     minutes = group.minutes
-    if minutes and entry.minutes:
+    if minutes and entry.minutes and not its_specials:
         if abs(minutes - entry.minutes) <= max(3, entry.minutes * 0.25):
             score += 5
             reasons.append(f"{round(minutes)} min fits")
