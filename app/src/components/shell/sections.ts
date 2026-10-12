@@ -42,3 +42,14 @@ export const sections: Section[] = [
     summary: "Your data and backups, updates, and uninstalling with an export first.",
   },
 ];
+
+/**
+ * The section a page sits in, whose tile stays lit while it's open: the scan, a franchise and a
+ * title are Home's, and a file to match is Tidy up's, as its breadcrumb says, or Home's when it's
+ * a title's match being changed.
+ */
+export function sectionOf(pathname: string, search: string): string {
+  const [, first = ""] = pathname.split("/");
+  if (first === "match") return new URLSearchParams(search).has("title") ? "/" : "/tidy";
+  return ["", "scan", "franchises", "titles"].includes(first) ? "/" : `/${first}`;
+}

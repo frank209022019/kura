@@ -37,7 +37,7 @@ and [../CLAUDE.md](../CLAUDE.md).
 | The window frame (title bar, nav rail, update card, the notes at its foot) | `src/components/shell/` |
 | Talking to the engine and the shell | `src/lib/engine.tsx`, `src/lib/updates.ts` |
 | Tokens and global styles | `src/styles/` |
-| Routes | `src/app.tsx`; nav items in `src/components/shell/sections.ts` |
+| Routes | `src/app.tsx`; nav items, and the one a new page lights (`sectionOf`), in `src/components/shell/sections.ts` |
 
 ## Data
 

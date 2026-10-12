@@ -8,6 +8,10 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Fixed
+- The nav rail keeps your place: Home stays lit on the scan, a franchise's page and a title's
+  page, and Tidy up on "Which anime is this?".
+
 ## 0.1.0 - 2026-10-12
 
 ### Added
