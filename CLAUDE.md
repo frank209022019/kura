@@ -313,10 +313,11 @@ Everything decided so far. Don't ask again; change only with the owner.
    unless turned on; the UI never names Plex).
 8. The small-things board: done for a file open in another app, a crash or power cut, a failed
    conversion, a finished batch, being offline, and a name that's taken (a tidy-up keeps both,
-   the new one with "(2)", and its review says so), and not enough space (empty the drive's
-   quarantine first, or convert what fits), and records damaged past use (the newest backup
-   that opens, or new records). Still to build: a taken name's "Compare the two" and "Skip",
-   and the overnight keep-awake note.
+   the new one with "(2)", and its review says so), not enough space (empty the drive's
+   quarantine first, or convert what fits), records damaged past use (the newest backup that
+   opens, or new records), and the overnight note (keeping the PC awake till 07:00; "Stop at
+   03:00" starts no file after 03:00 that night, the one converting finishing). Still to build:
+   a taken name's "Compare the two" and "Skip".
 9. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's

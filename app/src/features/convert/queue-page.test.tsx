@@ -68,6 +68,8 @@ const RUNNING: QueueStatus = {
   ],
   gpu: { busy: 97, celsius: 71 },
   room: null,
+  endsAt: null,
+  early: false,
 };
 
 function renderQueue() {
@@ -231,6 +233,65 @@ describe("QueuePage", () => {
     expect(await screen.findByRole("heading", { name: "Nothing waiting" })).toBeInTheDocument();
     screen.getByRole("link", { name: "Choose what to convert" }).click();
     expect(await screen.findByText("The choosing screen")).toBeInTheDocument();
+  });
+
+  it("keeps the PC awake overnight till 07:00, or stops at 03:00 when asked", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T01:00:00"));
+    try {
+      const nights = { ...RUNNING, schedule: "nights" as const, endsAt: "2026-10-13T07:00:00" };
+      const fetch = fakeEngine({
+        "/queue": nights,
+        "PUT /queue/tonight": { ...nights, endsAt: "2026-10-13T03:00:00", early: true },
+      });
+      renderQueue();
+
+      expect(
+        await screen.findByText(
+          "Keeping the PC awake until 07:00 while it converts. Normal sleep comes back after.",
+        ),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Stop at 03:00" }));
+
+      await waitFor(() => expect(sent(fetch, "PUT", "/queue/tonight")).toHaveLength(1));
+      const [[, init]] = sent(fetch, "PUT", "/queue/tonight") as [[unknown, RequestInit]];
+      expect(JSON.parse(String(init.body))).toEqual({ early: true });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("offers to go on till 07:00 once stopping early, and to stop after this file past 03:00", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T03:20:00"));
+    try {
+      fakeEngine({
+        "/queue": {
+          ...RUNNING,
+          schedule: "nights",
+          endsAt: "2026-10-13T03:00:00",
+          early: true,
+        },
+      });
+      renderQueue();
+
+      expect(
+        await screen.findByText(
+          "Keeping the PC awake while this file finishes. Normal sleep comes back after.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Go on till 07:00" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says nothing of the night while converting by day, or on the always schedule", async () => {
+    fakeEngine({ "/queue": RUNNING });
+    renderQueue();
+
+    expect(await screen.findByText(/22,000 of 34,920 frames|Now converting/)).toBeInTheDocument();
+    expect(screen.queryByText(/Keeping the PC awake until/)).not.toBeInTheDocument();
   });
 
   it("says which files wait for their drive", async () => {

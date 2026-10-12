@@ -1640,6 +1640,50 @@
         ]
       }
     },
+    "/queue/tonight": {
+      "put": {
+        "summary": "Plan Tonight",
+        "description": "On the nights-only schedule: tonight's run stops taking files at 03:00, so Windows' sleep\ncomes back sooner, or goes on till 07:00.",
+        "operationId": "plan_tonight_queue_tonight_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TonightRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/queue/{job_id}/skip": {
       "post": {
         "summary": "Skip Job",
@@ -4049,6 +4093,21 @@
                 "type": "null"
               }
             ]
+          },
+          "endsAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endsat"
+          },
+          "early": {
+            "type": "boolean",
+            "title": "Early"
           }
         },
         "type": "object",
@@ -4062,7 +4121,9 @@
           "gpuSeconds",
           "today",
           "gpu",
-          "room"
+          "room",
+          "endsAt",
+          "early"
         ],
         "title": "QueueStatus"
       },
@@ -5154,6 +5215,19 @@
           "keyEnd"
         ],
         "title": "TmdbStatus"
+      },
+      "TonightRequest": {
+        "properties": {
+          "early": {
+            "type": "boolean",
+            "title": "Early"
+          }
+        },
+        "type": "object",
+        "required": [
+          "early"
+        ],
+        "title": "TonightRequest"
       },
       "Tool": {
         "properties": {

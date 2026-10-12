@@ -34,6 +34,7 @@ import {
   useQueue,
   useQueueAction,
   useQueueSchedule,
+  useQueueTonight,
   useRemoveFromQueue,
   useSettings,
   useStill,
@@ -120,6 +121,7 @@ export function QueuePage() {
         (job) =>
           job.retryAt !== null && <OpenElsewhere key={job.id} job={job} retryAt={job.retryAt} />,
       )}
+      {status.running && status.endsAt && <Tonight endsAt={status.endsAt} early={status.early} />}
       {status.running ? (
         <NowConverting running={status.running} gpu={status.gpu} paused={status.paused} />
       ) : (
@@ -471,6 +473,45 @@ function Waiting({ status }: { status: QueueStatus }) {
       )}
       <Problem error={action.error} className="basis-full" />
     </section>
+  );
+}
+
+/**
+ * While the nights-only queue converts at night (board 5.3): Kura keeps the PC awake till
+ * tonight's run takes its last file, and the owner can have it stop at 03:00 instead, so normal
+ * sleep comes back sooner. A file started before then finishes.
+ */
+function Tonight({ endsAt, early }: { endsAt: string; early: boolean }) {
+  const tonight = useQueueTonight();
+  const now = new Date();
+  const end = new Date(endsAt);
+  const until = end.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const hour = now.getHours();
+  const label = early
+    ? "Go on till 07:00"
+    : hour >= 3 && hour < 7
+      ? "Stop after this file"
+      : "Stop at 03:00";
+  return (
+    <div
+      role="status"
+      className="flex animate-fade-up flex-wrap items-center gap-3 rounded-18 border border-white/10 bg-white/5 px-4 py-3.5"
+    >
+      <span aria-hidden="true" className="size-2.5 shrink-0 animate-pulse rounded-full bg-accent" />
+      <span className="min-w-0 flex-1 text-14">
+        {now >= end
+          ? "Keeping the PC awake while this file finishes. Normal sleep comes back after."
+          : `Keeping the PC awake until ${until} while it converts. Normal sleep comes back after.`}
+      </span>
+      <Button
+        size="sm"
+        disabled={tonight.isPending}
+        onClick={() => tonight.mutate({ path: "/queue/tonight", body: { early: !early } })}
+      >
+        {label}
+      </Button>
+      <Problem error={tonight.error} className="basis-full" />
+    </div>
   );
 }
 

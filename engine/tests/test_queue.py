@@ -490,6 +490,75 @@ def test_on_nights_only_files_start_between_23_and_7(
     assert queue.status().waits_for_night is False
 
 
+def test_stopping_at_three_takes_no_file_after_it_tonight_only(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    at = [
+        (NOW + timedelta(days=1)).replace(hour=1, minute=0)
+    ]  # 01:00, a night of the nights-only queue
+    queue = Queue(
+        paths, Scanner(paths, Tools(paths, items=())), lambda: programs(RESULT), now=lambda: at[0]
+    )
+    queue.add([1, 2, 3])
+    queue.plan("nights")
+    morning = at[0].replace(hour=7)
+    assert (queue.status().ends_at, queue.status().early) == (morning.isoformat(), False)
+
+    queue.stop_early(early=True)
+
+    three = at[0].replace(hour=3)
+    assert (queue.status().ends_at, queue.status().early) == (three.isoformat(), True)
+    at[0] = three - timedelta(minutes=1)
+    assert queue.work_once() is True  # one started before 03:00 goes, and finishes
+    at[0] = three
+    assert queue.work_once() is False  # none starts after
+    assert queue.status().waits_for_night is True
+
+    at[0] = three.replace(hour=23)  # the next night is a whole night again
+    assert queue.status().ends_at == (morning + timedelta(days=1)).isoformat()
+    assert queue.work_once() is True
+
+
+def test_going_on_till_seven_undoes_stopping_early(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    at = [(NOW + timedelta(days=1)).replace(hour=2)]
+    queue = Queue(
+        paths, Scanner(paths, Tools(paths, items=())), lambda: programs(RESULT), now=lambda: at[0]
+    )
+    queue.add([1])
+    queue.plan("nights")
+    queue.stop_early(early=True)
+
+    queue.stop_early(early=False)
+
+    at[0] = at[0].replace(hour=4)
+    assert (queue.status().early, queue.status().waits_for_night) == (False, False)
+    assert queue.work_once() is True
+
+
+def test_stopping_early_past_three_takes_no_file_after_the_one_converting(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    at = [(NOW + timedelta(days=1)).replace(hour=4, minute=10)]
+    queue = Queue(
+        paths, Scanner(paths, Tools(paths, items=())), lambda: programs(RESULT), now=lambda: at[0]
+    )
+    queue.add([1])
+    queue.plan("nights")
+
+    queue.stop_early(early=True)
+
+    assert queue.status().ends_at == at[0].isoformat()
+    assert queue.work_once() is False
+
+
+def test_by_day_nothing_ends_tonight_yet(queue: Queue):
+    queue.plan("nights")  # 09:30
+
+    assert queue.status().ends_at is None
+
+
 def test_a_file_on_a_drive_that_isnt_connected_waits_and_the_next_goes(
     queue: Queue, conn: sqlite3.Connection
 ):

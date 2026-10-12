@@ -1012,7 +1012,7 @@ export interface RunningJob {
 export interface QueueStatus {
   paused: boolean;
   schedule: "now" | "nights";
-  /** Nights only, and it's day: files start again at 23:00. */
+  /** Nights only, and it's day (or tonight's run is over): files start again at 23:00. */
   waitsForNight: boolean;
   /** Why nothing converts though files wait (no ffmpeg, say). */
   problem: string | null;
@@ -1027,6 +1027,13 @@ export interface QueueStatus {
   gpu: { busy: number; celsius: number } | null;
   /** A drive without room for what waits on it. */
   room: Room | null;
+  /**
+   * Nights only, at night: when tonight's run takes its last file (07:00, or earlier when the
+   * owner said to stop early), local time.
+   */
+  endsAt: string | null;
+  /** The owner said to stop early tonight. */
+  early: boolean;
 }
 
 /** The queue, asked again every two seconds while a file converts, else every ten. */
@@ -1055,3 +1062,5 @@ export const useEmptyQuarantine = () => useEngineAction<{ files: number }>([...Q
 export const useRemoveFromQueue = () => useEngineAction<void>(QUEUED, "DELETE");
 /** Converts whenever files wait, or only at night: `{ path: "/queue/schedule", body: { schedule } }`. */
 export const useQueueSchedule = () => useEngineAction<QueueStatus>(QUEUED, "PUT");
+/** Tonight's run stops at 03:00, or goes on till 07:00: `{ path: "/queue/tonight", body: { early } }`. */
+export const useQueueTonight = () => useEngineAction<QueueStatus>(QUEUED, "PUT");

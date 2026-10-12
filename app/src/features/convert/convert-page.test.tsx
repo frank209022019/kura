@@ -65,6 +65,8 @@ const QUEUE: QueueStatus = {
   today: [],
   gpu: null,
   room: null,
+  endsAt: null,
+  early: false,
 };
 
 function renderConvert() {

@@ -123,7 +123,7 @@ class GpuReading(ApiModel):
 class QueueStatus(ApiModel):
     paused: bool
     schedule: Literal["now", "nights"]
-    waits_for_night: bool  # nights only, and it's day
+    waits_for_night: bool  # nights only, and it's day (or tonight's run is over)
     problem: str | None  # why nothing converts though files wait
     running: Running | None
     queued: list[Job]  # in the order they'll go
@@ -131,6 +131,10 @@ class QueueStatus(ApiModel):
     today: list[Job]  # finished today, newest first
     gpu: GpuReading | None  # the card's load and temperature, while a file converts
     room: Room | None  # a drive without room for what waits on it
+    # Nights only, at night: when tonight's run takes its last file (07:00, or earlier when the
+    # owner said to stop early), local time; and whether they did.
+    ends_at: str | None
+    early: bool
 
 
 class AddRequest(ApiModel):
@@ -162,6 +166,10 @@ class MoveRequest(ApiModel):
 
 class ScheduleRequest(ApiModel):
     schedule: Literal["now", "nights"]
+
+
+class TonightRequest(ApiModel):
+    early: bool  # stop at 03:00 tonight (past it, after the file converting), or go on till 07:00
 
 
 def _queue(request: Request) -> conversions.Queue:
@@ -338,6 +346,14 @@ def plan_queue(body: ScheduleRequest, queue: Queue, card: Card) -> QueueStatus:
     return _status(queue.status(), card)
 
 
+@router.put("/queue/tonight")
+def plan_tonight(body: TonightRequest, queue: Queue, card: Card) -> QueueStatus:
+    """On the nights-only schedule: tonight's run stops taking files at 03:00, so Windows' sleep
+    comes back sooner, or goes on till 07:00."""
+    queue.stop_early(early=body.early)
+    return _status(queue.status(), card)
+
+
 @router.post("/queue/{job_id}/skip", status_code=status.HTTP_204_NO_CONTENT)
 def skip_job(job_id: int, queue: Queue) -> None:
     """Passes over a file: the one converting stops, one waiting leaves the line."""
@@ -417,6 +433,8 @@ def _status(found: conversions.QueueStatus, card: Gpu) -> QueueStatus:
         today=[_job(job) for job in found.today],
         gpu=GpuReading(busy=reading.busy, celsius=reading.celsius) if reading else None,
         room=Room.model_validate(found.room.__dict__) if found.room else None,
+        ends_at=found.ends_at,
+        early=found.early,
     )
 
 

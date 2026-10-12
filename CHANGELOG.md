@@ -9,6 +9,9 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- While the nights-only queue converts at night, the queue says it's keeping the PC awake till
+  07:00. Stop at 03:00 ends that night's run early: no file starts after 03:00 (the one
+  converting finishes), so the PC can sleep sooner; Go on till 07:00 takes it back.
 - Records damaged so badly they won't open (a disk fault, a power cut mid-write) no longer stop
   Kura starting: it says so, offers the newest backup that opens, and keeps the damaged file
   beside the records as it is. With no backup, it starts again with new records, as on its first

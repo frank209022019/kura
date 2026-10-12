@@ -4,7 +4,8 @@ that converts them one at a time on a background thread (kura/convert.py convert
 Jobs live in the jobs table (migration 6): queued, running, replacing (the result taking its
 original's place), then done, failed, skipped or restored. The worker takes the first queued job
 while the queue isn't paused, and on the nights-only schedule only between 23:00 and 07:00 (a
-file started before 07:00 finishes). Pausing or skipping stops a file being made at once (ffmpeg
+file started before 07:00 finishes), or till 03:00 on a night the owner says to stop then
+(`stop_early`). Pausing or skipping stops a file being made at once (ffmpeg
 is stopped, and the original is as it was); paused, the file is first in line again and starts
 over when the queue resumes. An exit does the same. A file made already is checked and put in
 place though the queue pauses, and thrown away when it's skipped. A file whose drive isn't
@@ -36,7 +37,7 @@ from collections import deque
 from collections.abc import Callable, Generator, Iterable
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from datetime import time as clock_time
 from pathlib import Path
 from typing import Literal, cast
@@ -91,7 +92,9 @@ _PAUSED = "queue_paused"  # the settings rows that keep the queue's state across
 _SCHEDULE = "queue_schedule"
 _SHORT = "queue_short_of_room"  # the drive ("D:") the queue paused for, till it's resumed
 _FITTING = "queue_fitting"  # drives where a file without room waits while the others go
+_EARLY = "queue_stops_early"  # when tonight's run takes its last file, stopping early
 NIGHT = (clock_time(23, 0), clock_time(7, 0))  # when the nights-only schedule converts
+EARLY = clock_time(3, 0)  # "Stop at 03:00"
 NO_FFMPEG = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step."
 
 
@@ -154,13 +157,17 @@ class Running:
 class QueueStatus:
     paused: bool
     schedule: Schedule
-    waits_for_night: bool  # nights only, and it's day: files start again at 23:00
+    waits_for_night: bool  # nights only, and it's day (or tonight's run is over): from 23:00
     problem: str | None  # why nothing converts though files wait (no ffmpeg, say)
     running: Running | None
     queued: tuple[Job, ...]  # in the order they'll go
     gpu_seconds: float  # the work left: the running file's and the queued ones'
     today: tuple[Job, ...]  # finished today (done, failed or skipped), newest first
     room: Room | None = None  # a drive without room for what waits on it
+    # Nights only, at night: when tonight's run takes its last file (07:00, or earlier when the
+    # owner said to stop early), ISO local time.
+    ends_at: str | None = None
+    early: bool = False  # the owner said to stop early tonight
 
 
 class Queue:
@@ -317,6 +324,17 @@ class Queue:
             _save(conn, _SCHEDULE, schedule)
         self._wake.set()
 
+    def stop_early(self, *, early: bool) -> None:
+        """On the nights-only schedule: tonight's run takes no file after 03:00 (past 03:00,
+        none after the one converting), so Windows' sleep comes back once that one's done; or,
+        not `early`, it goes on till 07:00 again."""
+        with closing(db.connect(self._paths.database)) as conn, conn:
+            if early:
+                _save(conn, _EARLY, _early_stop(self._now()).isoformat())
+            else:
+                conn.execute("DELETE FROM settings WHERE key = ?", (_EARLY,))
+        self._wake.set()
+
     def skip(self, job_id: int) -> None:
         """Passes over a file: the one converting now stops, and one waiting leaves the line,
         with its result when one waited beside it. Raises LookupError when it's neither."""
@@ -426,6 +444,7 @@ class Queue:
             standard = library_standard(conn)
             paused = _paused(conn)
             schedule = _schedule(conn)
+            stop = _early(conn)
             short = _saved(conn, _SHORT)
             start_of_day = self._now().replace(hour=0, minute=0, second=0, microsecond=0)
             rows = conn.execute(
@@ -473,24 +492,29 @@ class Queue:
         if running is not None:
             left += running.seconds_left if running.seconds_left is not None else 0.0
         problem = self._problem if queued and not paused else None
-        day = not _at_night(self._now())
+        now = self._now()
+        nights = schedule == "nights"
+        ends_at = _tonight_ends(now, stop) if nights and _at_night(now) else None
         return QueueStatus(
             paused,
             schedule,
-            schedule == "nights" and day,
+            nights and not _converting_tonight(now, stop),
             problem,
             running,
             queued,
             left,
             tuple(today),
             room,
+            ends_at.isoformat() if ends_at else None,
+            nights and _stopping(now, stop),
         )
 
     def work_once(self) -> bool:
         """Converts the first file waiting, unless the queue is paused or waits for the night.
         False when there was none to convert (or no ffmpeg to convert it with)."""
         with closing(db.connect(self._paths.database)) as conn:
-            if _paused(conn) or (_schedule(conn) == "nights" and not _at_night(self._now())):
+            nights = _schedule(conn) == "nights"
+            if _paused(conn) or (nights and not _converting_tonight(self._now(), _early(conn))):
                 return False
             programs = self._programs()
             self._problem = None if programs else NO_FFMPEG
@@ -991,6 +1015,44 @@ def _schedule(conn: sqlite3.Connection) -> Schedule:
 def _at_night(moment: datetime) -> bool:
     start, end = NIGHT
     return moment.time() >= start or moment.time() < end
+
+
+def _early(conn: sqlite3.Connection) -> datetime | None:
+    """When a night's run stops early, as the owner asked, if they did."""
+    saved = _saved(conn, _EARLY)
+    return datetime.fromisoformat(saved) if isinstance(saved, str) else None
+
+
+def _early_stop(now: datetime) -> datetime:
+    """When "Stop at 03:00" ends a night's run: this morning's 03:00, now when that's past, or by
+    day the coming night's."""
+    three = now.replace(hour=EARLY.hour, minute=EARLY.minute, second=0, microsecond=0)
+    if now.time() < EARLY:
+        return three
+    if now.time() < NIGHT[1]:
+        return now
+    return three + timedelta(days=1)
+
+
+def _stopping(now: datetime, stop: datetime | None) -> bool:
+    """Whether the night `now` is in stops early: `stop` falls in it, before its 07:00."""
+    return stop is not None and _morning(now) == _morning(stop)
+
+
+def _converting_tonight(now: datetime, stop: datetime | None) -> bool:
+    """Whether the nights-only schedule starts files now: at night, and not past an early stop."""
+    return _at_night(now) and not (_stopping(now, stop) and stop is not None and now >= stop)
+
+
+def _tonight_ends(now: datetime, stop: datetime | None) -> datetime:
+    """When the night `now` is in takes its last file: its 07:00, or an early stop in it."""
+    return stop if stop is not None and _stopping(now, stop) else _morning(now)
+
+
+def _morning(moment: datetime) -> datetime:
+    """The 07:00 that ends the night a moment is in (or, by day, the coming night)."""
+    seven = moment.replace(hour=NIGHT[1].hour, minute=0, second=0, microsecond=0)
+    return seven if moment.time() < NIGHT[1] else seven + timedelta(days=1)
 
 
 def _saved(conn: sqlite3.Connection, key: str) -> object:

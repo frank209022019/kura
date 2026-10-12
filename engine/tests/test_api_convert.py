@@ -128,6 +128,16 @@ def test_the_queue_pauses_resumes_and_waits_for_night(client: TestClient, shelf:
     assert (status["paused"], status["schedule"]) == (False, "now")  # start now, it said
 
 
+def test_tonights_run_can_stop_at_three(client: TestClient, converting: Queue):
+    client.put("/queue/schedule", json={"schedule": "nights"})
+
+    status = client.put("/queue/tonight", json={"early": True}).json()
+
+    assert status["early"] is True
+    assert status["endsAt"] is None  # 09:30: by day, nothing ends tonight yet
+    assert client.put("/queue/tonight", json={"early": False}).json()["early"] is False
+
+
 def test_files_added_for_the_night_never_start_by_day(
     client: TestClient, shelf: Path, monkeypatch: pytest.MonkeyPatch
 ):

@@ -218,7 +218,8 @@ checked (length, streams, Kura's tag, a test play at three points), and only the
 original's place, journaled like a tidy-up, the original going to quarantine; no scan runs
 meanwhile. The queue (`kura/queue.py`) holds the files waiting, in the owner's order, and its
 worker converts them one at a time while Kura is open; on the nights-only schedule it starts
-files only between 23:00 and 07:00. Pausing or skipping stops ffmpeg at once and leaves the
+files only between 23:00 and 07:00, or till 03:00 on a night the owner says to stop then (the
+queue page's overnight note, `Queue.stop_early`), so Windows' sleep comes back sooner. Pausing or skipping stops ffmpeg at once and leaves the
 original as it was (a paused file starts over); a result made already is still checked and put in
 place when the queue pauses, and thrown away when it's skipped. A file whose result would take a
 name that's taken fails before anything is made, and Windows doesn't sleep while a file converts.
