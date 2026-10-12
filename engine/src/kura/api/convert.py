@@ -293,12 +293,10 @@ def queue_status(queue: Queue, card: Card) -> QueueStatus:
 @router.post("/queue")
 def add_to_queue(body: AddRequest, queue: Queue) -> Added:
     """Puts files at the end of the queue, to convert now, at night, or after what waits."""
-    for drive in body.fit:  # before they join too: one without room never pauses the queue
-        queue.convert_what_fits(drive)
     if body.when != "after":
         queue.plan(body.when)  # before they join: the worker never sees the old schedule
         queue.resume()
-    added = queue.add(body.files, Method(body.method) if body.method else None)
+    added = queue.add(body.files, Method(body.method) if body.method else None, fit=body.fit)
     return Added(added=added)
 
 

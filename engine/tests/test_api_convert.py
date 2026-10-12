@@ -144,9 +144,15 @@ def test_files_added_for_the_night_never_start_by_day(
     schedules: list[str] = []
     add = Queue.add
 
-    def noting(queue: Queue, file_ids: Iterable[int], method: Method | None = None) -> int:
+    def noting(
+        queue: Queue,
+        file_ids: Iterable[int],
+        method: Method | None = None,
+        *,
+        fit: Iterable[str] = (),
+    ) -> int:
         schedules.append(queue.status().schedule)
-        return add(queue, file_ids, method)
+        return add(queue, file_ids, method, fit=fit)
 
     monkeypatch.setattr(Queue, "add", noting)
     client.post("/queue/pause")

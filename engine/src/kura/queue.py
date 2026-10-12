@@ -62,6 +62,7 @@ from kura.convert import (
     restore,
     room_for,
     settle,
+    size_words,
     throw_away_kept,
     work_of,
 )
@@ -255,14 +256,21 @@ class Queue:
                     put_back += 1
         return Recovery(restarted=len(running), finished=finished, put_back=put_back)
 
-    def add(self, file_ids: Iterable[int], method: Method | None = None) -> int:
+    def add(
+        self, file_ids: Iterable[int], method: Method | None = None, *, fit: Iterable[str] = ()
+    ) -> int:
         """Puts files at the end of the queue, in the order given. A file already in it, or one
         with nothing to convert (at the standard already, unreadable, or gone), is passed over.
         `method` is the owner's choice, which a file gets only when it suits it (the AI model is
-        for SD). Returns how many joined."""
+        for SD). On the drives in `fit` ("D:"), the files that fit convert and the rest wait for
+        room (`convert_what_fits`), from the moment they join. Returns how many joined."""
         stamp = self._now().isoformat()
         added = 0
-        with closing(db.connect(self._paths.database)) as conn, conn:
+        # Under the lock the worker takes files under: it never sees them without `fit`.
+        with self._lock, closing(db.connect(self._paths.database)) as conn, conn:
+            fitting = _fitting(conn)
+            if more := [drive for drive in dict.fromkeys(fit) if not _among(drive, fitting)]:
+                _save(conn, _FITTING, [*fitting, *more])
             standard = library_standard(conn)
             waiting = {
                 row[0]
@@ -460,7 +468,9 @@ class Queue:
                 if row["state"] == "queued" and row["retry_at"] is None and connected(row["root"])
             ]
             held = short if paused and isinstance(short, str) else None
-            room, no_room = _room(unmade, standard, held, _fitting(conn))
+            # Paused by the owner, files waiting for room don't say so: the queue is paused.
+            fitting = [] if paused else _fitting(conn)
+            room, no_room = _room(unmade, standard, held, fitting)
             if room is not None:
                 found = set_aside_by_drive(conn)
                 aside = next((n for d, n in found.items() if _among(d, [room.drive])), 0)
@@ -823,18 +833,8 @@ def _told(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
     after = sum(row["output_size"] or 0 for row in done)
     [only] = titles if len(titles) == 1 else [None]
     link = f"/titles/{only}" if only is not None else "/history"
-    return title, f"{count} · {_size(before)} → {_size(after)}" if done else count, link
-
-
-def _size(count: int) -> str:
-    """Bytes as the app writes them: "412 MB", "9.1 GB", "35 GB"."""
-    if count >= 10**10:
-        return f"{round(count / 10**9)} GB"
-    if count >= 10**9:
-        return f"{count / 10**9:.1f} GB"
-    if count >= 10**6:
-        return f"{round(count / 10**6)} MB"
-    return f"{max(1, round(count / 10**3)) if count else 0} KB"
+    words = f"{count} · {size_words(before)} → {size_words(after)}"
+    return title, words if done else count, link
 
 
 def programs_from(tools: Tools) -> Programs | None:

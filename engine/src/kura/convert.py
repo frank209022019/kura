@@ -98,8 +98,8 @@ class NoRoomError(ConvertError):
 
     def __init__(self, drive: str, needed: int, free: int) -> None:
         super().__init__(
-            f"There isn't room on {drive} for the next file: it needs about {needed / 1e9:.1f} GB,"
-            f" and {free / 1e9:.1f} GB is free."
+            f"There isn't room on {drive} for the next file: it needs about {size_words(needed)},"
+            f" and {size_words(free)} is free."
         )
         self.drive = drive
 
@@ -476,6 +476,17 @@ def _clear(work: Path) -> None:
             "Its unfinished copy from an earlier try is still in use, so it can't start over yet."
             " Try again in a minute."
         ) from None
+
+
+def size_words(count: int) -> str:
+    """Bytes as the app writes them: "412 MB", "9.1 GB", "35 GB"."""
+    if count >= 10**10:
+        return f"{round(count / 10**9)} GB"
+    if count >= 10**9:
+        return f"{count / 10**9:.1f} GB"
+    if count >= 10**6:
+        return f"{round(count / 10**6)} MB"
+    return f"{max(1, round(count / 10**3)) if count else 0} KB"
 
 
 def room_for(media: MediaInfo, decision: Decision, standard: Standard) -> int:

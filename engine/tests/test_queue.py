@@ -640,6 +640,33 @@ def test_converting_what_fits_passes_over_what_doesnt_and_goes_on(
     assert queue.status().room is None
 
 
+def test_files_added_to_convert_what_fits_wait_for_room_without_pausing(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    free_space(monkeypatch, 10**6)
+    queue.work_once()  # the worker looks as the owner adds them: nothing waits yet
+
+    queue.add([1, 2], fit=[shows.drive])
+
+    assert queue.work_once() is False
+    status = queue.status()
+    assert status.paused is False
+    assert [job.no_room for job in status.queued] == [True, True]
+
+
+def test_paused_by_the_owner_files_waiting_for_room_say_nothing_of_it(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    free_space(monkeypatch, 10**6)
+    queue.add([1], fit=[shows.drive])
+
+    queue.pause()
+
+    status = queue.status()
+    assert status.room is None  # the queue is paused: that's what it says
+    assert [job.no_room for job in status.queued] == [False]
+
+
 def test_once_nothing_waits_for_room_a_full_drive_pauses_the_queue_again(
     queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -713,7 +740,10 @@ def test_a_full_drive_is_told_of(
 
     [(title, body, link)] = told
     assert title == "The queue paused"
-    assert body.startswith(f"There isn't room on {shows.drive} for the next file: it needs about")
+    assert body == (
+        f"There isn't room on {shows.drive} for the next file: it needs about 562 MB, and 1 MB"
+        " is free."
+    )
     assert link == "/convert/queue"
 
 
