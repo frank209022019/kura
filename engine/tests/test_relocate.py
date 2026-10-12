@@ -121,8 +121,10 @@ def test_a_drive_without_room_for_it_isnt_taken(
 
     monkeypatch.setattr("kura.relocate.shutil.disk_usage", small)
 
-    with pytest.raises(MoveError, match="There isn't room"):
+    with pytest.raises(MoveError) as refused:
         ask_to_move(DataPaths(home), tmp_path / "F" / "Kura data")
+
+    assert str(refused.value).startswith(f"There isn't room on {tmp_path.drive} for Kura's data:")
 
 
 def test_a_move_cut_short_leaves_the_data_where_it_was_and_says_so(

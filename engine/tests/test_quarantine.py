@@ -1,5 +1,6 @@
 """Clearing out what was set aside once the owner's days are up: copies, and converted files'
-originals. What's cleared can't be put back; the rest of its tidy-up can."""
+originals; or all of it on one drive at once, when the owner empties it to make room. What's
+cleared can't be put back; the rest of its tidy-up can."""
 
 import sqlite3
 from datetime import UTC, datetime, timedelta
@@ -10,7 +11,7 @@ import pytest
 from kura.changes import ChangeState, apply_plan, changes_of, save_plan, undo_plan
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.plan import Change, ChangeKind, Plan
-from kura.quarantine import clear_out
+from kura.quarantine import clear_out, empty, set_aside_by_drive
 
 pytestmark = pytest.mark.usefixtures("quarantine")
 
@@ -50,6 +51,32 @@ def test_what_was_set_aside_longer_than_the_owner_keeps_it_goes(
     assert old_copy.cleared_at is not None
     assert recent_copy.target.exists()
     assert recent_copy.cleared_at is None
+
+
+def test_emptying_a_drive_takes_all_it_set_aside_however_recent(
+    conn: sqlite3.Connection, tmp_path: Path
+):
+    yesterday = set_aside(conn, tmp_path, "Yesterday", days_ago=1)
+    drive = tmp_path.drive
+    assert set_aside_by_drive(conn) == {drive: len(b"copy")}  # what emptying it would free
+
+    assert empty(conn, drive, now=NOW) == 1
+
+    [copy, filed] = changes_of(conn, yesterday)
+    assert not copy.target.exists()
+    assert copy.cleared_at is not None
+    assert filed.target.exists()  # only what was set aside goes
+    assert set_aside_by_drive(conn) == {}
+
+
+def test_emptying_another_drive_leaves_this_one_as_it_is(conn: sqlite3.Connection, tmp_path: Path):
+    plan_id = set_aside(conn, tmp_path, "Yesterday", days_ago=1)
+    other = "Q:" if tmp_path.drive.upper() != "Q:" else "R:"
+
+    assert empty(conn, other, now=NOW) == 0
+
+    [copy, _] = changes_of(conn, plan_id)
+    assert copy.target.exists()
 
 
 def test_kept_for_good_nothing_goes(conn: sqlite3.Connection, tmp_path: Path):
@@ -92,6 +119,8 @@ def test_an_original_whose_converted_file_never_went_in_is_kept(
     apply_plan(conn, plan_id, now=NOW - timedelta(days=40))  # the result couldn't go in
 
     assert clear_out(conn, days=30, now=NOW) == 0
+    assert empty(conn, tmp_path.drive, now=NOW) == 0
+    assert set_aside_by_drive(conn) == {}
     assert place.exists()  # the only copy of the episode now
 
 
@@ -111,5 +140,6 @@ def test_only_whats_in_a_quarantine_folder_is_ever_cleared_out(
         conn.execute("UPDATE plans SET applied_at = ?", ((NOW - timedelta(days=60)).isoformat(),))
 
     assert clear_out(conn, days=30, now=NOW) == 0
+    assert empty(conn, tmp_path.drive, now=NOW) == 0
 
     assert precious.read_text() == "years of work"

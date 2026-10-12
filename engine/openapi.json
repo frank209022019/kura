@@ -1508,6 +1508,94 @@
         ]
       }
     },
+    "/queue/fit": {
+      "post": {
+        "summary": "Convert What Fits",
+        "description": "On a drive without room for all that waits on it, the files that fit convert, and the\nrest wait for room while the others go. The queue goes on if it paused.",
+        "operationId": "convert_what_fits_queue_fit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/quarantine/empty": {
+      "post": {
+        "summary": "Empty Quarantine",
+        "description": "Deletes everything set aside on a drive now, however recently, to make room there: it\ncan't be put back after. Kura asks the owner first. Files waiting for room look again.",
+        "operationId": "empty_quarantine_quarantine_empty_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Emptied"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/queue/schedule": {
       "put": {
         "summary": "Plan Queue",
@@ -2093,6 +2181,13 @@
             ],
             "title": "When",
             "default": "after"
+          },
+          "fit": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fit"
           }
         },
         "type": "object",
@@ -2360,13 +2455,21 @@
             },
             "type": "object",
             "title": "Free"
+          },
+          "setAside": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Setaside"
           }
         },
         "type": "object",
         "required": [
           "standard",
           "files",
-          "free"
+          "free",
+          "setAside"
         ],
         "title": "ConvertOptions"
       },
@@ -2623,6 +2726,19 @@
         ],
         "title": "DeleteRequest"
       },
+      "DriveRequest": {
+        "properties": {
+          "drive": {
+            "type": "string",
+            "title": "Drive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "drive"
+        ],
+        "title": "DriveRequest"
+      },
       "Duplicate": {
         "properties": {
           "label": {
@@ -2652,6 +2768,19 @@
           "reason"
         ],
         "title": "Duplicate"
+      },
+      "Emptied": {
+        "properties": {
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Emptied"
       },
       "EpisodeRef": {
         "properties": {
@@ -3297,6 +3426,10 @@
               }
             ],
             "title": "Log"
+          },
+          "noRoom": {
+            "type": "boolean",
+            "title": "Noroom"
           }
         },
         "type": "object",
@@ -3322,7 +3455,8 @@
           "height",
           "driveMissing",
           "retryAt",
-          "log"
+          "log",
+          "noRoom"
         ],
         "title": "Job"
       },
@@ -3801,6 +3935,16 @@
                 "type": "null"
               }
             ]
+          },
+          "room": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Room"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3813,7 +3957,8 @@
           "queued",
           "gpuSeconds",
           "today",
-          "gpu"
+          "gpu",
+          "room"
         ],
         "title": "QueueStatus"
       },
@@ -3925,6 +4070,50 @@
         ],
         "title": "ReviewedChange",
         "description": "A proposed change, as the owner saw it."
+      },
+      "Room": {
+        "properties": {
+          "drive": {
+            "type": "string",
+            "title": "Drive"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "files": {
+            "type": "integer",
+            "title": "Files"
+          },
+          "needed": {
+            "type": "integer",
+            "title": "Needed"
+          },
+          "free": {
+            "type": "integer",
+            "title": "Free"
+          },
+          "fit": {
+            "type": "integer",
+            "title": "Fit"
+          },
+          "setAside": {
+            "type": "integer",
+            "title": "Setaside"
+          }
+        },
+        "type": "object",
+        "required": [
+          "drive",
+          "paused",
+          "files",
+          "needed",
+          "free",
+          "fit",
+          "setAside"
+        ],
+        "title": "Room",
+        "description": "A drive without room for the files waiting to convert on it."
       },
       "Running": {
         "properties": {

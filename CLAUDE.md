@@ -147,6 +147,12 @@ Everything decided so far. Don't ask again; change only with the owner.
 - Deleting from Kura (the owner, 2026-10-11): a whole title, a season or one video, from the
   title's page, after Kura asks. It goes to quarantine like any copy set aside, never straight to
   deletion, and History (or the page, right after) puts it back until the clear-out.
+- Not enough space (the owner, 2026-10-12): when a drive hasn't room for what's queued, the
+  queue pauses and says what the files there need. The owner can empty that drive's quarantine
+  first (with a second "are you sure": what's set aside there is deleted for good, before its
+  days are up) or convert the files that fit now, the rest waiting for room. Kura doesn't write
+  results to another drive. The Convert screen asks the same before queueing a choice that
+  doesn't fit.
 - Lists sort by release date by default, oldest first, on every page that lists series, movies,
   OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11).
 - Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word
@@ -304,12 +310,11 @@ Everything decided so far. Don't ask again; change only with the owner.
    unless turned on; the UI never names Plex).
 8. The small-things board: done for a file open in another app, a crash or power cut, a failed
    conversion, a finished batch, being offline, and a name that's taken (a tidy-up keeps both,
-   the new one with "(2)", and its review says so). Still to build: that state's "Compare the
-   two" and "Skip", and the overnight keep-awake note. Open with the owner: "Not enough space" offers "Empty quarantine first" (deleting copies before their days
-   are up) and "Write to another drive" (results away from their originals' drive): both change
-   what's decided, so they wait for the owner. Also open: a `kura.db` damaged past opening stops
-   the engine starting, so Settings' restore can't be reached; a way back (offering the last
-   backup as the engine starts) is the owner's call.
+   the new one with "(2)", and its review says so), and not enough space (empty the drive's
+   quarantine first, or convert what fits). Still to build: a taken name's "Compare the two" and
+   "Skip", the overnight keep-awake note, and records damaged past opening (the owner,
+   2026-10-12: as the engine starts, Kura offers the newest backup that opens, keeping the
+   damaged file beside it).
 9. Light mode, once it's designed.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's

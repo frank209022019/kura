@@ -6,12 +6,14 @@ import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
 import {
+  fitting,
   type GroupNode,
   gpuTime,
   METHOD_NAMES,
   nights,
   open,
   playTime,
+  ROOM,
   type SeasonNode,
   type TitleNode,
   totals,
@@ -21,14 +23,17 @@ import {
   type Convertible,
   useAddToQueue,
   useConvertOptions,
+  useEmptyQuarantine,
   useFranchises,
   useQueue,
+  useSettings,
   useSystem,
   type Way,
 } from "@/lib/engine";
 import { size } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ConvertTabs, Step } from "./convert-tabs";
+import { NoRoom } from "./no-room";
 import { SeeItFirst } from "./see-it-first";
 
 type When = "now" | "nights" | "after";
@@ -61,9 +66,11 @@ export function ConvertPage() {
   const franchises = useFranchises();
   const queue = useQueue();
   const add = useAddToQueue();
+  const empty = useEmptyQuarantine();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [way, setWay] = useState<Way>("best");
   const [when, setWhen] = useState<When | null>(null);
+  const [asking, setAsking] = useState(false); // about a drive without room for the choice
 
   const header = (
     <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
@@ -101,6 +108,7 @@ export function ConvertPage() {
   const timing = (when ?? (queue.data?.schedule === "nights" ? "nights" : "now")) as When;
 
   function toggle(node: Convertible[]) {
+    setAsking(false); // a new choice is asked about afresh
     const ids = open(node).map((file) => file.fileId);
     setSelected((before) => {
       const next = new Set(before);
@@ -113,10 +121,32 @@ export function ConvertPage() {
     });
   }
 
-  function queueChosen() {
-    const body = { files: chosen.map((file) => file.fileId), method: way, when: timing };
+  function queueChosen(fit: string[] = []) {
+    const body = { files: chosen.map((file) => file.fileId), method: way, when: timing, fit };
     add.mutate({ path: "/queue", body }, { onSuccess: () => void navigate("/convert/queue") });
   }
+
+  const short = shortage(chosen, way, options.data.free, options.data.setAside);
+  const room = asking && short && (
+    <NoRoom
+      drive={short.drive}
+      waiting={short.files}
+      needed={short.needed}
+      free={short.free}
+      fit={short.fit}
+      setAside={short.setAside}
+      busy={add.isPending || empty.isPending}
+      problem={empty.error ?? add.error}
+      onEmpty={() =>
+        empty.mutate(
+          { path: "/quarantine/empty", body: { drive: short.drive } },
+          { onSuccess: () => queueChosen() },
+        )
+      }
+      onFit={() => queueChosen([short.drive])}
+      onBack={() => setAsking(false)}
+    />
+  );
 
   return (
     <>
@@ -129,7 +159,10 @@ export function ConvertPage() {
           basis={chosen.length > 0 ? chosen : open(files)}
           chosen={chosen}
           way={way}
-          onWay={setWay}
+          onWay={(next) => {
+            setWay(next);
+            setAsking(false);
+          }}
         />
       </div>
       <SeeItFirst
@@ -146,8 +179,9 @@ export function ConvertPage() {
           count={chosen.length}
           episodes={chosen.every((file) => file.episode !== null)}
           busy={add.isPending}
-          onQueue={queueChosen}
-          problem={add.error?.message ?? null}
+          onQueue={() => (short ? setAsking(true) : queueChosen())}
+          problem={room ? null : (add.error?.message ?? null)}
+          room={room || null}
         />
       </div>
     </>
@@ -415,11 +449,37 @@ function perFile(files: Convertible[], way: Way): number | null {
   return timed.reduce((sum, file) => sum + (file.ways[way]?.gpuSeconds ?? 0), 0) / timed.length;
 }
 
-/** Free space wanted on a drive, over the results' size there (the engine wants the same). */
-const ROOM = 1.25;
+/**
+ * The drive without room for what's chosen, as converting it in turn would find it, with what
+ * waits there and what its quarantine would free; null when there's room on every drive.
+ */
+function shortage(
+  chosen: Convertible[],
+  way: Way,
+  free: Record<string, number>,
+  setAside: Record<string, number>,
+) {
+  const byDrive = new Map<string, Convertible[]>();
+  for (const file of chosen) {
+    if (file.ways[way]) byDrive.set(file.drive, [...(byDrive.get(file.drive) ?? []), file]);
+  }
+  for (const [drive, files] of byDrive) {
+    const room = free[drive];
+    if (room === undefined) continue; // not connected: it waits for the drive instead
+    const { needed, fit } = fitting(
+      files.map((file) => file.outputBytes),
+      room,
+    );
+    if (fit === files.length) continue;
+    const aside = Object.entries(setAside).find(([d]) => d.toUpperCase() === drive.toUpperCase());
+    return { drive, files, needed, free: room, fit, setAside: aside?.[1] ?? 0 };
+  }
+  return null;
+}
 
 function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string, number> }) {
   const system = useSystem();
+  const days = useSettings().data?.quarantineDays;
   const sum = totals(props.chosen, props.way);
   const [drive, needed] = spaceToShow(sum.byDrive, props.free);
   const free = props.free[drive] ?? null;
@@ -463,7 +523,11 @@ function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string,
           }
           warn={!enough}
         />
-        <Tile label="Originals" value="Kept 30 days" note="in quarantine, after each check" />
+        <Tile
+          label="Originals"
+          value={days === null ? "Kept for good" : `Kept ${days ?? 30} days`}
+          note="in quarantine, after each check"
+        />
       </div>
     </Step>
   );
@@ -507,6 +571,8 @@ function WhenPanel(props: {
   busy: boolean;
   onQueue: () => void;
   problem: string | null;
+  /** Not enough space for the choice: the ways on, instead of adding. */
+  room: React.ReactNode;
 }) {
   const choices: { when: When; label: string; note?: string }[] = [
     { when: "now", label: "Start now" },
@@ -549,16 +615,18 @@ function WhenPanel(props: {
           {props.problem}
         </p>
       )}
-      <Button
-        variant="primary"
-        className="mt-auto min-h-12 w-full"
-        disabled={props.count === 0 || props.busy}
-        onClick={props.onQueue}
-      >
-        {props.count === 0
-          ? "Choose what to convert"
-          : `Add ${count(props.count, what)} to the queue`}
-      </Button>
+      {props.room ?? (
+        <Button
+          variant="primary"
+          className="mt-auto min-h-12 w-full"
+          disabled={props.count === 0 || props.busy}
+          onClick={props.onQueue}
+        >
+          {props.count === 0
+            ? "Choose what to convert"
+            : `Add ${count(props.count, what)} to the queue`}
+        </Button>
+      )}
     </Step>
   );
 }

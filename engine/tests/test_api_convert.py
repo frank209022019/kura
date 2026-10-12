@@ -5,6 +5,7 @@ import sqlite3
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -41,6 +42,15 @@ def shelf(conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPa
         conn.execute("INSERT INTO titles (id, kind, name) VALUES (1, 'series', 'Trigun')")
         conn.execute("UPDATE files SET title_id = 1, season = 1, episode = id, matched = 'sure'")
     return root
+
+
+def free_space(monkeypatch: pytest.MonkeyPatch, free: int) -> None:
+    """Every drive has `free` bytes free."""
+
+    def usage(path: object) -> SimpleNamespace:
+        return SimpleNamespace(total=10**13, used=10**13 - free, free=free)
+
+    monkeypatch.setattr("kura.convert.shutil.disk_usage", usage)
 
 
 @pytest.fixture
@@ -84,6 +94,7 @@ def test_what_isnt_at_the_standard_is_listed_with_each_way_to_convert_it(
     assert first["outputBytes"] == 450_000_000
     assert found["files"][2]["ways"] == {}
     assert found["free"][shelf.drive] > 0
+    assert found["setAside"] == {}  # nothing in quarantine to empty
 
 
 def test_files_join_the_queue_and_wait_their_turn(client: TestClient, shelf: Path):
@@ -152,6 +163,59 @@ def test_waiting_files_can_be_moved_skipped_removed_and_tried_again(
     assert [job["id"] for job in client.get("/queue").json()["queued"]] == [second]
     assert client.delete(f"/queue/{first}").status_code == 404
     assert client.post("/queue/99/skip").status_code == 404
+
+
+def test_a_drive_without_room_pauses_the_queue_till_it_converts_what_fits(
+    client: TestClient, converting: Queue, shelf: Path, monkeypatch: pytest.MonkeyPatch
+):
+    client.post("/queue", json={"files": [1, 2]})
+    free_space(monkeypatch, 10**6)
+    converting.work_once()
+
+    room = client.get("/queue").json()["room"]
+    assert (room["drive"], room["paused"], room["files"], room["fit"]) == (shelf.drive, True, 2, 0)
+    assert (room["free"], room["setAside"]) == (10**6, 0)
+    assert room["needed"] > room["free"]
+
+    status = client.post("/queue/fit", json={"drive": shelf.drive}).json()
+
+    assert status["paused"] is False
+    assert status["room"]["paused"] is False  # they wait for room while the others go
+    assert [job["noRoom"] for job in status["queued"]] == [True, True]
+
+
+def test_files_queued_to_convert_what_fits_wait_for_room_without_pausing(
+    client: TestClient, converting: Queue, shelf: Path, monkeypatch: pytest.MonkeyPatch
+):
+    free_space(monkeypatch, 10**6)
+
+    client.post("/queue", json={"files": [1, 2], "when": "now", "fit": [shelf.drive]})
+
+    assert converting.work_once() is False
+    status = client.get("/queue").json()
+    assert status["paused"] is False
+    assert [job["noRoom"] for job in status["queued"]] == [True, True]
+
+
+def test_a_drives_quarantine_can_be_emptied_to_make_room(
+    client: TestClient, converting: Queue, shelf: Path
+):
+    episode = shelf / "Trigun (1998)" / "Season 01" / "Trigun (1998) - S01E01.mkv"
+    original = episode.stat().st_size
+    client.post("/queue", json={"files": [1]})
+    converting.work_once()  # its original is set aside
+    assert client.get("/convert").json()["setAside"] == {shelf.drive: original}
+
+    emptied = client.post("/quarantine/empty", json={"drive": shelf.drive})
+
+    assert emptied.json() == {"files": 1}
+    assert client.get("/convert").json()["setAside"] == {}
+    [done] = client.get("/queue").json()["today"]
+    again = client.post(f"/queue/{done['id']}/restore")
+    assert (
+        again.json()["detail"]
+        == "Its original was cleared out of quarantine, so it can't come back."
+    )
 
 
 def test_a_file_open_in_another_app_waits_and_can_be_tried_now(

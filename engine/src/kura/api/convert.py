@@ -1,12 +1,13 @@
 """Converting the library to its standard: what can be converted, with estimates for each way of
-converting it, and the queue that converts it, one file at a time."""
+converting it, the queue that converts it, one file at a time, and making room for it."""
 
 import json
 import shutil
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import replace
-from pathlib import Path, PureWindowsPath
+from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,13 +16,15 @@ from pydantic import Field
 
 from kura import preview
 from kura import queue as conversions
-from kura.api.common import ApiModel, Database, Paths
+from kura.api.common import ApiModel, Database, Paths, Scans
 from kura.convert import CONVERTED, ConvertError, Programs, label_of, lighter
 from kura.core.estimate import estimate
+from kura.core.library import drive_of
 from kura.core.media import media_from_ffprobe
 from kura.core.standard import Method, decide
 from kura.gpu import Gpu
 from kura.preferences import library_standard
+from kura.quarantine import empty, set_aside_by_drive
 from kura.scan import ScanBusyError
 
 router = APIRouter()
@@ -60,6 +63,7 @@ class ConvertOptions(ApiModel):
     standard: str  # "Cinema 1080p"
     files: list[Convertible]
     free: dict[str, int]  # bytes free on each drive the files are on
+    set_aside: dict[str, int]  # bytes emptying each drive's quarantine would free
 
 
 class Job(ApiModel):
@@ -87,6 +91,19 @@ class Job(ApiModel):
     # Kura tries again to put it in place.
     retry_at: str | None
     log: str | None  # what ffmpeg said, when a conversion failed ("Copy full log")
+    no_room: bool  # waiting for room on its drive while the others go
+
+
+class Room(ApiModel):
+    """A drive without room for the files waiting to convert on it."""
+
+    drive: str  # "D:"
+    paused: bool  # the queue paused for it; else the files that don't fit wait while others go
+    files: int  # files waiting to convert on it
+    needed: int  # the free space their results want, in bytes
+    free: int  # bytes free on it now
+    fit: int  # how many of them fit now, in turn
+    set_aside: int  # bytes its quarantine would free, emptied now
 
 
 class Running(ApiModel):
@@ -113,6 +130,7 @@ class QueueStatus(ApiModel):
     gpu_seconds: float  # the work left
     today: list[Job]  # finished today, newest first
     gpu: GpuReading | None  # the card's load and temperature, while a file converts
+    room: Room | None  # a drive without room for what waits on it
 
 
 class AddRequest(ApiModel):
@@ -121,6 +139,17 @@ class AddRequest(ApiModel):
     # When they convert: "now" or "nights" set the schedule and resume the queue if it was
     # paused; "after" leaves the queue as it is, so they go after what waits.
     when: Literal["now", "nights", "after"] = "after"
+    # Drives ("D:") without room for them all: the files that fit there convert, and the rest
+    # wait for room while the others go.
+    fit: list[str] = Field(default_factory=list[str])
+
+
+class DriveRequest(ApiModel):
+    drive: str  # "D:"
+
+
+class Emptied(ApiModel):
+    files: int  # files deleted from the drive's quarantine
 
 
 class Added(ApiModel):
@@ -192,7 +221,7 @@ def what_to_convert(conn: Database) -> ConvertOptions:
                 height=video.height,
                 aspect=f"{video.display_aspect.numerator}:{video.display_aspect.denominator}",
                 size=media.size or 0,
-                drive=PureWindowsPath(row["path"]).drive,
+                drive=drive_of(row["path"]),
                 ways=ways,
                 output_bytes=output,
                 waiting=bool(row["waiting"]),
@@ -200,7 +229,10 @@ def what_to_convert(conn: Database) -> ConvertOptions:
             )
         )
     return ConvertOptions(
-        standard=standard.name, files=found, free=_free({file.drive for file in found})
+        standard=standard.name,
+        files=found,
+        free=_free({file.drive for file in found}),
+        set_aside=set_aside_by_drive(conn),
     )
 
 
@@ -253,6 +285,8 @@ def queue_status(queue: Queue, card: Card) -> QueueStatus:
 @router.post("/queue")
 def add_to_queue(body: AddRequest, queue: Queue) -> Added:
     """Puts files at the end of the queue, to convert now, at night, or after what waits."""
+    for drive in body.fit:  # before they join too: one without room never pauses the queue
+        queue.convert_what_fits(drive)
     if body.when != "after":
         queue.plan(body.when)  # before they join: the worker never sees the old schedule
         queue.resume()
@@ -271,6 +305,30 @@ def pause_queue(queue: Queue, card: Card) -> QueueStatus:
 def resume_queue(queue: Queue, card: Card) -> QueueStatus:
     queue.resume()
     return _status(queue.status(), card)
+
+
+@router.post("/queue/fit")
+def convert_what_fits(body: DriveRequest, queue: Queue, card: Card) -> QueueStatus:
+    """On a drive without room for all that waits on it, the files that fit convert, and the
+    rest wait for room while the others go. The queue goes on if it paused."""
+    queue.convert_what_fits(body.drive)
+    queue.resume()
+    return _status(queue.status(), card)
+
+
+@router.post("/quarantine/empty")
+def empty_quarantine(body: DriveRequest, conn: Database, scans: Scans, queue: Queue) -> Emptied:
+    """Deletes everything set aside on a drive now, however recently, to make room there: it
+    can't be put back after. Kura asks the owner first. Files waiting for room look again."""
+    try:
+        with scans.hold():
+            cleared = empty(conn, body.drive, now=datetime.now().astimezone())
+    except ScanBusyError as busy:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"{busy} Empty it once that's done."
+        ) from None
+    queue.wake()
+    return Emptied(files=cleared)
 
 
 @router.put("/queue/schedule")
@@ -358,6 +416,7 @@ def _status(found: conversions.QueueStatus, card: Gpu) -> QueueStatus:
         gpu_seconds=found.gpu_seconds,
         today=[_job(job) for job in found.today],
         gpu=GpuReading(busy=reading.busy, celsius=reading.celsius) if reading else None,
+        room=Room.model_validate(found.room.__dict__) if found.room else None,
     )
 
 

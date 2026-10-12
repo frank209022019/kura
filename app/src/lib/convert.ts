@@ -157,6 +157,33 @@ export function gpuTimeShort(seconds: number): string {
   return gpuTime(seconds).replace(/ days$/, " d");
 }
 
+/** The drive a path is on, as Kura writes it: "D:" (empty for one it can't tell). */
+export function driveOf(path: string): string {
+  return /^[a-z]:/i.exec(path)?.[0].toUpperCase() ?? "";
+}
+
+/** Free space wanted on a drive, over a result's size (the engine wants the same). */
+export const ROOM = 1.25;
+
+/**
+ * Of files to convert on one drive, in turn: the free space their results all want, and how
+ * many fit in `free` now, each result taking its size of what's left (as the engine counts).
+ */
+export function fitting(outputs: number[], free: number): { needed: number; fit: number } {
+  let left = free;
+  let needed = 0;
+  let fit = 0;
+  for (const bytes of outputs) {
+    const wanted = Math.round(bytes * ROOM);
+    needed += wanted;
+    if (left >= wanted) {
+      fit += 1;
+      left -= bytes;
+    }
+  }
+  return { needed, fit };
+}
+
 /** When Kura tries again, from now: "in 5 minutes", "in a minute", "in a moment". */
 export function retryIn(retryAt: string, now: number): string {
   const minutes = Math.ceil((Date.parse(retryAt) - now) / 60_000);

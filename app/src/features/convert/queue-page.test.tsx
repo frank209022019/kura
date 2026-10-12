@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type Job, type QueueStatus } from "@/lib/engine";
+import { EngineProvider, type Job, type QueueStatus, type Room } from "@/lib/engine";
 import { fakeEngine, READY } from "@/test/engine";
 import { QueuePage } from "./queue-page";
 
@@ -36,6 +36,7 @@ function job(id: number, more: Partial<Job> = {}): Job {
     driveMissing: false,
     retryAt: null,
     log: null,
+    noRoom: false,
     ...more,
   };
 }
@@ -66,6 +67,7 @@ const RUNNING: QueueStatus = {
     }),
   ],
   gpu: { busy: 97, celsius: 71 },
+  room: null,
 };
 
 function renderQueue() {
@@ -231,23 +233,87 @@ describe("QueuePage", () => {
     expect(await screen.findByText("The choosing screen")).toBeInTheDocument();
   });
 
-  it("says which files wait for their drive, and why a full drive paused it all", async () => {
-    const full = "There isn't room on D:\\: 0.0 GB free. Make room, then resume the queue.";
+  it("says which files wait for their drive", async () => {
     fakeEngine({
       "/queue": {
         ...RUNNING,
         running: null,
         paused: true,
-        problem: full,
         queued: [job(6, { driveMissing: true }), job(7)],
       },
     });
     renderQueue();
 
-    expect(await screen.findByText(full)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Up next" })).toHaveTextContent(
+    expect(await screen.findByRole("region", { name: "Up next" })).toHaveTextContent(
       "S01E06Dragon Ball Z (1989) - S01E06.mkvIts drive isn't connected",
     );
+  });
+
+  it("offers to empty the quarantine or convert what fits when a drive is full", async () => {
+    const room: Room = {
+      drive: "D:",
+      paused: true,
+      files: 2,
+      needed: 1_125_000_000,
+      free: 600_000_000,
+      fit: 1,
+      setAside: 3_400_000_000,
+    };
+    const fetch = fakeEngine({
+      "/queue": { ...RUNNING, running: null, paused: true, queued: [job(6), job(7)], room },
+      "POST /queue/fit": RUNNING,
+      "POST /quarantine/empty": { files: 41 },
+      "POST /queue/resume": RUNNING,
+    });
+    renderQueue();
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Not enough space" });
+    expect(dialog).toHaveTextContent(
+      "Dragon Ball Z · Season 1 needs about 1.1 GB. D: has 600 MB free.",
+    );
+    expect(screen.queryByText(/The queue is paused/)).not.toBeInTheDocument(); // it says why
+
+    fireEvent.click(screen.getByRole("button", { name: /Convert the 1 that fit now/ }));
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/fit")).toHaveLength(1));
+    const [[, fit]] = sent(fetch, "POST", "/queue/fit") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(fit.body))).toEqual({ drive: "D:" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Empty quarantine first/ }));
+    const asked = await screen.findByRole("group", { name: "Empty the quarantine on D:?" });
+    expect(asked).toHaveTextContent(
+      "What's set aside there (3.4 GB) is deleted for good, and History can't put it back.",
+    );
+    expect(sent(fetch, "POST", "/quarantine/empty")).toHaveLength(0); // not till it's confirmed
+    fireEvent.click(screen.getByRole("button", { name: "Empty quarantine" }));
+
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/resume")).toHaveLength(1));
+    const [[, emptied]] = sent(fetch, "POST", "/quarantine/empty") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(emptied.body))).toEqual({ drive: "D:" });
+  });
+
+  it("says when the files left wait for room while the others go", async () => {
+    const room: Room = {
+      drive: "D:",
+      paused: false,
+      files: 1,
+      needed: 2_812_500_000,
+      free: 1_000_000,
+      fit: 0,
+      setAside: 0,
+    };
+    fakeEngine({
+      "/queue": { ...RUNNING, running: null, queued: [job(6, { noRoom: true })], room },
+    });
+    renderQueue();
+
+    expect(await screen.findByText("Waiting for room on D: · 1 in the queue")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Not enough space" })).toHaveTextContent(
+      "D: has 1 MB free, and 1 file there needs about 2.8 GB: it waits for room while the others go.",
+    );
+    expect(screen.queryByRole("button", { name: /Empty quarantine/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /fit now|Wait for room/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Up next" })).toHaveTextContent("Waiting for room");
+    expect(screen.queryByText(/in a moment/)).not.toBeInTheDocument();
   });
 
   it("says so when every file waiting is on a drive that isn't connected", async () => {

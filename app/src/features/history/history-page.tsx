@@ -12,6 +12,7 @@ import {
   type ScanDone,
   type TidyResult,
   useHistory,
+  useSettings,
   useUndoPlan,
 } from "@/lib/engine";
 import { clockLength, codecName, size } from "@/lib/format";
@@ -35,6 +36,7 @@ type Event =
 export function HistoryPage() {
   const history = useHistory();
   const undo = useUndoPlan();
+  const kept = useSettings().data?.quarantineDays;
   const [shown, setShown] = useState<Shown>("all");
   const [result, setResult] = useState<TidyResult | null>(null);
 
@@ -46,7 +48,8 @@ export function HistoryPage() {
           <h1 className="type-title">History</h1>
           <p className="text-14 text-fg-muted">
             Everything Kura changed, newest first. Renames and moves can be undone at any time, and
-            a converted file's original put back for 30 days.
+            a converted file's original put back{" "}
+            {kept === null ? "while it's in quarantine" : `for ${kept ?? 30} days`}.
           </p>
         </div>
         <Segmented label="Show" value={shown} options={FILTERS} onChange={setShown} />

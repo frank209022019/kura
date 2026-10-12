@@ -22,6 +22,11 @@ export function clockLength(minutes: number): string {
 }
 
 /** "233 MB", "1.1 GB" from a billion bytes, "16 GB" from ten billion, "320 KB" under a million. */
+/** How long what's set aside is kept, as Settings says: "for 30 days", or "for good". */
+export function keptFor(days: number | null | undefined): string {
+  return days === null ? "for good" : `for ${days ?? 30} days`;
+}
+
 export function size(bytes: number): string {
   if (bytes >= 1e10) return `${Math.round(bytes / 1e9)} GB`;
   if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;

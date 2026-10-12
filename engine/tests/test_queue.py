@@ -16,12 +16,14 @@ import pytest
 from kura import changes
 from kura.changes import changes_of, save_plan
 from kura.config import DataPaths
-from kura.convert import WORKING, ConvertError, Programs, work_of
+from kura.convert import WORKING, ConvertError, Programs, room_for, work_of
 from kura.core.fields import Json
+from kura.core.media import media_from_ffprobe
 from kura.core.plan import Change, ChangeKind, Plan
-from kura.core.standard import Method
+from kura.core.standard import Method, decide
 from kura.history import plans
-from kura.queue import Queue
+from kura.preferences import library_standard
+from kura.queue import Queue, Room
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
 from tests.converting import BEST_TAG, open_elsewhere, programs, report
@@ -79,6 +81,39 @@ def queue(paths: DataPaths, shows: Path) -> Iterator[Queue]:
 
 def states(conn: sqlite3.Connection) -> list[tuple[int, str]]:
     return [tuple(row) for row in conn.execute("SELECT file_id, state FROM jobs ORDER BY id")]
+
+
+def free_space(monkeypatch: pytest.MonkeyPatch, free: int) -> None:
+    """Every drive has `free` bytes free."""
+
+    def usage(path: object) -> SimpleNamespace:
+        return SimpleNamespace(total=10**13, used=10**13 - free, free=free)
+
+    monkeypatch.setattr("kura.convert.shutil.disk_usage", usage)
+
+
+def room_of(conn: sqlite3.Connection, file_id: int) -> int:
+    """The free space a file's result wants on its drive, as converting checks."""
+    standard = library_standard(conn)
+    row = conn.execute("SELECT probe FROM files WHERE id = ?", (file_id,)).fetchone()
+    media = media_from_ffprobe(json.loads(row["probe"]))
+    return room_for(media, decide(media, standard), standard)
+
+
+def two_hours(made: Json) -> Json:
+    """ffprobe's report on a file, playing two hours instead."""
+    longer = json.loads(json.dumps(made))
+    longer["format"]["duration"] = "7200.0"
+    return longer
+
+
+def a_film(conn: sqlite3.Connection, file_id: int) -> None:
+    """The file plays two hours, so its result takes five episodes' room."""
+    with conn:
+        conn.execute(
+            "UPDATE files SET probe = ? WHERE id = ?",
+            (json.dumps(two_hours(report(8, 6, codec="h264"))), file_id),
+        )
 
 
 def test_files_join_in_order_and_once(queue: Queue, conn: sqlite3.Connection):
@@ -473,15 +508,11 @@ def test_a_file_on_a_drive_that_isnt_connected_waits_and_the_next_goes(
     assert queue.work_once() is False  # nothing else it can take
 
 
-def test_a_full_drive_pauses_the_queue_and_says_so(
-    queue: Queue, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+def test_a_full_drive_pauses_the_queue_and_says_what_it_needs(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
 ):
     queue.add([1, 2])
-
-    def full(path: object) -> SimpleNamespace:
-        return SimpleNamespace(total=10**12, used=10**12 - 10**6, free=10**6)  # a megabyte left
-
-    monkeypatch.setattr("kura.convert.shutil.disk_usage", full)
+    free_space(monkeypatch, 10**6)  # a megabyte left
 
     assert queue.work_once() is True
 
@@ -489,8 +520,77 @@ def test_a_full_drive_pauses_the_queue_and_says_so(
     assert states(conn) == [(1, "queued"), (2, "queued")]
     assert [job.file_id for job in status.queued] == [1, 2]  # still first in line
     assert status.paused is True
-    assert status.problem is not None
-    assert status.problem.startswith("There isn't room on")
+    assert status.problem is None  # the room it wants says it all
+    assert status.room == Room(
+        drive=shows.drive,
+        paused=True,
+        files=2,
+        needed=room_of(conn, 1) + room_of(conn, 2),
+        free=10**6,
+        fit=0,
+        set_aside=0,
+    )
+
+    queue.resume()  # the owner made room some other way
+
+    assert queue.status().room is None
+
+
+def test_converting_what_fits_passes_over_what_doesnt_and_goes_on(
+    paths: DataPaths, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def read(path: Path) -> Json:  # each result plays as long as its original
+        return two_hours(RESULT) if "S01E01" in path.name else RESULT
+
+    queue = make_queue(paths, replace(programs(RESULT), read=read))
+    a_film(conn, 1)
+    film, episode = room_of(conn, 1), room_of(conn, 2)
+    original = (shows / "Trigun (1998) - S01E02.mkv").stat().st_size
+    queue.add([1, 2])
+    free_space(monkeypatch, episode)  # room for the episode, not the film
+    queue.work_once()
+    assert queue.status().room == Room(shows.drive, True, 2, film + episode, episode, 1, 0)
+
+    queue.convert_what_fits(shows.drive)
+    queue.resume()
+
+    assert queue.work_once() is True  # the episode goes
+    assert states(conn) == [(1, "queued"), (2, "done")]
+    status = queue.status()
+    assert status.paused is False
+    assert [(job.file_id, job.no_room) for job in status.queued] == [(1, True)]
+    # Its original is in quarantine now: emptying it would make room too.
+    assert status.room == Room(shows.drive, False, 1, film, episode, 0, original)
+
+    assert queue.work_once() is False  # the film waits for room; the queue doesn't pause
+    assert queue.status().paused is False
+
+    free_space(monkeypatch, 10**12)
+    assert queue.work_once() is True  # room at last
+    assert states(conn) == [(1, "done"), (2, "done")]
+    assert queue.status().room is None
+
+
+def test_once_nothing_waits_for_room_a_full_drive_pauses_the_queue_again(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    queue.add([1])
+    free_space(monkeypatch, 10**6)
+    queue.work_once()
+    queue.convert_what_fits(shows.drive)
+    queue.resume()
+    free_space(monkeypatch, 10**12)
+    assert queue.work_once() is True
+    assert queue.work_once() is False  # nothing waits on it: converting what fits is over
+
+    queue.add([2])
+    free_space(monkeypatch, 10**6)
+    queue.work_once()
+
+    status = queue.status()
+    assert status.paused is True  # asked again
+    assert status.room is not None
+    assert status.room.paused is True
 
 
 def test_once_nothing_waits_the_batch_is_told_of(
@@ -538,16 +638,13 @@ def test_a_full_drive_is_told_of(
     queue = make_queue(paths, programs(RESULT), told=told)
     queue.add([1])
 
-    def full(path: object) -> SimpleNamespace:
-        return SimpleNamespace(total=10**12, used=10**12 - 10**6, free=10**6)
-
-    monkeypatch.setattr("kura.convert.shutil.disk_usage", full)
+    free_space(monkeypatch, 10**6)
 
     queue.work_once()
 
     [(title, body, link)] = told
     assert title == "The queue paused"
-    assert body.startswith("There isn't room on")
+    assert body.startswith(f"There isn't room on {shows.drive} for the next file: it needs about")
     assert link == "/convert/queue"
 
 

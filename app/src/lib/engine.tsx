@@ -910,6 +910,8 @@ export interface ConvertOptions {
   files: Convertible[];
   /** Bytes free on each drive the files are on. */
   free: Record<string, number>;
+  /** Bytes emptying each drive's quarantine would free. */
+  setAside: Record<string, number>;
 }
 
 export const useConvertOptions = () => useEngineQuery<ConvertOptions>("/convert");
@@ -956,6 +958,26 @@ export interface Job {
   retryAt: string | null;
   /** What ffmpeg said, when a conversion failed ("Copy full log"). */
   log: string | null;
+  /** Waiting for room on its drive while the others go. */
+  noRoom: boolean;
+}
+
+/** A drive without room for the files waiting to convert on it. */
+export interface Room {
+  /** "D:". */
+  drive: string;
+  /** The queue paused for it; else the files that don't fit wait while the others go. */
+  paused: boolean;
+  /** Files waiting to convert on it. */
+  files: number;
+  /** The free space their results want, in bytes. */
+  needed: number;
+  /** Bytes free on it now. */
+  free: number;
+  /** How many of them fit now, in turn. */
+  fit: number;
+  /** Bytes its quarantine would free, emptied now. */
+  setAside: number;
 }
 
 /** The file converting now, and how it's going. */
@@ -985,6 +1007,8 @@ export interface QueueStatus {
   today: Job[];
   /** The graphics card's load and temperature, while a file converts. */
   gpu: { busy: number; celsius: number } | null;
+  /** A drive without room for what waits on it. */
+  room: Room | null;
 }
 
 /** The queue, asked again every two seconds while a file converts, else every ten. */
@@ -993,15 +1017,22 @@ export const useQueue = () =>
 
 const QUEUED = ["/queue", "/convert", "/history", "/library", "/titles"];
 /**
- * Adds files: `add.mutate({ path: "/queue", body: { files, method, when } })`, `when` being
- * "now", "nights" (both resume a paused queue) or "after" (the queue goes on as it is).
+ * Adds files: `add.mutate({ path: "/queue", body: { files, method, when, fit } })`, `when` being
+ * "now", "nights" (both resume a paused queue) or "after" (the queue goes on as it is), and `fit`
+ * the drives without room for them all, where those that fit convert and the rest wait for room.
  */
 export const useAddToQueue = () => useEngineAction<{ added: number }>(QUEUED);
 /**
  * Changes the queue: `/queue/pause`, `/queue/resume`, `/queue/7/skip`, `/queue/7/retry`,
- * `/queue/7/move` (with `{ before }`) or `/queue/7/restore`.
+ * `/queue/7/move` (with `{ before }`), `/queue/7/restore`, or `/queue/fit` (with `{ drive }`:
+ * there, the files that fit convert and the rest wait for room).
  */
 export const useQueueAction = () => useEngineAction<unknown>(QUEUED);
+/**
+ * Deletes everything set aside on a drive now, to make room there; History can't put it back:
+ * `empty.mutate({ path: "/quarantine/empty", body: { drive } })`.
+ */
+export const useEmptyQuarantine = () => useEngineAction<{ files: number }>([...QUEUED, "/data"]);
 /** Takes a waiting file out: `remove.mutate({ path: "/queue/7" })`. */
 export const useRemoveFromQueue = () => useEngineAction<void>(QUEUED, "DELETE");
 /** Converts whenever files wait, or only at night: `{ path: "/queue/schedule", body: { schedule } }`. */

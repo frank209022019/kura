@@ -25,6 +25,11 @@ def work_of[P: PurePath](source: P) -> P:
     return source.with_name(source.name + WORKING)
 
 
+def drive_of(path: str | PurePath) -> str:
+    r"""The drive a path is on, as Kura writes it: "D:" (or "\\server\share")."""
+    return PureWindowsPath(path).drive
+
+
 def skipped_folder(name: str) -> bool:
     """Folders a scan never looks into: Kura's quarantine, Windows' own, and hidden ones."""
     folded = name.casefold()

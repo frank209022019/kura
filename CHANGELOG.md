@@ -9,6 +9,11 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- Not enough space: when a drive hasn't room for what's queued, the queue pauses and says what
+  the files there need and what's free. Empty quarantine first (Kura asks once more, since
+  what's set aside there goes for good), or convert the ones that fit now: the rest wait for room
+  while the others go, and start by themselves once there is. The Convert screen asks the same
+  before queueing a choice that doesn't fit.
 - A file open in another app (a player playing it) as its conversion finishes no longer fails:
   the queue says so, keeps the converted copy beside it, goes on with the next file, and puts the
   copy in place once the app lets go, trying every 5 minutes or at once with Try now. Skip this

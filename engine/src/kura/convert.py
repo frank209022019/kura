@@ -51,7 +51,7 @@ from kura.core.convert import (
 )
 from kura.core.estimate import FILM, estimate
 from kura.core.fields import Json
-from kura.core.library import WORKING, work_of
+from kura.core.library import WORKING, drive_of, work_of
 from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
@@ -68,7 +68,7 @@ _UPSCALES = (Method.BEST, Method.FAST, Method.REENCODE)  # heaviest first
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _PLAY_SECONDS = 5  # how much of the result a test play decodes, at each of three points
 _LOOK_TIMEOUT = 300  # seconds for idet or a test play
-_SPACE_MARGIN = 1.25  # free space wanted, over the estimated size of the result
+SPACE_MARGIN = 1.25  # free space wanted, over the estimated size of the result
 _SAID_LINES = 400  # of what ffmpeg says, kept for "Copy full log"
 _HELD_TRIES = 5  # times Kura tries to take away a result Windows holds a moment
 _HELD_PAUSE = 0.2  # seconds between them
@@ -94,7 +94,14 @@ class ConvertError(Exception):
 
 
 class NoRoomError(ConvertError):
-    """There isn't room on the file's drive for the result: no file there can go till there is."""
+    """There isn't room on the file's drive ("D:") for the result."""
+
+    def __init__(self, drive: str, needed: int, free: int) -> None:
+        super().__init__(
+            f"There isn't room on {drive} for the next file: it needs about {needed / 1e9:.1f} GB,"
+            f" and {free / 1e9:.1f} GB is free."
+        )
+        self.drive = drive
 
 
 class InUseError(ConvertError):
@@ -471,15 +478,17 @@ def _clear(work: Path) -> None:
         ) from None
 
 
+def room_for(media: MediaInfo, decision: Decision, standard: Standard) -> int:
+    """The free space a file's result wants on its drive, in bytes: its size, as estimated, with
+    a margin."""
+    return round(estimate(media, decision, standard).output_bytes * SPACE_MARGIN)
+
+
 def _enough_space(source: Path, media: MediaInfo, decision: Decision, standard: Standard) -> None:
-    needed = estimate(media, decision, standard).output_bytes * _SPACE_MARGIN
+    needed = room_for(media, decision, standard)
     free = shutil.disk_usage(source.parent).free
     if free < needed:
-        drive = source.anchor or str(source.parent)
-        raise NoRoomError(
-            f"There isn't room on {drive}: {free / 1e9:.1f} GB free, and the result needs about"
-            f" {needed / 1e9:.1f} GB."
-        )
+        raise NoRoomError(drive_of(source) or str(source.parent), needed, free)
 
 
 def _with_model(

@@ -19,6 +19,7 @@ from pathlib import Path
 
 from kura import db, events
 from kura.config import LOCATION, NOTE_ENCODING, DataPaths
+from kura.core.library import drive_of
 from kura.system import on_network
 
 log = logging.getLogger(__name__)
@@ -64,8 +65,8 @@ def ask_to_move(paths: DataPaths, target: Path) -> None:
     free = shutil.disk_usage(_nearest(target)).free
     if free < needed * _ROOM:
         raise MoveError(
-            f"There isn't room on {target.anchor}: Kura's data takes {_words(needed)}, and "
-            f"{_words(free)} is free."
+            f"There isn't room on {drive_of(target) or target.anchor} for Kura's data: it takes"
+            f" {_words(needed)}, and {_words(free)} is free."
         )
     (root / _ASKED).write_text(str(target), encoding="utf-8")
 

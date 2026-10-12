@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -32,6 +32,7 @@ const OPTIONS: ConvertOptions = {
     ),
   ],
   free: { "D:": 931_000_000_000 },
+  setAside: {},
 };
 OPTIONS.files[4] = {
   ...(OPTIONS.files[4] as (typeof OPTIONS.files)[number]),
@@ -63,6 +64,7 @@ const QUEUE: QueueStatus = {
   gpuSeconds: 0,
   today: [],
   gpu: null,
+  room: null,
 };
 
 function renderConvert() {
@@ -165,6 +167,7 @@ describe("ConvertPage", () => {
       files: [1, 2, 3],
       method: "reencode",
       when: "now",
+      fit: [],
     });
   });
 
@@ -203,6 +206,56 @@ describe("ConvertPage", () => {
 
     expect(await screen.findByText("Space on F:")).toBeInTheDocument();
     expect(screen.getByText("free: not enough, this needs 563 MB")).toBeInTheDocument();
+  });
+
+  it("asks what to do when a drive hasn't room for the choice", async () => {
+    const fetch = fakeEngine({
+      "/convert": { ...OPTIONS, free: { "D:": 600_000_000 }, setAside: { "D:": 3_400_000_000 } },
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "POST /queue": { added: 2 },
+    });
+    renderConvert();
+
+    (await screen.findByRole("checkbox", { name: /Season 1/ })).click();
+    (await screen.findByRole("button", { name: "Add 2 episodes to the queue" })).click();
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Not enough space" });
+    expect(dialog).toHaveTextContent(
+      "Dragon Ball Z · Season 1 needs about 1.1 GB. D: has 600 MB free.",
+    );
+    expect(sent(fetch, "POST", "/queue")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add 2 episodes to the queue" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Convert the 1 that fit now/ }));
+
+    expect(await screen.findByText("The queue")).toBeInTheDocument();
+    const [[, init]] = sent(fetch, "POST", "/queue") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toMatchObject({ files: [1, 2], fit: ["D:"] });
+  });
+
+  it("empties the drive's quarantine first, once that's confirmed, then queues", async () => {
+    const fetch = fakeEngine({
+      "/convert": { ...OPTIONS, free: { "D:": 600_000_000 }, setAside: { "D:": 3_400_000_000 } },
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "POST /queue": { added: 2 },
+      "POST /quarantine/empty": { files: 4 },
+    });
+    renderConvert();
+
+    (await screen.findByRole("checkbox", { name: /Season 1/ })).click();
+    (await screen.findByRole("button", { name: "Add 2 episodes to the queue" })).click();
+    fireEvent.click(await screen.findByRole("button", { name: /Empty quarantine first/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Empty quarantine" }));
+
+    expect(await screen.findByText("The queue")).toBeInTheDocument();
+    const [[, emptied]] = sent(fetch, "POST", "/quarantine/empty") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(emptied.body))).toEqual({ drive: "D:" });
+    const [[, init]] = sent(fetch, "POST", "/queue") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toMatchObject({ files: [1, 2], fit: [] });
   });
 
   it("shows a frame before and after, at three points of the file", async () => {

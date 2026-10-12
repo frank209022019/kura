@@ -108,7 +108,8 @@ kura/
   export.py       the export zip
   data.py         how big each part of the data folder and each drive's quarantine is
   backups.py      the nightly backups of the database, and restoring one as the engine starts
-  quarantine.py   clearing out what has waited in quarantine longer than the owner keeps it
+  quarantine.py   clearing out what has waited in quarantine longer than the owner keeps it,
+                  or all of it on one drive when the owner empties it to make room
   care.py         looking after Kura while it's open: tonight's backup, the daily clear-out
   artwork_files.py  poster.jpg and fanart.jpg next to each show, when the owner wants them
   relocate.py     moving the data folder to another drive, as the engine starts
@@ -203,8 +204,7 @@ the same kind: each video and the subtitles named after it go to the quarantine 
 drive (subtitles another copy of the video shares stay with it), folders left empty go, a video
 waiting to be converted leaves the queue once it's gone (one converting can't be deleted), the
 page says what stayed and why, and History, or the page right after, puts them back until the
-quarantine is
-cleared out. Kura never deletes a file outright. Whatever its records say (a damaged database,
+quarantine is cleared out. Kura never deletes a file outright. Whatever its records say (a damaged database,
 or one an imported export held), Kura deletes only a file in a day's folder of a quarantine
 (`core.plan.in_quarantine`), its own unfinished results (`.kura-converting`, `.kura-partial`)
 and its own `poster.jpg` and `fanart.jpg`; and, finishing a move to another drive that a stop cut
@@ -235,9 +235,16 @@ leaves none of these, so finding any (or a tidy-up's moves in flight) is how Kur
 unexpectedly: `kura/recovery.py` keeps what was settled, and Home says so in a sentence, until the
 owner looks (History has each file), for a day. A stop the app asked for isn't told of, even one
 the app cut short (the engine notes `stopping.txt` as it starts stopping), and nor is a start that
-restored a backup. A file being
-converted (its result waiting beside it too), and any copy of it, stays out of tidy-ups and
-deletes. History lists each conversion with what it made, and puts the original back on asking.
+restored a backup. A file being converted (its result waiting beside it too), and any copy of
+it, stays out of tidy-ups and deletes.
+
+A drive without room for a result (its estimated size with a margin, `convert.room_for`) pauses
+the queue, which says what the files waiting there want and what's free (`queue.Room`); the
+Convert screen works out the same before queueing a choice. The owner can empty that drive's
+quarantine first (`quarantine.empty`: everything set aside there goes for good, so the app asks
+once more), or convert what fits (`Queue.convert_what_fits`): the files there that fit convert
+in turn and the rest wait for room while the others go, starting by themselves once there is,
+till none waits there (then a full drive pauses the queue again, to ask). History lists each conversion with what it made, and puts the original back on asking.
 Before queueing, the Convert screen shows one frame of a file before and after
 (`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the cache.
 

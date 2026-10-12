@@ -9,11 +9,14 @@ is stopped, and the original is as it was); paused, the file is first in line ag
 over when the queue resumes. An exit does the same. A file made already is checked and put in
 place though the queue pauses, and thrown away when it's skipped. A file whose drive isn't
 connected waits while the others go; a drive without room for a result pauses the queue, saying
-so. While a result takes its original's place no scan runs (Scanner.hold): the worker waits for
-one that's running. While a file converts, Windows doesn't put the PC to sleep. After a crash,
-`recover` puts a job that was converting back in line and settles one whose result was taking
-its original's place. Once nothing waits, the app is told what the batch came to, and it's told
-when the queue pauses itself: a Windows notification while Kura is in the tray.
+what its files need (`Room`), till the owner makes room (emptying its quarantine, say) or says to
+convert what fits (`convert_what_fits`): then a file there that doesn't fit waits for room while
+the others go, till none waits there. While a result takes its original's place no scan runs
+(Scanner.hold): the worker waits for one that's running. While a file converts, Windows doesn't
+put the PC to sleep. After a crash, `recover` puts a job that was converting back in line and
+settles one whose result was taking its original's place. Once nothing waits, the app is told
+what the batch came to, and it's told when the queue pauses itself: a Windows notification while
+Kura is in the tray.
 
 When another app has an original open as its result is ready (a player playing it), the result
 waits beside it and the next file goes. A second thread puts such results in place, five minutes
@@ -24,6 +27,7 @@ after each try or at once when the owner asks (`retry`), though another file is 
 import ctypes
 import json
 import logging
+import shutil
 import sqlite3
 import sys
 import threading
@@ -35,7 +39,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from datetime import time as clock_time
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from kura import db
 from kura.config import DataPaths
@@ -43,6 +47,7 @@ from kura.convert import (
     CONVERTED,
     IN_USE_WAIT,
     SHADER,
+    SPACE_MARGIN,
     ConvertError,
     InUseError,
     NoRoomError,
@@ -54,16 +59,19 @@ from kura.convert import (
     lighter,
     put_in,
     restore,
+    room_for,
     settle,
     throw_away_kept,
     work_of,
 )
 from kura.core.estimate import estimate
+from kura.core.library import drive_of
 from kura.core.media import media_from_ffprobe
 from kura.core.standard import Method, Standard, decide
 from kura.events import Notify
 from kura.preferences import library_standard
 from kura.probe import probe
+from kura.quarantine import set_aside_by_drive
 from kura.recovery import Recovery
 from kura.scan import ScanBusyError, Scanner
 from kura.tools import Tools
@@ -81,7 +89,8 @@ _WAITING_LOOK = 30.0  # seconds between looks for results due to go in; `retry` 
 _SPEED_WINDOW = 600.0  # seconds of frames the speed is measured over, as the queue board shows
 _PAUSED = "queue_paused"  # the settings rows that keep the queue's state across restarts
 _SCHEDULE = "queue_schedule"
-_HELD_UP = "queue_problem"  # why the queue paused itself (a full drive), till it's resumed
+_SHORT = "queue_short_of_room"  # the drive ("D:") the queue paused for, till it's resumed
+_FITTING = "queue_fitting"  # drives where a file without room waits while the others go
 NIGHT = (clock_time(23, 0), clock_time(7, 0))  # when the nights-only schedule converts
 NO_FFMPEG = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step."
 
@@ -113,6 +122,20 @@ class Job:
     # again to put it in place.
     retry_at: str | None = None
     log: str | None = None  # what ffmpeg said, when a conversion failed
+    no_room: bool = False  # waiting for room on its drive while the others go
+
+
+@dataclass(frozen=True)
+class Room:
+    """A drive without room for the files waiting to convert on it."""
+
+    drive: str  # "D:"
+    paused: bool  # the queue paused for it; else the files that don't fit wait while others go
+    files: int  # files waiting to convert on it
+    needed: int  # the free space their results want, in bytes
+    free: int  # bytes free on it now
+    fit: int  # how many of them fit now, in turn
+    set_aside: int  # bytes its quarantine would free, emptied now
 
 
 @dataclass(frozen=True)
@@ -137,6 +160,7 @@ class QueueStatus:
     queued: tuple[Job, ...]  # in the order they'll go
     gpu_seconds: float  # the work left: the running file's and the queued ones'
     today: tuple[Job, ...]  # finished today (done, failed or skipped), newest first
+    room: Room | None = None  # a drive without room for what waits on it
 
 
 class Queue:
@@ -270,7 +294,21 @@ class Queue:
     def resume(self) -> None:
         self._set_paused(paused=False)
         with closing(db.connect(self._paths.database)) as conn, conn:
-            conn.execute("DELETE FROM settings WHERE key = ?", (_HELD_UP,))
+            conn.execute("DELETE FROM settings WHERE key = ?", (_SHORT,))
+        self._wake.set()
+
+    def wake(self) -> None:
+        """Looks for a file to convert now rather than at the next look: room was made, say."""
+        self._wake.set()
+
+    def convert_what_fits(self, drive: str) -> None:
+        """On a drive ("D:") without room for all that waits on it, the files that fit convert,
+        and the rest wait for room while the others go, till none waits there. It doesn't resume
+        the queue."""
+        with closing(db.connect(self._paths.database)) as conn, conn:
+            fitting = _fitting(conn)
+            if not _among(drive, fitting):
+                _save(conn, _FITTING, [*fitting, drive])
         self._wake.set()
 
     def plan(self, schedule: Schedule) -> None:
@@ -388,7 +426,7 @@ class Queue:
             standard = library_standard(conn)
             paused = _paused(conn)
             schedule = _schedule(conn)
-            held_up = _saved(conn, _HELD_UP)
+            short = _saved(conn, _SHORT)
             start_of_day = self._now().replace(hour=0, minute=0, second=0, microsecond=0)
             rows = conn.execute(
                 f"""{_JOBS}
@@ -396,9 +434,24 @@ class Queue:
                     ORDER BY j.position, j.id""",
                 (start_of_day.isoformat(),),
             ).fetchall()
-        connected = _Drives()
+            connected = _Drives()
+            unmade = [
+                row
+                for row in rows
+                if row["state"] == "queued" and row["retry_at"] is None and connected(row["root"])
+            ]
+            held = short if paused and isinstance(short, str) else None
+            room, no_room = _room(unmade, standard, held, _fitting(conn))
+            if room is not None:
+                found = set_aside_by_drive(conn)
+                aside = next((n for d, n in found.items() if _among(d, [room.drive])), 0)
+                room = replace(room, set_aside=aside)
         jobs = [
-            replace(_job(row, standard), drive_missing=not connected(row["root"]))
+            replace(
+                _job(row, standard),
+                drive_missing=not connected(row["root"]),
+                no_room=row["id"] in no_room,
+            )
             if row["state"] == "queued"
             else _job(row, standard)
             for row in rows
@@ -420,8 +473,6 @@ class Queue:
         if running is not None:
             left += running.seconds_left if running.seconds_left is not None else 0.0
         problem = self._problem if queued and not paused else None
-        if isinstance(held_up, str):
-            problem = held_up
         day = not _at_night(self._now())
         return QueueStatus(
             paused,
@@ -432,6 +483,7 @@ class Queue:
             queued,
             left,
             tuple(today),
+            room,
         )
 
     def work_once(self) -> bool:
@@ -445,18 +497,31 @@ class Queue:
             if programs is None:
                 return False
             # Taken under the lock skip and remove take too, so a file skipped or taken out a
-            # moment before never converts; one whose drive isn't connected waits, and one made
-            # already waits for its original (try_waiting).
+            # moment before never converts; one whose drive isn't connected waits, one made
+            # already waits for its original (try_waiting), and one without room waits on a
+            # drive where the owner said to convert what fits.
             with self._lock:
-                connected = _Drives()
+                connected, free = _Drives(), _Free()
                 waiting = conn.execute(
-                    """SELECT j.id, d.path AS root FROM jobs AS j
+                    """SELECT j.id, j.method, f.path, f.probe, d.path AS root FROM jobs AS j
                        JOIN files AS f ON f.id = j.file_id
                        JOIN folders AS d ON d.id = f.folder_id
                        WHERE j.state = 'queued' AND j.retry_at IS NULL
                        ORDER BY j.position, j.id"""
                 ).fetchall()
-                first = next((job["id"] for job in waiting if connected(job["root"])), None)
+                fitting = _still_fitting(conn, waiting)
+                standard = library_standard(conn)
+
+                def goes(job: sqlite3.Row) -> bool:
+                    if not connected(job["root"]):
+                        return False
+                    drive = drive_of(job["path"])
+                    if not _among(drive, fitting):
+                        return True  # converting checks for room, and pauses without it
+                    room = free(drive)
+                    return room is None or room >= _wanted(job, standard)
+
+                first = next((job["id"] for job in waiting if goes(job)), None)
                 if first is None:
                     return False
                 with conn:
@@ -493,11 +558,11 @@ class Queue:
             self._waits(conn, job_id, str(error))
         except NoRoomError as error:
             self._back_in_line(conn, job_id)  # it, and the rest, wait for room
-            problem = f"{error} Make room, then resume the queue."
-            with conn:
-                _save(conn, _PAUSED, True)
-                _save(conn, _HELD_UP, problem)
-            self._notify("The queue paused", problem, link="/convert/queue")
+            if not _among(error.drive, _fitting(conn)):  # there, it waits while the others go
+                with conn:
+                    _save(conn, _PAUSED, True)
+                    _save(conn, _SHORT, error.drive)
+                self._notify("The queue paused", str(error), link="/convert/queue")
         except ConvertError as error:
             self._finished(conn, job_id, "failed", str(error), error.log)
         except Exception:
@@ -775,6 +840,93 @@ def _waiting_job(conn: sqlite3.Connection, job_id: int) -> bool:
         "SELECT 1 FROM jobs WHERE id = ? AND state = 'queued' AND retry_at IS NOT NULL", (job_id,)
     ).fetchone()
     return row is not None
+
+
+def _room(
+    unmade: list[sqlite3.Row], standard: Standard, held: str | None, fitting: list[str]
+) -> tuple[Room | None, set[int]]:
+    """The drive without room for what waits on it, of those that matter: the one the queue
+    paused for (`held`), else one where files that don't fit wait while the others go
+    (`fitting`). With the jobs waiting for room there."""
+    by_drive: dict[str, list[sqlite3.Row]] = {}
+    for row in unmade:
+        by_drive.setdefault(drive_of(row["path"]), []).append(row)
+    free = _Free()
+    found: Room | None = None
+    no_room: set[int] = set()
+    for drive, rows in by_drive.items():
+        paused = held is not None and _among(drive, [held])
+        room = free(drive)
+        if room is None or not (paused or _among(drive, fitting)):
+            continue
+        needed, fits = _fits(rows, standard, room)
+        if len(fits) == len(rows):
+            continue  # room for them all now
+        if not paused:
+            no_room.update(row["id"] for row in rows if row["id"] not in fits)
+        if found is None or (paused and not found.paused):
+            found = Room(drive, paused, len(rows), needed, room, len(fits), 0)
+    return found, no_room
+
+
+def _fits(rows: list[sqlite3.Row], standard: Standard, free: int) -> tuple[int, set[int]]:
+    """Of the files waiting on one drive, in turn: the free space their results all want, and
+    those that fit in `free` now, each result taking its size of what's left."""
+    needed, fits, left = 0, set[int](), free
+    for row in rows:
+        wanted = _wanted(row, standard)
+        needed += wanted
+        if left >= wanted:
+            fits.add(row["id"])
+            left -= round(wanted / SPACE_MARGIN)
+    return needed, fits
+
+
+def _wanted(row: sqlite3.Row, standard: Standard) -> int:
+    """The free space a waiting file's result wants on its drive, as converting checks."""
+    if row["probe"] is None:
+        return 0
+    media = media_from_ffprobe(json.loads(row["probe"]))
+    decision = decide(media, standard)
+    decision = replace(decision, method=lighter(decision.method, Method(row["method"])))
+    return room_for(media, decision, standard)
+
+
+def _fitting(conn: sqlite3.Connection) -> list[str]:
+    saved = _saved(conn, _FITTING)
+    drives = cast("list[object]", saved) if isinstance(saved, list) else []
+    return [drive for drive in drives if isinstance(drive, str)]
+
+
+def _still_fitting(conn: sqlite3.Connection, waiting: list[sqlite3.Row]) -> list[str]:
+    """The drives where files without room wait while the others go, but only those where one
+    still waits: on the others, a file without room pauses the queue again, to ask."""
+    fitting = _fitting(conn)
+    there = [drive_of(row["path"]) for row in waiting]
+    kept = [drive for drive in fitting if _among(drive, there)]
+    if kept != fitting:
+        with conn:
+            _save(conn, _FITTING, kept)
+    return kept
+
+
+def _among(drive: str, drives: Iterable[str]) -> bool:
+    return drive.casefold() in {other.casefold() for other in drives}
+
+
+class _Free:
+    """Bytes free on drives ("D:"), each looked at once; None for one that isn't there."""
+
+    def __init__(self) -> None:
+        self._seen: dict[str, int | None] = {}
+
+    def __call__(self, drive: str) -> int | None:
+        if drive not in self._seen:
+            try:
+                self._seen[drive] = shutil.disk_usage(f"{drive}\\").free
+            except OSError:
+                self._seen[drive] = None
+        return self._seen[drive]
 
 
 class _Drives:

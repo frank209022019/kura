@@ -15,6 +15,7 @@ import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
+  driveOf,
   episodeCode,
   gpuTime,
   gpuTimeShort,
@@ -27,16 +28,20 @@ import {
 import {
   type Job,
   type QueueStatus,
+  type Room,
   type RunningJob,
+  useEmptyQuarantine,
   useQueue,
   useQueueAction,
   useQueueSchedule,
   useRemoveFromQueue,
+  useSettings,
   useStill,
 } from "@/lib/engine";
-import { split } from "@/lib/format";
+import { keptFor, split } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ConvertTabs } from "./convert-tabs";
+import { NoRoom } from "./no-room";
 
 const LISTED = 5; // waiting files shown in the first group before "Show all"
 
@@ -44,6 +49,7 @@ const LISTED = 5; // waiting files shown in the first group before "Show all"
 export function QueuePage() {
   const queue = useQueue();
   const action = useQueueAction();
+  const settings = useSettings();
   const status = queue.data;
 
   // Space pauses or resumes, as the board's key hint says, unless a control has the focus.
@@ -109,6 +115,7 @@ export function QueuePage() {
           {status.problem}
         </p>
       )}
+      {status.room && <RoomCard room={status.room} queued={status.queued} />}
       {status.queued.map(
         (job) =>
           job.retryAt !== null && <OpenElsewhere key={job.id} job={job} retryAt={job.retryAt} />,
@@ -116,7 +123,7 @@ export function QueuePage() {
       {status.running ? (
         <NowConverting running={status.running} gpu={status.gpu} paused={status.paused} />
       ) : (
-        held.length < status.queued.length && <Waiting status={status} />
+        held.length < status.queued.length && !status.room && <Waiting status={status} />
       )}
       {idle && (
         <EmptyState
@@ -139,7 +146,7 @@ export function QueuePage() {
           <Today jobs={status.today} />
           <p className="text-12 text-fg-faint">
             Every finished file is checked for length, streams and a test play before it replaces
-            the original. Originals wait in quarantine for 30 days.
+            the original. Originals are kept in quarantine {keptFor(settings.data?.quarantineDays)}.
           </p>
         </div>
       </div>
@@ -153,6 +160,7 @@ function StatusLine({ status }: { status: QueueStatus }) {
   const queued = `${waiting} in the queue`;
   const missing = drivesMissing(status.queued);
   const held = status.queued.every((job) => job.retryAt !== null);
+  const forRoom = status.room && !status.room.paused && waitingForRoom(status.queued);
   const [dot, words] = status.paused
     ? ["bg-fg-faint", ["Paused", queued]]
     : status.running
@@ -161,11 +169,13 @@ function StatusLine({ status }: { status: QueueStatus }) {
         ? ["bg-convert", ["Waiting for the night", queued, "starts at 23:00"]]
         : missing
           ? ["bg-fg-faint", [`Waiting for ${either(missing) || "a drive"}`, queued]]
-          : waiting > 0 && held
-            ? ["bg-fg-faint", ["Waiting for another app", queued]]
-            : waiting > 0
-              ? ["animate-pulse bg-accent", ["Starting", queued]]
-              : ["bg-fg-faint", ["Nothing waiting"]];
+          : forRoom
+            ? ["bg-fg-faint", [`Waiting for room on ${status.room?.drive}`, queued]]
+            : waiting > 0 && held
+              ? ["bg-fg-faint", ["Waiting for another app", queued]]
+              : waiting > 0
+                ? ["animate-pulse bg-accent", ["Starting", queued]]
+                : ["bg-fg-faint", ["Nothing waiting"]];
   return (
     <span className="inline-flex items-center gap-2 text-14 text-fg-muted">
       <span aria-hidden="true" className={cn("size-2 rounded-full", dot)} />
@@ -471,8 +481,46 @@ function Waiting({ status }: { status: QueueStatus }) {
 function drivesMissing(jobs: Job[]): string[] | null {
   const unmade = jobs.filter((job) => job.retryAt === null);
   if (unmade.length === 0 || unmade.some((job) => !job.driveMissing)) return null;
-  const drives = unmade.map((job) => /^[a-z]:/i.exec(job.path)?.[0].toUpperCase() ?? "");
-  return [...new Set(drives)].filter(Boolean);
+  return [...new Set(unmade.map((job) => driveOf(job.path)))].filter(Boolean);
+}
+
+/** Whether every file still to convert waits: for room on its drive, or for the drive. */
+function waitingForRoom(jobs: Job[]): boolean {
+  const unmade = jobs.filter((job) => job.retryAt === null);
+  return unmade.some((job) => job.noRoom) && unmade.every((job) => job.noRoom || job.driveMissing);
+}
+
+/**
+ * Not enough space: the queue paused for a drive without room for what waits on it, or the
+ * files there that don't fit wait for room while the others go.
+ */
+function RoomCard({ room, queued }: { room: Room; queued: Job[] }) {
+  const action = useQueueAction();
+  const empty = useEmptyQuarantine();
+  const drive = room.drive.toUpperCase();
+  const waiting = queued.filter(
+    (job) => job.retryAt === null && !job.driveMissing && driveOf(job.path) === drive,
+  );
+  return (
+    <NoRoom
+      drive={room.drive}
+      waiting={waiting}
+      needed={room.needed}
+      free={room.free}
+      fit={room.fit}
+      setAside={room.setAside}
+      waitingForRoom={!room.paused}
+      busy={action.isPending || empty.isPending}
+      problem={empty.error ?? action.error}
+      onEmpty={() =>
+        empty.mutate(
+          { path: "/quarantine/empty", body: { drive: room.drive } },
+          { onSuccess: () => room.paused && action.mutate({ path: "/queue/resume" }) },
+        )
+      }
+      onFit={() => action.mutate({ path: "/queue/fit", body: { drive: room.drive } })}
+    />
+  );
 }
 
 /**
@@ -481,7 +529,7 @@ function drivesMissing(jobs: Job[]): string[] | null {
  */
 function OpenElsewhere({ job, retryAt }: { job: Job; retryAt: string }) {
   const action = useQueueAction();
-  const drive = /^[a-z]:/i.exec(job.path)?.[0].toUpperCase() ?? "its drive";
+  const drive = driveOf(job.path) || "its drive";
   return (
     <div
       role="status"
@@ -609,6 +657,10 @@ function JobRow({ job, first, top }: { job: Job; first: number | null; top: bool
         {job.driveMissing ? (
           <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Its drive isn't connected
+          </span>
+        ) : job.noRoom ? (
+          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+            Waiting for room
           </span>
         ) : job.retryAt !== null ? (
           <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">

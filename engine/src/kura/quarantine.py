@@ -1,7 +1,8 @@
 """Clearing out the quarantine: what was set aside (copies of an episode, and converted files'
 originals) goes once it has waited as many days as the owner keeps it (Settings > Your data; 30
-unless they choose otherwise, or for good). Its change in the journal says when, and it can't be
-put back after that; the rest of its tidy-up still can.
+unless they choose otherwise, or for good), or all at once from one drive when the owner empties
+it there to make room for converting (`empty`). Its change in the journal says when, and it can't
+be put back after that; the rest of its tidy-up still can.
 """
 
 import logging
@@ -10,9 +11,20 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from kura.core.library import drive_of
 from kura.core.plan import in_quarantine
 
 log = logging.getLogger(__name__)
+
+# What was set aside and is still there. A converted file's original goes only once the result
+# took its place: if it never did, the original is the only copy of the episode there is.
+_SET_ASIDE = """SELECT c.id, c.target, p.applied_at FROM changes AS c
+   JOIN plans AS p ON p.id = c.plan_id
+   WHERE c.kind = 'quarantine' AND c.state = 'done' AND c.cleared_at IS NULL
+     AND p.applied_at IS NOT NULL
+     AND (p.kind = 'tidy' OR EXISTS (
+         SELECT 1 FROM changes AS m
+         WHERE m.plan_id = c.plan_id AND m.kind = 'move' AND m.state = 'done'))"""
 
 
 def clear_out(conn: sqlite3.Connection, *, days: int | None, now: datetime) -> int:
@@ -21,22 +33,45 @@ def clear_out(conn: sqlite3.Connection, *, days: int | None, now: datetime) -> i
     if days is None:
         return 0
     cutoff = now - timedelta(days=days)
-    # A converted file's original goes only once the result took its place: if it never did,
-    # the original is the only copy of the episode there is.
-    rows = conn.execute(
-        """SELECT c.id, c.target, p.applied_at FROM changes AS c
-           JOIN plans AS p ON p.id = c.plan_id
-           WHERE c.kind = 'quarantine' AND c.state = 'done' AND c.cleared_at IS NULL
-             AND p.applied_at IS NOT NULL
-             AND (p.kind = 'tidy' OR EXISTS (
-                 SELECT 1 FROM changes AS m
-                 WHERE m.plan_id = c.plan_id AND m.kind = 'move' AND m.state = 'done'))"""
-    ).fetchall()
+    rows = conn.execute(_SET_ASIDE).fetchall()
+    old = [row for row in rows if datetime.fromisoformat(row["applied_at"]) < cutoff]
+    cleared = _delete(conn, old, now)
+    if cleared:
+        log.info("Cleared %d files set aside more than %d days ago", cleared, days)
+    return cleared
+
+
+def empty(conn: sqlite3.Connection, drive: str, *, now: datetime) -> int:
+    """Deletes everything set aside on a drive ("D:") now, however recently: the owner asked, to
+    make room there. Returns how many files went."""
+    rows = conn.execute(_SET_ASIDE).fetchall()
+    there = [row for row in rows if drive_of(row["target"]).casefold() == drive.casefold()]
+    cleared = _delete(conn, there, now)
+    if cleared:
+        log.info("Emptied the quarantine on %s: %d files", drive, cleared)
+    return cleared
+
+
+def set_aside_by_drive(conn: sqlite3.Connection) -> dict[str, int]:
+    """What emptying each drive's quarantine now would free, in bytes, by drive ("D:")."""
+    found: dict[str, int] = {}
+    for row in conn.execute(_SET_ASIDE):
+        target = Path(row["target"])
+        if not in_quarantine(target):
+            continue
+        try:
+            size = target.stat().st_size
+        except OSError:  # gone already, or its drive isn't connected
+            continue
+        drive = drive_of(target)
+        found[drive] = found.get(drive, 0) + size
+    return found
+
+
+def _delete(conn: sqlite3.Connection, rows: list[sqlite3.Row], now: datetime) -> int:
     cleared = 0
     emptied: set[Path] = set()
     for row in rows:
-        if datetime.fromisoformat(row["applied_at"]) >= cutoff:
-            continue
         target = Path(row["target"])
         if not in_quarantine(target):  # a damaged or imported record: never Kura's to delete
             log.warning("Kura didn't clear %s out: it isn't in a quarantine folder", target)
@@ -57,6 +92,4 @@ def clear_out(conn: sqlite3.Connection, *, days: int | None, now: datetime) -> i
         with suppress(OSError):
             day.rmdir()
             day.parent.rmdir()
-    if cleared:
-        log.info("Cleared %d files set aside more than %d days ago", cleared, days)
     return cleared
