@@ -206,6 +206,8 @@ Everything decided so far. Don't ask again; change only with the owner.
   and it catches up at start on what changed while it was closed. Episode lists of shows still
   airing are refreshed every hour, finished shows' every week. A "Start with Windows" setting (off
   by default) keeps Kura in the tray so the checks carry on and it can notify; no scheduled task.
+  Closing the window quits Kura unless "Keep Kura running when you close the window", a setting
+  of its own under it, is on (the owner, 2026-10-12).
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs
   the AI model with ONNX Runtime on DirectML, ffmpeg resizes and encodes NVENC HEVC 10-bit. Kura's
   own final mux handles the audio policy, subtitles, fonts, chapters and a "processed" tag. Every

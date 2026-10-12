@@ -22,7 +22,12 @@ import {
 } from "@/lib/engine";
 import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
-import { useSetStartWithWindows, useStartWithWindows } from "@/lib/startup";
+import {
+  useKeepInTray,
+  useSetKeepInTray,
+  useSetStartWithWindows,
+  useStartWithWindows,
+} from "@/lib/startup";
 import { cn } from "@/lib/utils";
 import { AboutPanel } from "./about-panel";
 import { BackupsPanel } from "./backups-panel";
@@ -106,17 +111,26 @@ function Content({ section }: { section: Section }) {
 function General() {
   const start = useStartWithWindows();
   const change = useSetStartWithWindows();
+  const keep = useKeepInTray();
+  const changeKeep = useSetKeepInTray();
+  const problem = change.error ?? start.error ?? changeKeep.error ?? keep.error;
   return (
     <Panel title="General">
       <Toggle
         label="Start Kura when Windows starts"
-        text="It waits in the tray, so the queue, the nightly backup and the watching carry on, and it tells you when a batch is done. Closing the window keeps it there; quit from the tray."
+        text="It waits in the tray from when you sign in, so the queue, the nightly backup and the watching carry on, and it tells you when a batch is done."
         checked={start.data ?? false}
         onChange={(on) => change.mutate(on)}
       />
-      {(start.isError || change.isError) && (
+      <Toggle
+        label="Keep Kura running when you close the window"
+        text="Closing the window leaves Kura in the tray, still at work; quit from there. Off, closing the window quits Kura."
+        checked={keep.data ?? false}
+        onChange={(on) => changeKeep.mutate(on)}
+      />
+      {problem && (
         <p role="alert" className="text-13 text-broken-fg">
-          {String(change.error ?? start.error)}
+          {String(problem)}
         </p>
       )}
     </Panel>

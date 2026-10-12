@@ -74,9 +74,14 @@ the person, so write it as a sentence.
   Kura runs, with Open Kura and Quit Kura; a click opens the window.
 - **autostart**: "Start with Windows" in Settings > General, which Windows keeps in its own list
   of startup apps (the shell asks it, so the switch is always true to it). Windows starts Kura
-  with `--in-tray`: the window stays hidden (it's created hidden and shown at start otherwise),
-  and with the setting on, closing the window keeps Kura in the tray instead of quitting. Don't
-  turn it on from a development build: Windows would start that build at sign-in.
+  with `--in-tray`: the window stays hidden (it's created hidden and shown at start otherwise).
+  Don't turn it on from a development build: Windows would start that build at sign-in.
+- **Closing the window** quits Kura, unless "Keep Kura running when you close the window" is on
+  (Settings > General, `keep_in_tray` in `tray.rs`): then it hides the window and Kura carries on
+  in the tray. The shell keeps that choice in `window.json` in its own folder
+  (`%LOCALAPPDATA%\io.github.frankgrobbelaar.kura`, which uninstalling removes with "Delete the
+  application data"). Until the owner chooses, it's whatever "Start with Windows" is, as closing
+  was before it had a setting of its own.
 - **notification**: Windows notifications for what the engine tells of on its stdout after the
   ready line (`{"event":"notify",...}`: a finished batch, a queue that paused itself), and for an
   engine that can't run (it's then tried again by itself), shown only while the window is away

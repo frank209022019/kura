@@ -8,6 +8,11 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Keep Kura running when you close the window (Settings > General): on, closing the window
+  leaves Kura in the tray, still at work; off, it quits Kura, whether or not Kura starts with
+  Windows. Until you choose, closing does as before.
+
 ### Changed
 - Home shows just your library: what it said about this copy of Kura (the engine, the data
   folder, the database, TMDB and updates) is in Settings > About now.

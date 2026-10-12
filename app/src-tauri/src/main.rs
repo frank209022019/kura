@@ -44,8 +44,11 @@ fn main() {
             explorer::show_in_folder,
             tray::start_with_windows,
             tray::set_start_with_windows,
+            tray::keep_in_tray,
+            tray::set_keep_in_tray,
         ])
-        // With "Start with Windows" on, closing the window keeps Kura working in the tray.
+        // As the owner chose in Settings > General, closing the window keeps Kura working in the
+        // tray, or quits it.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event
                 && window.app_handle().state::<tray::Tray>().keeps()

@@ -83,6 +83,8 @@ function renderSettings(section = "libraries", shellAnswers = true) {
       if (command === "pick_folder") return "D:\\Backups";
       if (command === "start_with_windows") return false;
       if (command === "set_start_with_windows") return args?.on;
+      if (command === "keep_in_tray") return false;
+      if (command === "set_keep_in_tray") return args?.on;
       return undefined;
     });
   }
@@ -300,6 +302,23 @@ describe("SettingsPage", () => {
       expect(shell.invoke).toHaveBeenCalledWith("set_start_with_windows", { on: true }),
     );
     await waitFor(() => expect(start).toHaveAttribute("aria-checked", "true"));
+  });
+
+  it("keeps Kura running in the tray when its window closes, when asked", async () => {
+    fakeEngine({ "/folders": FOLDERS });
+    renderSettings("general");
+
+    const keep = await screen.findByRole("switch", {
+      name: "Keep Kura running when you close the window",
+    });
+    await waitFor(() => expect(keep).toHaveAttribute("aria-checked", "false"));
+    keep.click();
+
+    await waitFor(() =>
+      expect(shell.invoke).toHaveBeenCalledWith("set_keep_in_tray", { on: true }),
+    );
+    await waitFor(() => expect(keep).toHaveAttribute("aria-checked", "true"));
+    expect(shell.invoke).not.toHaveBeenCalledWith("set_start_with_windows", expect.anything());
   });
 
   it("moves the data to another drive, as the engine starts again", async () => {
