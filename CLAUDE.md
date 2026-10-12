@@ -131,11 +131,13 @@ Everything decided so far. Don't ask again; change only with the owner.
   and converts everything to one standard with a preview and estimates.
 - Conversion history is kept "last modified" style. Installer, auto-updater, and an uninstaller that
   offers an export first.
-- The pilot library is the whole Dragon Ball franchise (not on the PC yet).
+- The pilot library is the whole Dragon Ball franchise (on the PC since 2026-10-12).
 - Plex naming. Watched mostly on the PC; Plex or a phone maybe later.
 - Kura's words never name Plex (the owner, 2026-10-11): the files keep the layout media servers
   read, but the app calls it "clean names" and says what it does, not who reads it. The naming
-  choice is "Clean names" or "Keep my names".
+  choice is "Clean names" or "Keep my names". The release notes and the downloads page don't
+  name it either (the owner, 2026-10-12), and they list every commit's title, so commit titles
+  don't.
 - Home shows the library (the owner, 2026-10-12): what this copy of Kura is up to (the engine,
   the data folder, the database, TMDB, updates) is in Settings › About.
 - Picture: crisp and clean; 720p or 1080p are both fine. **Every** file goes to the library standard,
