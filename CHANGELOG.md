@@ -9,6 +9,8 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- The AI model reports nothing to Microsoft: ONNX Runtime, which runs it, has its usage reports
+  (on by default in its Windows builds) turned off.
 - While the nights-only queue converts at night, the queue says it's keeping the PC awake till
   07:00. Stop at 03:00 ends that night's run early: no file starts after 03:00 (the one
   converting finishes), so the PC can sleep sooner; Go on till 07:00 takes it back.

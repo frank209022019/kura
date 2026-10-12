@@ -1,12 +1,14 @@
 """The AI model's frame loop, with a stand-in for the model: no graphics card needed."""
 
 import io
+import sys
 import threading
+import types
 
 import numpy as np
 import pytest
 
-from kura.upscale import Frame, UpscaleError, pipe, upscaled_size
+from kura.upscale import Frame, UpscaleError, model, pipe, upscaled_size
 
 WIDTH, HEIGHT = 4, 2  # tiny frames
 FRAME_BYTES = WIDTH * HEIGHT * 3 * 4  # planar float RGB
@@ -78,6 +80,32 @@ def test_a_cut_off_last_frame_is_left_out():
 
 def test_the_model_says_how_big_its_frames_come_out():
     assert upscaled_size(doubled, 720, 480) == (1440, 960)
+
+
+def test_onnx_runtime_reports_nothing_to_microsoft(monkeypatch: pytest.MonkeyPatch):
+    """Its Windows builds send usage reports through Windows unless told not to, first."""
+    said: list[str] = []
+
+    class Options:
+        def add_free_dimension_override_by_name(self, name: str, size: int) -> None: ...
+
+    def session(path: str, options: Options, providers: object) -> object:
+        said.append("model loaded")
+        return object()
+
+    onnxruntime = types.ModuleType("onnxruntime")  # a stand-in: no graphics card needed
+    vars(onnxruntime).update(
+        disable_telemetry_events=lambda: said.append("no reports"),
+        SessionOptions=Options,
+        GraphOptimizationLevel=types.SimpleNamespace(ORT_ENABLE_ALL=99),
+        ExecutionMode=types.SimpleNamespace(ORT_SEQUENTIAL=0),
+        InferenceSession=session,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", onnxruntime)
+
+    model(WIDTH, HEIGHT)
+
+    assert said == ["no reports", "model loaded"]
 
 
 def test_a_model_that_fails_part_way_stops_it_with_the_reason():

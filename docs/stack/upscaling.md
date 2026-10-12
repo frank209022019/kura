@@ -22,7 +22,12 @@ through DirectML, which every DirectX 12 card has: no CUDA download (CUDA was no
 adds more than a gigabyte). The model runs in full precision: half precision is slower on GTX 16
 cards, which have no tensor cores. The session uses `DmlExecutionProvider` with memory patterns
 off and sequential execution (DirectML's requirements), and fixes the free width and height to
-the source's (`add_free_dimension_override_by_name`), which DirectML runs faster.
+the source's (`add_free_dimension_override_by_name`), which DirectML runs faster. ONNX Runtime's
+official Windows builds report their use to Microsoft through Windows' diagnostics unless told
+not to, so Kura turns that off (`disable_telemetry_events`) before loading the model. The engine
+carries Microsoft's C++ runtime, which ONNX Runtime needs (see [pyinstaller.md](pyinstaller.md)),
+and `DirectML.dll` comes inside the package; both are Microsoft's redistributable files, listed
+apart in the third-party notices.
 
 Frames travel as ffmpeg's planar float RGB (`gbrpf32le`): one ffmpeg decodes the source to raw
 frames on its standard output, the model upscales each (4x, then a 2x box downscale built into

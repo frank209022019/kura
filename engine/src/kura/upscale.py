@@ -38,6 +38,7 @@ def model(width: int, height: int, path: Path = MODEL) -> Upscaler:
         import onnxruntime as ort  # loaded when first needed, see above
     except ImportError as error:
         raise UpscaleError(f"Kura couldn't load ONNX Runtime ({error}).") from error
+    ort.disable_telemetry_events()  # its Windows builds report use to Microsoft unless told not to
     options = ort.SessionOptions()
     options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     options.enable_mem_pattern = False  # DirectML asks for both of these
