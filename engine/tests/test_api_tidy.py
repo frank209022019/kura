@@ -24,9 +24,6 @@ def root(tmp_path: Path) -> Path:
     return tmp_path / "Anime"
 
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
-
 @pytest.fixture
 def mixed(paths: DataPaths, conn: sqlite3.Connection, root: Path) -> sqlite3.Connection:
     """Downloads holding two anime, one episode twice, and a file that waits for a match."""

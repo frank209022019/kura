@@ -3,7 +3,6 @@
 import sqlite3
 from collections.abc import Iterator
 from contextlib import closing, suppress
-from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -14,7 +13,6 @@ from kura.api import create_app
 from kura.config import DataPaths
 from kura.core.library import QUARANTINE_FOLDER
 from tests.fake_web import FakeWeb
-from tests.shelf import NOW
 
 TOKEN = "test-token"
 
@@ -39,22 +37,23 @@ def client(paths: DataPaths, web: FakeWeb) -> Iterator[TestClient]:
         yield test_client
 
 
-@pytest.fixture
-def quarantine(tmp_path: Path) -> Iterator[None]:
+@pytest.fixture(autouse=True)
+def quarantine(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """Copies set aside go to the drive's own "Kura quarantine" folder, outside the test's folder:
-    whatever a test leaves there, a failing one say, goes afterwards."""
-    days: set[date] = {NOW.date(), datetime.now().astimezone().date()}
-    folders = [Path(tmp_path.anchor) / QUARANTINE_FOLDER / day.isoformat() for day in days]
-    before = {item for folder in folders if folder.exists() for item in folder.iterdir()}
+    whatever a test leaves there, in any day's folder, a failing one say, goes afterwards."""
+    root = Path(tmp_path_factory.getbasetemp().anchor) / QUARANTINE_FOLDER
+    there = root.exists()
+    before = set(root.rglob("*"))
     yield
-    for folder in folders:
-        if folder.exists():
-            for item in set(folder.iterdir()) - before:
-                item.unlink(missing_ok=True)
+    for item in sorted(set(root.rglob("*")) - before, reverse=True):  # a folder's files first
+        if item.is_dir():
+            with suppress(OSError):
+                item.rmdir()  # only when nothing else is there
+        else:
+            item.unlink(missing_ok=True)
+    if not there:
         with suppress(OSError):
-            folder.rmdir()  # only when nothing else is there
-    with suppress(OSError):
-        folders[0].parent.rmdir()
+            root.rmdir()
 
 
 @pytest.fixture

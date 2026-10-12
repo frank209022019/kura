@@ -289,8 +289,7 @@ Everything decided so far. Don't ask again; change only with the owner.
 **The owner's PC**
 - GTX 1660 Super 6 GB (Turing NVENC, no AV1 encode), i5-9600K (6 cores), 24 GB RAM, about 1.7 TB
   free on D: and F:. Graphics driver 617.42 (fine as it is; never install drivers). No ffmpeg
-  installed: the upscaling test's tools and results live in `D:\KuraSpike`, outside the repo.
-  GitHub CLI signed in as frankgrobbelaar.
+  installed: Kura fetches its own. GitHub CLI signed in as frankgrobbelaar.
 - Its Windows SDK registry entry points at the wrong folder, so the user variable `RC` names
   rc.exe for Rust builds (see docs/development.md, "Troubleshooting").
 

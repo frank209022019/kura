@@ -18,8 +18,6 @@ from tests.fake_web import FakeWeb
 from tests.shelf import library
 from tests.test_quarantine import NOW, set_aside
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
 NIGHT = datetime(2026, 10, 11, 3, 5).astimezone()
 
 

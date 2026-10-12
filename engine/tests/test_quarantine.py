@@ -6,14 +6,10 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from kura.changes import ChangeState, apply_plan, changes_of, save_plan, undo_plan
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.plan import Change, ChangeKind, Plan
 from kura.quarantine import clear_out, empty, set_aside_by_drive
-
-pytestmark = pytest.mark.usefixtures("quarantine")
 
 NOW = datetime(2026, 10, 11, 9, 30, tzinfo=UTC)
 

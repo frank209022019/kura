@@ -31,8 +31,6 @@ from tests.converting import BEST_TAG, open_elsewhere, programs, report
 from tests.fake_web import FakeWeb
 from tests.shelf import NOW, library
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
 type Told = tuple[str, str, str | None]  # a notification: its title, its line, where it leads
 
 RESULT = report(1440, 1080, tag=BEST_TAG)

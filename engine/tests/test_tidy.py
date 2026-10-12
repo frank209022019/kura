@@ -21,9 +21,6 @@ def root(tmp_path: Path) -> Path:
     return tmp_path / "Anime"
 
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
-
 @pytest.fixture
 def downloads(paths: DataPaths, conn: sqlite3.Connection, root: Path) -> sqlite3.Connection:
     """A Downloads folder holding two anime, as on the tidy board, and a show of its own."""

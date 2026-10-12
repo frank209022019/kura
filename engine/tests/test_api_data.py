@@ -6,7 +6,6 @@ import sqlite3
 import zipfile
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from kura import credentials
@@ -16,8 +15,6 @@ from kura.core.report import GAP_ANALYSIS_FILE
 from kura.reports import write_reports
 from tests.services import internet
 from tests.shelf import NOW, identify, library
-
-pytestmark = pytest.mark.usefixtures("quarantine")
 
 
 def test_each_part_of_the_data_folder_is_measured(

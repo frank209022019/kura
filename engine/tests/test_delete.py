@@ -15,8 +15,6 @@ from kura.history import plans
 from kura.tidy import ConvertingError, delete, undo
 from tests.shelf import NOW, library
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
 
 @pytest.fixture
 def season(conn: sqlite3.Connection, tmp_path: Path) -> Path:

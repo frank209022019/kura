@@ -23,8 +23,6 @@ from tests.conftest import TOKEN
 from tests.converting import BEST_TAG, open_elsewhere, programs, report
 from tests.shelf import NOW, library
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
 SD_PROBE = json.dumps(report(8, 6, codec="h264"))
 
 

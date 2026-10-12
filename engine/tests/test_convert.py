@@ -30,8 +30,6 @@ from kura.core.standard import CINEMA_1080, Method
 from tests.converting import BEST_TAG, FAKE_FFMPEG, open_elsewhere, programs, report
 from tests.shelf import NOW, library
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
 
 @pytest.fixture
 def episode(conn: sqlite3.Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:

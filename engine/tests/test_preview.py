@@ -11,8 +11,6 @@ from kura.core.standard import CINEMA_1080, Method
 from kura.preview import PreviewError, frame
 from tests.converting import programs, report
 
-pytestmark = pytest.mark.usefixtures("quarantine")
-
 
 @pytest.fixture
 def episode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
