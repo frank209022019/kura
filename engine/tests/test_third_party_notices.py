@@ -104,3 +104,5 @@ def test_the_notices_show_each_licence_text_once():
     assert "(The licence text is the same as for a 1.0.0, above.)" in text
     assert "NSIS\nLicence: Zlib\n" in text
     assert "It comes with no licence file; the licence named above applies." in text
+    assert "\nLogos\n" in text  # TMDB's, said to be TMDB's
+    assert "The TMDB logo (tmdb-logo.svg in the interface) is TMDB's." in text

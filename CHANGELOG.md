@@ -41,6 +41,7 @@ shows these notes when it offers the update.
   are, and so does Settings' list of sections.
 - A title's gap analysis reads like a document (headings, lists and tables), under the title Gap
   Analysis.
+- TMDB's logo sits beside its credit line on Home and in Settings, as TMDB's terms ask.
 - Files are named "Clean names" or "Keep my names": Kura's words don't name a media server.
 - Backups: every night at 03:00 (or the first chance after), Kura backs up its records, keeping
   the last 7, each checked as it's made and never written over. Settings shows the last one,

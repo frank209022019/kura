@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { TmdbCredit } from "@/components/tmdb-credit";
 import { Button } from "@/components/ui/button";
 import { pickFolder } from "@/lib/dialogs";
 import {
@@ -276,10 +277,10 @@ function ThisCopy() {
           </button>
         </dd>
       </dl>
-      <p className="text-12 text-fg-faint">
+      <TmdbCredit>
         Episode lists and artwork come from TMDB, anime details from AniList. This product uses the
         TMDB API but is not endorsed or certified by TMDB.
-      </p>
+      </TmdbCredit>
     </section>
   );
 }

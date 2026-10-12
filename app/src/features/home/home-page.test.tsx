@@ -315,6 +315,7 @@ describe("HomePage", () => {
 
     expect(await screen.findByText("TMDB connected · key ending ab12")).toBeInTheDocument();
     expect(screen.getByText(/not endorsed or certified by TMDB/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "TMDB" })).toBeInTheDocument(); // its logo, as it asks
   });
 
   it("opens the downloads page to show every version and what changed", async () => {

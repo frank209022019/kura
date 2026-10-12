@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
 import { StandardChoices, Toggle } from "@/components/standard-choices";
+import { TmdbCredit } from "@/components/tmdb-credit";
 import { TmdbKey } from "@/components/tmdb-key";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -218,10 +219,10 @@ function Titles() {
       note="Kura names each anime with AniList, and with a TMDB key also its seasons, episode titles and posters."
     >
       <TmdbKey />
-      <p className="text-12 text-fg-faint">
+      <TmdbCredit>
         This product uses the TMDB API but is not endorsed or certified by TMDB. Anime details come
         from AniList.
-      </p>
+      </TmdbCredit>
     </Panel>
   );
 }

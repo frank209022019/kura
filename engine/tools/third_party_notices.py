@@ -7,7 +7,8 @@ next to Kura, and every release carries it (see docs/releasing.md). It lists wha
   the AI model and shader it carries (engine/src/kura/assets);
 - the shell: the Rust standard library and the crates Cargo links into kura.exe on Windows;
 - the interface: the packages Vite bundled (from its licence report), the styles and the fonts;
-- the installer's own parts.
+- the installer's own parts;
+- and, apart, TMDB's logo, which isn't software: it's TMDB's mark, shown as its terms ask.
 
 Every licence must be one Kura can meet by shipping this file (`ALLOWED`). Anything else stops the
 build until someone has checked it, so Kura never ships software it may not share.
@@ -72,6 +73,14 @@ PYTHON_LICENCES = {
     "pyinstaller": "GPL-2.0-or-later WITH Bootloader-exception",
     "shellingham": "ISC",
 }
+
+# Marks Kura shows because their owners ask it to: not software, and not under any licence above.
+MARKS = (
+    "The TMDB logo (tmdb-logo.svg in the interface) is TMDB's. Kura shows it unchanged beside",
+    '"This product uses the TMDB API but is not endorsed or certified by TMDB", as TMDB\'s API',
+    "terms ask (https://www.themoviedb.org/about/logos-attribution). Kura's licence doesn't cover",
+    "it.",
+)
 
 # Packages that ship as CSS and font files, which Vite's report (JavaScript only) doesn't list.
 STYLES_AND_FONTS = (
@@ -186,6 +195,7 @@ def render(version: str, sections: dict[str, list[Part]]) -> str:
                 else:
                     shown[key] = heading
                     lines += ["", text.strip()]
+    lines += ["", "=" * 78, "Logos", "=" * 78, "", *MARKS]
     return "\n".join(lines) + "\n"
 
 

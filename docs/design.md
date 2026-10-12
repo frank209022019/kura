@@ -75,6 +75,7 @@ Built so far, in `app/src/components/`:
 | `empty-state.tsx` | A place with nothing in it yet, with its one next step |
 | `shell/` | The title bar, nav rail, update card and the notes at the window's foot (offline, what the engine tells of) around every screen |
 | `kura-logo.tsx` | The mark |
+| `tmdb-credit.tsx` | TMDB's credit line with its logo, as its terms ask |
 
 New primitives start from shadcn/ui (accessible, built on Radix) and are restyled to Cinema; see
 [stack/tailwind.md](stack/tailwind.md). The boards show the rest to build: radio cards, switches,

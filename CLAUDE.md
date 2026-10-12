@@ -41,7 +41,8 @@ broken", offline, notes in the window). No release has been tagged yet. Next is 
   list in [engine/tools/third_party_notices.py](engine/tools/third_party_notices.py) (the
   installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:
   `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
-  installer, and titles appear only as example data.
+  installer, and titles appear only as example data. The one exception is TMDB's logo, which its
+  terms ask for beside its credit line (the owner, 2026-10-12; `app/src/assets/README.md`).
 - **Every change you'd notice goes in CHANGELOG.md**, in the same commit, under "Unreleased"
   (see [docs/releasing.md](docs/releasing.md)). Versions are semantic, and every release must be
   newer than the last so installed copies see it as an update.
@@ -287,8 +288,8 @@ Everything decided so far. Don't ask again; change only with the owner.
 ## What's next
 
 1. Identification and missing episodes: done (AniList and TMDB, the review screen, the gap
-   check and its reports, the watcher, the scan's last three stages). Open with the owner: TMDB's
-   logo next to the credit line (the repo ships no media).
+   check and its reports, the watcher, the scan's last three stages, and TMDB's credit line with
+   its logo).
 2. The library home and a page per title: done (the shelf of franchises and series sorted by
    release date, a page per franchise, "Needs your attention", the title page with "Open folder"
    and "Change match").
@@ -311,9 +312,9 @@ Everything decided so far. Don't ask again; change only with the owner.
    backup as the engine starts) is the owner's call.
 9. Light mode, once it's designed.
 
-Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build), the attribution
-TMDB's terms require inside the app (its logo is open with the owner), and AniList's terms (free
-for non-commercial use, within its rate limit). Real-ESRGAN's model (BSD-3-Clause) and Anime4K's
+Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's
+terms (free for non-commercial use, within its rate limit). TMDB's terms are met in the app: its
+credit line with its logo, on Home and in Settings. Real-ESRGAN's model (BSD-3-Clause) and Anime4K's
 shaders (MIT) are in `engine/src/kura/assets` with their licences, which the notices carry.
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery

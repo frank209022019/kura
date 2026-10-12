@@ -55,8 +55,11 @@ couldn't reach api.themoviedb.org (…)".
 ## Terms and credit
 
 TMDB's API is free for non-commercial use with attribution. Kura shows "This product uses the TMDB
-API but is not endorsed or certified by TMDB" on Home (This copy of Kura). TMDB's terms also ask
-for its logo next to that line; that's open with the owner, since the repo ships no media.
+API but is not endorsed or certified by TMDB" with TMDB's logo beside it, smaller than Kura's own,
+on Home (This copy of Kura) and in Settings (Titles and artwork): `components/tmdb-credit.tsx`.
+The logo is TMDB's "alt short" file from its logos page, unchanged (`app/src/assets/README.md`);
+it's the one picture the repo carries that isn't Kura's own (the owner's call, 2026-10-12), and the
+third-party notices say it's TMDB's.
 
 ## Tests
 
