@@ -20,5 +20,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: { include: [/tokens\.css/] }, // a test reads the tokens file itself
+    // A page's first render takes well under a second, but on a busy CI runner it has taken
+    // over five, Vitest's default limit, failing tests that were fine.
+    testTimeout: 15_000,
   },
 });
