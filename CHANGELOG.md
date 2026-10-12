@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.1.0 - 2026-10-12
+
 ### Added
 - The AI model reports nothing to Microsoft: ONNX Runtime, which runs it, has its usage reports
   (on by default in its Windows builds) turned off.
@@ -171,3 +173,4 @@ shows these notes when it offers the update.
 - The installer puts Kura in your user folder without admin rights, offers an export before
   uninstalling, and never touches your anime files.
 - A third-party notices file next to Kura lists every open-source part inside it, with its licence.
+
