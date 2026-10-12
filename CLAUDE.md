@@ -18,7 +18,8 @@ unplugged drives handled); Settings; nightly backups and restoring one; the quar
 out daily; the tray with "Start with Windows" and notifications; and the small-things board (a
 file open in another app, a crash told on Home, a failed conversion's log and "Mark as broken",
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
-overnight note). No release has been tagged yet. Next is in [What's next](#whats-next).
+overnight note). Kura 0.1.0, the first release, went out on 2026-10-12. Next is in
+[What's next](#whats-next).
 
 ## Ground rules
 

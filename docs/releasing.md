@@ -6,7 +6,7 @@ How a change becomes an installed, self-updating Kura.
 
 On GitHub, when `main` is ready: **Actions › Release › Run workflow**, keep "Use workflow from" on
 `main`, pick **patch**, **minor** or **major** (or type an exact version), and run it. The first
-release is `0.1.0`: type it in the exact-version box.
+release, `0.1.0`, went out on 2026-10-12; from here, patch, minor or major picks the next.
 
 The workflow checks that `main` passed CI, then does what
 [scripts/release.mjs](../scripts/release.mjs) does on a PC: moves what's under "Unreleased" in [CHANGELOG.md](../CHANGELOG.md) under the new

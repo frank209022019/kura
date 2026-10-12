@@ -24,7 +24,7 @@ on:
         options: [patch, minor, major]
         default: minor
       version:
-        description: "Or an exact version instead, such as 0.1.0 for the first release"
+        description: "Or an exact version instead, such as 1.0.0"
         type: string
         required: false
       dry_run:
