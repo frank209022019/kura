@@ -288,6 +288,16 @@ class Identifier:
                 (self._now().isoformat(), file_id),
             )
 
+    def unignore(self, conn: sqlite3.Connection, file_id: int) -> None:
+        """The owner takes back "not anime": the file waits for a match again, and the next scan
+        looks it up afresh."""
+        with conn:
+            conn.execute(
+                """UPDATE files SET matched = 'none', pinned = 0, identified_at = NULL
+                   WHERE id = ? AND matched = 'ignored'""",
+                (file_id,),
+            )
+
     def search(self, conn: sqlite3.Connection, file_id: int, text: str) -> list[Guess]:
         """AniList's entries for `text`, scored against one file, for the owner to pick from."""
         facts = _facts(conn, [file_id])

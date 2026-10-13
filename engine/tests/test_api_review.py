@@ -172,6 +172,28 @@ def test_not_anime_is_left_out_for_good(
     assert tuple(row) == ("ignored", 1)
 
 
+def test_not_anime_is_listed_and_can_wait_for_a_match_again(
+    client: TestClient, waiting: FakeWeb, conn: sqlite3.Connection
+):
+    [first, *_] = client.get("/review").json()
+    client.post(f"/review/{first['id']}/ignore")
+
+    [listed] = client.get("/review/ignored").json()
+    assert (listed["id"], listed["path"], listed["size"]) == (
+        first["id"],
+        first["path"],
+        first["size"],
+    )
+    assert client.delete(f"/review/{first['id']}/ignore").status_code == 204
+
+    assert client.get("/review/ignored").json() == []
+    assert first["id"] in [f["id"] for f in client.get("/review").json()]
+    row = conn.execute(
+        "SELECT matched, pinned, identified_at FROM files WHERE id = ?", (first["id"],)
+    ).fetchone()
+    assert tuple(row) == ("none", 0, None)  # looked up afresh at the next scan
+
+
 def test_offline_a_choice_changes_nothing_and_says_so(
     client: TestClient, waiting: FakeWeb, conn: sqlite3.Connection
 ):

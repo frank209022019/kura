@@ -1085,6 +1085,70 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Unignore",
+        "description": "Anime after all: the file waits for a match again, and the next scan looks it up afresh.",
+        "operationId": "unignore_review__file_id__ignore_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/ignored": {
+      "get": {
+        "summary": "Ignored Files",
+        "description": "The files the owner said aren't anime, in name order: left where they are, out of the\nlibrary, each to match after all or delete.",
+        "operationId": "ignored_files_review_ignored_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IgnoredFile"
+                  },
+                  "type": "array",
+                  "title": "Response Ignored Files Review Ignored Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/tidy": {
@@ -3411,6 +3475,29 @@
           "scans"
         ],
         "title": "History"
+      },
+      "IgnoredFile": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "size"
+        ],
+        "title": "IgnoredFile"
       },
       "ImportRequest": {
         "properties": {

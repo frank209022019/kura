@@ -16,6 +16,8 @@ shows these notes when it offers the update.
   file up next. Kura asks first, then moves it to the quarantine on its drive with its
   subtitles, like any delete; the page offers it back right after, and History till the
   clear-out.
+- Files set aside with Not anime, ignore it are listed on Which anime is this?, so one can be
+  matched after all or deleted. Until now nothing showed them again.
 
 ### Fixed
 - Updated to 0.2.0, Settings still said Kura 0.1.0: the update had left the old engine's files

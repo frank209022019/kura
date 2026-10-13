@@ -151,7 +151,9 @@ together by story (sequels, prequels, alternative versions, films, side stories)
 (`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own (an entry
 matched before Kura kept these links is asked about at the next scan). A file
 Kura isn't sure about waits for the owner, whose choice is pinned (an episode Kura can't place
-asks for its number); offline, identification waits for the next scan and the scan says so. A
+asks for its number), or who sets it aside as not anime, pinned too; the files set aside are
+listed, and one taken back waits again, looked up afresh at the next scan (`Identifier.unignore`).
+Offline, identification waits for the next scan and the scan says so. A
 title's match can be changed for all its files at once (`Identifier.rematch`), chosen for its
 first episode: files of that kind take the owner's choice, the others keep theirs (a series'
 specials stay specials), and any that doesn't fit the new anime waits for the owner.

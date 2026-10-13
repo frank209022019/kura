@@ -1,6 +1,7 @@
 """The files waiting for the owner to say which anime they are, with everything that helps decide:
 the file's facts, Kura's best guesses, and the other files beside it that look the same, so one
-choice can settle them all. A title's files can be asked about again too, to change its match.
+choice can settle them all. A title's files can be asked about again too, to change its match,
+and the files the owner said aren't anime are listed, to take that back.
 """
 
 import json
@@ -50,6 +51,23 @@ def waiting(conn: sqlite3.Connection) -> list[Waiting]:
         )
         found.append(_waiting(row, mine, alike))
     return found
+
+
+@dataclass(frozen=True)
+class Ignored:
+    id: int
+    path: str
+    size: int
+
+
+def ignored(conn: sqlite3.Connection) -> list[Ignored]:
+    """The files the owner said aren't anime, in name order: left where they are, out of the
+    library."""
+    rows = conn.execute(
+        """SELECT id, path, size FROM files WHERE matched = 'ignored' AND gone_at IS NULL
+           ORDER BY path"""
+    ).fetchall()
+    return [Ignored(row["id"], row["path"], row["size"]) for row in rows]
 
 
 def of_title(conn: sqlite3.Connection, title_id: int) -> list[Waiting]:

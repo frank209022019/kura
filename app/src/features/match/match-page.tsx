@@ -14,11 +14,13 @@ import {
   type TidyResult,
   useChooseMatch,
   useCover,
+  useIgnored,
   useIgnoreFile,
   useMatchSearch,
   useReview,
   useStill,
   useTitle,
+  useUnignore,
   type WaitingFile,
 } from "@/lib/engine";
 import { clockLength, clockTime, codecName, languages, listed, size, split } from "@/lib/format";
@@ -69,6 +71,7 @@ export function MatchPage() {
       ) : null,
   };
   const notice = deleted && <Deleted result={deleted} onPutBack={() => setDeleted(null)} />;
+  const setAside = forTitle ? null : <SetAside deletes={deletes} />;
 
   if (!review.data) {
     return (
@@ -81,7 +84,7 @@ export function MatchPage() {
   // Skipped files go to the back of the queue for this visit, the latest skipped last.
   const queue = [...review.data].sort((a, b) => skipped.indexOf(a.id) - skipped.indexOf(b.id));
   const [file, ...next] = queue;
-  if (!file) return <AllMatched notice={notice} />;
+  if (!file) return <AllMatched notice={notice} setAside={setAside} />;
 
   return (
     <>
@@ -105,6 +108,7 @@ export function MatchPage() {
         onSkip={() => setSkipped((before) => [...before.filter((id) => id !== file.id), file.id])}
         onSettled={(count) => setSettled((before) => before + count)}
       />
+      {setAside}
       <EngineProblem queries={[review]} />
     </>
   );
@@ -577,7 +581,71 @@ function UpNext(props: { files: WaitingFile[]; following: number[]; deletes: Del
   );
 }
 
-function AllMatched({ notice }: { notice: ReactNode }) {
+/**
+ * The files the owner said aren't anime, which Kura leaves where they are: each can wait for a
+ * match after all, or be deleted.
+ */
+function SetAside({ deletes }: { deletes: Deletes }) {
+  const ignored = useIgnored();
+  const unignore = useUnignore();
+  const files = ignored.data ?? [];
+  if (files.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="set-aside-title"
+      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-white/6 bg-white/3 px-5.5 py-5 [animation-delay:240ms]"
+    >
+      <div className="flex flex-col gap-1">
+        <h2 id="set-aside-title" className="font-extrabold text-15">
+          Set aside as not anime
+        </h2>
+        <span className="text-13 text-fg-muted">
+          Kura leaves these where they are, out of your library. Match one after all, or delete it.
+        </span>
+      </div>
+      <ul className="flex flex-col">
+        {files.map((file) => {
+          const [name, folder] = split(file.path);
+          const where = `file-${file.id}`;
+          const asked = deletes.confirm(where);
+          return (
+            <li
+              key={file.id}
+              className="flex min-h-11 flex-wrap items-center gap-3 border-white/6 border-b py-1.5 last:border-b-0"
+            >
+              <span className="flex min-w-0 flex-[1_1_260px] flex-col">
+                <span className="font-mono text-12 [overflow-wrap:anywhere]">{name}</span>
+                <span className="text-12 text-fg-muted [overflow-wrap:anywhere]">
+                  {folder} · {size(file.size)}
+                </span>
+              </span>
+              <Button
+                size="sm"
+                aria-label={`Match it: ${name}`}
+                disabled={unignore.isPending}
+                onClick={() => unignore.mutate({ path: `/review/${file.id}/ignore` })}
+              >
+                Match it
+              </Button>
+              <DeleteIcon
+                label={`Delete ${name}`}
+                onClick={() => deletes.ask({ what: "this file", where, files: [file] })}
+              />
+              {asked && <div className="basis-full pb-3">{asked}</div>}
+            </li>
+          );
+        })}
+      </ul>
+      {unignore.isError && (
+        <p role="alert" className="text-13 text-broken-fg">
+          {unignore.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function AllMatched({ notice, setAside }: { notice: ReactNode; setAside: ReactNode }) {
   const navigate = useNavigate();
   return (
     <>
@@ -594,6 +662,7 @@ function AllMatched({ notice }: { notice: ReactNode }) {
       >
         Kura knows which anime each video is. New files are identified as they arrive.
       </EmptyState>
+      {setAside}
     </>
   );
 }

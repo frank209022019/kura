@@ -660,6 +660,19 @@ export const useChooseMatch = () =>
 /** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
 export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan"]);
 
+/** A file the owner said isn't anime: left where it is, out of the library. */
+export interface IgnoredFile {
+  id: number;
+  path: string;
+  /** In bytes. */
+  size: number;
+}
+
+/** The files the owner said aren't anime, in name order. */
+export const useIgnored = () => useEngineQuery<IgnoredFile[]>("/review/ignored");
+/** Anime after all: `unignore.mutate({ path: "/review/7/ignore" })`; it waits for a match again. */
+export const useUnignore = () => useEngineAction<void>(["/review", "/scan"], "DELETE");
+
 /**
  * A picture the engine serves (a poster, a cover, a still) as an address the page can show (an
  * object URL), or null while there's none. Fetched with this launch's token, since the engine

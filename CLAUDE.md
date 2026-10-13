@@ -155,8 +155,8 @@ Everything decided so far. Don't ask again; change only with the owner.
 - The gap analysis shows in the app as a reader sees it, as an editor's Markdown preview would,
   under the title "Gap Analysis" (the owner, 2026-10-11).
 - Deleting from Kura (the owner, 2026-10-11): a whole title, a season or one video, from the
-  title's page, after Kura asks; and a file waiting for a match, from "Which anime is this?"
-  (2026-10-13). It goes to quarantine like any copy set aside, never straight to deletion, and
+  title's page, after Kura asks; and a file waiting for a match, or one set aside as not anime
+  (listed there to match after all), from "Which anime is this?" (2026-10-13). It goes to quarantine like any copy set aside, never straight to deletion, and
   History (or the page, right after) puts it back until the clear-out.
 - Not enough space (the owner, 2026-10-12): when a drive hasn't room for what's queued, the
   queue pauses and says what the files there need. The owner can empty that drive's quarantine

@@ -328,6 +328,47 @@ describe("MatchPage", () => {
     expect(screen.getByRole("button", { name: "Put back" })).toBeInTheDocument();
   });
 
+  it("lists the files set aside as not anime, to match after all or delete", async () => {
+    let ignored = [
+      { id: 9, path: "D:\\Anime\\Specials\\Special 07.mp4", size: 250_000_000 },
+      { id: 10, path: "D:\\Anime\\Specials\\Special 08.mp4", size: 27_000_000 },
+    ];
+    const fetch = fakeEngine({
+      "/review": [],
+      "/review/ignored": () => ignored,
+      "DELETE /review/10/ignore": () => {
+        ignored = ignored.filter((file) => file.id !== 10);
+        return null;
+      },
+      "POST /files/delete": () => {
+        ignored = ignored.filter((file) => file.id !== 9);
+        return DELETED;
+      },
+    });
+    renderMatch();
+
+    expect(
+      await screen.findByRole("heading", { name: "Set aside as not anime" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("D:\\Anime\\Specials · 250 MB")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Match it: Special 08.mp4" }).click();
+    await waitFor(() => expect(screen.queryByText("Special 08.mp4")).not.toBeInTheDocument());
+    expect(sent(fetch, "DELETE", "/review/10/ignore")).toHaveLength(1);
+
+    screen.getByRole("button", { name: "Delete Special 07.mp4" }).click();
+    const asking = await screen.findByRole("group", { name: "Delete this file?" });
+    within(asking).getByRole("button", { name: "Delete 1 video" }).click();
+
+    expect(await screen.findByText("Deleted 1 video.")).toBeInTheDocument();
+    const [[, init]] = sent(fetch, "POST", "/files/delete") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ files: [9] });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", { name: "Set aside as not anime" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it("says when every file is matched", async () => {
     fakeEngine({ "/review": [] });
     renderMatch();

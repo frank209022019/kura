@@ -1,5 +1,6 @@
 """Files waiting for a match: what they are, Kura's best guesses, searching AniList for another,
-and the owner's choice (pinned, so a rescan never undoes it) or "not anime"."""
+and the owner's choice (pinned, so a rescan never undoes it) or "not anime", which can be taken
+back."""
 
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,12 @@ class Guess(ApiModel):
     cover: str | None
     confidence: int  # 0 to 100
     reasons: list[str]
+
+
+class IgnoredFile(ApiModel):
+    id: int
+    path: str
+    size: int
 
 
 class WaitingFile(ApiModel):
@@ -174,6 +181,21 @@ def file_still(
 def ignore(file_id: int, conn: Database, paths: Paths, web: Web, anilist: AniListClient) -> None:
     """Not anime: Kura leaves it out, and no rescan asks about it again."""
     _identifier(paths, web, anilist).ignore(conn, file_id)
+
+
+@router.delete("/review/{file_id}/ignore", status_code=status.HTTP_204_NO_CONTENT)
+def unignore(file_id: int, conn: Database, paths: Paths, web: Web, anilist: AniListClient) -> None:
+    """Anime after all: the file waits for a match again, and the next scan looks it up afresh."""
+    _identifier(paths, web, anilist).unignore(conn, file_id)
+
+
+@router.get("/review/ignored")
+def ignored_files(conn: Database) -> list[IgnoredFile]:
+    """The files the owner said aren't anime, in name order: left where they are, out of the
+    library, each to match after all or delete."""
+    return [
+        IgnoredFile(id=item.id, path=item.path, size=item.size) for item in review.ignored(conn)
+    ]
 
 
 def _identifier(paths: DataPaths, web: Send, anilist: AniList) -> Identifier:
