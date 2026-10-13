@@ -1,3 +1,4 @@
+import { CardsSkeleton, ListHeadSkeleton, Loading } from "@/components/skeleton";
 import { SortControl } from "@/components/sort-control";
 import { ShelfCard } from "@/components/title-card";
 import {
@@ -14,7 +15,17 @@ import { type TitleSort, useFranchises } from "@/lib/engine";
  * order. A franchise of several titles is one card with a page of its own. */
 export function Shelf({ sort, onSort }: { sort: TitleSort; onSort: (sort: TitleSort) => void }) {
   const franchises = useFranchises(sort);
-  if (!franchises.data?.length) return null;
+  if (!franchises.data) {
+    return (
+      <Loading label="Loading the shelf" queries={[franchises]}>
+        <div className="flex flex-col gap-4">
+          <ListHeadSkeleton />
+          <CardsSkeleton count={12} />
+        </div>
+      </Loading>
+    );
+  }
+  if (franchises.data.length === 0) return null;
   const count = franchises.data.length;
 
   return (

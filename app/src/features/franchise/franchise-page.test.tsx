@@ -331,11 +331,24 @@ describe("FranchisePage", () => {
     expect(screen.queryByRole("button", { name: /Missing titles/ })).not.toBeInTheDocument();
   });
 
+  it("shows the page's shape while it loads", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    expect(
+      await screen.findByRole("status", { name: "Loading the franchise" }),
+    ).toBeInTheDocument();
+  });
+
   it("says when the engine couldn't find it", async () => {
     fakeEngine({});
     renderWithEngine(<FranchisePage />, "/franchises/99");
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument(); // no shapes once it failed
     screen.getByRole("link", { name: "Library" }).click();
     expect(await screen.findByText("Home")).toBeInTheDocument();
   });

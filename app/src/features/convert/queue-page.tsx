@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -98,6 +99,15 @@ export function QueuePage() {
       <>
         {header}
         <EngineProblem queries={[queue]} />
+        <Loading label="Loading the queue" queries={[queue]}>
+          <div className="flex flex-wrap items-start gap-5">
+            <PanelSkeleton rows={6} className="flex-[999_1_560px]" />
+            <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-5">
+              <PanelSkeleton rows={2} />
+              <PanelSkeleton rows={2} />
+            </div>
+          </div>
+        </Loading>
       </>
     );
   }
@@ -684,6 +694,7 @@ function UpNext({ jobs }: { jobs: Job[] }) {
   // The ticked files in the order they wait in: one that started converting meanwhile drops out.
   const chosen = jobs.filter((job) => picked.has(job.id)).map((job) => job.id);
   const next = jobs.find((job) => !picked.has(job.id));
+  const all = chosen.length === 0 ? false : chosen.length === jobs.length ? true : "mixed";
   const pick = (ids: number[], on: boolean) =>
     setPicked((before) => {
       const after = new Set(before);
@@ -702,9 +713,26 @@ function UpNext({ jobs }: { jobs: Job[] }) {
       className="flex min-w-0 flex-[999_1_560px] animate-fade-up flex-col gap-1 rounded-24 border border-edge bg-glass p-5.5"
     >
       <div className="mb-2 flex min-h-9 flex-wrap items-center justify-between gap-2">
-        <h2 id="next-title" className="font-extrabold text-18">
-          Up next
-        </h2>
+        <div className="flex items-center gap-3 px-1.5">
+          <label className="flex cursor-pointer">
+            <input
+              type="checkbox"
+              aria-label="Tick every file waiting"
+              checked={all === true}
+              ref={(box) => {
+                if (box) box.indeterminate = all === "mixed";
+              }}
+              onChange={() =>
+                setPicked(all === true ? new Set() : new Set(jobs.map((job) => job.id)))
+              }
+              className="peer sr-only"
+            />
+            <CheckBox state={all} />
+          </label>
+          <h2 id="next-title" className="font-extrabold text-18">
+            Up next
+          </h2>
+        </div>
         {chosen.length > 0 ? (
           <fieldset aria-label="Ticked files" className="flex flex-wrap items-center gap-2">
             <span className="mr-1 font-bold text-13">{chosen.length} ticked</span>

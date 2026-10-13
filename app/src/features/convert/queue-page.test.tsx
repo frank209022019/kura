@@ -198,6 +198,29 @@ describe("QueuePage", () => {
     expect(JSON.parse(String(last.body))).toEqual({ ids: [6], before: null });
   });
 
+  it("ticks every file waiting at once, and unticks them", async () => {
+    fakeEngine({ "/queue": RUNNING });
+    renderQueue();
+
+    const every = await screen.findByRole("checkbox", { name: "Tick every file waiting" });
+    every.click();
+    expect(await screen.findByText("3 ticked")).toBeVisible();
+    expect(every).toBeChecked();
+    every.click();
+
+    expect(await screen.findByText("Tick files to move or take out several at once")).toBeVisible();
+  });
+
+  it("shows the page's shape while the queue loads", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    renderQueue();
+
+    expect(await screen.findByRole("status", { name: "Loading the queue" })).toBeInTheDocument();
+  });
+
   it("cancels everything only once asked, and can be talked out of it", async () => {
     const fetch = fakeEngine({ "/queue": RUNNING, "POST /queue/cancel": RUNNING });
     renderQueue();

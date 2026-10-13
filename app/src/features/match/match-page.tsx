@@ -6,6 +6,7 @@ import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/components/delete";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, PanelSkeleton, Skeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
@@ -78,6 +79,17 @@ export function MatchPage() {
       <>
         <h1 className="page-top type-title animate-fade-up">Which anime is this?</h1>
         <EngineProblem queries={[review]} />
+        <Loading label="Loading the files to match" queries={[review]}>
+          <div className="flex flex-col gap-4 rounded-22 border border-edge bg-glass p-5">
+            <Skeleton className="h-5 w-72 max-w-full" />
+            <div className="grid grid-cols-3 gap-2.5">
+              <Skeleton className="aspect-video w-full rounded-12" />
+              <Skeleton className="aspect-video w-full rounded-12" />
+              <Skeleton className="aspect-video w-full rounded-12" />
+            </div>
+          </div>
+          <PanelSkeleton rows={4} />
+        </Loading>
       </>
     );
   }

@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
+import { CardsSkeleton, HeaderSkeleton, ListHeadSkeleton, Loading } from "@/components/skeleton";
 import { SortControl } from "@/components/sort-control";
 import { StatusShape } from "@/components/status";
 import { TitleCard } from "@/components/title-card";
@@ -45,6 +46,13 @@ export function FranchisePage() {
       <>
         <Breadcrumb trail={[LIBRARY]} current="…" />
         <EngineProblem queries={[franchise]} />
+        <Loading label="Loading the franchise" queries={[franchise]}>
+          <HeaderSkeleton />
+          <div className="flex flex-col gap-4">
+            <ListHeadSkeleton />
+            <CardsSkeleton count={8} />
+          </div>
+        </Loading>
       </>
     );
   }

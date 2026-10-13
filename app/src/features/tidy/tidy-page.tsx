@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, PanelSkeleton, TilesSkeleton } from "@/components/skeleton";
 import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +45,11 @@ export function TidyPage() {
       <>
         <Header />
         <EngineProblem queries={[proposal]} />
+        <Loading label="Loading what to tidy" queries={[proposal]}>
+          <TilesSkeleton count={5} />
+          <PanelSkeleton rows={4} />
+          <PanelSkeleton rows={3} />
+        </Loading>
       </>
     );
   }

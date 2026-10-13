@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { STANDARDS } from "@/components/standard-choices";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -100,6 +101,16 @@ export function ConvertPage() {
       <>
         {header}
         <EngineProblem queries={[options, franchises]} />
+        <Loading label="Loading what can be converted" queries={[options, franchises]}>
+          <div className="flex flex-wrap items-stretch gap-5">
+            <PanelSkeleton rows={7} className="flex-[1_1_380px]" />
+            <PanelSkeleton rows={4} className="flex-[999_1_520px]" />
+          </div>
+          <div className="flex flex-wrap items-stretch gap-5">
+            <PanelSkeleton rows={2} className="flex-[1_1_380px]" />
+            <PanelSkeleton rows={2} className="flex-[1_1_380px]" />
+          </div>
+        </Loading>
       </>
     );
   }

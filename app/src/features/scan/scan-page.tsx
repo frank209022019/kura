@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
+import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { type Scan, useFolders, useScan, useScanAction, useTitles } from "@/lib/engine";
 import { scanChanges } from "@/lib/format";
@@ -21,6 +22,9 @@ export function ScanPage() {
       <>
         <h1 className="page-top type-title animate-fade-up">Scan</h1>
         <EngineProblem queries={[scan, folders]} />
+        <Loading label="Loading the scan" queries={[scan, folders]}>
+          <PanelSkeleton rows={4} />
+        </Loading>
       </>
     );
   }

@@ -126,6 +126,16 @@ describe("TitlePage", () => {
     shell.invoke.mockReset();
   });
 
+  it("shows the page's shape while it loads", async () => {
+    renderTitle(DBZ);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+
+    expect(await screen.findByRole("status", { name: "Loading the title" })).toBeInTheDocument();
+  });
+
   it("says what the title is and how much of it is there", async () => {
     renderTitle(DBZ);
 

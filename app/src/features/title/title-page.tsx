@@ -6,6 +6,7 @@ import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/
 import { EngineProblem } from "@/components/engine-problem";
 import { Markdown } from "@/components/markdown";
 import { Poster } from "@/components/poster";
+import { HeaderSkeleton, Loading, PanelSkeleton } from "@/components/skeleton";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,18 @@ export function TitlePage() {
       <>
         <Breadcrumb trail={[LIBRARY]} current="…" />
         <EngineProblem queries={[title]} />
+        <Loading label="Loading the title" queries={[title]}>
+          <HeaderSkeleton />
+          <div className="flex flex-wrap items-start gap-5">
+            <div className="flex min-w-0 flex-[1.4_1_460px] flex-col gap-5">
+              <PanelSkeleton rows={4} />
+              <PanelSkeleton rows={3} />
+            </div>
+            <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-5">
+              <PanelSkeleton rows={3} />
+            </div>
+          </div>
+        </Loading>
       </>
     );
   }

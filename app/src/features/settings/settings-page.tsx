@@ -2,6 +2,7 @@ import { Folder, Info, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { Navigate, NavLink, useParams } from "react-router";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { StandardChoices, Toggle } from "@/components/standard-choices";
 import { TmdbCredit } from "@/components/tmdb-credit";
 import { TmdbKey } from "@/components/tmdb-key";
@@ -210,7 +211,16 @@ function Standard() {
   const stored = useSettings();
   const save = useSaveSettings();
   const settings = stored.data;
-  if (!settings) return <EngineProblem queries={[stored]} />;
+  if (!settings) {
+    return (
+      <>
+        <EngineProblem queries={[stored]} />
+        <Loading label="Loading your standard" queries={[stored]}>
+          <PanelSkeleton rows={3} />
+        </Loading>
+      </>
+    );
+  }
   return (
     <Panel
       title="Your standard"

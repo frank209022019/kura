@@ -8,6 +8,12 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Every page shows its shape while it loads: grey placeholders where its header, cards, panels
+  and rows will be, instead of an empty page. They breathe softly, and hold still when
+  Windows' animation effects are off.
+- The queue's Up next has a box to tick every file waiting at once, beside its heading.
+
 ## 0.11.0 - 2026-10-13
 
 ### Changed

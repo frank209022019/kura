@@ -140,8 +140,11 @@ describe("ScanPage", () => {
     engineWith({ ...RUNNING, unavailable: ["F:\\More anime"] });
     renderScan();
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "F:\\More anime isn't connected. Kura scans it when the drive is back",
+    // The page's own note, once the shapes shown while it loaded have gone.
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "F:\\More anime isn't connected. Kura scans it when the drive is back",
+      ),
     );
   });
 
@@ -274,8 +277,10 @@ describe("ScanPage", () => {
     });
     renderScan();
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Titles wait for the next scan: AniList couldn't be asked",
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Titles wait for the next scan: AniList couldn't be asked",
+      ),
     );
   });
 });

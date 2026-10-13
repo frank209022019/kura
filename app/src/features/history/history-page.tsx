@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
@@ -55,6 +56,12 @@ export function HistoryPage() {
         <Segmented label="Show" value={shown} options={FILTERS} onChange={setShown} />
       </header>
       <EngineProblem queries={[history]} />
+      {!history.data && (
+        <Loading label="Loading history" queries={[history]}>
+          <PanelSkeleton rows={4} />
+          <PanelSkeleton rows={3} />
+        </Loading>
+      )}
       {undo.isError && (
         <p role="alert" className="text-13 text-broken-fg">
           {undo.error.message}

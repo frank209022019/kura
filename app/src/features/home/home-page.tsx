@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { Loading, TilesSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { pickFolder } from "@/lib/dialogs";
 import {
@@ -68,6 +69,11 @@ export function HomePage() {
         >
           Add a folder with anime in it. Any layout, even everything in one folder.
         </EmptyState>
+      )}
+      {working && !empty && !library.data && (
+        <Loading label="Loading your library" queries={[settings, folders, library, scan]}>
+          <TilesSkeleton count={4} />
+        </Loading>
       )}
       {working && library.data && !empty && <Pictures library={library.data} />}
       {working && scan.data && library.data && !empty && (
