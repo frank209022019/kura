@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-13
+
 ### Changed
 - Titles are listed by type: series first, then movies, OVAs and specials, each oldest release
   first (or by name). A franchise's page shows each type under its own heading, Home's shelf puts
