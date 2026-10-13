@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-13
+
 ### Added
 - Names AniList can't find are looked up on TMDB too, which knows more languages and spellings
   (with your TMDB key): AniList is then asked for what TMDB calls it. A file named in Spanish,
