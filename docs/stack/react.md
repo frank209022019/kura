@@ -54,7 +54,7 @@ generated types (openapi-typescript) once it supports TypeScript 7.
 
 `HashRouter` keeps the current section in the address's `#`, so a reload in development stays put
 and the installed app needs no server rewrites. Routes are in `app.tsx`; the nav rail reads
-`components/shell/sections.ts`. Sections not built yet show `NotBuiltPage`.
+`components/shell/sections.ts`.
 
 ## TypeScript 7
 

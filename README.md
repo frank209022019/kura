@@ -1,16 +1,36 @@
 # Kura
 
 Kura (蔵, "storehouse") is a personal Windows app for one anime library. It maps folders in any
-layout, identifies every file, reports what is missing or broken, renames for Plex, and converts
-the whole library to one standard, with AI upscaling for SD sources. Nothing changes until you
-review it, and everything stays on your PC: no accounts, no cloud.
+layout, identifies every file, reports what is missing or broken, gives it all clean names and
+folders, and converts the whole library to one standard, with AI upscaling for SD sources.
+Nothing changes until you review it, and everything stays on your PC: no accounts, no cloud.
 
 ![Kura's library home, from the design](docs/design/preview.png)
 
-Kura is built in the open and isn't ready for everyday use yet: today it scans a library in any
-layout, identifies every anime, movie, OVA and special with AniList and TMDB, and reports what's
-missing; tidying up and converting come next. [What's next](CLAUDE.md#whats-next) says where it
-stands.
+## What it does
+
+- **Reads your library as it is.** Point Kura at your folders, in any layout: one anime per
+  folder, a franchise in sub-folders, or many anime mixed together. It reads every video (its
+  length, picture, sound and subtitles) and keeps watching, so new and removed files show at once.
+- **Knows every file.** Each anime, movie, OVA and special is identified with AniList, and with
+  your own free TMDB key also its seasons, episode titles and posters. What Kura isn't sure of
+  waits for you on "Which anime is this?", and your answers stay through every rescan.
+- **Says what's missing.** Each anime gets a gap analysis: the episodes that have aired that you
+  don't have, and the files that won't play. Home shows the whole shelf, oldest first.
+- **Tidies up.** Clean names and folders (`TV\Show (Year)\Season 01\…`, `Movies\Title (Year)\…`),
+  or your own names kept, proposed title by title and changed only when you say. History undoes
+  any of it.
+- **Converts to one standard.** HEVC 10-bit on the graphics card, with AI upscaling for SD and
+  Anime4K for 720p, at night if you like. See it first shows a frame before and after, and every
+  result is checked before it takes the original's place.
+- **Loses nothing.** Replaced originals, duplicates and whatever you delete wait 30 days in a
+  quarantine on their own drive. Kura's records are backed up every night, and an export takes
+  them to another PC.
+- **Looks after itself.** It can start with Windows and wait in the tray, tells you when a batch
+  is done, and updates itself, showing what's new first.
+
+Kura is built in the open and ready for everyday use. Everything planned is built except light
+mode, which waits for its design: [What's next](CLAUDE.md#whats-next) says where it stands.
 
 ## Download
 

@@ -6,7 +6,7 @@ converts the whole library to one standard, with AI upscaling for SD sources. It
 own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
 licence: anyone may fork it, but the repo takes no contributions.
 
-**Where it stands (2026-10-12):** design language chosen; repo, CI, installer and updater
+**Where it stands (2026-10-13):** design language chosen; repo, CI, installer and updater
 pipeline set up, with semantic versions, a changelog and a downloads page. Built and tested end to
 end: first-run setup with ffmpeg fetched from the list the installer shows; the scan (find, read
 with ffprobe, identify on AniList and TMDB, check for gaps and write the reports); "Which anime is
@@ -18,8 +18,9 @@ unplugged drives handled); Settings; nightly backups and restoring one; the quar
 out daily; the tray with "Start with Windows" and notifications; and the small-things board (a
 file open in another app, a crash told on Home, a failed conversion's log and "Mark as broken",
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
-overnight note). Kura 0.1.0, the first release, went out on 2026-10-12. Next is in
-[What's next](#whats-next).
+overnight note). Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has
+every release since. Everything in [What's next](#whats-next) is built but light mode, which
+waits for its design.
 
 ## Ground rules
 
@@ -315,7 +316,7 @@ Everything decided so far. Don't ask again; change only with the owner.
    release date, a page per franchise, "Needs your attention", the title page with "Open folder"
    and "Change match").
 3. Tidy-up in the app: done (review title by title, apply, undo, quarantine on the same drive,
-   History). Quarantine keeps copies until the 30-day clear-out arrives with step 6.
+   History). Quarantine keeps copies for 30 days, then step 6's daily clear-out empties it.
 4. Conversion, with the queue: done (the AI model and Anime4K, the encode and Kura's mux, checks,
    estimates and "See it first", nights only, full and unplugged drives, put back from History).
 5. Settings: done (moving the data folder to another drive, and importing an export, too).
@@ -329,7 +330,8 @@ Everything decided so far. Don't ask again; change only with the owner.
    fits; records damaged past use: the newest backup that opens, or new records; and the
    overnight note: keeping the PC awake till 07:00, "Stop at 03:00" starting no file after 03:00
    that night, the one converting finishing).
-9. Light mode, once it's designed.
+9. Light mode, once it's designed: the next step is a design for the owner to pick, as Cinema
+   was picked, before any of it is built.
 
 Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's
 terms (free for non-commercial use, within its rate limit). TMDB's terms are met in the app: its
