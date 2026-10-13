@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.4.0 - 2026-10-13
+
 ### Added
 - Choose your standard on Convert too, and the estimates follow at once. Once everything is at
   one standard, the page offers the other. Change it, and what's at the old one can be converted
