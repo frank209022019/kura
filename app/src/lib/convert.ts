@@ -170,21 +170,37 @@ export const ROOM = 1.25;
 /**
  * Of files to convert on one drive, in turn: the free space their results all want, and how
  * many fit in `free` now, each result taking its size of what's left (as the engine counts).
+ * When originals are deleted as their results take their place (`deleting`), a result wants its
+ * room only while it's made and keeps just what it adds over its original: the space wanted is
+ * the most wanted at any one time.
  */
-export function fitting(outputs: number[], free: number): { needed: number; fit: number } {
+export function fitting(
+  files: { output: number; original: number }[],
+  free: number,
+  deleting = false,
+): { needed: number; fit: number } {
   let left = free;
   let needed = 0;
+  let kept = 0;
   let fit = 0;
-  for (const bytes of outputs) {
-    const wanted = Math.round(bytes * ROOM);
-    needed += wanted;
+  for (const { output, original } of files) {
+    const wanted = Math.round(output * ROOM);
+    const stays = deleting ? Math.max(0, output - original) : output;
+    needed = deleting ? Math.max(needed, kept + wanted) : needed + wanted;
+    kept += stays;
     if (left >= wanted) {
       fit += 1;
-      left -= bytes;
+      left -= stays;
     }
   }
   return { needed, fit };
 }
+
+/** What a converted file's original becomes, as Settings and Convert offer it. */
+export const ORIGINALS = [
+  { value: "quarantine", label: "Keep" },
+  { value: "delete", label: "Delete" },
+] as const;
 
 /** When Kura tries again, from now: "in 5 minutes", "in a minute", "in a moment". */
 export function retryIn(retryAt: string, now: number): string {

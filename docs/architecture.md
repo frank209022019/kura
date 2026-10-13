@@ -225,33 +225,35 @@ Converting (`kura/convert.py`) brings one file to the standard by the method its
 command (see [stack/upscaling.md](stack/upscaling.md)). The result is made beside the original,
 checked (length, streams, Kura's tag, a test play at three points), and only then takes the
 original's place, journaled like a tidy-up, the original going to quarantine; no scan runs
-meanwhile. The queue (`kura/queue.py`) holds the files waiting, in the owner's order, and its
-worker converts them one at a time while Kura is open; on the nights-only schedule it starts
-files only between 23:00 and 07:00, or till 03:00 on a night the owner says to stop then (the
-queue page's overnight note, `Queue.stop_early`), so Windows' sleep comes back sooner. Pausing
-or skipping stops ffmpeg at once and leaves the original as it was (a paused file starts over); a
-result made already is still checked and put in place when the queue pauses, and thrown away
-when it's skipped. A file whose result would take a
-name that's taken fails before anything is made, and Windows doesn't sleep while a file converts.
-A file saved over while it converted is left as it is now, and its result goes. When another app
-has the original open as its result is ready (a player playing it: `system.in_use` asks Windows
-for the right to move it), the checked result waits beside it and the next file goes; a second
-thread of the queue puts it in place once the app lets go, trying every 5 minutes, or at once on
-"Try now", though another file is converting (`Queue.try_waiting`, `convert.put_in`). Skipping it
-throws the result away (one a scan later finds that no job wants, its drive away when it was
-skipped, say, goes then: `kura/leftovers.py`; a result is named after its whole original,
-`Ep01.avi.kura-converting`, so an `Ep01.mp4` beside it has its own). After a crash, a file that
-was converting waits in line again, and one
-whose result was taking its original's place is finished, or its original put back. A clean stop
-leaves none of these, so finding any (or a tidy-up's moves in flight) is how Kura knows it closed
-unexpectedly: `kura/recovery.py` keeps what was settled, and Home says so in a sentence, until the
-owner looks (History has each file), for a day. A stop the app asked for isn't told of, even one
-the app cut short (the engine notes `stopping.txt` as it starts stopping), and nor is a start that
-restored a backup. A file being converted (its result waiting beside it too), and any copy of
-it, stays out of tidy-ups and deletes. History lists each conversion with what it made, and puts
-the original back on asking. Before queueing, the Convert screen shows one frame of a file before
-and after (`kura/preview.py`), made the way the conversion would make it, and kept as PNG in the
-cache.
+meanwhile. When the owner chose to delete originals, that one is cleared out of quarantine right
+after (`quarantine.clear_original`), and the queue reckons each drive's room so: a result wants its
+room only while it's made, and keeps what it adds over its original. What a file needs is decided
+against the standard as it is now, so a changed standard offers again what Kura converted to the old
+one. The queue (`kura/queue.py`) holds the files waiting, in the owner's order, and its worker
+converts them one at a time while Kura is open; on the nights-only schedule it starts files only
+between 23:00 and 07:00, or till 03:00 on a night the owner says to stop then (the queue page's
+overnight note, `Queue.stop_early`), so Windows' sleep comes back sooner. Pausing or skipping stops
+ffmpeg at once and leaves the original as it was (a paused file starts over); a result made already
+is still checked and put in place when the queue pauses, and thrown away when it's skipped. A file
+whose result would take a name that's taken fails before anything is made, and Windows doesn't sleep
+while a file converts. A file saved over while it converted is left as it is now, and its result
+goes. When another app has the original open as its result is ready (a player playing it:
+`system.in_use` asks Windows for the right to move it), the checked result waits beside it and the
+next file goes; a second thread of the queue puts it in place once the app lets go, trying every 5
+minutes, or at once on "Try now", though another file is converting (`Queue.try_waiting`,
+`convert.put_in`). Skipping it throws the result away (one a scan later finds that no job wants, its
+drive away when it was skipped, say, goes then: `kura/leftovers.py`; a result is named after its
+whole original, `Ep01.avi.kura-converting`, so an `Ep01.mp4` beside it has its own). After a crash,
+a file that was converting waits in line again, and one whose result was taking its original's place
+is finished, or its original put back. A clean stop leaves none of these, so finding any (or a
+tidy-up's moves in flight) is how Kura knows it closed unexpectedly: `kura/recovery.py` keeps what
+was settled, and Home says so in a sentence, until the owner looks (History has each file), for a
+day. A stop the app asked for isn't told of, even one the app cut short (the engine notes
+`stopping.txt` as it starts stopping), and nor is a start that restored a backup. A file being
+converted (its result waiting beside it too), and any copy of it, stays out of tidy-ups and deletes.
+History lists each conversion with what it made, and puts the original back on asking. Before
+queueing, the Convert screen shows one frame of a file before and after (`kura/preview.py`), made
+the way the conversion would make it, and kept as PNG in the cache.
 
 A drive without room for a result (its estimated size with a margin, `convert.room_for`, free
 space measured at the file's own folder, which may be another volume mounted there) pauses the

@@ -97,7 +97,11 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
   const { event } = props;
   const [verb, title, detail] = words(event);
   const plan = event.kind === "plan" ? event.plan : null;
-  const undoable = plan !== null && plan.undoneAt === null && plan.moved + plan.quarantined > 0;
+  // A conversion goes back only while its original is still in quarantine.
+  const undoable =
+    plan !== null &&
+    plan.undoneAt === null &&
+    (plan.kind === "convert" ? plan.quarantined > 0 : plan.moved + plan.quarantined > 0);
   const action =
     plan?.kind === "convert"
       ? "Put back the original"
@@ -147,7 +151,9 @@ function words(event: Event): [string, string, string | null] {
   if (plan.kind === "convert") {
     const label = plan.title.replace(/^Converted /, "");
     if (event.kind === "undo") return ["Put back", label, "The original is in its place again"];
-    return ["Converted", label, made ? conversionWords(made) : null];
+    const gone = plan.undoneAt === null && plan.quarantined === 0 && plan.moved > 0;
+    const words = [made && conversionWords(made), gone && "original deleted"].filter(Boolean);
+    return ["Converted", label, words.length > 0 ? words.join(" · ") : null];
   }
   if (plan.deleted) {
     const label = plan.title.replace(/^Deleted /, "");

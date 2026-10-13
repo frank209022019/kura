@@ -4779,6 +4779,15 @@
             "title": "Quarantinedays",
             "default": 30
           },
+          "originals": {
+            "type": "string",
+            "enum": [
+              "quarantine",
+              "delete"
+            ],
+            "title": "Originals",
+            "default": "quarantine"
+          },
           "artwork": {
             "type": "boolean",
             "title": "Artwork",

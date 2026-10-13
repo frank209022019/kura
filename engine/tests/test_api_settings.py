@@ -20,6 +20,7 @@ def test_a_new_kura_starts_from_the_recommended_choices(client: TestClient):
         "setUp": False,
         "reports": True,
         "quarantineDays": 30,
+        "originals": "quarantine",
         "artwork": False,
     }
 
@@ -53,6 +54,7 @@ def test_choices_are_kept(client: TestClient, conn: sqlite3.Connection):
         "setUp": True,
         "reports": True,
         "quarantineDays": None,
+        "originals": "delete",
         "artwork": True,
     }
 

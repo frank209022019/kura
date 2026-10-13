@@ -200,6 +200,18 @@ describe("HistoryPage", () => {
     expect(screen.getByText("Trigun · S01E03")).toBeInTheDocument();
   });
 
+  it("says when a converted file's original is gone, and offers nothing to put back", async () => {
+    const gone: PlanDone = { ...CONVERTED, quarantined: 0 }; // deleted, or cleared out
+    fakeEngine({ "/history": { plans: [gone], scans: [] } });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "Trigun · S01E03480p H.264 233 MB → 1080p HEVC 412 MB · 58 min · checked · original deleted",
+    );
+    expect(screen.queryByRole("button", { name: "Put back the original" })).not.toBeInTheDocument();
+  });
+
   it("says when a converted file's original came back", async () => {
     const back: PlanDone = {
       ...CONVERTED,

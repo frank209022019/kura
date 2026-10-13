@@ -657,6 +657,30 @@ def test_converting_what_fits_passes_over_what_doesnt_and_goes_on(
     assert queue.status().room is None
 
 
+@pytest.mark.parametrize(
+    ("originals", "waiting_for_room"),
+    [("quarantine", [False, True]), ("delete", [False, False])],
+)
+def test_a_drive_wants_room_for_every_result_unless_originals_are_deleted(
+    queue: Queue,
+    conn: sqlite3.Connection,
+    shows: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    originals: str,
+    waiting_for_room: list[bool],
+):
+    with conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('originals', ?)", (f'"{originals}"',)
+        )
+        conn.execute("UPDATE files SET size = 3000000000")  # originals bigger than their results
+    free_space(monkeypatch, max(room_of(conn, 1), room_of(conn, 2)))  # room for one result
+
+    queue.add([1, 2], fit=[shows.drive])
+
+    assert [job.no_room for job in queue.status().queued] == waiting_for_room
+
+
 def test_files_added_to_convert_what_fits_wait_for_room_without_pausing(
     queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
 ):

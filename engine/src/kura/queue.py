@@ -71,7 +71,7 @@ from kura.core.library import drive_of
 from kura.core.media import media_from_ffprobe
 from kura.core.standard import Method, Standard, decide
 from kura.events import Notify
-from kura.preferences import library_standard
+from kura.preferences import library_standard, originals_deleted
 from kura.probe import probe
 from kura.quarantine import set_aside_by_drive
 from kura.recovery import Recovery
@@ -478,7 +478,8 @@ class Queue:
             fitting = [] if paused or resting else _fitting(conn)
             with self._lock:
                 known = dict(self._needs)
-            room, no_room = _room(unmade, standard, held, fitting, known)
+            deleting = originals_deleted(conn)
+            room, no_room = _room(unmade, standard, held, fitting, known, deleting=deleting)
             if room is not None:
                 found = set_aside_by_drive(conn)
                 aside = next((n for d, n in found.items() if _among(d, [room.drive])), 0)
@@ -897,6 +898,8 @@ def _room(
     held: str | None,
     fitting: list[str],
     known: dict[tuple[int, str], tuple[int, int]],
+    *,
+    deleting: bool = False,
 ) -> tuple[Room | None, set[int]]:
     """The drive without room for what waits on it, of those that matter: the one the queue
     paused for (`held`), else one where files that don't fit wait while the others go
@@ -913,7 +916,7 @@ def _room(
         room = free(str(Path(rows[0]["path"]).parent))  # where converting measures
         if room is None or not (paused or _among(drive, fitting)):
             continue
-        needed, fits = _fits(rows, standard, room, known)
+        needed, fits = _fits(rows, standard, room, known, deleting=deleting)
         if len(fits) == len(rows):
             continue  # room for them all now
         if not paused:
@@ -928,16 +931,24 @@ def _fits(
     standard: Standard,
     free: int,
     known: dict[tuple[int, str], tuple[int, int]],
+    *,
+    deleting: bool = False,
 ) -> tuple[int, set[int]]:
     """Of the files waiting on one drive, in turn: the free space their results all want, and
-    those that fit in `free` now, each result taking its size of what's left."""
-    needed, fits, left = 0, set[int](), free
+    those that fit in `free` now, each result taking its size of what's left. When originals
+    are deleted as their results take their place (`deleting`), a result wants its room only
+    while it's made, and keeps just what it adds over its original: the space wanted is the
+    most wanted at any one time."""
+    needed, fits, left, kept = 0, set[int](), free, 0
     for row in rows:
         wanted = _wanted(row, standard, known)
-        needed += wanted
+        result = round(wanted / SPACE_MARGIN)
+        stays = max(0, result - (row["size"] or 0)) if deleting else result
+        needed = max(needed, kept + wanted) if deleting else needed + wanted
+        kept += stays
         if left >= wanted:
             fits.add(row["id"])
-            left -= round(wanted / SPACE_MARGIN)
+            left -= stays
     return needed, fits
 
 

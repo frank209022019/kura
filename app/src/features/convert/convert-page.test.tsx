@@ -10,7 +10,7 @@ import {
   type TitleSummary,
 } from "@/lib/engine";
 import { convertible } from "@/test/convert";
-import { fakeEngine, READY } from "@/test/engine";
+import { fakeEngine, READY, SETTINGS } from "@/test/engine";
 import { ConvertPage } from "./convert-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -148,6 +148,116 @@ describe("ConvertPage", () => {
     expect(
       await screen.findByText(/1 file gets Fast instead: the AI model is for SD/),
     ).toBeInTheDocument();
+  });
+
+  it("chooses the standard right here, and the estimates follow", async () => {
+    let saved = SETTINGS;
+    const compact: ConvertOptions = {
+      ...OPTIONS,
+      standard: "Compact 720p",
+      files: OPTIONS.files.map((file) => ({ ...file, outputBytes: 250_000_000 })),
+    };
+    const fetch = fakeEngine({
+      "/convert": () => (saved.standard === "compact-720" ? compact : OPTIONS),
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/settings": () => saved,
+      "PUT /settings": (init?: RequestInit) => {
+        saved = JSON.parse(String(init?.body));
+        return saved;
+      },
+    });
+    renderConvert();
+
+    (await screen.findByRole("checkbox", { name: /Season 1/ })).click();
+    expect(await screen.findByText("466 MB → 900 MB")).toBeInTheDocument();
+    expect(screen.getByText("1080p · HEVC 10-bit · MKV")).toBeInTheDocument();
+    (await screen.findByRole("radio", { name: "Compact 720p" })).click();
+
+    expect(await screen.findByText("466 MB → 500 MB")).toBeInTheDocument();
+    expect(saved.standard).toBe("compact-720");
+    expect(sent(fetch, "PUT", "/settings")).toHaveLength(1);
+    expect(screen.getByText("720p · HEVC 10-bit · MKV")).toBeInTheDocument();
+  });
+
+  it("says when every way does the same, for files that need no upscaling", async () => {
+    const hd = convertible(
+      6,
+      { height: 1080, aspect: "16:9", label: "Dragon Ball Z · S01E06" },
+      { best: 180, fast: 180, reencode: 180 },
+    );
+    hd.ways = {
+      best: { method: "reencode", gpuSeconds: 180 },
+      fast: { method: "reencode", gpuSeconds: 180 },
+      reencode: { method: "reencode", gpuSeconds: 180 },
+    };
+    fakeEngine({
+      "/convert": { ...OPTIONS, files: [hd] },
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+    });
+    renderConvert();
+
+    (await screen.findByRole("checkbox", { name: /Dragon Ball Z/ })).click();
+
+    expect(
+      await screen.findByText(
+        "This file needs no upscaling, so every way only re-encodes it to your standard and takes the same.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/instead/)).not.toBeInTheDocument();
+  });
+
+  it("deletes originals once checked when asked, and reckons room that way", async () => {
+    let saved = SETTINGS;
+    const big = (id: number) => convertible(id, { size: 2_000_000_000 }); // results are smaller
+    fakeEngine({
+      "/convert": { ...OPTIONS, files: [big(1), big(2)], free: { "D:": 600_000_000 } },
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/settings": () => saved,
+      "PUT /settings": (init?: RequestInit) => {
+        saved = JSON.parse(String(init?.body));
+        return saved;
+      },
+    });
+    renderConvert();
+
+    (await screen.findByRole("checkbox", { name: /Dragon Ball Z/ })).click();
+    expect(await screen.findByText(/free: not enough, this needs 1\.1 GB/)).toBeInTheDocument();
+    expect(screen.getByText("Kept 30 days")).toBeInTheDocument();
+    screen.getByRole("radio", { name: "Delete" }).click();
+
+    expect(await screen.findByText("Deleted")).toBeInTheDocument();
+    expect(saved.originals).toBe("delete");
+    expect(
+      screen.getByText("for good, once each result is checked and in place: no putting back"),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("free, plenty for this")).toBeInTheDocument();
+  });
+
+  it("offers another standard when everything is at this one", async () => {
+    let saved = SETTINGS;
+    fakeEngine({
+      "/convert": () =>
+        saved.standard === "compact-720" ? OPTIONS : { ...OPTIONS, files: [] as never[] },
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/settings": () => saved,
+      "PUT /settings": (init?: RequestInit) => {
+        saved = JSON.parse(String(init?.body));
+        return saved;
+      },
+    });
+    renderConvert();
+
+    expect(
+      await screen.findByRole("heading", { name: "Everything is at your standard" }),
+    ).toBeInTheDocument();
+    (await screen.findByRole("radio", { name: "Compact 720p" })).click();
+
+    expect(await screen.findByRole("checkbox", { name: /Season 1/ })).toBeInTheDocument();
+    expect(saved.standard).toBe("compact-720");
   });
 
   it("queues what's chosen to start now, then shows the queue", async () => {

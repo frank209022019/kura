@@ -40,6 +40,13 @@ def artwork_wanted(conn: sqlite3.Connection) -> bool:
     return row is not None and json.loads(row["value"]) is True
 
 
+def originals_deleted(conn: sqlite3.Connection) -> bool:
+    """Whether a converted file's original is deleted once its result is checked and in place,
+    instead of waiting in quarantine (Settings > Your data, and Convert)."""
+    row = conn.execute("SELECT value FROM settings WHERE key = 'originals'").fetchone()
+    return row is not None and json.loads(row["value"]) == "delete"
+
+
 def quarantine_days(conn: sqlite3.Connection) -> int | None:
     """How many days what's set aside is kept before it's cleared out (Settings > Your data), or
     None: for good."""

@@ -193,6 +193,44 @@ describe("SettingsPage", () => {
     expect(body(fetch, "PUT", "/settings")).toMatchObject({ reports: false });
   });
 
+  it("deletes converted files' originals once checked, when asked", async () => {
+    let saved = SETTINGS;
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": () => saved,
+      "/data": DATA,
+      "PUT /settings": (init?: RequestInit) => {
+        saved = JSON.parse(String(init?.body));
+        return saved;
+      },
+    });
+    renderSettings("data");
+
+    expect(
+      await screen.findByText(
+        "Kept here like any copy, so History can put one back till it's cleared out.",
+      ),
+    ).toBeInTheDocument();
+    screen.getByRole("radio", { name: "Delete" }).click();
+
+    await waitFor(() => expect(sent(fetch, "PUT", "/settings")).toHaveLength(1));
+    expect(body(fetch, "PUT", "/settings")).toMatchObject({ originals: "delete" });
+    expect(
+      await screen.findByText(
+        "Deleted for good once each converted copy is checked and in place: no putting back.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says what changing the standard does to what's converted already", async () => {
+    fakeEngine({ "/folders": FOLDERS, "/settings": SETTINGS });
+    renderSettings("standard");
+
+    expect(
+      await screen.findByText(/Change it, and what's at the old one can be converted again/),
+    ).toBeInTheDocument();
+  });
+
   it("puts poster and background pictures next to each show, when asked", async () => {
     const fetch = fakeEngine({
       "/folders": FOLDERS,

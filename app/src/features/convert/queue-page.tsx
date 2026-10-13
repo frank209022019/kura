@@ -148,7 +148,10 @@ export function QueuePage() {
           <Today jobs={status.today} />
           <p className="text-12 text-fg-faint">
             Every finished file is checked for length, streams and a test play before it replaces
-            the original. Originals are kept in quarantine {keptFor(settings.data?.quarantineDays)}.
+            the original.{" "}
+            {settings.data?.originals === "delete"
+              ? "Originals are deleted once their converted copy is in place."
+              : `Originals are kept in quarantine ${keptFor(settings.data?.quarantineDays)}.`}
           </p>
         </div>
       </div>

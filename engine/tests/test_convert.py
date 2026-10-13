@@ -28,6 +28,7 @@ from kura.convert import (
 )
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.standard import CINEMA_1080, Method
+from kura.history import plans
 from tests.converting import BEST_TAG, FAKE_FFMPEG, open_elsewhere, programs, report
 from tests.shelf import NOW, library
 
@@ -80,6 +81,55 @@ def test_an_sd_episode_goes_through_the_ai_model_and_takes_its_originals_place(
     assert (job["state"], job["source_size"]) == ("done", len(original))
     kind = conn.execute("SELECT kind FROM plans WHERE id = ?", (job["plan_id"],)).fetchone()
     assert kind[0] == "convert"
+
+
+def set_aside(conn: sqlite3.Connection) -> sqlite3.Row:
+    found: sqlite3.Row = conn.execute(
+        "SELECT target, cleared_at FROM changes WHERE kind = 'quarantine'"
+    ).fetchone()
+    return found
+
+
+def test_an_original_waits_in_quarantine_unless_the_owner_chose_to_delete_it(
+    conn: sqlite3.Connection, episode: Path
+):
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+    kept = set_aside(conn)
+    assert kept["cleared_at"] is None
+    assert Path(kept["target"]).is_file()
+    [plan] = plans(conn)
+    assert (plan.moved, plan.quarantined) == (1, 1)  # History can put it back
+
+
+def test_an_original_the_owner_chose_to_delete_goes_once_its_result_is_in_place(
+    conn: sqlite3.Connection, episode: Path
+):
+    with conn:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('originals', '\"delete\"')")
+
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+    assert episode.read_text().startswith("converted")  # the result is in place
+    gone = set_aside(conn)
+    assert gone["cleared_at"] is not None
+    assert not Path(gone["target"]).exists()
+    [plan] = plans(conn)
+    assert (plan.moved, plan.quarantined) == (1, 0)  # nothing left to put back
+    with pytest.raises(ConvertError, match="cleared out of quarantine"):
+        restore(conn, 1, now=NOW + timedelta(hours=1))
+
+
+def test_a_failed_conversion_never_deletes_the_original(conn: sqlite3.Connection, episode: Path):
+    original = episode.read_bytes()
+    with conn:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('originals', '\"delete\"')")
+
+    with pytest.raises(ConvertError):
+        run(conn, programs(report(1440, 1080, tag="someone else's")))  # it doesn't check out
+
+    assert episode.read_bytes() == original
+    assert conn.execute("SELECT COUNT(*) FROM changes").fetchone()[0] == 0
 
 
 def test_restoring_puts_the_original_back(conn: sqlite3.Connection, episode: Path):

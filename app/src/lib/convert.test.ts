@@ -4,6 +4,7 @@ import { convertible } from "@/test/convert";
 import {
   driveOf,
   episodeCode,
+  fitting,
   gpuTime,
   jobGroups,
   nights,
@@ -52,6 +53,29 @@ describe("tree", () => {
       "Season 2",
     ]);
     expect(groups[2]?.titles[0]?.seasons.map((season) => season.label)).toEqual(["The film"]);
+  });
+});
+
+describe("fitting", () => {
+  const files = [
+    { output: 400, original: 2000 }, // a big original: its result is smaller
+    { output: 400, original: 2000 },
+  ];
+
+  it("wants room for every result while originals wait in quarantine", () => {
+    expect(fitting(files, 600)).toEqual({ needed: 1000, fit: 1 });
+  });
+
+  it("wants room for one result at a time when originals are deleted", () => {
+    expect(fitting(files, 600, true)).toEqual({ needed: 500, fit: 2 });
+  });
+
+  it("keeps what results add over their originals when those are deleted", () => {
+    const small = [
+      { output: 400, original: 100 },
+      { output: 400, original: 100 },
+    ];
+    expect(fitting(small, 600, true)).toEqual({ needed: 800, fit: 1 });
   });
 });
 

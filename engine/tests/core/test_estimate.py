@@ -47,6 +47,23 @@ def test_each_method_takes_about_what_was_measured(
     assert result.gpu_seconds / 60 == pytest.approx(minutes_per_episode, rel=0.03)
 
 
+def test_a_smaller_standard_saves_space_and_only_the_fast_upscales_time():
+    source = episode(seconds=1440.0)
+    made = {
+        (method, standard.height): estimate(
+            source, Decision(method, width, standard.height), standard
+        )
+        for method in (Method.BEST, Method.FAST, Method.REENCODE)
+        for standard, width in ((CINEMA_1080, 1440), (COMPACT_720, 960))
+    }
+
+    fast = made[Method.FAST, 1080].gpu_seconds / made[Method.FAST, 720].gpu_seconds
+    assert fast == pytest.approx(2.25)  # it works at the size it makes
+    assert made[Method.BEST, 720].gpu_seconds == made[Method.BEST, 1080].gpu_seconds  # the source
+    assert made[Method.REENCODE, 720].gpu_seconds == made[Method.REENCODE, 1080].gpu_seconds
+    assert made[Method.BEST, 720].output_bytes < made[Method.BEST, 1080].output_bytes
+
+
 def test_the_ai_model_takes_longer_the_more_pixels_the_source_has():
     best = Decision(Method.BEST, 1440, 1080)
 

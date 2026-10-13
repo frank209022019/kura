@@ -32,8 +32,9 @@ waits for its design.
   change the color or anything".
 - **Nothing changes until the owner reviews it.** Renames, moves, deletions and conversions are
   proposed first, applied only when approved, logged, and undoable. Duplicates and replaced
-  originals go to quarantine (30 days), never straight to deletion. Anime files are never touched
-  by uninstalling.
+  originals go to quarantine (30 days), never straight to deletion; the one exception is the
+  owner's own choice to delete converted files' originals once each result is checked and in
+  place (2026-10-13). Anime files are never touched by uninstalling.
 - **Kura is personal.** No email address, no company name (no employer, no organisation behind
   Kura) and no personal details beyond the owner's name (LICENSE, commit author), anywhere in
   the project: files, test data, commit messages, publisher, accounts, signing. The publisher
@@ -143,6 +144,13 @@ Everything decided so far. Don't ask again; change only with the owner.
   the data folder, the database, TMDB, updates) is in Settings › About.
 - Picture: crisp and clean; 720p or 1080p are both fine. **Every** file goes to the library standard,
   even 720p to 720p; a file already exactly at the standard is only renamed.
+- The standard is chosen on Convert as in Settings, the estimates following at once (the owner,
+  2026-10-13: "what if we want to convert later on to a different format?"). Changed, whatever
+  isn't at the new one can be converted to it, Kura's own conversions too: from the converted
+  file, or from its original if the owner puts that back from History first.
+- Converted files' originals (the owner, 2026-10-13): kept in quarantine like any copy (the
+  default), or deleted once each result is checked and in place, chosen on Convert and in
+  Settings › Your data. A deleted original can't be put back, and History says so.
 - Everything ends up neatly filed (the owner, 2026-10-11): seasons, specials and OVAs (Season 00)
   under their show, and every movie in a folder of its own, even one that arrived as a bare file.
   File and folder names match and stay clean and simple, nothing but the title, year, numbers and
@@ -156,8 +164,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   under the title "Gap Analysis" (the owner, 2026-10-11).
 - Deleting from Kura (the owner, 2026-10-11): a whole title, a season or one video, from the
   title's page, after Kura asks; and a file waiting for a match, or one set aside as not anime
-  (listed there to match after all), from "Which anime is this?" (2026-10-13). It goes to quarantine like any copy set aside, never straight to deletion, and
-  History (or the page, right after) puts it back until the clear-out.
+  (listed there to match after all), from "Which anime is this?" (2026-10-13). It goes to
+  quarantine like any copy set aside, never straight to deletion, and History (or the page,
+  right after) puts it back until the clear-out.
 - Not enough space (the owner, 2026-10-12): when a drive hasn't room for what's queued, the
   queue pauses and says what the files there need. The owner can empty that drive's quarantine
   first (with a second "are you sure": what's set aside there is deleted for good, before its

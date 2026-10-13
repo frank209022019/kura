@@ -56,7 +56,9 @@ from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
 from kura.core.standard import Decision, Method, Standard, decide, deinterlaced
+from kura.preferences import originals_deleted
 from kura.probe import ProbeError, ProbeToolError
+from kura.quarantine import clear_original
 from kura.system import in_use
 from kura.upscale import UpscaleError, Upscaler, pipe, upscaled_size
 
@@ -338,6 +340,7 @@ def settle(
             result = None
         if result is not None:
             finish(conn, job_id, result, now)
+            _drop_original(conn, plan_id, now)
             return
         with conn:  # in place, but unread: the next scan reads it
             conn.execute(
@@ -350,6 +353,7 @@ def settle(
                    WHERE id = ?""",
                 (now.isoformat(), job_id),
             )
+        _drop_original(conn, plan_id, now)
         return
     if plan_id is not None:
         undo_plan(conn, plan_id, now=now)
@@ -696,6 +700,14 @@ def _replace(
             )
         raise ConvertError(f"Kura couldn't put it in place, so the original is back: {problem}")
     finish(conn, row["id"], result, now)
+    _drop_original(conn, plan_id, now)
+
+
+def _drop_original(conn: sqlite3.Connection, plan_id: int | None, now: datetime) -> None:
+    """When the owner chose to delete converted files' originals, this one goes now that its
+    result is checked and in place; otherwise it waits in quarantine like any copy."""
+    if plan_id is not None and originals_deleted(conn):
+        clear_original(conn, plan_id, now=now)
 
 
 def _forget(conn: sqlite3.Connection, plan_id: int, job_id: int) -> None:

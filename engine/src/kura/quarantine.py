@@ -1,8 +1,10 @@
 """Clearing out the quarantine: what was set aside (copies of an episode, and converted files'
 originals) goes once it has waited as many days as the owner keeps it (Settings > Your data; 30
 unless they choose otherwise, or for good), or all at once from one drive when the owner empties
-it there to make room for converting (`empty`). Its change in the journal says when, and it can't
-be put back after that; the rest of its tidy-up still can.
+it there to make room for converting (`empty`), or, when the owner chose to delete converted
+files' originals, each as soon as its result is checked and in place (`clear_original`). Its
+change in the journal says when, and it can't be put back after that; the rest of its tidy-up
+still can.
 """
 
 import logging
@@ -49,6 +51,16 @@ def empty(conn: sqlite3.Connection, drive: str, *, now: datetime) -> int:
     cleared = _delete(conn, there, now)
     if cleared:
         log.info("Emptied the quarantine on %s: %d files", drive, cleared)
+    return cleared
+
+
+def clear_original(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> int:
+    """Deletes a conversion's original from quarantine now, once its result took its place: the
+    owner chose to delete originals rather than keep them. Returns how many files went."""
+    rows = conn.execute(f"{_SET_ASIDE} AND c.plan_id = ?", (plan_id,)).fetchall()
+    cleared = _delete(conn, rows, now)
+    if cleared:
+        log.info("Deleted a converted file's original, as the owner chose (plan %d)", plan_id)
     return cleared
 
 

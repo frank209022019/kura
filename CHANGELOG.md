@@ -8,7 +8,24 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Choose your standard on Convert too, and the estimates follow at once. Once everything is at
+  one standard, the page offers the other. Change it, and what's at the old one can be converted
+  to the new, Kura's own conversions too: from the converted file, or from its original if you put
+  that back from History first.
+- Converted files' originals: keep them in quarantine, as before, or delete each once its result
+  is checked and in place (Convert, and Settings > Your data). Room for converting is reckoned to
+  match, and a deleted original can't be put back.
+
+### Changed
+- Each way on Convert says what it really does for the files chosen: when they need no
+  upscaling, every way only re-encodes them and takes the same, and the page says so. A smaller
+  standard saves space more than time, which the page says too: the fast upscale is quicker
+  making 720p, but the AI model and re-encoding take as long, working on the source.
+
 ### Fixed
+- History no longer offers to put back a converted file's original once it's gone, cleared out
+  or deleted: it says the original was deleted.
 - The files set aside as not anime were out of reach while no file needed a match: Tidy up now
   shows how many there are, leading to Which anime is this?, where they're listed.
 

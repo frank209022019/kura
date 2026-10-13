@@ -65,6 +65,24 @@ def converting(client: TestClient, paths: DataPaths, shelf: Path) -> Queue:
     return queue
 
 
+def test_a_file_kura_converted_is_offered_again_once_the_standard_changes(
+    client: TestClient, shelf: Path, conn: sqlite3.Connection
+):
+    made = json.dumps(report(960, 720, tag="best to 720p · Kura 0.3.0"))  # Kura's own, at 720p
+    with conn:
+        conn.execute("UPDATE files SET probe = ? WHERE id = 4", (made,))
+    chosen = client.get("/settings").json()
+
+    client.put("/settings", json={**chosen, "standard": "compact-720"})
+    at_720 = client.get("/convert").json()["files"]
+    client.put("/settings", json={**chosen, "standard": "cinema-1080"})
+    at_1080 = client.get("/convert").json()["files"]
+
+    assert 4 not in [file["fileId"] for file in at_720]  # done, at that standard
+    [again] = [file for file in at_1080 if file["fileId"] == 4]
+    assert again["ways"]["best"]["method"] == "fast"  # 720p: the fast upscale makes it 1080p
+
+
 def test_what_isnt_at_the_standard_is_listed_with_each_way_to_convert_it(
     client: TestClient, shelf: Path, conn: sqlite3.Connection
 ):

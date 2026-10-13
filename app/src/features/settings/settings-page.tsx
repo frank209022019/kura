@@ -8,6 +8,7 @@ import { TmdbKey } from "@/components/tmdb-key";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
+import { ORIGINALS } from "@/lib/convert";
 import { pickFolder } from "@/lib/dialogs";
 import {
   type DataSizes,
@@ -213,7 +214,7 @@ function Standard() {
   return (
     <Panel
       title="Your standard"
-      note="Every file is brought to this. Changing it changes what's left to convert; files converted already stay as they are."
+      note="Every file is brought to this. Change it, and what's at the old one can be converted again, Kura's own conversions too: from the converted file, unless you put its original back from History first."
     >
       <StandardChoices
         settings={settings}
@@ -410,6 +411,27 @@ function Quarantine({ sizes, settings }: { sizes: DataSizes; settings: Settings 
           }
         />
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="font-bold text-14">Converted files' originals</span>
+        <Segmented
+          label="Converted files' originals"
+          value={settings.originals}
+          options={ORIGINALS}
+          onChange={(originals) =>
+            save.mutate({ path: "/settings", body: { ...settings, originals } })
+          }
+        />
+      </div>
+      <span
+        className={cn(
+          "text-12",
+          settings.originals === "delete" ? "text-broken-fg" : "text-fg-muted",
+        )}
+      >
+        {settings.originals === "delete"
+          ? "Deleted for good once each converted copy is checked and in place: no putting back."
+          : "Kept here like any copy, so History can put one back till it's cleared out."}
+      </span>
       <ul className="flex flex-col gap-1">
         {sizes.quarantine.map((each) => (
           <li key={each.folder} className="font-mono text-12 text-fg-muted">

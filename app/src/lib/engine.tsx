@@ -336,15 +336,21 @@ export interface Settings {
   reports: boolean;
   /** Days copies set aside and converted files' originals are kept, or null: for good. */
   quarantineDays: 7 | 30 | 90 | null;
+  /** What a converted file's original becomes once its result is checked and in place. */
+  originals: "quarantine" | "delete";
   /** Poster and background pictures next to each show, for media servers. */
   artwork: boolean;
 }
 
 export const useSettings = () => useEngineQuery<Settings>("/settings");
 /** Saves the preferences: `save.mutate({ path: "/settings", body: settings })`. The standard
- * decides what's left to convert, so the Convert screen is asked again too. */
+ * decides what's left to convert and how each episode stands, so the screens showing those are
+ * asked again too. */
 export const useSaveSettings = () =>
-  useEngineAction<Settings>(["/settings", "/convert", "/queue", "/data"], "PUT");
+  useEngineAction<Settings>(
+    ["/settings", "/convert", "/queue", "/data", "/titles", "/franchises", "/library"],
+    "PUT",
+  );
 
 /** A drive's quarantine folder: copies set aside and converted files' originals. */
 export interface Quarantined {

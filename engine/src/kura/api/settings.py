@@ -24,6 +24,9 @@ class Settings(ApiModel):
     reports: bool = True  # a gap analysis next to each anime with a folder of its own
     # Days copies set aside and converted files' originals are kept, or None: for good.
     quarantine_days: Literal[7, 30, 90] | None = 30
+    # What a converted file's original becomes once its result is checked and in place: set
+    # aside in quarantine like any copy, or deleted for good (the owner's choice).
+    originals: Literal["quarantine", "delete"] = "quarantine"
     artwork: bool = False  # poster and background pictures next to each show, for media servers
 
 

@@ -24,8 +24,8 @@ Nothing changes until you review it, and everything stays on your PC: no account
   Anime4K for 720p, at night if you like. See it first shows a frame before and after, and every
   result is checked before it takes the original's place.
 - **Loses nothing.** Replaced originals, duplicates and whatever you delete wait 30 days in a
-  quarantine on their own drive. Kura's records are backed up every night, and an export takes
-  them to another PC.
+  quarantine on their own drive, unless you'd rather converted originals went at once. Kura's
+  records are backed up every night, and an export takes them to another PC.
 - **Looks after itself.** It can start with Windows and wait in the tray, tells you when a batch
   is done, and updates itself, showing what's new first.
 

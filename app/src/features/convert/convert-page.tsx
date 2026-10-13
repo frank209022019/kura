@@ -4,16 +4,18 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { STANDARDS } from "@/components/standard-choices";
 import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/ui/segmented";
 import {
   fitting,
   type GroupNode,
   gpuTime,
   METHOD_NAMES,
   nights,
+  ORIGINALS,
   open,
   playTime,
-  ROOM,
   type SeasonNode,
   type TitleNode,
   totals,
@@ -21,11 +23,13 @@ import {
 } from "@/lib/convert";
 import {
   type Convertible,
+  type Settings,
   useAddToQueue,
   useConvertOptions,
   useEmptyQuarantine,
   useFranchises,
   useQueue,
+  useSaveSettings,
   useSettings,
   useSystem,
   type Way,
@@ -67,6 +71,13 @@ export function ConvertPage() {
   const queue = useQueue();
   const add = useAddToQueue();
   const empty = useEmptyQuarantine();
+  const stored = useSettings();
+  const save = useSaveSettings();
+  const settings = stored.data;
+  // The standard and what becomes of originals are the library's settings, chosen here as in
+  // Settings: the estimates follow at once.
+  const change = (part: Partial<Settings>) =>
+    settings && save.mutate({ path: "/settings", body: { ...settings, ...part } });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [way, setWay] = useState<Way>("best");
   const [when, setWhen] = useState<When | null>(null);
@@ -96,10 +107,20 @@ export function ConvertPage() {
     return (
       <>
         {header}
-        <EmptyState title="Everything is at your standard" illustration={<ShelfIllustration />}>
+        <EmptyState
+          title="Everything is at your standard"
+          illustration={<ShelfIllustration />}
+          action={
+            settings && (
+              <StandardPick settings={settings} onChange={(standard) => change({ standard })} />
+            )
+          }
+          note="Choose another, and what's at this one can be converted to it, Kura's own conversions too."
+        >
           Every video in your library is {options.data.standard} already. New ones show up here when
           a scan finds them.
         </EmptyState>
+        {save.isError && <Unsaved message={save.error.message} />}
       </>
     );
   }
@@ -126,7 +147,8 @@ export function ConvertPage() {
     add.mutate({ path: "/queue", body }, { onSuccess: () => void navigate("/convert/queue") });
   }
 
-  const short = shortage(chosen, way, options.data.free, options.data.setAside);
+  const deleting = settings?.originals === "delete";
+  const short = shortage(chosen, way, options.data.free, options.data.setAside, deleting);
   const room = asking && short && (
     <NoRoom
       drive={short.drive}
@@ -156,6 +178,8 @@ export function ConvertPage() {
         <What groups={groups} selected={selected} chosen={chosen} onToggle={toggle} />
         <How
           standard={options.data.standard}
+          settings={settings}
+          onStandard={(standard) => change({ standard })}
           basis={chosen.length > 0 ? chosen : open(files)}
           chosen={chosen}
           way={way}
@@ -172,7 +196,13 @@ export function ConvertPage() {
         height={standardHeight(options.data.standard)}
       />
       <div className="flex flex-wrap items-stretch gap-5">
-        <Estimate chosen={chosen} way={way} free={options.data.free} />
+        <Estimate
+          chosen={chosen}
+          way={way}
+          free={options.data.free}
+          settings={settings}
+          onOriginals={(originals) => change({ originals })}
+        />
         <WhenPanel
           when={timing}
           onWhen={setWhen}
@@ -184,7 +214,34 @@ export function ConvertPage() {
           room={room || null}
         />
       </div>
+      {save.isError && <Unsaved message={save.error.message} />}
     </>
+  );
+}
+
+function Unsaved({ message }: { message: string }) {
+  return (
+    <p role="alert" className="text-13 text-broken-fg">
+      Kura couldn't save that: {message}
+    </p>
+  );
+}
+
+/**
+ * The library's standard, which every file is brought to: the same choice as Settings', here
+ * where converting starts. Changed, what's at the old one can be converted again.
+ */
+function StandardPick(props: {
+  settings: Settings;
+  onChange: (standard: Settings["standard"]) => void;
+}) {
+  return (
+    <Segmented
+      label="Your standard"
+      value={props.settings.standard}
+      options={STANDARDS.map((each) => ({ value: each.value, label: each.name }))}
+      onChange={props.onChange}
+    />
   );
 }
 
@@ -371,6 +428,8 @@ function Box({ state }: { state: boolean | "mixed" }) {
 
 function How(props: {
   standard: string;
+  settings: Settings | undefined;
+  onStandard: (standard: Settings["standard"]) => void;
   /** What's chosen, or else everything, for the estimates. */
   basis: Convertible[];
   chosen: Convertible[];
@@ -379,15 +438,32 @@ function How(props: {
 }) {
   const tall = standardHeight(props.standard);
   const square = props.basis.some((file) => file.aspect === "4:3");
-  const lighter = props.chosen.filter((file) => file.ways[props.way]?.method !== props.way);
+  const spec = STANDARDS.find((each) => each.value === props.settings?.standard)?.spec;
+  const same = sameEveryWay(props.basis);
   return (
     <Step
       n={2}
       id="how-title"
       title="How"
-      note={`To your standard: ${props.standard}`}
+      note={props.settings ? undefined : `To your standard: ${props.standard}`}
       className="flex-[999_1_520px]"
     >
+      {props.settings && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="flex flex-col">
+              <span className="font-bold text-14">Your standard</span>
+              {spec && <span className="font-mono text-12 text-fg-muted">{spec}</span>}
+            </span>
+            <StandardPick settings={props.settings} onChange={props.onStandard} />
+          </div>
+          <span className="text-12 text-fg-faint">
+            Every file is brought to it. Change it, and what's at the other one can be converted
+            again, Kura's own conversions too; 720p saves space more than time, as the AI model
+            works on the source.
+          </span>
+        </div>
+      )}
       <RadioGroup.Root
         aria-label="Quality"
         value={props.way}
@@ -430,16 +506,58 @@ function How(props: {
             cropped.
           </span>
         )}
-        {lighter.length > 0 && (
-          <span>
-            {count(lighter.length, "file")} {lighter.length === 1 ? "gets" : "get"}{" "}
-            {METHOD_NAMES[lighter[0]?.ways[props.way]?.method ?? "fast"]} instead: the AI model is
-            for SD, and nothing gets more than it needs.
-          </span>
+        {same ? (
+          <span>{same}</span>
+        ) : (
+          lighterNotes(props.chosen, props.way).map((note) => <span key={note}>{note}</span>)
         )}
       </div>
     </Step>
   );
+}
+
+/**
+ * Why every way takes the same for these files, when it does: none of them needs upscaling, so
+ * whichever way is chosen they're only re-encoded (or keep their picture). Null otherwise.
+ */
+function sameEveryWay(files: Convertible[]): string | null {
+  const methods = new Set(files.flatMap((file) => Object.values(file.ways).map((w) => w?.method)));
+  const [method] = methods;
+  if (files.length === 0 || methods.size !== 1) return null;
+  const one = files.length === 1;
+  if (method === "reencode") {
+    return one
+      ? "This file needs no upscaling, so every way only re-encodes it to your standard and takes the same."
+      : "These files need no upscaling, so every way only re-encodes them to your standard and takes the same.";
+  }
+  if (method === "remux") {
+    return one
+      ? "This file's picture is at your standard already, so every way only changes its sound or container."
+      : "These files' pictures are at your standard already, so every way only changes their sound or container.";
+  }
+  return null;
+}
+
+/** What chosen files get instead of the way chosen, since nothing gets more than it needs. */
+function lighterNotes(chosen: Convertible[], way: Way): string[] {
+  const byMethod = new Map<string, number>();
+  for (const file of chosen) {
+    const method = file.ways[way]?.method;
+    if (method && method !== way) byMethod.set(method, (byMethod.get(method) ?? 0) + 1);
+  }
+  return [...byMethod].map(([method, n]) => {
+    const gets = `${count(n, "file")} ${n === 1 ? "gets" : "get"}`;
+    if (method === "fast") {
+      return `${gets} Fast instead: the AI model is for SD, and nothing gets more than it needs.`;
+    }
+    if (method === "remux") {
+      return n === 1
+        ? "1 file keeps its picture, at your standard already: only its sound or container changes."
+        : `${n} files keep their pictures, at your standard already: only their sound or container changes.`;
+    }
+    const name = METHOD_NAMES[method as keyof typeof METHOD_NAMES] ?? method;
+    return `${gets} ${name} instead: there's nothing to upscale, and nothing gets more than it needs.`;
+  });
 }
 
 /** GPU time per file for one way, on average. */
@@ -458,6 +576,7 @@ function shortage(
   way: Way,
   free: Record<string, number>,
   setAside: Record<string, number>,
+  deleting: boolean,
 ) {
   const byDrive = new Map<string, Convertible[]>();
   for (const file of chosen) {
@@ -467,8 +586,9 @@ function shortage(
     const room = free[drive];
     if (room === undefined) continue; // not connected: it waits for the drive instead
     const { needed, fit } = fitting(
-      files.map((file) => file.outputBytes),
+      files.map((file) => ({ output: file.outputBytes, original: file.size })),
       room,
+      deleting,
     );
     if (fit === files.length) continue;
     const aside = Object.entries(setAside).find(([d]) => d.toUpperCase() === drive.toUpperCase());
@@ -477,13 +597,20 @@ function shortage(
   return null;
 }
 
-function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string, number> }) {
+function Estimate(props: {
+  chosen: Convertible[];
+  way: Way;
+  free: Record<string, number>;
+  settings: Settings | undefined;
+  onOriginals: (originals: Settings["originals"]) => void;
+}) {
   const system = useSystem();
-  const days = useSettings().data?.quarantineDays;
+  const days = props.settings?.quarantineDays;
+  const deleting = props.settings?.originals === "delete";
   const sum = totals(props.chosen, props.way);
-  const [drive, needed] = spaceToShow(sum.byDrive, props.free);
+  const [drive, needed] = spaceToShow(needs(props.chosen, props.way, deleting), props.free);
   const free = props.free[drive] ?? null;
-  const enough = free === null || free >= needed * ROOM;
+  const enough = free === null || free >= needed;
   const card = system.data?.graphicsCard ?? "";
   return (
     <Step
@@ -519,31 +646,67 @@ function Estimate(props: { chosen: Convertible[]; way: Way; free: Record<string,
               ? "the drive isn't connected"
               : enough
                 ? "free, plenty for this"
-                : `free: not enough, this needs ${size(needed * ROOM)}`
+                : `free: not enough, this needs ${size(needed)}`
           }
           warn={!enough}
         />
-        <Tile
-          label="Originals"
-          value={days === null ? "Kept for good" : `Kept ${days ?? 30} days`}
-          note="in quarantine, after each check"
-        />
+        <div className="flex flex-col gap-1.5 rounded-16 bg-glass px-4 py-3.5">
+          <span className="text-12 text-fg-muted">Originals</span>
+          <span className="font-extrabold text-24 leading-[1.1]">
+            {deleting ? "Deleted" : days === null ? "Kept for good" : `Kept ${days ?? 30} days`}
+          </span>
+          <span className={cn("text-12", deleting ? "text-broken-fg" : "text-fg-muted")}>
+            {deleting
+              ? "for good, once each result is checked and in place: no putting back"
+              : "in quarantine, after each check"}
+          </span>
+          {props.settings && (
+            <Segmented
+              label="Originals, once each result is checked"
+              value={props.settings.originals}
+              options={ORIGINALS}
+              onChange={props.onOriginals}
+              className="mt-1 self-start"
+            />
+          )}
+        </div>
       </div>
     </Step>
   );
 }
 
 /**
- * The drive the space tile speaks for, and what its results take: one without room for them,
- * else one that isn't connected, else the one taking the most.
+ * The free space what's chosen wants on each drive it's on, as converting it in turn would find
+ * it (with the margin converting keeps): less when originals are deleted as results go in.
+ */
+function needs(chosen: Convertible[], way: Way, deleting: boolean): Record<string, number> {
+  const byDrive = new Map<string, Convertible[]>();
+  for (const file of chosen) {
+    if (file.ways[way]) byDrive.set(file.drive, [...(byDrive.get(file.drive) ?? []), file]);
+  }
+  return Object.fromEntries(
+    [...byDrive].map(([drive, files]) => [
+      drive,
+      fitting(
+        files.map((file) => ({ output: file.outputBytes, original: file.size })),
+        Number.POSITIVE_INFINITY,
+        deleting,
+      ).needed,
+    ]),
+  );
+}
+
+/**
+ * The drive the space tile speaks for, and the space it wants: one without room for what's
+ * chosen, else one that isn't connected, else the one wanting the most.
  */
 function spaceToShow(
-  byDrive: Record<string, number>,
+  wanted: Record<string, number>,
   free: Record<string, number>,
 ): [string, number] {
-  const drives = Object.entries(byDrive).sort((a, b) => b[1] - a[1]);
+  const drives = Object.entries(wanted).sort((a, b) => b[1] - a[1]);
   return (
-    drives.find(([drive, needed]) => (free[drive] ?? Infinity) < needed * ROOM) ??
+    drives.find(([drive, needed]) => (free[drive] ?? Infinity) < needed) ??
     drives.find(([drive]) => free[drive] === undefined) ??
     drives[0] ?? [Object.keys(free)[0] ?? "", 0]
   );

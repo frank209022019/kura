@@ -39,7 +39,9 @@ class PlanDone:
     applied_at: str
     undone_at: str | None
     moved: int  # videos and subtitles filed, and still there
-    quarantined: int  # copies set aside, and still there (their subtitles uncounted)
+    # Copies set aside, and still there (their subtitles uncounted): a conversion's original
+    # is gone once cleared out, or at once when the owner chose to delete originals.
+    quarantined: int
     failed: int  # changes that couldn't be made
     undone: int  # changes put back
     deleted: bool = False  # the owner deleted these videos: they went to quarantine
@@ -67,7 +69,9 @@ def plans(conn: sqlite3.Connection) -> list[PlanDone]:
     for row in rows:
         changes = changes_of(conn, row["id"])
         states = [change.state for change in changes]
-        moved, quarantined = tally(c for c in changes if c.state is ChangeState.DONE)
+        moved, quarantined = tally(
+            c for c in changes if c.state is ChangeState.DONE and c.cleared_at is None
+        )
         done.append(
             PlanDone(
                 **dict(row),
