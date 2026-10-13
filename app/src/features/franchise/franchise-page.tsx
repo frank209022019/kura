@@ -3,14 +3,15 @@ import { useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
-import { SortControl, sortWords } from "@/components/sort-control";
+import { SortControl } from "@/components/sort-control";
 import { TitleCard } from "@/components/title-card";
+import { byKind, CardGrid, groupsByType, orderWords, together } from "@/components/title-groups";
 import { type FranchiseSummary, type TitleKind, type TitleSort, useFranchise } from "@/lib/engine";
 import { kindCount } from "@/lib/kinds";
 import { share } from "@/lib/share";
 
-/** A franchise: its series, films, OVAs and specials, oldest release first unless the owner picks
- * another order, each leading to its own page. */
+/** A franchise: its series, films, OVAs and specials, by type and oldest release first unless the
+ * owner picks another order, each leading to its own page. */
 export function FranchisePage() {
   const { id } = useParams();
   const [sort, setSort] = useState<TitleSort>("released");
@@ -40,18 +41,16 @@ export function FranchisePage() {
               Titles
             </h2>
             <span className="text-13 text-fg-muted">
-              {found.titles.length} titles · {sortWords(sort)}
+              {found.titles.length} titles · {orderWords(sort)}
             </span>
           </div>
           <SortControl value={sort} onChange={setSort} />
         </div>
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-4.5 gap-y-5">
-          {found.titles.map((title) => (
-            <li key={title.id}>
-              <TitleCard title={title} />
-            </li>
-          ))}
-        </ul>
+        <CardGrid
+          groups={groupsByType(sort) ? byKind(found.titles) : together(found.titles)}
+          keyOf={(title) => title.id}
+          card={(title) => <TitleCard title={title} />}
+        />
       </section>
     </>
   );

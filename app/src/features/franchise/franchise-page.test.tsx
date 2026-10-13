@@ -111,7 +111,9 @@ describe("FranchisePage", () => {
     expect(screen.getByText("Franchise")).toBeInTheDocument();
     expect(screen.getByText("1986 · 2 series · 1 movie")).toBeInTheDocument();
     expect(screen.getByText("441 of 444 episodes")).toBeInTheDocument();
-    expect(screen.getByText("3 titles · oldest release first")).toBeInTheDocument();
+    expect(screen.getByText("3 titles · by type, oldest release first")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Series 2", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Movies 1", level: 3 })).toBeInTheDocument();
     const cards = screen.getAllByRole("link", { name: /Dragon Ball/ });
     expect(cards.map((card) => card.textContent)).toEqual([
       expect.stringContaining("TV series · 1986"),
@@ -119,6 +121,33 @@ describe("FranchisePage", () => {
       expect.stringContaining("Movie · 2013"),
     ]);
     expect(fetch.mock.calls.some(([input]) => String(input).endsWith("?sort=released"))).toBe(true);
+  });
+
+  it("lists the series first, then the films, each oldest release first", async () => {
+    const rubies = { ...BATTLE_OF_GODS, id: 10, name: "Dragon Ball: Curse of the Blood Rubies" };
+    const curse = { ...rubies, year: 1986, released: "1986-12-20" };
+    fakeEngine({ "/franchises/7": franchiseOf([DRAGON_BALL, curse, DBZ, BATTLE_OF_GODS]) });
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    await screen.findByRole("heading", { name: "Movies 2", level: 3 });
+    const cards = screen.getAllByRole("link", { name: /Dragon Ball/ });
+
+    expect(cards.map((card) => card.getAttribute("href"))).toEqual([
+      "/titles/7", // Dragon Ball, 1986
+      "/titles/8", // Dragon Ball Z, 1989
+      "/titles/10", // Curse of the Blood Rubies, 1986
+      "/titles/9", // Battle of Gods, 2013
+    ]);
+  });
+
+  it("lists every type together when what's missing or new comes first", async () => {
+    fakeEngine({ "/franchises/7": DRAGON_BALL_FRANCHISE });
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    (await screen.findByRole("radio", { name: "Most missing" })).click();
+
+    expect(await screen.findByText("3 titles · most missing first")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
   });
 
   it("sorts by name too, and leads to each title", async () => {

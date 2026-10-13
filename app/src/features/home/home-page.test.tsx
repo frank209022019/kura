@@ -300,7 +300,7 @@ describe("HomePage", () => {
     expect(
       await screen.findByRole("heading", { name: "Franchises and series" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("2 anime · oldest release first")).toBeInTheDocument();
+    expect(screen.getByText("2 anime · by type, oldest release first")).toBeInTheDocument();
     expect(screen.getByText("TV series · 1989 · 291 episodes")).toBeInTheDocument();
     expect(screen.getByText("4 missing")).toBeInTheDocument();
     expect(screen.getByText("287 of 291 · 99%")).toBeInTheDocument();
@@ -321,6 +321,25 @@ describe("HomePage", () => {
 
     (await screen.findByRole("link", { name: /Cowboy Bebop/ })).click();
     expect(await screen.findByText("A franchise")).toBeInTheDocument();
+  });
+
+  it("lists franchises first, then what stands on its own, by type", async () => {
+    const gt = { ...DBZ, id: 4, name: "Dragon Ball GT" };
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 314, size: 9e10 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done" },
+      "/franchises": [franchiseOf([MOVIE]), franchiseOf([DBZ, gt]), franchiseOf([BEBOP])],
+    });
+    renderHome(READY);
+
+    const [franchises, series, movies] = await screen.findAllByRole("heading", { level: 3 });
+
+    expect([franchises, series, movies].map((heading) => heading?.textContent)).toEqual([
+      "Franchises 1",
+      "Series 1",
+      "Movies 1",
+    ]);
   });
 
   it("leads a title on its own to its page", async () => {

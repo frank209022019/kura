@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Poster } from "@/components/poster";
 import { StatusShape } from "@/components/status";
-import type { FranchiseSummary, TitleSummary } from "@/lib/engine";
+import type { FranchiseSummary, TitleKind, TitleSummary } from "@/lib/engine";
 import { files, kindCount, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
 
@@ -101,6 +101,15 @@ function titleFacts(title: TitleSummary): string {
 }
 
 /** "Franchise · 6 series · 21 movies", or with one series, "TV series · 26 episodes · 1 movie". */
+/** What a shelf card shows a franchise as: a title on its own, a series with its films and
+ * specials, or a franchise (several series, or films alone). */
+export function shelfKind(franchise: FranchiseSummary): TitleKind | "franchise" {
+  const [only, ...more] = franchise.titles;
+  if (only && more.length === 0) return only.kind;
+  const series = franchise.titles.filter((title) => title.kind === "series");
+  return series.length === 1 ? "series" : "franchise";
+}
+
 function franchiseFacts(franchise: FranchiseSummary): string {
   const series = franchise.titles.filter((title) => title.kind === "series");
   const [one] = series;

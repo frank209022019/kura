@@ -8,6 +8,15 @@ const WORDS: Record<TitleKind, { full: string; short: string; one: string; many:
   special: { full: "Special", short: "Special", one: "special", many: "specials" },
 };
 
+/** The order lists group titles in (the owner, 2026-10-13): series, movies, OVAs, specials. */
+export const KIND_ORDER: readonly TitleKind[] = ["series", "movie", "ova", "special"];
+
+/** A group's heading: "Series", "Movies", "OVAs" or "Specials". */
+export function kindHeading(kind: TitleKind): string {
+  const many = WORDS[kind].many;
+  return many.charAt(0).toUpperCase() + many.slice(1);
+}
+
 /** "TV series", "Movie", "OVA" or "Special"; `short` gives "TV" for a series, where room is tight. */
 export function kindWord(kind: TitleKind, short = false): string {
   return short ? WORDS[kind].short : WORDS[kind].full;

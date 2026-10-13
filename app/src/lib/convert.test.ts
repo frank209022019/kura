@@ -54,6 +54,32 @@ describe("tree", () => {
     ]);
     expect(groups[2]?.titles[0]?.seasons.map((season) => season.label)).toEqual(["The film"]);
   });
+
+  it("lists a franchise's series before its films, each in the library's order", () => {
+    const files = [
+      convertible(1, { titleId: 1, title: "Dragon Ball" }),
+      convertible(2, { titleId: 5, title: "Curse of the Blood Rubies", season: null }),
+      convertible(3, { titleId: 2, title: "Dragon Ball Z" }),
+    ];
+    const kinds: Record<number, TitleSummary["kind"]> = { 1: "series", 5: "movie", 2: "series" };
+    const dragonBall = franchise(1, "Dragon Ball", [
+      [1, "Dragon Ball"],
+      [5, "Curse of the Blood Rubies"], // released between the two series
+      [2, "Dragon Ball Z"],
+    ]);
+    dragonBall.titles = dragonBall.titles.map((title) => ({
+      ...title,
+      kind: kinds[title.id] ?? "series",
+    }));
+
+    const [group] = tree(files, [dragonBall]);
+
+    expect(group?.titles.map((title) => title.name)).toEqual([
+      "Dragon Ball",
+      "Dragon Ball Z",
+      "Curse of the Blood Rubies",
+    ]);
+  });
 });
 
 describe("fitting", () => {

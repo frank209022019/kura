@@ -174,7 +174,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   results to another drive. The Convert screen asks the same before queueing a choice that
   doesn't fit.
 - Lists sort by release date by default, oldest first, on every page that lists series, movies,
-  OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11).
+  OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11). They're
+  grouped by type (the owner, 2026-10-13: "we need to order by type"): series first, then
+  movies, OVAs and specials, each group in the order chosen; Home's shelf puts franchises first.
+  "Recently added" and "Most missing" list every type together.
 - Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word
   on its card, title page, review and report (status keeps the shapes), with counts by kind
   ("TV · 26 episodes · 2 OVAs · 1 movie"). Specials and OVAs are listed apart from missing

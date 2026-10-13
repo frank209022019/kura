@@ -16,7 +16,7 @@ Nothing changes until you review it, and everything stays on your PC: no account
   your own free TMDB key also its seasons, episode titles and posters. What Kura isn't sure of
   waits for you on "Which anime is this?", and your answers stay through every rescan.
 - **Says what's missing.** Each anime gets a gap analysis: the episodes that have aired that you
-  don't have, and the files that won't play. Home shows the whole shelf, oldest first.
+  don't have, and the files that won't play. Home shows the whole shelf by type, oldest first.
 - **Tidies up.** Clean names and folders (`TV\Show (Year)\Season 01\…`, `Movies\Title (Year)\…`),
   or your own names kept, proposed title by title and changed only when you say. History undoes
   any of it.

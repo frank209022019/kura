@@ -21,6 +21,9 @@ and [../CLAUDE.md](../CLAUDE.md).
   `page-top`, so it stays put while the rest scrolls under it.
 - Say what a thing does, never which media server reads it: no "Plex" anywhere in the UI.
 - Markdown (Kura's reports) shows through `components/markdown.tsx`, as a reader sees it.
+- Lists of titles group them by type, series, movies, OVAs then specials (`KIND_ORDER` in
+  `lib/kinds.ts`), through `components/title-groups.tsx`, except in the orders that look across
+  types ("Recently added", "Most missing").
 - Deleting asks first, beside what goes (`components/delete.tsx`, on a title's page and on "Which
   anime is this?"), says where it goes and for how long, and offers it back right after. Nothing
   is ever deleted outright; emptying a drive's quarantine early to make room

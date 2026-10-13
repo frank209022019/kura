@@ -2,6 +2,7 @@
  * what a choice adds up to, and how long things take, in words. */
 
 import type { Convertible, FranchiseSummary, Job, Way } from "@/lib/engine";
+import { KIND_ORDER } from "@/lib/kinds";
 
 /** A season of a title, or its specials, or a film's file. */
 export interface SeasonNode {
@@ -30,7 +31,8 @@ const OTHERS = "Not matched yet";
 
 /**
  * The files by franchise, title and season, in the library's order: franchises as Home sorts them
- * (`franchises`), then files Kura hasn't matched yet.
+ * (`franchises`), each one's titles by type (series, movies, OVAs, specials), then files Kura
+ * hasn't matched yet.
  */
 export function tree(files: Convertible[], franchises: FranchiseSummary[]): GroupNode[] {
   const franchiseOf = new Map<number, FranchiseSummary>();
@@ -54,7 +56,8 @@ export function tree(files: Convertible[], franchises: FranchiseSummary[]): Grou
   const groups: GroupNode[] = [];
   const placed = new Set<string>();
   for (const franchise of franchises) {
-    const members = franchise.titles
+    const members = [...franchise.titles]
+      .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)) // by type first
       .map((title) => titles.get(`t${title.id}`))
       .filter((node): node is TitleNode => node !== undefined);
     if (members.length === 0) continue;

@@ -8,6 +8,12 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Changed
+- Titles are listed by type: series first, then movies, OVAs and specials, each oldest release
+  first (or by name). A franchise's page shows each type under its own heading, Home's shelf puts
+  franchises first, and Convert lists a franchise's series before its films. "Recently added"
+  and "Most missing" still list every type together.
+
 ## 0.5.0 - 2026-10-13
 
 ### Added
