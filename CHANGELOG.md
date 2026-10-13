@@ -8,6 +8,10 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Fixed
+- The files set aside as not anime were out of reach while no file needed a match: Tidy up now
+  shows how many there are, leading to Which anime is this?, where they're listed.
+
 ## 0.3.0 - 2026-10-13
 
 ### Added

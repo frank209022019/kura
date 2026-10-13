@@ -13,6 +13,7 @@ import {
   type TidyCategory,
   type TidyResult,
   useApplyTidy,
+  useIgnored,
   useScan,
   useTidy,
   useUndoPlan,
@@ -28,6 +29,7 @@ export function TidyPage() {
   const navigate = useNavigate();
   const [keep, setKeep] = useState<string[]>([]);
   const proposal = useTidy(keep);
+  const ignored = useIgnored().data?.length ?? 0;
   const apply = useApplyTidy();
   const undo = useUndoPlan();
   const scanning = useScan().data?.state === "running";
@@ -107,6 +109,7 @@ export function TidyPage() {
       <Tiles
         changes={found.changes}
         waiting={found.waiting}
+        ignored={ignored}
         broken={found.broken}
         only={only}
         onOnly={setOnly}
@@ -252,6 +255,8 @@ const TILES: { category: TidyCategory; label: string }[] = [
 function Tiles(props: {
   changes: ProposedChange[];
   waiting: number;
+  /** Files set aside as not anime: listed on the match page, to match after all or delete. */
+  ignored: number;
   broken: number;
   only: TidyCategory | null;
   onOnly: (only: TidyCategory | null) => void;
@@ -290,6 +295,18 @@ function Tiles(props: {
           Need a match {props.waiting > 0 && <ArrowRight size={12} aria-hidden="true" />}
         </span>
       </button>
+      {props.ignored > 0 && (
+        <button
+          type="button"
+          onClick={props.onMatch}
+          className="press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3 text-left"
+        >
+          <span className="font-extrabold text-22">{props.ignored}</span>{" "}
+          <span className="inline-flex items-center gap-1 text-12 text-fg-muted">
+            Set aside as not anime <ArrowRight size={12} aria-hidden="true" />
+          </span>
+        </button>
+      )}
       <div className="flex min-w-36 flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3">
         <span className="font-extrabold text-22">{props.broken}</span>{" "}
         <span className="text-12 text-fg-muted">Broken files</span>

@@ -332,6 +332,18 @@ describe("TidyPage", () => {
     expect(screen.queryByRole("button", { name: /Apply/ })).not.toBeInTheDocument();
   });
 
+  it("leads to the files set aside as not anime, even when none need a match", async () => {
+    fakeEngine({
+      "/tidy": { ...PROPOSAL, waiting: 0 },
+      "/review/ignored": [{ id: 9, path: "D:\\Anime\\Special 07.mp4", size: 250_000_000 }],
+    });
+    renderTidy();
+
+    (await screen.findByRole("button", { name: /1 Set aside as not anime/ })).click();
+
+    expect(await screen.findByText("Match")).toBeInTheDocument();
+  });
+
   it("leads to the files that need a match", async () => {
     fakeEngine({ "/tidy": PROPOSAL });
     renderTidy();
