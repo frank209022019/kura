@@ -8,6 +8,20 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- A scan says what it changed: Home, beside Scan again, says when the last one ran and what it
+  found new or gone ("1 gone"), the scan page does too, and History lists it with each scan.
+
+### Changed
+- Home's videos by picture are a summary at the top, and Scan again and Add a folder sit by the
+  page's title.
+
+### Fixed
+- A video added to or removed from a library folder shows within moments. Kura now scans five
+  seconds after the folder goes quiet (it could wait half a minute), and every screen catches up
+  once the scan ends. A scan quicker than a second, as most are, used to go unseen, so nothing
+  showed the change until you moved to another page.
+
 ## 0.6.0 - 2026-10-13
 
 ### Changed

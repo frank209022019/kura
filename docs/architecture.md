@@ -164,8 +164,12 @@ counts as aired so far; specials and OVAs are listed apart and never counted as 
 
 While Kura is open, `kura/watch.py` keeps the library current: a scan at start catches up on what
 changed while Kura was closed; the library folders are watched (`watchdog`), so a new, removed or
-renamed video starts a scan once its folder is quiet; and episode lists are asked for again on
-schedule, hourly for shows still airing and weekly for finished ones.
+renamed video wakes the watcher, which starts a scan once its folder has been quiet five
+seconds, looking every second meanwhile; and episode lists are asked for again on schedule,
+hourly for shows still airing and weekly for finished ones. Each scan keeps what it found new
+(`found_at`) and gone (`gone_at`, both its start), counted in the `scans` table for History.
+The UI asks how scans stand every three seconds from the window's shell (`useScan`), and once one
+has ended, however quickly (most take under a second), every screen asks again for what it shows.
 A folder on an unplugged drive is skipped and its files stay as they were,
 and so do the files in a folder the walk couldn't open; only a file whose folder is there without
 it is marked gone. Links and junctions aren't followed. Files that couldn't be read are read again

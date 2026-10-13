@@ -56,6 +56,8 @@ class ScanDone:
     state: str  # running, paused, done or failed
     problem: str | None
     note: str | None
+    added: int | None = None  # videos it found new; None for a scan from before Kura counted
+    gone: int | None = None  # videos it found gone
 
 
 def plans(conn: sqlite3.Connection) -> list[PlanDone]:
@@ -112,7 +114,7 @@ def _picture(probe: str | None, size: int | None) -> Picture:
 def scans(conn: sqlite3.Connection, count: int = 50) -> list[ScanDone]:
     """The latest scans, newest first."""
     rows = conn.execute(
-        """SELECT id, started_at, finished_at, state, problem, note
+        """SELECT id, started_at, finished_at, state, problem, note, added, gone
            FROM scans ORDER BY id DESC LIMIT ?""",
         (count,),
     )

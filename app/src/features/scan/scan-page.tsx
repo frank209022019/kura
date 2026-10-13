@@ -5,6 +5,7 @@ import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
 import { Button } from "@/components/ui/button";
 import { type Scan, useFolders, useScan, useScanAction, useTitles } from "@/lib/engine";
+import { scanChanges } from "@/lib/format";
 import { files, kindWord } from "@/lib/kinds";
 import { cn } from "@/lib/utils";
 
@@ -381,9 +382,14 @@ function subtitle(scan: Scan): string {
     case "paused":
       return `Paused · ${count(scan.read)} of ${count(scan.toRead)} read · nothing is renamed or moved`;
     case "done":
-      return `${count(scan.found)} ${scan.found === 1 ? "video" : "videos"} · finished ${
-        scan.finishedAt ? clock(scan.finishedAt) : ""
-      } · nothing was renamed or moved`;
+      return [
+        `${count(scan.found)} ${scan.found === 1 ? "video" : "videos"}`,
+        scan.added !== null && scan.gone !== null && scanChanges(scan.added, scan.gone),
+        `finished ${scan.finishedAt ? clock(scan.finishedAt) : ""}`,
+        "nothing was renamed or moved",
+      ]
+        .filter(Boolean)
+        .join(" · ");
     case "failed":
       return `${started} · nothing was renamed or moved`;
     case "idle":

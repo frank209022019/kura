@@ -141,7 +141,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   name it either (the owner, 2026-10-12), and they list every commit's title, so commit titles
   don't.
 - Home shows the library (the owner, 2026-10-12): what this copy of Kura is up to (the engine,
-  the data folder, the database, TMDB, updates) is in Settings › About.
+  the data folder, the database, TMDB, updates) is in Settings › About. Its videos by picture
+  are a summary at the top, and Scan again and Add a folder sit by the page's title with when
+  the latest scan ran and what it found new or gone (the owner, 2026-10-13).
 - Picture: crisp and clean; 720p or 1080p are both fine. **Every** file goes to the library standard,
   even 720p to 720p; a file already exactly at the standard is only renamed.
 - The standard is chosen on Convert as in Settings, the estimates following at once (the owner,
@@ -223,10 +225,13 @@ Everything decided so far. Don't ask again; change only with the owner.
   specials connect, and airing dates. Missing episodes are those TMDB lists as aired that the
   library doesn't hold.
 - When the missing-episode check runs (the owner, 2026-10-11): "Scan now" refreshes everything.
-  While Kura is open it watches the library folders, so new and removed files are noticed at once,
-  and it catches up at start on what changed while it was closed. Episode lists of shows still
-  airing are refreshed every hour, finished shows' every week. A "Start with Windows" setting (off
-  by default) keeps Kura in the tray so the checks carry on and it can notify; no scheduled task.
+  While Kura is open it watches the library folders, so new and removed files are noticed at once
+  (a scan starts five seconds after a folder goes quiet, and every screen catches up when it
+  ends; the owner, 2026-10-13: "a single file removed ... picked up no changes"), and it catches
+  up at start on what changed while it was closed. Every scan says what it found new and gone.
+  Episode lists of shows still airing are refreshed every hour, finished shows' every week. A
+  "Start with Windows" setting (off by default) keeps Kura in the tray so the checks carry on and
+  it can notify; no scheduled task.
   Closing the window quits Kura unless "Keep Kura running when you close the window", a setting
   of its own under it, is on (the owner, 2026-10-12).
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs

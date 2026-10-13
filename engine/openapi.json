@@ -4594,6 +4594,28 @@
           "mixed": {
             "type": "integer",
             "title": "Mixed"
+          },
+          "added": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
+          "gone": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gone"
           }
         },
         "type": "object",
@@ -4613,7 +4635,9 @@
           "titles",
           "waiting",
           "note",
-          "mixed"
+          "mixed",
+          "added",
+          "gone"
         ],
         "title": "Scan"
       },
@@ -4663,6 +4687,28 @@
               }
             ],
             "title": "Note"
+          },
+          "added": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added"
+          },
+          "gone": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gone"
           }
         },
         "type": "object",
@@ -4672,7 +4718,9 @@
           "finishedAt",
           "state",
           "problem",
-          "note"
+          "note",
+          "added",
+          "gone"
         ],
         "title": "ScanDone"
       },

@@ -18,6 +18,7 @@ import {
   useScanAction,
   useSettings,
 } from "@/lib/engine";
+import { dayAndTime, scanChanges } from "@/lib/format";
 import { Attention } from "./attention";
 import { Recovered } from "./recovered";
 import { Shelf } from "./shelf";
@@ -39,15 +40,18 @@ export function HomePage() {
 
   return (
     <>
-      <header className="page-top flex animate-fade-up flex-col gap-1.5">
-        <h1 className="type-title">Library</h1>
-        <p className="text-14 text-fg-muted">
-          {empty
-            ? "No folders yet."
-            : library.data
-              ? summary(library.data, franchises.data?.length)
-              : "…"}
-        </p>
+      <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <h1 className="type-title">Library</h1>
+          <p className="text-14 text-fg-muted">
+            {empty
+              ? "No folders yet."
+              : library.data
+                ? summary(library.data, franchises.data?.length)
+                : "…"}
+          </p>
+        </div>
+        {working && scan.data && !empty && <ScanButtons scan={scan.data} />}
       </header>
 
       <Recovered />
@@ -65,6 +69,7 @@ export function HomePage() {
           Add a folder with anime in it. Any layout, even everything in one folder.
         </EmptyState>
       )}
+      {working && library.data && !empty && <Pictures library={library.data} />}
       {working && scan.data && library.data && !empty && (
         <Attention
           waiting={scan.data.waiting}
@@ -80,27 +85,18 @@ export function HomePage() {
         />
       )}
       {working && !empty && <Shelf sort={sort} onSort={setSort} />}
-      {working && library.data && scan.data && !empty && (
-        <Overview library={library.data} scan={scan.data} />
-      )}
     </>
   );
 }
 
-/** What's in the library so far, by picture size, and how the latest scan went. */
-function Overview({ library, scan }: { library: Library; scan: Scan }) {
+/** Scanning again and adding a folder, by the page's title, with when the latest scan ran and
+ * what it found new or gone. */
+function ScanButtons({ scan }: { scan: Scan }) {
   const navigate = useNavigate();
   const action = useScanAction();
   const add = useAddFolder();
   const [picking, setPicking] = useState(false);
   const scanning = scan.state === "running" || scan.state === "paused";
-  const sizes = [
-    { label: "SD", count: library.sd, note: "gets the AI model" },
-    { label: "720p", count: library.hd720, note: "gets the fast upscale" },
-    { label: "1080p", count: library.hd1080, note: "re-encoded or kept" },
-    { label: "Larger", count: library.larger, note: "brought down to 1080p" },
-  ];
-  const most = Math.max(1, ...sizes.map((size) => size.count));
 
   const rescan = () =>
     action.mutate({ path: "/scan" }, { onSuccess: () => void navigate("/scan") });
@@ -116,57 +112,88 @@ function Overview({ library, scan }: { library: Library; scan: Scan }) {
   }
 
   return (
-    <section
-      aria-labelledby="overview-title"
-      className="flex animate-fade-up flex-col gap-5 rounded-22 border border-edge bg-glass p-5 [animation-delay:60ms]"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="overview-title" className="font-extrabold text-16">
-          Your videos by picture
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {scanning ? (
-            <Button size="sm" variant="primary" onClick={() => void navigate("/scan")}>
-              {scan.state === "running" ? "Scanning… see progress" : "Scan paused: see it"}
-            </Button>
-          ) : (
-            <Button size="sm" disabled={action.isPending} onClick={rescan}>
-              Scan again
-            </Button>
-          )}
-          {/* Adding a folder starts a scan, and one can't start while another runs. */}
-          {scan.state !== "running" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={picking || add.isPending}
-              onClick={() => void addFolder()}
-            >
-              <FolderPlus size={15} aria-hidden="true" />
-              Add a folder
-            </Button>
-          )}
-        </div>
-      </div>
-      <ul className="flex flex-col gap-2.5">
-        {sizes.map((size) => (
-          <li
-            key={size.label}
-            className="grid grid-cols-[4.5rem_1fr_13.5rem] items-center gap-3 text-13"
+    <div className="flex flex-col items-end gap-1.5">
+      <div className="flex flex-wrap justify-end gap-2">
+        {scanning ? (
+          <Button size="sm" variant="primary" onClick={() => void navigate("/scan")}>
+            {scan.state === "running" ? "Scanning… see progress" : "Scan paused: see it"}
+          </Button>
+        ) : (
+          <Button size="sm" disabled={action.isPending} onClick={rescan}>
+            Scan again
+          </Button>
+        )}
+        {/* Adding a folder starts a scan, and one can't start while another runs. */}
+        {scan.state !== "running" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={picking || add.isPending}
+            onClick={() => void addFolder()}
           >
-            <span className="font-bold">{size.label}</span>
-            <span className="h-2 overflow-hidden rounded-4 bg-track" aria-hidden="true">
-              <span
-                className="block h-full animate-grow-x rounded-4 bg-accent"
-                style={{ width: `${(size.count / most) * 100}%` }}
-              />
-            </span>
-            <span className="text-fg-muted">
-              <span className="font-mono text-fg">{size.count.toLocaleString("en-GB")}</span> ·{" "}
-              {size.note}
-            </span>
-          </li>
-        ))}
+            <FolderPlus size={15} aria-hidden="true" />
+            Add a folder
+          </Button>
+        )}
+      </div>
+      {scan.state === "done" && scan.finishedAt && (
+        <span className="text-12 text-fg-muted">
+          Scanned {dayAndTime(new Date(scan.finishedAt))}
+          {scan.added !== null && scan.gone !== null && ` · ${scanChanges(scan.added, scan.gone)}`}
+        </span>
+      )}
+      {(add.isError || action.isError) && (
+        <p role="alert" className="text-13 text-broken-fg">
+          {(add.error ?? action.error)?.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** What's in the library, by picture size: the summary at the top of Home. Each size says what
+ * converting does to it. */
+function Pictures({ library }: { library: Library }) {
+  const sizes = [
+    { label: "SD", count: library.sd, note: "gets the AI model" },
+    { label: "720p", count: library.hd720, note: "gets the fast upscale" },
+    { label: "1080p", count: library.hd1080, note: "re-encoded or kept" },
+    { label: "Larger", count: library.larger, note: "brought down to 1080p" },
+  ];
+  const parts = shares(sizes.map((size) => size.count));
+  return (
+    <section
+      aria-labelledby="pictures-title"
+      className="flex animate-fade-up flex-col gap-2.5 [animation-delay:60ms]"
+    >
+      <h2 id="pictures-title" className="font-bold text-13 text-fg-muted">
+        Your videos by picture
+      </h2>
+      <ul className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-2.5">
+        {sizes.map((size, at) => {
+          const share = parts[at] ?? 0;
+          return (
+            <li
+              key={size.label}
+              className="flex flex-col gap-1.5 rounded-16 border border-edge bg-glass px-4 py-3.5"
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="font-bold text-13">{size.label}</span>
+                <span className="font-mono text-12 text-fg-muted">{share}%</span>
+              </span>
+              <span className="font-extrabold text-24 leading-[1.1]">
+                {size.count.toLocaleString("en-GB")}
+              </span>
+              <span className="h-1.5 overflow-hidden rounded-3 bg-track" aria-hidden="true">
+                <span
+                  className="block h-full animate-grow-x rounded-3 bg-accent"
+                  style={{ width: `${share}%` }}
+                />
+              </span>
+              <span className="text-12 text-fg-muted">{size.note}</span>
+            </li>
+          );
+        })}
       </ul>
       {(library.problems > 0 || library.unread > 0) && (
         <p className="text-13 text-fg-muted">
@@ -176,13 +203,23 @@ function Overview({ library, scan }: { library: Library; scan: Scan }) {
             `${library.unread.toLocaleString("en-GB")} still to read: the next scan reads them.`}
         </p>
       )}
-      {(add.isError || action.isError) && (
-        <p role="alert" className="text-13 text-broken-fg">
-          {(add.error ?? action.error)?.message}
-        </p>
-      )}
     </section>
   );
+}
+
+/** Each count's share of them all in whole percents that add up to 100 (the largest
+ * remainders rounded up), or every share 0 when there's nothing. */
+function shares(counts: number[]): number[] {
+  const all = counts.reduce((sum, count) => sum + count, 0);
+  if (all === 0) return counts.map(() => 0);
+  const exact = counts.map((count) => (count / all) * 100);
+  const whole = exact.map(Math.floor);
+  const short = 100 - whole.reduce((sum, part) => sum + part, 0);
+  const order = exact
+    .map((share, at) => ({ at, rest: share - Math.floor(share) }))
+    .sort((a, b) => b.rest - a.rest);
+  for (const { at } of order.slice(0, short)) whole[at] = (whole[at] ?? 0) + 1;
+  return whole;
 }
 
 function summary(library: Library, titles: number | undefined): string {

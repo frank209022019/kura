@@ -39,6 +39,15 @@ export function dayAndTime(moment: Date): string {
   return `${moment.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} ${time}`;
 }
 
+/** What a scan changed: "2 new, 1 gone", or "nothing new or gone". */
+export function scanChanges(added: number, gone: number): string {
+  const parts = [
+    added > 0 && `${added.toLocaleString("en-GB")} new`,
+    gone > 0 && `${gone.toLocaleString("en-GB")} gone`,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "nothing new or gone";
+}
+
 /** How long what's set aside is kept, as Settings says: "for 30 days", or "for good". */
 export function keptFor(days: number | null | undefined): string {
   return days === null ? "for good" : `for ${days ?? 30} days`;

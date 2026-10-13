@@ -24,7 +24,7 @@ from kura.config import DataPaths
 from kura.library import add_folder
 from kura.scan import ScanBusyError, ScanStatus, State
 from kura.tmdb import API as TMDB
-from kura.watch import QUIET, Changes, Watcher
+from kura.watch import QUIET, TICK, Changes, Watcher
 from tests.fake_web import FakeWeb
 from tests.services import internet
 from tests.shelf import NOW, identify, library
@@ -118,6 +118,56 @@ def test_a_change_starts_a_scan_once_the_folder_is_quiet(
 
     watcher.tick()
     assert scans.started == 1  # once per change
+
+
+def test_a_change_starts_a_scan_within_moments_of_the_folder_going_quiet(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection, tmp_path: Path
+):
+    set_up(conn, tmp_path / "Anime")
+    watcher.start()  # catches up, then watches
+    assert scans.started == 1
+
+    watcher.notice()
+    clock.now += QUIET  # and the folder has been quiet since
+
+    assert wait_for(lambda: scans.started == 2)  # not a whole look-around later
+
+
+def test_a_change_waiting_on_a_paused_scan_isnt_looked_at_every_second(
+    watcher: Watcher, scans: Scans, clock: Clock, conn: sqlite3.Connection
+):
+    watcher.notice()
+    assert watcher.settling  # looked at every second till the folder is quiet
+
+    clock.now += QUIET
+    scans.state = "paused"
+    watcher.tick()
+
+    assert watcher.pending  # it waits for the owner to resume
+    assert not watcher.settling  # and is looked at again with everything else, not every second
+    assert scans.started == 0
+
+
+def test_episode_lists_are_looked_at_while_a_folder_keeps_changing_but_not_every_second(
+    watcher: Watcher,
+    scans: Scans,
+    clock: Clock,
+    conn: sqlite3.Connection,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    refreshed: list[float] = []
+    monkeypatch.setattr(watcher, "refresh", lambda: refreshed.append(clock.now) or 0)
+    watcher.notice()  # a long copy: the folder keeps changing
+
+    for _ in range(4):
+        watcher.tick()
+        clock.now += 1
+        watcher.notice()
+    clock.now += TICK
+    watcher.notice()  # still copying
+    watcher.tick()
+
+    assert refreshed == [100.0, 100.0 + 4 + TICK]  # at once, then a look-around later
 
 
 def test_files_kura_moves_itself_start_no_scan(

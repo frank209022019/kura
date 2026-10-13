@@ -228,4 +228,10 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     UPDATE files SET identified_at = NULL
         WHERE matched IN ('none', 'unsure') AND pinned = 0;
     """,
+    # 16. What each scan changed: videos it found new, and videos gone since the scan before.
+    #     Earlier scans don't say (NULL).
+    """
+    ALTER TABLE scans ADD COLUMN added INTEGER;
+    ALTER TABLE scans ADD COLUMN gone INTEGER;
+    """,
 )

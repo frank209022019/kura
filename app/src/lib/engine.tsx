@@ -274,6 +274,10 @@ export interface Scan {
   note: string | null;
   /** Folders holding more than one anime. */
   mixed: number;
+  /** Videos this scan found that weren't there before; null for a scan from before Kura counted. */
+  added: number | null;
+  /** Videos this scan found gone. */
+  gone: number | null;
 }
 
 const LIBRARY = ["/folders", "/library", "/scan"];
@@ -294,15 +298,27 @@ export function useEngineChanged(): () => void {
  * The latest scan, asked again every second while it runs. A scan fills in the library, so when
  * one stops, the library, its folders and what Kura proposes from them are asked again too.
  */
+/** The scan each query client last caught up after: several parts of a screen follow scans, and
+ * one catching up is enough. */
+const caughtUp = new WeakMap<object, string>();
+
 export function useScan() {
-  // Every second while a scan runs; every ten seconds otherwise, so a scan Kura starts on its own
-  // (when a video arrives) shows too.
-  const scan = useEngineQuery<Scan>("/scan", (now) => (now?.state === "running" ? 1000 : 10_000));
+  // Every second while a scan runs; every three seconds otherwise, so a scan Kura starts on its
+  // own (a video added or removed) shows soon too.
+  const scan = useEngineQuery<Scan>("/scan", (now) => (now?.state === "running" ? 1000 : 3000));
   const refresh = useRefresh();
-  const running = scan.data?.state === "running";
-  const wasRunning = useRef(running);
+  const queries = useQueryClient();
+  // A scan that has ended since this screen last looked, however quickly it ran (most take under
+  // a second, between two looks): what it found shows everywhere.
+  const key = scan.data ? `${scan.data.startedAt}:${scan.data.state}` : null;
+  const seen = useRef<string | null>(null);
   useEffect(() => {
-    if (wasRunning.current && !running)
+    if (key === null) return;
+    const before = seen.current;
+    seen.current = key;
+    const ended = before !== null && before !== key && !key.endsWith(":running");
+    if (ended && caughtUp.get(queries) !== key) {
+      caughtUp.set(queries, key);
       void refresh([
         "/library",
         "/folders",
@@ -310,10 +326,11 @@ export function useScan() {
         "/franchises",
         "/review",
         "/tidy",
+        "/convert",
         "/history",
       ]);
-    wasRunning.current = running;
-  }, [running, refresh]);
+    }
+  }, [key, refresh, queries]);
   return scan;
 }
 
@@ -911,6 +928,9 @@ export interface ScanDone {
   state: "running" | "paused" | "done" | "failed";
   problem: string | null;
   note: string | null;
+  /** Videos it found new, and gone; null for a scan from before Kura counted. */
+  added: number | null;
+  gone: number | null;
 }
 
 /** Everything Kura did, newest first. */

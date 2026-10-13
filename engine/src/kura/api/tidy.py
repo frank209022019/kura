@@ -138,6 +138,8 @@ class ScanDone(ApiModel):
     state: str
     problem: str | None
     note: str | None
+    added: int | None  # videos it found new; None for a scan from before Kura counted
+    gone: int | None  # videos it found gone
 
 
 class History(ApiModel):

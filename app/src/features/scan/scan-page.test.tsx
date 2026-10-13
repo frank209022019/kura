@@ -201,10 +201,13 @@ describe("ScanPage", () => {
       read: 2941,
       current: null,
       finishedAt: "2026-10-11T09:49:00+00:00",
+      added: 2,
+      gone: 1,
     });
     renderScan();
 
     expect(await screen.findByRole("heading", { name: "Mapped D:\\Anime" })).toBeInTheDocument();
+    expect(screen.getByText(/· 2 new, 1 gone · finished/)).toBeInTheDocument();
     screen.getByRole("button", { name: "Scan again" }).click();
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(

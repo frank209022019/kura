@@ -25,6 +25,8 @@ class Scan(ApiModel):
     waiting: int  # files that need the owner to say which anime they are
     note: str | None  # what the scan couldn't do, though it finished
     mixed: int  # folders holding more than one anime
+    added: int | None  # videos this scan found new; None for a scan from before Kura counted
+    gone: int | None  # videos this scan found gone
 
 
 def _scan(now: ScanStatus) -> Scan:
@@ -45,6 +47,8 @@ def _scan(now: ScanStatus) -> Scan:
         waiting=now.waiting,
         note=now.note,
         mixed=now.mixed,
+        added=now.added,
+        gone=now.gone,
     )
 
 

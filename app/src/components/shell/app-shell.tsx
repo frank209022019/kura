@@ -1,7 +1,7 @@
 import { Outlet, useLocation } from "react-router";
 import { ScreenError } from "@/components/screen-error";
 import { DamagedRecords } from "@/features/records/damaged-records";
-import { useRecords } from "@/lib/engine";
+import { useRecords, useScan } from "@/lib/engine";
 import { NavRail } from "./nav-rail";
 import { Notices } from "./notices";
 import { Offline } from "./offline";
@@ -33,6 +33,7 @@ export function AppShell() {
         </main>
       </div>
       <UpdateCard />
+      {!damage && <FollowScans />}
       {/* Notes at the foot of the window, over the page: being offline, and what the engine
           tells of. */}
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-10 flex w-[min(30rem,calc(100vw-3rem))] -translate-x-1/2 flex-col gap-3 *:pointer-events-auto">
@@ -41,4 +42,11 @@ export function AppShell() {
       </div>
     </div>
   );
+}
+
+/** Follows every scan, the ones Kura starts on its own too (a video added or removed), so the page
+ * that's open catches up once one ends. */
+function FollowScans() {
+  useScan();
+  return null;
 }

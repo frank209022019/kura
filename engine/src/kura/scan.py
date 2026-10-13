@@ -78,6 +78,10 @@ class ScanStatus:
     waiting: int = 0  # files that need the owner to say which anime they are
     note: str | None = None  # what the scan couldn't do, though it finished
     mixed: int = 0  # folders holding more than one anime
+    # Videos this scan found that weren't there before, and videos it found gone; None for a
+    # scan from before Kura counted.
+    added: int | None = None
+    gone: int | None = None
 
 
 def _utc_now() -> datetime:
@@ -234,6 +238,7 @@ class Scanner:
                 # Checking: the gap analysis next to each anime that has a folder of its own.
                 written = write_reports(conn, now=self._now())
                 note = " ".join(written.problems) or None
+                added, gone = _changes(conn, started)
                 _set(
                     conn,
                     scan_id,
@@ -241,6 +246,8 @@ class Scanner:
                     stage="done",
                     finished_at=self._now().isoformat(),
                     note=note,
+                    added=added,
+                    gone=gone,
                 )
             except _NoReaderError:
                 _set(conn, scan_id, state="failed", problem=_NEEDS_FFMPEG)
@@ -336,14 +343,20 @@ class Scanner:
                 "idle", None, None, None, 0, 0, 0, problems, None, None, unavailable, None
             )
         started: str = latest["started_at"]
-        found, read, waiting = conn.execute(
-            """SELECT
-                 COUNT(*) FILTER (WHERE seen_at = :started AND gone_at IS NULL),
-                 COUNT(*) FILTER (WHERE probed_at >= :started AND seen_at = :started),
-                 COUNT(*) FILTER (WHERE probed_at IS NULL AND gone_at IS NULL)
-               FROM files""",
+        found, read, waiting, added, gone = conn.execute(
+            f"""SELECT
+                  COUNT(*) FILTER (WHERE seen_at = :started AND gone_at IS NULL),
+                  COUNT(*) FILTER (WHERE probed_at >= :started AND seen_at = :started),
+                  COUNT(*) FILTER (WHERE probed_at IS NULL AND gone_at IS NULL),
+                  {_CHANGES}
+                FROM files""",  # noqa: S608 - a fixed fragment, no values
             {"started": started},
         ).fetchone()
+        if latest["added"] is not None:  # kept when it finished
+            added, gone = latest["added"], latest["gone"]
+        elif latest["state"] not in ("running", "paused"):
+            added = gone = None  # finished before Kura counted
+
         running = latest["state"] == "running" and self._running()
         state: State = latest["state"] if latest["state"] != "running" or running else "paused"
         left = None
@@ -368,10 +381,28 @@ class Scanner:
             waiting=waiting_owner,
             note=latest["note"],
             mixed=_mixed_folders(conn),
+            added=added,
+            gone=gone,
         )
 
 
 _NEEDS_FFMPEG = "Kura needs ffmpeg to read the files it found. Download it, then scan again."
+
+
+# What the scan that started at :started changed: the videos it found that weren't there
+# before and still are, and those it found gone (a video that came and went while it ran is
+# neither).
+_CHANGES = """COUNT(*) FILTER (WHERE found_at = :started AND gone_at IS NULL),
+              COUNT(*) FILTER (WHERE gone_at = :started)"""
+
+
+def _changes(conn: sqlite3.Connection, started: str) -> tuple[int, int]:
+    """What the scan that started at `started` changed: videos new, and videos gone."""
+    added, gone = conn.execute(
+        f"SELECT {_CHANGES} FROM files",  # noqa: S608 - a fixed fragment, no values
+        {"started": started},
+    ).fetchone()
+    return added, gone
 
 
 def _mixed_folders(conn: sqlite3.Connection) -> int:
@@ -406,12 +437,15 @@ def _set(
     finished_at: str | None = None,
     problem: str | None = None,
     note: str | None = None,
+    added: int | None = None,
+    gone: int | None = None,
 ) -> None:
     with conn:
         conn.execute(
             """UPDATE scans SET state = COALESCE(?, state), stage = COALESCE(?, stage),
                                 finished_at = COALESCE(?, finished_at), problem = ?,
-                                note = COALESCE(?, note)
+                                note = COALESCE(?, note), added = COALESCE(?, added),
+                                gone = COALESCE(?, gone)
                WHERE id = ?""",
-            (state, stage, finished_at, problem, note, scan_id),
+            (state, stage, finished_at, problem, note, added, gone, scan_id),
         )

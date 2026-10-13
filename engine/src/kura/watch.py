@@ -2,7 +2,8 @@
 
 - At start, a scan catches up on what changed while Kura was closed (once setup is done).
 - The library folders are watched: when a video is added, removed or renamed, a scan starts once
-  the folder has been quiet for a moment (a season still copying waits until it's done).
+  the folder has been quiet for a few seconds (a season still copying waits until it's done),
+  looked for every second while a change waits.
 - Episode lists are asked for again on schedule: every hour for shows still airing, every week
   for finished ones (kura/identify.py decides when one is due), and the gap reports follow.
 
@@ -37,8 +38,9 @@ from kura.web import Send, WebError
 
 log = logging.getLogger(__name__)
 
-QUIET = 10.0  # seconds without a change before a scan starts
+QUIET = 5.0  # seconds without a change before a scan starts
 TICK = 15.0  # how often the watcher looks around
+SOON = 1.0  # how often, while a change waits for its scan
 
 
 class Scans(Protocol):
@@ -73,6 +75,8 @@ class Watcher:
         self._watched: dict[str, BaseObserver] = {}
         self._resting_until: datetime | None = None  # after a failed refresh, asked again then
         self._stopping = threading.Event()
+        self._wake = threading.Event()  # a change noticed, or stopping
+        self._refreshed_at = float("-inf")  # when episode lists were last looked at
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -83,6 +87,7 @@ class Watcher:
 
     def stop(self) -> None:
         self._stopping.set()
+        self._wake.set()
         if self._thread is not None:
             self._thread.join(timeout=5)
         for observer in self._watched.values():
@@ -111,12 +116,20 @@ class Watcher:
     def _changed(self) -> None:
         with self._lock:
             self._changed_at = self._clock()
+        self._wake.set()
 
     @property
     def pending(self) -> bool:
         """A change was noticed and hasn't been scanned yet."""
         with self._lock:
             return self._changed_at is not None
+
+    @property
+    def settling(self) -> bool:
+        """A change was noticed and its folder hasn't been quiet long enough to scan yet."""
+        with self._lock:
+            changed = self._changed_at
+        return changed is not None and self._clock() - changed < QUIET
 
     def tick(self) -> None:
         """One look around: follow the folders, scan after changes, refresh due episode lists."""
@@ -132,6 +145,10 @@ class Watcher:
                     if self._changed_at == changed:
                         self._changed_at = None
             return
+        # Episode lists, at most once a look-around, a folder still changing or not.
+        if self._clock() - self._refreshed_at < TICK:
+            return
+        self._refreshed_at = self._clock()
         if self._scanner.status().state != "running":
             self.refresh()
 
@@ -196,7 +213,18 @@ class Watcher:
         return True
 
     def _loop(self) -> None:
-        while not self._stopping.wait(TICK):
+        while not self._stopping.is_set():
+            # A change wakes the watcher; it then looks every second till the folder is quiet.
+            # A change that can't be scanned yet (a scan running, or paused by the owner) is
+            # looked at again with everything else.
+            if self.settling:
+                if self._stopping.wait(SOON):
+                    return
+            else:
+                self._wake.wait(TICK)
+            self._wake.clear()
+            if self._stopping.is_set():
+                return
             try:
                 self.tick()
             except Exception:  # the watcher must outlive any one bad look around

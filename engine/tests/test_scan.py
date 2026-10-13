@@ -18,6 +18,7 @@ from kura import db
 from kura.config import DataPaths
 from kura.core.library import work_of
 from kura.core.media import Json
+from kura.history import scans
 from kura.library import Folder, Found, add_folder
 from kura.probe import ProbeError, ProbeToolError
 from kura.scan import ScanBusyError, Scanner
@@ -101,6 +102,63 @@ def test_a_second_scan_reads_only_new_files(
 
     status = scan.status()
     assert (status.found, status.to_read, status.read) == (4, 1, 1)
+
+
+def test_a_scan_says_what_it_found_new_and_gone(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    add_folder(conn, anime, now=NOW)
+    scan = scanner(paths)
+    scan.start()
+    finished(scan)
+    assert (scan.status().added, scan.status().gone) == (3, 0)
+    scan.start()
+    finished(scan)
+    assert (scan.status().added, scan.status().gone) == (0, 0)  # nothing changed
+
+    next(anime.rglob("*.mkv")).unlink()
+    (anime / "Dragon Ball" / "Dragon Ball - 002 - The Emperor`s Quest.mkv").write_bytes(b"new")
+    scan.start()
+    finished(scan)
+
+    status = scan.status()
+    assert (status.found, status.added, status.gone) == (3, 1, 1)
+    latest, *_ = scans(conn)
+    assert (latest.added, latest.gone) == (1, 1)  # History keeps it
+
+
+def test_a_video_that_comes_back_counts_as_new_again(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    add_folder(conn, anime, now=NOW)
+    scan = scanner(paths)
+    scan.start()
+    finished(scan)
+    video = next(anime.rglob("*.mkv"))
+    away = anime.parent / video.name
+    video.rename(away)
+    scan.start()
+    finished(scan)
+    assert (scan.status().added, scan.status().gone) == (0, 1)
+
+    away.rename(video)
+    scan.start()
+    finished(scan)
+
+    assert (scan.status().added, scan.status().gone) == (1, 0)
+
+
+def test_a_scan_from_before_kura_counted_says_nothing_of_its_changes(
+    paths: DataPaths, conn: sqlite3.Connection, anime: Path
+):
+    add_folder(conn, anime, now=NOW)
+    scan = scanner(paths)
+    scan.start()
+    finished(scan)
+    with conn:
+        conn.execute("UPDATE scans SET added = NULL, gone = NULL")  # as an older Kura left it
+
+    assert (scan.status().added, scan.status().gone) == (None, None)
 
 
 def test_files_that_cant_be_read_are_counted(

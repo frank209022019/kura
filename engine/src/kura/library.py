@@ -212,9 +212,10 @@ def read_file(
 def _record(
     conn: sqlite3.Connection, folder_id: int, path: Path, size: int, modified: int, stamp: str
 ) -> str:
-    """Saves one found file. Returns "added", "changed" or "same"."""
+    """Saves one found file. Returns "added", "changed" or "same". A file found gone before and
+    here again counts as found now (`found_at`): it's new to the library once more."""
     before = conn.execute(
-        "SELECT size, modified FROM files WHERE path = ?", (str(path),)
+        "SELECT size, modified, gone_at FROM files WHERE path = ?", (str(path),)
     ).fetchone()
     if before is None:
         conn.execute(
@@ -223,19 +224,23 @@ def _record(
             (folder_id, str(path), size, modified, stamp, stamp),
         )
         return "added"
+    found = stamp if before["gone_at"] is not None else None  # back again
     if (before["size"], before["modified"]) == (size, modified):
         conn.execute(
-            "UPDATE files SET folder_id = ?, seen_at = ?, gone_at = NULL WHERE path = ?",
-            (folder_id, stamp, str(path)),
+            """UPDATE files SET folder_id = ?, seen_at = ?, gone_at = NULL,
+                                found_at = COALESCE(?, found_at)
+               WHERE path = ?""",
+            (folder_id, stamp, found, str(path)),
         )
-        return "same"
+        return "added" if found else "same"
     conn.execute(
         """UPDATE files
            SET folder_id = ?, size = ?, modified = ?, seen_at = ?, gone_at = NULL,
+               found_at = COALESCE(?, found_at),
                probed_at = NULL, probe = NULL, problem = NULL, marked_at = NULL,
                duration = NULL, width = NULL, height = NULL, codec = NULL,
                identified_at = CASE WHEN pinned = 1 THEN identified_at END
            WHERE path = ?""",
-        (folder_id, size, modified, stamp, str(path)),
+        (folder_id, size, modified, stamp, found, str(path)),
     )
-    return "changed"
+    return "added" if found else "changed"

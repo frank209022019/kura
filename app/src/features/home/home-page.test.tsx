@@ -169,13 +169,73 @@ describe("HomePage", () => {
     });
     renderHome(READY);
 
-    expect(
-      await screen.findByRole("heading", { name: "Your videos by picture" }),
-    ).toBeInTheDocument();
+    const pictures = await screen.findByRole("heading", { name: "Your videos by picture" });
     expect(screen.getByText("3 videos · 0.4 GB · 1 folder")).toBeInTheDocument();
     expect(screen.getByText("1 file couldn't be read.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan again" })).toBeEnabled();
+    expect(screen.getByText("100%")).toBeInTheDocument(); // every one of them SD
+    // A summary at the top, before what needs the owner (and the shelf after that).
+    const attention = await screen.findByRole("heading", { name: "Needs your attention" });
+    expect(
+      pictures.compareDocumentPosition(attention) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
+
+  it("says only when a scan ran, for a scan from before Kura counted what changed", async () => {
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 3, size: 407_000_000, sd: 1, hd720: 1 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done", finishedAt: new Date().toISOString() },
+    });
+    renderHome(READY);
+
+    expect(await screen.findByText(/^Scanned today \d\d:\d\d$/)).toBeInTheDocument();
+    // Shares that add up: a third each of three would read 33% three times.
+    expect(screen.getAllByText(/^\d+%$/).map((share) => share.textContent)).toEqual([
+      "50%",
+      "50%",
+      "0%",
+      "0%",
+    ]);
+  });
+
+  it("catches up after a scan too quick to be seen running, and says what it found", async () => {
+    let scans = 0;
+    const finishedAt = new Date().toISOString();
+    engineWith({
+      "/folders": [FOLDER],
+      "/franchises": [franchiseOf([DBZ])],
+      "/library": () => ({
+        ...NO_LIBRARY,
+        folders: 1,
+        files: scans > 1 ? 2 : 3,
+        size: 407_000_000,
+        sd: scans > 1 ? 2 : 3,
+      }),
+      "/scan": () => {
+        scans += 1; // the second look finds another scan done: a video was removed meanwhile
+        return {
+          ...NO_SCAN,
+          state: "done",
+          stage: "done",
+          startedAt: scans > 1 ? "2026-10-13T13:07:22Z" : "2026-10-13T13:06:16Z",
+          finishedAt,
+          found: scans > 1 ? 2 : 3,
+          added: 0,
+          gone: scans > 1 ? 1 : 0,
+        };
+      },
+    });
+    renderHome(READY);
+
+    expect(await screen.findByText("1 anime · 3 videos · 0.4 GB · 1 folder")).toBeInTheDocument();
+    expect(
+      await screen.findByText("1 anime · 2 videos · 0.4 GB · 1 folder", undefined, {
+        timeout: 6000,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/^Scanned today \d\d:\d\d · 1 gone$/)).toBeInTheDocument();
+  }, 10_000);
 
   it("leaves out adding a folder while a scan runs", async () => {
     engineWith({

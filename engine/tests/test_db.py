@@ -103,6 +103,19 @@ def test_files_waiting_for_a_match_are_looked_up_again(tmp_path: Path, since: in
         assert {row["path"] for row in again} == {"no guess", "a guess"}
 
 
+def test_scans_from_before_kura_counted_changes_say_nothing_of_them(tmp_path: Path):
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:15]))
+        conn.execute("PRAGMA user_version = 15")
+        conn.execute("INSERT INTO scans (started_at, state, stage) VALUES ('then', 'done', 'done')")
+        conn.commit()
+
+        db.migrate(conn)
+
+        row = conn.execute("SELECT added, gone FROM scans").fetchone()
+        assert (row["added"], row["gone"]) == (None, None)
+
+
 def test_earlier_tidy_ups_stop_naming_a_media_server(tmp_path: Path):
     with closing(db.connect(tmp_path / "kura.db")) as conn:
         conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:8]))

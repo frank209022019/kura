@@ -15,7 +15,7 @@ import {
   useSettings,
   useUndoPlan,
 } from "@/lib/engine";
-import { clockLength, codecName, size } from "@/lib/format";
+import { clockLength, codecName, scanChanges, size } from "@/lib/format";
 
 type Shown = "all" | "conversions" | "moves" | "scans";
 
@@ -144,7 +144,11 @@ function words(event: Event): [string, string, string | null] {
           : scan.state === "paused"
             ? "Paused"
             : (scan.note ?? "Every folder looked at");
-    return ["Scanned", "Your library folders", detail];
+    const changed =
+      scan.state === "done" && scan.added !== null && scan.gone !== null
+        ? ` · ${scanChanges(scan.added, scan.gone)}`
+        : "";
+    return ["Scanned", "Your library folders", `${detail}${changed}`];
   }
   const { plan } = event;
   const made = plan.conversion;
