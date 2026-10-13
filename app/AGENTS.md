@@ -21,8 +21,8 @@ and [../CLAUDE.md](../CLAUDE.md).
   `page-top`, so it stays put while the rest scrolls under it.
 - Say what a thing does, never which media server reads it: no "Plex" anywhere in the UI.
 - Markdown (Kura's reports) shows through `components/markdown.tsx`, as a reader sees it.
-- Deleting asks first, beside what goes (`features/title/delete.tsx`), says where it goes and for
-  how long, and offers it back right after. Nothing is ever deleted outright; emptying a drive's
+- Deleting asks first, beside what goes (`components/delete.tsx`, on a title's page and on "Which
+  anime is this?"), says where it goes and for how long, and offers it back right after. Nothing is ever deleted outright; emptying a drive's
   quarantine early to make room (`features/convert/no-room.tsx`) asks once more and says it can't
   come back.
 - While Kura's records are damaged, the way back (`features/records/`) stands in for every page

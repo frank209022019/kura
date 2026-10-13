@@ -12,6 +12,10 @@ shows these notes when it offers the update.
 - Check for a new version (Settings > Updates): Kura looks at once instead of waiting for its
   daily check, which carries on as before, and says when it last looked. A version it finds can
   be installed from there too, even after Later on its card.
+- Delete a file waiting for a match, from Which anime is this?: the bin beside it, or beside a
+  file up next. Kura asks first, then moves it to the quarantine on its drive with its
+  subtitles, like any delete; the page offers it back right after, and History till the
+  clear-out.
 
 ### Fixed
 - Updated to 0.2.0, Settings still said Kura 0.1.0: the update had left the old engine's files

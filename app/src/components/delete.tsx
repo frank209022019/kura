@@ -1,21 +1,23 @@
 import { AlertTriangle, Check, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  type TidyResult,
-  type TitleFile,
-  useDeleteFiles,
-  useSettings,
-  useUndoPlan,
-} from "@/lib/engine";
+import { type TidyResult, useDeleteFiles, useSettings, useUndoPlan } from "@/lib/engine";
 import { size } from "@/lib/format";
+
+/** A video the owner can delete: a title's (TitleFile) or one waiting for a match (WaitingFile). */
+export interface Deletable {
+  id: number;
+  path: string;
+  /** In bytes. */
+  size: number;
+}
 
 /** What the owner is asked about deleting: the videos, and how the question names them. */
 export interface Asking {
-  /** "Dragon Ball Z", "season 4", "S01E03": "Delete S01E03?" */
+  /** "Dragon Ball Z", "season 4", "S01E03", "this file": "Delete S01E03?" */
   what: string;
-  /** Where the question shows: "title", "season-4", "video-17". */
+  /** Where the question shows: "title", "season-4", "video-17", "file-17". */
   where: string;
-  files: TitleFile[];
+  files: Deletable[];
 }
 
 /** A small bin beside what it deletes. It only asks: nothing goes till the owner confirms. */
@@ -42,7 +44,7 @@ export function useDeleting(onDone: (result: TidyResult) => void) {
     busy: remove.isPending,
     problem: remove.error?.message ?? null,
     reset: remove.reset,
-    delete: (files: TitleFile[]) =>
+    delete: (files: Deletable[]) =>
       remove.mutate(
         { path: "/files/delete", body: { files: files.map((file) => file.id) } },
         { onSuccess: onDone },

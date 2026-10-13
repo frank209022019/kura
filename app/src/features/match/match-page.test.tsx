@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type Guess, type WaitingFile } from "@/lib/engine";
@@ -51,6 +51,7 @@ function waiting(id: number, episode: number, alike: number[] = []): WaitingFile
 }
 
 const QUEUE = [waiting(3, 3, [4, 5]), waiting(4, 4, [3, 5]), waiting(5, 5, [3, 4])];
+const DELETED = { planId: 12, moved: 0, quarantined: 1, problems: [] };
 
 function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string) {
   return fetch.mock.calls.filter(
@@ -232,6 +233,7 @@ describe("MatchPage", () => {
     expect(screen.getByRole("link", { name: "Cowboy Bebop" })).toHaveAttribute("href", "/titles/1");
     expect(screen.getByText("Use this for its other 2 files")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete this file" })).not.toBeInTheDocument();
     expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/review?title=1"))).toBe(
       true,
     );
@@ -245,6 +247,85 @@ describe("MatchPage", () => {
       kind: "episode",
       title: 1,
     });
+  });
+
+  it("deletes the file on screen once asked, says so, and puts it back", async () => {
+    let gone: number[] = []; // once deleted, the files waiting come back without them
+    const fetch = fakeEngine({
+      "/review": () => QUEUE.filter((file) => !gone.includes(file.id)),
+      "POST /files/delete": (init?: RequestInit) => {
+        gone = (JSON.parse(String(init?.body)) as { files: number[] }).files;
+        return DELETED;
+      },
+      "POST /plans/12/undo": () => {
+        gone = [];
+        return { ...DELETED, moved: 1, quarantined: 0 };
+      },
+    });
+    renderMatch();
+
+    (await screen.findByRole("button", { name: "Delete this file" })).click();
+    const asking = await screen.findByRole("group", { name: "Delete this file?" });
+    await waitFor(() =>
+      expect(asking).toHaveTextContent(
+        "1 video (233 MB) goes to the quarantine on D:, with any subtitles named after it. " +
+          "They're deleted for good after 30 days; till then History puts them back.",
+      ),
+    );
+    within(asking).getByRole("button", { name: "Delete 1 video" }).click();
+
+    expect(await screen.findByText("Deleted 1 video.")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "[subs] ep04 final.mkv" }),
+    ).toBeInTheDocument();
+    const [[, init]] = sent(fetch, "POST", "/files/delete") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ files: [3] });
+    screen.getByRole("button", { name: "Put back" }).click();
+
+    expect(
+      await screen.findByRole("heading", { name: "[subs] ep03 final.mkv" }),
+    ).toBeInTheDocument();
+    expect(sent(fetch, "POST", "/plans/12/undo")).toHaveLength(1);
+  });
+
+  it("deletes a file further on from what's up next, and can be talked out of it", async () => {
+    const fetch = fakeEngine({ "/review": QUEUE, "POST /files/delete": DELETED });
+    renderMatch();
+
+    (await screen.findByRole("button", { name: "Delete [subs] ep04 final.mkv" })).click();
+    (await screen.findByRole("button", { name: "Cancel" })).click();
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Delete this file?" })).not.toBeInTheDocument(),
+    );
+    screen.getByRole("button", { name: "Delete [subs] ep05 final.mkv" }).click();
+    const asking = await screen.findByRole("group", { name: "Delete this file?" });
+    within(asking).getByRole("button", { name: "Delete 1 video" }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/files/delete")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/files/delete") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ files: [5] });
+    expect(screen.getByRole("heading", { name: "[subs] ep03 final.mkv" })).toBeInTheDocument();
+  });
+
+  it("offers the last file back once it's deleted", async () => {
+    let gone = false;
+    fakeEngine({
+      "/review": () => (gone ? [] : [waiting(3, 3)]),
+      "POST /files/delete": () => {
+        gone = true;
+        return DELETED;
+      },
+    });
+    renderMatch();
+
+    (await screen.findByRole("button", { name: "Delete this file" })).click();
+    (await screen.findByRole("button", { name: "Delete 1 video" })).click();
+
+    expect(
+      await screen.findByRole("heading", { name: "Every file is matched" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Deleted 1 video.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Put back" })).toBeInTheDocument();
   });
 
   it("says when every file is matched", async () => {

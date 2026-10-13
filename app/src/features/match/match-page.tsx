@@ -3,6 +3,7 @@ import { RadioGroup } from "radix-ui";
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
+import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/components/delete";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import {
   type Guess,
+  type TidyResult,
   useChooseMatch,
   useCover,
   useIgnoreFile,
@@ -40,7 +42,33 @@ export function MatchPage() {
   const title = useTitle(titleId ?? 0, titleId !== null);
   const [skipped, setSkipped] = useState<number[]>([]);
   const [settled, setSettled] = useState(0);
+  // Deleting asks first, beside the file; right after, the page says so and offers it back. It
+  // lives with the page, not with the file: the file on screen goes as soon as it's deleted.
+  const [asking, setAsking] = useState<Asking | null>(null);
+  const [deleted, setDeleted] = useState<TidyResult | null>(null);
+  const deleting = useDeleting((result) => {
+    setAsking(null);
+    setDeleted(result);
+  });
   const forTitle = titleId === null ? null : { id: titleId, name: title.data?.name ?? "…" };
+  const deletes: Deletes = {
+    ask: (next) => {
+      deleting.reset();
+      setDeleted(null);
+      setAsking(next);
+    },
+    confirm: (where) =>
+      asking?.where === where ? (
+        <ConfirmDelete
+          asking={asking}
+          busy={deleting.busy}
+          problem={deleting.problem}
+          onConfirm={() => deleting.delete(asking.files)}
+          onCancel={() => setAsking(null)}
+        />
+      ) : null,
+  };
+  const notice = deleted && <Deleted result={deleted} onPutBack={() => setDeleted(null)} />;
 
   if (!review.data) {
     return (
@@ -53,7 +81,7 @@ export function MatchPage() {
   // Skipped files go to the back of the queue for this visit, the latest skipped last.
   const queue = [...review.data].sort((a, b) => skipped.indexOf(a.id) - skipped.indexOf(b.id));
   const [file, ...next] = queue;
-  if (!file) return <AllMatched />;
+  if (!file) return <AllMatched notice={notice} />;
 
   return (
     <>
@@ -72,12 +100,21 @@ export function MatchPage() {
         position={settled + 1}
         total={settled + queue.length}
         next={next}
+        deletes={forTitle ? null : deletes}
+        notice={notice}
         onSkip={() => setSkipped((before) => [...before.filter((id) => id !== file.id), file.id])}
         onSettled={(count) => setSettled((before) => before + count)}
       />
       <EngineProblem queries={[review]} />
     </>
   );
+}
+
+/** Deleting from the page: asking about a file, and the question where it was asked. */
+interface Deletes {
+  ask: (asking: Asking) => void;
+  /** The question, if it was asked about this file ("file-17"). */
+  confirm: (where: string) => ReactNode;
 }
 
 function MatchFile(props: {
@@ -87,6 +124,10 @@ function MatchFile(props: {
   position: number;
   total: number;
   next: WaitingFile[];
+  /** Null while changing a title's match: its page deletes its files. */
+  deletes: Deletes | null;
+  /** What the page says above the file: what was just deleted. */
+  notice: ReactNode;
   onSkip: () => void;
   onSettled: (count: number) => void;
 }) {
@@ -191,9 +232,10 @@ function MatchFile(props: {
           </div>
         )}
       </header>
+      {props.notice}
 
       <div className="flex flex-wrap items-start gap-5">
-        <FilePanel file={file} />
+        <FilePanel file={file} deletes={props.deletes} />
 
         <section
           aria-labelledby="guess-title"
@@ -302,7 +344,11 @@ function MatchFile(props: {
       </div>
 
       {props.next.length > 0 && (
-        <UpNext files={props.next.slice(0, 4)} following={together ? file.alike : []} />
+        <UpNext
+          files={props.next.slice(0, 4)}
+          following={together ? file.alike : []}
+          deletes={props.deletes}
+        />
       )}
     </>
   );
@@ -318,20 +364,31 @@ function useSettled(value: string, delay: number): string {
   return settled;
 }
 
-/** The file itself: its name, folder, three stills and what reading it showed. */
-function FilePanel({ file }: { file: WaitingFile }) {
+/** The file itself: its name, folder, three stills and what reading it showed, and a bin to
+ * delete it. */
+function FilePanel({ file, deletes }: { file: WaitingFile; deletes: Deletes | null }) {
   const [name, folder] = split(file.path);
+  const where = `file-${file.id}`;
   return (
     <section
       aria-labelledby="file-title"
       className="flex min-w-0 flex-[1_1_380px] animate-fade-up flex-col gap-4 rounded-24 border border-edge bg-glass p-5.5 [animation-delay:60ms]"
     >
-      <div className="flex flex-col gap-1">
-        <h2 id="file-title" className="font-medium font-mono text-15 [overflow-wrap:anywhere]">
-          {name}
-        </h2>
-        <span className="font-mono text-12 text-fg-muted [overflow-wrap:anywhere]">{folder}</span>
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 id="file-title" className="font-medium font-mono text-15 [overflow-wrap:anywhere]">
+            {name}
+          </h2>
+          <span className="font-mono text-12 text-fg-muted [overflow-wrap:anywhere]">{folder}</span>
+        </div>
+        {deletes && (
+          <DeleteIcon
+            label="Delete this file"
+            onClick={() => deletes.ask({ what: "this file", where, files: [file] })}
+          />
+        )}
       </div>
+      {deletes?.confirm(where)}
       {file.minutes !== null && (
         <div className="grid grid-cols-3 gap-2">
           {[0.15, 0.5, 0.8].map((point, index) => (
@@ -477,7 +534,8 @@ function Together(props: {
   );
 }
 
-function UpNext({ files, following }: { files: WaitingFile[]; following: number[] }) {
+function UpNext(props: { files: WaitingFile[]; following: number[]; deletes: Deletes | null }) {
+  const { files, following, deletes } = props;
   return (
     <section
       aria-labelledby="next-title"
@@ -489,6 +547,8 @@ function UpNext({ files, following }: { files: WaitingFile[]; following: number[
       <ul className="flex flex-col">
         {files.map((file) => {
           const [name, folder] = split(file.path);
+          const where = `file-${file.id}`;
+          const asked = deletes?.confirm(where);
           return (
             <li
               key={file.id}
@@ -502,6 +562,13 @@ function UpNext({ files, following }: { files: WaitingFile[]; following: number[
                   ? "follows this choice"
                   : `${folder} · ${describe(file)}`}
               </span>
+              {deletes && (
+                <DeleteIcon
+                  label={`Delete ${name}`}
+                  onClick={() => deletes.ask({ what: "this file", where, files: [file] })}
+                />
+              )}
+              {asked && <div className="basis-full pb-3">{asked}</div>}
             </li>
           );
         })}
@@ -510,11 +577,12 @@ function UpNext({ files, following }: { files: WaitingFile[]; following: number[
   );
 }
 
-function AllMatched() {
+function AllMatched({ notice }: { notice: ReactNode }) {
   const navigate = useNavigate();
   return (
     <>
       <h1 className="page-top type-title animate-fade-up">Which anime is this?</h1>
+      {notice}
       <EmptyState
         title="Every file is matched"
         illustration={<ShelfIllustration />}

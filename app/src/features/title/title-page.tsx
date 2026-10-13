@@ -2,6 +2,7 @@ import { FileText } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
+import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/components/delete";
 import { EngineProblem } from "@/components/engine-problem";
 import { Markdown } from "@/components/markdown";
 import { Poster } from "@/components/poster";
@@ -19,7 +20,6 @@ import {
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
-import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "./delete";
 
 /** One anime or film: how much of it is there, its seasons and episode map, what's missing, its
  * specials and OVAs apart, its videos, and the gap analysis next to it. */

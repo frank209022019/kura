@@ -207,8 +207,8 @@ follow them already. History lists every tidy-up,
 which can be undone from there, and undone again for any file that couldn't go back the first
 time (the plan counts as undone only once nothing is left).
 
-Deleting (`tidy.delete`, from a title's page: the whole title, a season or one video) is a plan of
-the same kind: each video and the subtitles named after it go to the quarantine on their own
+Deleting (`tidy.delete`, from a title's page: the whole title, a season or one video; and from
+"Which anime is this?": a file waiting for a match) is a plan of the same kind: each video and the subtitles named after it go to the quarantine on their own
 drive (subtitles another copy of the video shares stay with it), folders left empty go, a video
 waiting to be converted leaves the queue once it's gone (one converting can't be deleted), the
 page says what stayed and why, and History, or the page right after, puts them back until the
