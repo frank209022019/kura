@@ -17,7 +17,9 @@ from kura.core.names import Kind
 from kura.identify import Identifier, UnplacedError, identify_again, save_anilist_title
 from kura.library import find_files, folders, read_file, unread
 from kura.titles import title
+from kura.tmdb import API as TMDB
 from tests.fake_ffprobe import REPORT
+from tests.fake_web import reply
 from tests.services import SAVED, internet
 from tests.shelf import NOW, identify, library
 
@@ -212,6 +214,64 @@ def test_a_numbered_film_is_found_by_its_own_name(
     identify(paths, conn, internet(tmdb=False))
 
     assert placed(conn) == {film: ("sure", "Dragon Ball Z: The Tree of Might", "movie", None, None)}
+
+
+def test_a_film_named_with_its_series_initials_is_found_by_them_written_out(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    film = "Dragon Ball Z - Movie 16 - DB Super BROLY, MangaUK Version (2018 BluRay - 1080p).mkv"
+    library(conn, root, [f"DRAGON BALL Z (1989-2019)/2a. Movies (1989-2018)/{film}"], minutes=100)
+
+    identify(paths, conn, internet(tmdb=False))
+
+    assert placed(conn) == {film: ("sure", "Dragon Ball Super: Broly", "movie", None, None)}
+
+
+def test_a_name_only_tmdb_knows_is_found_through_it(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Bola de Dragon Z/Bola de Dragon Z - 001.mkv"])  # its Spanish name
+    web = internet()
+
+    identify(paths, conn, web)
+
+    assert placed(conn) == {"Bola de Dragon Z - 001.mkv": ("sure", "Dragon Ball Z", "series", 1, 1)}
+    [guess, *_] = json.loads(conn.execute("SELECT guesses FROM files").fetchone()[0])
+    assert guess["reasons"][0] == "TMDB knows it as Dragon Ball Z"
+    assert f"GET {TMDB}/tv/12971/alternative_titles" in web.paths()
+
+
+def test_tmdb_turning_the_key_away_leaves_what_anilist_found(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, root, ["Downloads/Mystery Show - 03.mkv"])
+    web = internet()
+    web.answers[f"GET {TMDB}/search/tv"] = reply({"status_message": "Invalid API key"}, 401)
+
+    done = identify(paths, conn, web)
+
+    row = conn.execute("SELECT matched, title_id FROM files").fetchone()
+    assert (row["matched"], row["title_id"]) == ("none", None)
+    assert done.note is None
+
+
+def test_a_special_its_shows_list_doesnt_name_is_found_by_its_own_name(
+    paths: DataPaths, conn: sqlite3.Connection, root: Path
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    special = "Cowboy Bebop - Special 07 - Yoseatsume Blues.mkv"  # the release's own count
+    library(conn, root, ["Cowboy Bebop/Cowboy Bebop - 01.mkv", f"Cowboy Bebop/{special}"])
+
+    identify(paths, conn, internet())
+
+    assert placed(conn) == {
+        "Cowboy Bebop - 01.mkv": ("sure", "Cowboy Bebop", "series", 1, 1),
+        special: ("sure", "Cowboy Bebop", "series", 0, 2),  # by the day it first aired
+    }
+    row = conn.execute("SELECT anilist_id FROM files WHERE path LIKE '%Special 07%'").fetchone()
+    assert row["anilist_id"] == 4037
 
 
 def test_a_series_anilist_writes_otherwise_is_asked_for_its_way(

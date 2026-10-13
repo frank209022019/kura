@@ -8,6 +8,22 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Names AniList can't find are looked up on TMDB too, which knows more languages and spellings
+  (with your TMDB key): AniList is then asked for what TMDB calls it. A file named in Spanish,
+  say, is found as the show TMDB knows by that name, and the review screen's search does the
+  same. Files waiting for a match are looked up again at the next scan.
+- A special its show's list doesn't name the way the file does is looked up by its own name, as
+  an OVA or special of its own: "Special 05 (GT) - A Hero's Legacy" is found as Dragon Ball GT's
+  special, and goes among a show's specials by the day it first aired when the show is yours.
+
+### Fixed
+- A film named with its series' initials is found: "Dragon Ball Z - Movie 16 - DB Super BROLY"
+  is Dragon Ball Super: Broly.
+- A special's name matches its show's without the words any special carries: "Summer Vacation"
+  is "Summer Vacation Special". Accents don't count when names are compared ("Pokémon" is
+  "Pokemon").
+
 ## 0.4.0 - 2026-10-13
 
 ### Added

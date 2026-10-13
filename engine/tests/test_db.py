@@ -75,10 +75,11 @@ def test_identification_keeps_every_scan_and_file_from_before(tmp_path: Path):
         )
 
 
-def test_files_waiting_for_a_match_are_looked_up_again(tmp_path: Path):
+@pytest.mark.parametrize("since", [13, 14])  # Kura identifies better: 14, and again 15
+def test_files_waiting_for_a_match_are_looked_up_again(tmp_path: Path, since: int):
     with closing(db.connect(tmp_path / "kura.db")) as conn:
-        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:13]))
-        conn.execute("PRAGMA user_version = 13")
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:since]))
+        conn.execute(f"PRAGMA user_version = {since}")
         conn.execute("INSERT INTO folders (path, added_at) VALUES ('D:/Anime', 'then')")
         for name, matched, pinned in [
             ("no guess", "none", 0),

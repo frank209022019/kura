@@ -221,4 +221,11 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     UPDATE files SET identified_at = NULL
         WHERE matched IN ('none', 'unsure') AND pinned = 0;
     """,
+    # 15. Names AniList can't find are searched on TMDB too, a film named with its series'
+    #     initials is found, and a series' special its show's list doesn't name is looked up by
+    #     its own name: the files waiting for a match are looked up again by the next scan.
+    """
+    UPDATE files SET identified_at = NULL
+        WHERE matched IN ('none', 'unsure') AND pinned = 0;
+    """,
 )

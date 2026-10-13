@@ -1,21 +1,27 @@
 """Which anime a file is: grouping files, scoring AniList's entries, picking TMDB's show."""
 
 import json
+from dataclasses import replace
 from datetime import date
 from pathlib import Path, PureWindowsPath
 
 from kura.core.catalog import Anime, Hit, TitleKind, anime_list, hits
 from kura.core.identify import (
     SURE,
+    WORTH_SHOWING,
     FileFacts,
     base_title,
     group_files,
     guesses,
+    merged,
     normalize,
     pick_hit,
     respelled,
     searches,
     similarity,
+    spelled_out,
+    through_tmdb,
+    tmdb_fit,
 )
 from kura.core.names import parse_name
 from tests.tmdb_data import movie_search, tv_search
@@ -147,8 +153,36 @@ def test_a_film_is_looked_up_by_its_whole_name_then_by_shorter_ones():
         "Dragon Ball Z DB Super BROLY",
         "DB Super BROLY, MangaUK Version",
         "DB Super BROLY",
+        "Dragon Ball Super BROLY, MangaUK Version",  # "DB" is the series' initials
+        "Dragon Ball Super BROLY",
         "Dragon Ball Z",
     ]
+
+
+def test_a_film_named_with_its_series_initials_is_matched_by_them_written_out():
+    [group] = group_files(
+        [
+            facts(
+                rf"{MOVIES}\Dragon Ball Z - Movie 16 - DB Super BROLY, MangaUK Version (2018"
+                " BluRay - 1080p DUAL Audio).mkv",
+                minutes=100,
+            )
+        ]
+    )
+
+    # What AniList finds for "Dragon Ball Super BROLY": it found nothing for "DB Super BROLY".
+    best = guesses(group, entries("dragon-ball-super-broly"))[0]
+
+    assert (best.anime.id, best.confidence >= SURE) == (101302, True)
+    assert best.reasons[:2] == ("Title matches", "2018 fits")
+
+
+def test_only_a_series_initials_are_written_out():
+    assert spelled_out("DB Super BROLY", "Dragon Ball Z") == "Dragon Ball Super BROLY"
+    assert spelled_out("DBZ Kai", "Dragon Ball Z") == "Dragon Ball Z Kai"
+    assert spelled_out("Db Super", "Dragon Ball Z") is None  # initials are capitals
+    assert spelled_out("OVA Special", "Dragon Ball Z") is None  # not the series'
+    assert spelled_out("DBZGT Final", "Dragon Ball Z") is None  # more than the series has
 
 
 def test_the_same_search_isnt_asked_twice():
@@ -169,6 +203,68 @@ def test_a_series_is_looked_up_by_its_name_alone():
     [group] = group_files([facts(r"D:\Anime\Dragon Ball Z\Dragon Ball Z - 001.mkv")])
 
     assert searches(group) == ["Dragon Ball Z"]
+
+
+def test_accents_on_latin_letters_dont_count_and_japanese_is_kept():
+    assert similarity("Pokémon", "Pokemon") == 1.0
+    assert similarity("Atsumare! Gokū World", "Atsumare Goku World") == 1.0
+    assert normalize("ガンダム") == "ガンダム"  # its marks are part of the letters
+
+
+def shown(name: str, *, year: int | None = None, media: str = "movie", **more: object) -> Hit:
+    found = {"tv": tv_search, "movie": movie_search}[media]((1, name, date(year or 2000, 1, 1)))
+    [hit] = hits(found, "tv" if media == "tv" else "movie")
+    return replace(hit, **more)
+
+
+def test_a_tmdb_find_fits_by_its_names_year_kind_and_being_japanese_animation():
+    [film] = group_files(
+        [facts(rf"{MOVIES}\Dragon Ball Z - Movie 16 - DB Super BROLY (2018).mkv", minutes=100)]
+    )
+
+    right = tmdb_fit(film, shown("Dragon Ball Super: Broly", year=2018), 0)
+    other_year = tmdb_fit(film, shown("Dragon Ball Super: Broly", year=2013), 0)
+    live_action = tmdb_fit(
+        film, shown("Dragon Ball Super: Broly", year=2018, animation=False, japanese=False), 0
+    )
+    a_show = tmdb_fit(film, shown("Dragon Ball Super: Broly", year=2018, media="tv"), 0)
+
+    assert right >= SURE
+    assert right > other_year
+    assert right > live_action
+    assert right > a_show
+
+
+def test_a_name_tmdb_knows_among_its_other_names_fits_as_well_as_its_own():
+    [episodes] = group_files([facts(r"D:\Anime\Bola de Dragon Z\Bola de Dragon Z - 001.mkv")])
+    hit = shown("Dragon Ball Z", year=1989, media="tv")
+
+    assert tmdb_fit(episodes, hit, 0) < SURE
+    assert tmdb_fit(episodes, hit, 0, ["Bola de Dragón Z"]) == 100
+
+
+def test_anilists_entries_for_a_tmdb_find_are_no_surer_than_it_fits():
+    [episodes] = group_files([facts(r"D:\Anime\Bola de Dragon Z\Bola de Dragon Z - 001.mkv")])
+    hit = shown("Dragon Ball Z", year=1989, media="tv")
+
+    sure = through_tmdb(episodes, hit, 100, entries("dragon-ball-z"))
+    doubtful = through_tmdb(episodes, hit, 60, entries("dragon-ball-z"))
+
+    assert sure[0].anime.id == 813
+    assert sure[0].confidence >= SURE
+    assert sure[0].reasons[0] == "TMDB knows it as Dragon Ball Z"
+    assert doubtful[0].confidence == 60
+    assert all(guess.confidence >= WORTH_SHOWING for guess in doubtful)
+
+
+def test_guesses_from_several_lookups_keep_each_entry_at_its_surest():
+    [group] = group_files([facts(r"D:\Anime\Dragon Ball Z\Dragon Ball Z - 001.mkv")])
+    found = guesses(group, entries("dragon-ball-z"))
+    lower = [replace(guess, confidence=guess.confidence - 10) for guess in found]
+
+    together = merged(lower, found)
+
+    assert [guess.confidence for guess in together] == [guess.confidence for guess in found]
 
 
 def test_a_name_anilist_writes_otherwise_is_put_its_way():

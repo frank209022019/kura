@@ -2,9 +2,12 @@
 
 The scan's third stage. Files are grouped and looked up on AniList; with the owner's TMDB key the
 same show or film is found on TMDB, whose episode lists say where each file sits and what's
-missing. kura/core/identify.py and kura/core/placing.py decide, this module asks the services and
-keeps the answers. A file Kura isn't sure about waits for the owner, and files the owner placed
-by hand (pinned) are never identified again.
+missing. What AniList's search can't find by a file's name, TMDB's is asked for too, and AniList
+for the names TMDB gives what it finds. A series' special its show's list doesn't name the way
+the file does is looked up by its own name, as an OVA or special of its own. kura/core/identify.py
+and kura/core/placing.py decide, this module asks the services and keeps the answers. A file Kura
+isn't sure about waits for the owner, and files the owner placed by hand (pinned) are never
+identified again.
 """
 
 import json
@@ -15,6 +18,7 @@ from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import PureWindowsPath
+from typing import Literal
 
 from kura import credentials
 from kura.anilist import AniList
@@ -29,12 +33,16 @@ from kura.core.identify import (
     base_title,
     group_files,
     guesses,
+    merged,
+    names,
     respelled,
     searches,
+    through_tmdb,
+    tmdb_fit,
 )
 from kura.core.identify import pick_hit as pick_tmdb
 from kura.core.names import Kind, ParsedName, parse_name
-from kura.core.placing import How, Placement, lists_special, place
+from kura.core.placing import How, Placement, lists_special, named_special, place
 from kura.titles import show_of
 from kura.tmdb import Tmdb
 from kura.web import Send, WebError
@@ -45,6 +53,9 @@ AIRING_EVERY = timedelta(hours=1)  # how often a show still airing has its episo
 FINISHED_EVERY = timedelta(days=7)  # and a finished one
 _SHOWN_GUESSES = 3  # how many guesses the review screen offers
 _PART_OF = ("PARENT", "SIDE_STORY")  # how AniList ties an OVA or special to its show
+_TMDB_TRIES = 3  # how many of the ways a name reads TMDB is asked for
+_TMDB_HITS = 3  # of what TMDB finds for each, the best this many are looked at
+_TMDB_FIT = 40  # what fits the files less well than this isn't asked of AniList
 
 
 @dataclass(frozen=True)
@@ -121,7 +132,7 @@ class Identifier:
                 return None
             looking_at(group.query)
             try:
-                found.append((group, self._look_up(group)))
+                found.append((group, self._look_up(group, tmdb)))
             except WebError as error:
                 log.warning("AniList couldn't be asked about %s: %s", group.query, error)
                 return Identified(0, 0, _waiting("AniList", error))
@@ -143,14 +154,18 @@ class Identifier:
             sure, unsure = sure + placed, unsure + waiting
         return Identified(sure, unsure, note)
 
-    def _look_up(self, group: Group) -> list[Guess]:
+    def _look_up(
+        self, group: Group, tmdb: Tmdb | None = None, *, series: bool = True
+    ) -> list[Guess]:
         """AniList's entries for a group, as guesses. While none is sure, shorter forms of a
-        numbered film's name are asked for too (core/identify.py's `searches`). When nothing at
-        all is found, the name may be one AniList writes otherwise ("Dragonball GT"): what its
-        first word finds says how ("Dragon Ball"), and the name is asked for that way."""
+        numbered film's name are asked for too (core/identify.py's `searches`; its series alone
+        unless `series` is False). When nothing at all is found, the name may be one AniList
+        writes otherwise ("Dragonball GT"): what its first word finds says how ("Dragon Ball"),
+        and the name is asked for that way. While nothing is sure still, TMDB is asked too
+        (`_through_tmdb`)."""
         entries: dict[int, Anime] = {}
         ranked: list[Guess] = []
-        for text in searches(group):
+        for text in searches(group, series=series):
             for entry in self._anilist.search(text):
                 entries.setdefault(entry.id, entry)
             ranked = guesses(group, list(entries.values()))
@@ -159,7 +174,46 @@ class Identifier:
         first, *rest = group.query.split()
         if not ranked and rest and (again := respelled(group.query, self._anilist.search(first))):
             ranked = guesses(group, self._anilist.search(again))
+        if tmdb is not None and not (ranked and ranked[0].confidence >= SURE):
+            ranked = merged(ranked, self._through_tmdb(group, tmdb))
         return ranked
+
+    def _through_tmdb(self, group: Group, tmdb: Tmdb) -> list[Guess]:
+        """Guesses from what TMDB finds by a group's name, which AniList's search didn't: TMDB
+        knows names in more languages and spellings. Each show or film that fits the files well
+        enough (by its own names, or else by the other names TMDB knows it by) is asked of AniList
+        by TMDB's names for it, and AniList's entries are guesses no surer than that fit. TMDB
+        being away, or refusing the key, leaves the guesses AniList gave."""
+        media: tuple[Literal["tv", "movie"], ...] = ("movie",) if group.movie else ("tv",)
+        if all(facts.parsed.kind is Kind.SPECIAL for facts in group.files):
+            media = ("tv", "movie")  # TMDB has a special as its show's, or as a film
+        found: list[Guess] = []
+        for text in names(group)[:_TMDB_TRIES]:
+            for kind in media:
+                try:
+                    hits = tmdb.search(kind, text)[:_TMDB_HITS]
+                except WebError as error:
+                    log.warning("TMDB couldn't be asked about %s: %s", text, error)
+                    return found
+                for rank, hit in enumerate(hits):
+                    fit = tmdb_fit(group, hit, rank)
+                    if fit < SURE and rank == 0:  # the name may be one of its others
+                        try:
+                            others = tmdb.alternative_titles(hit.media, hit.id)
+                        except WebError as error:
+                            log.warning("TMDB couldn't say %s's other names: %s", hit.title, error)
+                        else:
+                            fit = tmdb_fit(group, hit, rank, others)
+                    if fit < _TMDB_FIT:
+                        continue
+                    entries: dict[int, Anime] = {}
+                    for name in dict.fromkeys((hit.title, hit.original_title)):
+                        for entry in self._anilist.search(name):
+                            entries.setdefault(entry.id, entry)
+                    found = merged(found, through_tmdb(group, hit, fit, list(entries.values())))
+                    if found and found[0].confidence >= SURE:
+                        return found
+        return found
 
     def choose(
         self,
@@ -306,7 +360,11 @@ class Identifier:
         group = Group(
             text.strip(), facts[0].parsed.year, facts[0].parsed.kind is Kind.MOVIE, tuple(facts)
         )
-        return guesses(group, self._anilist.search(text.strip()))
+        found = guesses(group, self._anilist.search(text.strip()))
+        tmdb = self._tmdb()
+        if tmdb is not None and not (found and found[0].confidence >= SURE):
+            found = merged(found, self._through_tmdb(group, tmdb))  # a name AniList hasn't
+        return found
 
     def _choose_again(self, conn: sqlite3.Connection) -> None:
         """The owner's choices made before Kura had TMDB's lists, placed again by them (see
@@ -373,34 +431,94 @@ class Identifier:
             for facts in group.files
         }
         clashing = _clashes(group.files, placements)
+        own = (
+            {} if film else self._by_own_names(conn, group, home, placements, clashing, entry, tmdb)
+        )
 
         sure = unsure = 0
         with conn:
             for facts in group.files:
                 where = placements[facts.id]
+                if facts.id in own:
+                    found, home_of, ranked_of, where = own[facts.id]
+                    _place(conn, facts, home_of, found, where, ranked_of, stamp)
+                    sure += 1
+                    continue
                 if facts.id in clashing or (where is None and not film):
                     _mark_unsure(conn, [facts], ranked, stamp, commit=False)
                     unsure += 1
                     continue
-                conn.execute(
-                    """UPDATE files SET title_id = ?, anilist_id = ?, season = ?, episode = ?,
-                              episode_end = ?, matched = 'sure', confidence = ?, guesses = ?,
-                              identified_at = ?
-                       WHERE id = ? AND pinned = 0""",
-                    (
-                        home.title_id,
-                        entry.id,
-                        where.season if where else None,
-                        where.episode if where else None,
-                        where.last if where else None,
-                        best.confidence,
-                        _guesses_json(ranked),
-                        stamp,
-                        facts.id,
-                    ),
-                )
+                _place(conn, facts, home, best, where, ranked, stamp)
                 sure += 1
         return sure, unsure
+
+    def _by_own_names(
+        self,
+        conn: sqlite3.Connection,
+        group: Group,
+        home: _Home,
+        placements: dict[int, Placement | None],
+        clashing: set[int],
+        series: Anime,
+        tmdb: Tmdb | None,
+    ) -> dict[int, tuple[Guess, _Home, list[Guess], Placement | None]]:
+        """The group's specials its show's list doesn't name the way the files do ("Special 05
+        (GT) - A Hero's Legacy"), each looked up by its own name: the OVA or special AniList (or
+        TMDB) knows it as, sure, and where that goes (its show's specials, by the day it aired,
+        or a title of its own). A special that two files land on stays with neither."""
+        found: dict[int, tuple[Guess, _Home, list[Guess], Placement | None]] = {}
+        for facts in group.files:
+            title = facts.parsed.episode_title
+            if placements[facts.id] is not None or facts.id in clashing or not title:
+                continue
+            if facts.parsed.kind is not Kind.SPECIAL:
+                continue
+            try:
+                lookup = self._own_name(conn, group, facts, title, series, tmdb)
+            except WebError as error:
+                log.warning("Couldn't look %s up by its own name: %s", title, error)
+                continue
+            if lookup is not None:
+                found[facts.id] = lookup
+        taken: dict[tuple[int, int, int], list[int]] = defaultdict(list)
+        for file_id, where in placements.items():  # what the show's list placed already
+            if where is not None:
+                taken[(home.title_id, where.season, where.episode)].append(file_id)
+        for file_id, (_, its_home, _, where) in found.items():
+            if where is not None:
+                taken[(its_home.title_id, where.season, where.episode)].append(file_id)
+        crowded = {file_id for spot in taken.values() if len(spot) > 1 for file_id in spot}
+        return {file_id: lookup for file_id, lookup in found.items() if file_id not in crowded}
+
+    def _own_name(
+        self,
+        conn: sqlite3.Connection,
+        group: Group,
+        facts: FileFacts,
+        title: str,
+        series: Anime,
+        tmdb: Tmdb | None,
+    ) -> tuple[Guess, _Home, list[Guess], Placement | None] | None:
+        """One special looked up by its own name, read as the series' ("Dragon Ball Z: A Hero's
+        Legacy"). The release's count of its specials ("Special 05", or "03" in a specials
+        folder) says nothing of the entry's, so only a one-off, or a film, is placed: it's
+        its show's special that first aired on its day, or a title of its own."""
+        parsed = replace(facts.parsed, episode=None, episode_end=None, folder_season=None)
+        alone = replace(facts, parsed=parsed)
+        named = Group(f"{group.query}: {title}", parsed.year, False, (alone,), group.query)
+        ranked = self._look_up(named, tmdb, series=False)
+        best = ranked[0] if ranked else None
+        if best is None or best.confidence < SURE or best.anime.id == series.id:
+            return None
+        if best.anime.kind is not TitleKind.MOVIE and best.anime.episodes != 1:
+            return None  # which of its episodes the file is, its name doesn't say
+        home = self._title_for(conn, best.anime, tmdb)
+        if home.film or best.anime.kind is TitleKind.MOVIE:
+            return best, home, ranked, None
+        where = _placement(parsed, best.anime, home)
+        if where is None and home.specials and home.show is not None:
+            where = named_special(best.anime.titles, home.show)  # TMDB names it as AniList does
+        return (best, home, ranked, where) if where is not None else None
 
     def _title_for(self, conn: sqlite3.Connection, entry: Anime, tmdb: Tmdb | None) -> _Home:
         """The library's title for an AniList entry, made or refreshed, with its TMDB show.
@@ -785,6 +903,36 @@ def _mark_unlookable(
                 for file_id, kind in others
             ],
         )
+
+
+def _place(
+    conn: sqlite3.Connection,
+    facts: FileFacts,
+    home: _Home,
+    best: Guess,
+    where: Placement | None,
+    ranked: list[Guess],
+    stamp: str,
+) -> None:
+    """A file matched surely: its title, entry and place there (none for a film). Part of the
+    caller's transaction."""
+    conn.execute(
+        """UPDATE files SET title_id = ?, anilist_id = ?, season = ?, episode = ?,
+                  episode_end = ?, matched = 'sure', confidence = ?, guesses = ?,
+                  identified_at = ?
+           WHERE id = ? AND pinned = 0""",
+        (
+            home.title_id,
+            best.anime.id,
+            where.season if where else None,
+            where.episode if where else None,
+            where.last if where else None,
+            best.confidence,
+            _guesses_json(ranked),
+            stamp,
+            facts.id,
+        ),
+    )
 
 
 def _mark_unsure(

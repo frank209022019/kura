@@ -194,6 +194,18 @@ def test_not_anime_is_listed_and_can_wait_for_a_match_again(
     assert tuple(row) == ("none", 0, None)  # looked up afresh at the next scan
 
 
+def test_searching_by_a_name_only_tmdb_knows_finds_it_through_tmdb(
+    client: TestClient, waiting: FakeWeb, paths: DataPaths
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    [first, *_] = client.get("/review").json()
+
+    found = client.get(f"/review/{first['id']}/search", params={"q": "Bola de Dragon Z"}).json()
+
+    assert found[0]["anilistId"] == 813
+    assert found[0]["reasons"][0] == "TMDB knows it as Dragon Ball Z"
+
+
 def test_offline_a_choice_changes_nothing_and_says_so(
     client: TestClient, waiting: FakeWeb, conn: sqlite3.Connection
 ):

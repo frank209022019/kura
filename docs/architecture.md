@@ -139,29 +139,28 @@ Scanning (`kura/scan.py`) runs on a background thread: it walks each library fol
 (`kura/library.py`, by the rules in `kura/core/library.py`) and records each with its size and
 time, then reads the new and changed ones with ffprobe (`kura/probe.py`). Everything is saved as it
 goes and the scan's stage is in the `scans` table, so a pause, an exit or a crash loses nothing: the
-next start carries on. Then each video read is identified (`kura/identify.py`): files that look
-like the same anime are looked up together on AniList (a release's numbered film by its own name,
-asked again in shorter forms while nothing found is sure, and a name AniList writes otherwise as
-it writes it; see [stack/anilist.md](stack/anilist.md)), and with the owner's TMDB key the same
-show or film is found on TMDB, whose episode lists say where each file sits. An OVA or special
-goes into its show's season 0 when the library has the show and TMDB lists it among the show's
-specials on the day it first aired, or by its own name ("Special 06 - The History of Trunks");
-otherwise it's a title of its own. Titles AniList ties
-together by story (sequels, prequels, alternative versions, films, side stories) make a franchise
-(`kura/core/franchise.py`): Home shows each franchise as one card with a page of its own (an entry
-matched before Kura kept these links is asked about at the next scan). A file
-Kura isn't sure about waits for the owner, whose choice is pinned (an episode Kura can't place
-asks for its number), or who sets it aside as not anime, pinned too; the files set aside are
-listed, and one taken back waits again, looked up afresh at the next scan (`Identifier.unignore`).
-Offline, identification waits for the next scan and the scan says so. A
-title's match can be changed for all its files at once (`Identifier.rematch`), chosen for its
-first episode: files of that kind take the owner's choice, the others keep theirs (a series'
-specials stay specials), and any that doesn't fit the new anime waits for the owner.
-Last, the scan checks the library: each series with a folder of its own gets its
-`Kura - Gap analysis.md` (`kura/reports.py`), rewritten only when its news changes. The missing
-episodes are the ones TMDB lists as aired that no file holds (`kura/core/gaps.py`), or without a
-TMDB key the ones AniList counts as aired so far; specials and OVAs are listed apart and never
-counted as missing.
+next start carries on. Then each video read is identified (`kura/identify.py`): files that look like
+the same anime are looked up together on AniList (a release's numbered film by its own name, asked
+again in shorter forms while nothing found is sure, and a name AniList writes otherwise as it writes
+it; see [stack/anilist.md](stack/anilist.md)), and with the owner's TMDB key the same show or film
+is found on TMDB, whose episode lists say where each file sits. What AniList can't find by a name,
+TMDB's search is asked for, and AniList for TMDB's names for it ([stack/tmdb.md](stack/tmdb.md)). An
+OVA or special goes into its show's season 0 when the library has the show and TMDB lists it among
+the show's specials on the day it first aired, or by its own name ("Special 06 - The History of
+Trunks"); otherwise it's a title of its own. Titles AniList ties together by story (sequels,
+prequels, alternative versions, films, side stories) make a franchise (`kura/core/franchise.py`):
+Home shows each franchise as one card with a page of its own (an entry matched before Kura kept
+these links is asked about at the next scan). A file Kura isn't sure about waits for the owner,
+whose choice is pinned (an episode Kura can't place asks for its number), or who sets it aside as
+not anime, pinned too; the files set aside are listed, and one taken back waits again, looked up
+afresh at the next scan (`Identifier.unignore`). Offline, identification waits for the next scan and
+the scan says so. A title's match can be changed for all its files at once (`Identifier.rematch`),
+chosen for its first episode: files of that kind take the owner's choice, the others keep theirs (a
+series' specials stay specials), and any that doesn't fit the new anime waits for the owner. Last,
+the scan checks the library: each series with a folder of its own gets its `Kura - Gap analysis.md`
+(`kura/reports.py`), rewritten only when its news changes. The missing episodes are the ones TMDB
+lists as aired that no file holds (`kura/core/gaps.py`), or without a TMDB key the ones AniList
+counts as aired so far; specials and OVAs are listed apart and never counted as missing.
 
 While Kura is open, `kura/watch.py` keeps the library current: a scan at start catches up on what
 changed while Kura was closed; the library folders are watched (`watchdog`), so a new, removed or

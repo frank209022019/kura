@@ -199,6 +199,13 @@ def hits(answer: Json, media: Literal["tv", "movie"]) -> list[Hit]:
     return found
 
 
+def alternative_titles(answer: Json) -> list[str]:
+    """The other names TMDB knows a show or film by, from /tv/{id}/alternative_titles (in
+    "results") or /movie/{id}/alternative_titles (in "titles")."""
+    found = [*fields.mappings(answer, "results"), *fields.mappings(answer, "titles")]
+    return list(dict.fromkeys(title for item in found if (title := fields.text(item, "title"))))
+
+
 def show(details: Json) -> Show | None:
     """A TMDB show from /tv/{id}, with its seasons appended (`append_to_response=season/1,…`)."""
     number = fields.whole(details, "id")

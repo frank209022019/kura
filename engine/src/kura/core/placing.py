@@ -13,7 +13,7 @@ review.
 """
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
@@ -138,14 +138,31 @@ def _special(parsed: ParsedName, show: Show, entry: Anime | None) -> Placement |
     return None
 
 
+def named_special(names: Iterable[str], show: Show) -> Placement | None:
+    """The special an entry's own names name among the show's, with or without the show's name
+    before them ("Dragon Ball Z: Atsumare! Goku's World" is TMDB's "Atsumare Goku World"), when
+    they all name the same one."""
+    specials = show.season(0)
+    found = {
+        named.number
+        for name in names
+        for part in dict.fromkeys((name, name.split(": ", 1)[-1]))
+        if (named := _named(part, specials))
+    }
+    if len(found) != 1:
+        return None
+    return Placement(0, found.pop(), None, How.BY_NAME)
+
+
 def _named(title: str, specials: Sequence[Episode]) -> Episode | None:
     """The special a file's own name names, when one fits it clearly better than the rest:
     "Bardock, The Father of Goku" is "Bardock - The Father of Goku". A part goes by its number
-    ("Part 1 of 2" is TMDB's "(1)"), and a name with an "aka" by either name."""
-    names = [_part_number(name) for name in _AKA.split(title)]
+    ("Part 1 of 2" is TMDB's "(1)"), a name with an "aka" by either name, and the words any
+    special could carry don't count ("Summer Vacation" is "Summer Vacation Special")."""
+    names = [_part_number(_plain(name)) for name in _AKA.split(title)]
     scored = sorted(
         (
-            (max(similarity(name, _part_number(special.title)) for name in names), special)
+            (max(similarity(name, _part_number(_plain(special.title))) for name in names), special)
             for special in specials
             if special.title
         ),
@@ -160,6 +177,14 @@ def _named(title: str, specials: Sequence[Episode]) -> Episode | None:
 
 
 _AKA = re.compile(r"\s+aka\s+", re.IGNORECASE)
+_ANY_SPECIAL = re.compile(r"\b(?:tv\s+)?specials?\b|\bova\b|\boad\b", re.IGNORECASE)
+
+
+def _plain(name: str) -> str:
+    """A special's name without the words any special could carry ("Special", "OVA")."""
+    return _ANY_SPECIAL.sub(" ", name).strip() or name
+
+
 _PART = re.compile(r"\bpart\s*(\d+)(?:\s*of\s*\d+)?\b", re.IGNORECASE)
 
 

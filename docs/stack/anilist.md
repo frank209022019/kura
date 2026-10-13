@@ -49,10 +49,19 @@ AniList's search finds an entry only when every word asked for is in one of its 
 release's own words empty the answer: `Dragon Ball Z - Movie 03 - The Tree of Might` finds
 nothing, `Dragon Ball Z: The Tree of Might` (how Kura reads that name) finds the film. While
 nothing found is sure, a numbered film is asked for again by its name up to a comma, its own name
-alone, and its series (`searches` in [kura/core/identify.py](../../engine/src/kura/core/identify.py)).
-When nothing at all is found, the name may be one AniList writes otherwise: what its first word
-finds says how ("Dragonball" finds "Dragon Ball"), and `Dragonball GT` is asked for as
-`dragon ball gt` (`respelled`). Every answer is kept a week, like any other.
+alone, those with the series' initials written out (`DB Super BROLY` among Dragon Ball Z's
+films is `Dragon Ball Super BROLY`, `spelled_out`), and its series (`searches` in
+[kura/core/identify.py](../../engine/src/kura/core/identify.py)); entries are scored against the
+best of those readings (`names`). When nothing at all is found, the name may be one AniList
+writes otherwise: what its first word finds says how ("Dragonball" finds "Dragon Ball"), and
+`Dragonball GT` is asked for as `dragon ball gt` (`respelled`). Every answer is kept a week, like
+any other. While nothing found is sure still, and the owner has a TMDB key, TMDB's search is
+asked too, and AniList for TMDB's names for what it finds (see [tmdb.md](tmdb.md), "When AniList
+can't find a name"). A series' special its show's list doesn't name is looked up the same way by
+its own name read as the series' ("Dragon Ball Z: A Hero's Legacy"); a one-off found so goes
+into its show's specials by the day it first aired, or by its names there, or is a title of its
+own (`_by_own_names` in [kura/identify.py](../../engine/src/kura/identify.py)). Names are compared
+without accents on Latin letters ("Pokémon" is "pokemon").
 
 ## Without a TMDB key
 

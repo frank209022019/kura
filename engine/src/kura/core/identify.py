@@ -1,5 +1,7 @@
 """Working out which anime each video is: grouping files that look like the same anime, scoring
-AniList's entries against them, and picking the same show or film on TMDB.
+AniList's entries against them, and picking the same show or film on TMDB. What AniList's search
+can't find by a name, TMDB's may: its shows and films are scored against the files too, and
+AniList's entries for them are guesses no surer than that.
 
 Every guess gets a confidence from 0 to 100 and the reasons for it, in the words the review screen
 shows. Kura accepts a guess on its own only when it's sure; the rest wait for the owner.
@@ -11,7 +13,7 @@ import statistics
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 from pathlib import PurePath
 
@@ -96,16 +98,44 @@ def group_files(files: Iterable[FileFacts]) -> list[Group]:
     return sorted(groups, key=lambda group: (group.query.casefold(), group.movie))
 
 
-def searches(group: Group) -> list[str]:
-    """What to ask AniList for a group, in turn while nothing it finds is sure: the group's name,
-    then for a numbered film ("Dragon Ball Z: Battle of Gods, UNCut") its name up to a comma, its
-    own name alone, and its series. AniList finds nothing for a name with a word none of an
-    entry's names has, such as a release's own "UNCut"."""
+def names(group: Group) -> list[str]:
+    """The ways a group's name reads, to score what's found against: its name, and for a numbered
+    film ("Dragon Ball Z: Battle of Gods, UNCut", or a series' special looked up by its own name)
+    also its name up to a comma and its own name alone, with the series' initials written out:
+    "DB Super BROLY" among Dragon Ball Z's films is "Dragon Ball Super BROLY"."""
     texts = [group.query]
     own = group.query.removeprefix(f"{group.series}: ") if group.series else group.query
     if group.series and own != group.query:
         first = own.split(",")[0].strip()
-        texts += [f"{group.series} {first}", own, first, group.series]
+        texts += [f"{group.series} {first}", own, first]
+        texts += [text for part in (own, first) if (text := spelled_out(part, group.series))]
+    return _unique(texts)
+
+
+def searches(group: Group, *, series: bool = True) -> list[str]:
+    """What to ask AniList for a group, in turn while nothing it finds is sure: the ways its name
+    reads (`names`), then a numbered film's series (unless `series` is False). AniList finds
+    nothing for a name with a word none of an entry's names has, such as a release's own
+    "UNCut" or "DB" for Dragon Ball."""
+    texts = names(group)
+    if series and group.series and len(texts) > 1:
+        texts.append(group.series)
+    return _unique(texts)
+
+
+def spelled_out(text: str, series: str) -> str | None:
+    """`text` with the series' initials at its start written out: "DB Super BROLY" in Dragon
+    Ball Z is "Dragon Ball Super BROLY", "DBZ Kai" "Dragon Ball Z Kai". None without them."""
+    first, _, rest = text.partition(" ")
+    words = series.split()
+    if not (first.isalpha() and first.isupper() and 2 <= len(first) <= len(words)):
+        return None
+    if first != "".join(word[0] for word in words[: len(first)]).upper():
+        return None
+    return " ".join([*words[: len(first)], rest]).strip()
+
+
+def _unique(texts: Iterable[str]) -> list[str]:
     unique: dict[str, str] = {}
     for text in texts:
         if words := normalize(text):  # each asked once, and nothing asked for no name
@@ -141,8 +171,54 @@ def guesses(group: Group, entries: Sequence[Anime]) -> list[Guess]:
     return [guess for guess in found if guess.confidence >= WORTH_SHOWING]
 
 
+def merged(*rankings: Sequence[Guess]) -> list[Guess]:
+    """Guesses from several lookups as one ranking, most confident first: each entry once, at its
+    surest."""
+    best: dict[int, Guess] = {}
+    for ranking in rankings:
+        for guess in ranking:
+            known = best.get(guess.anime.id)
+            if known is None or guess.confidence > known.confidence:
+                best[guess.anime.id] = guess
+    return sorted(best.values(), key=lambda guess: guess.confidence, reverse=True)
+
+
+def tmdb_fit(group: Group, hit: Hit, rank: int, aliases: Sequence[str] = ()) -> int:
+    """How well a show or film TMDB found fits a group's files, from 0 to 100: its names (and the
+    other names TMDB knows it by, `aliases`) against the ways the files' name reads, its year,
+    whether it's a film as they are, and whether it's Japanese animation."""
+    known = [title for title in (hit.title, hit.original_title, *aliases) if title]
+    name = max(similarity(text, title) for text in names(group) for title in known)
+    score = name * 70
+    if group.year and hit.year:
+        if group.year == hit.year:
+            score += 15
+        elif abs(group.year - hit.year) == 1:
+            score += 5
+        else:
+            score -= 25
+    # TMDB has a special as its show's, or as a film of its own.
+    specials = all(f.parsed.kind is Kind.SPECIAL for f in group.files)
+    score += 10 if specials or (hit.media == "movie") == group.movie else -20
+    score += 8 if hit.animation else -15
+    score += 7 if hit.japanese else -5
+    score += 5 if rank == 0 else 0
+    return max(0, min(100, round(score)))
+
+
+def through_tmdb(group: Group, hit: Hit, fit: int, entries: Sequence[Anime]) -> list[Guess]:
+    """AniList's entries for a show or film TMDB found by a group's name, as guesses: scored as if
+    the files bore TMDB's names for it, and no surer than it fits them (`fit`)."""
+    said = f"TMDB knows it as {hit.title}"
+    found: list[Guess] = []
+    for title in dict.fromkeys((hit.title, hit.original_title)):
+        found = merged(found, guesses(replace(group, query=title, series=None), entries))
+    capped = [Guess(g.anime, min(g.confidence, fit), (said, *g.reasons)) for g in found]
+    return [guess for guess in capped if guess.confidence >= WORTH_SHOWING]
+
+
 def _guess(group: Group, entry: Anime, rank: int) -> Guess:
-    name = max(similarity(group.query, title) for title in entry.titles)
+    name = max(similarity(text, title) for text in names(group) for title in entry.titles)
     score = name * 70
     reasons: list[str] = ["Title matches" if name >= 0.95 else f"Title {round(name * 100)}% alike"]
     # A series' specials came after it began, and are as long as they are.
@@ -250,10 +326,16 @@ def base_title(title: str) -> str:
 
 
 def normalize(text: str) -> str:
-    """A name reduced to what matters for comparing: letters and digits in lower case."""
-    folded = unicodedata.normalize("NFKC", text).casefold().replace("&", " and ")
+    """A name reduced to what matters for comparing: letters and digits in lower case, without
+    the accents of Latin letters ("Pokémon" is "pokemon", "Gokū" is "goku")."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    plain = "".join(char for char in decomposed if not _ACCENT.match(char))
+    folded = unicodedata.normalize("NFKC", plain).casefold().replace("&", " and ")
     folded = re.sub(r"['\u2019`]", "", folded)  # apostrophes, straight or curly: "Heaven's"
     return " ".join(re.sub(r"[^\w]+", " ", folded).split())
+
+
+_ACCENT = re.compile("[\u0300-\u036f]")  # the marks Latin letters carry
 
 
 def similarity(a: str, b: str) -> float:

@@ -40,10 +40,27 @@ Kura works without a key: it still identifies each anime with AniList, without e
 | `GET /3/search/movie?query=…&primary_release_year=…` | Finding a film |
 | `GET /3/tv/{id}`, then again with `append_to_response=season/0,season/1,…` (20 at most per request) | A show with every episode of every season |
 | `GET /3/movie/{id}` | A film |
+| `GET /3/tv/{id}/alternative_titles`, `GET /3/movie/{id}/alternative_titles` | The other names a show or film goes by, when a name AniList can't find leads TMDB to it |
 | `https://image.tmdb.org/t/p/w342{poster_path}` | A poster |
 
 [kura/core/catalog.py](../../engine/src/kura/core/catalog.py) turns the answers into plain
 values (`Show`, `Episode`, `Film`, `Hit`).
+
+## When AniList can't find a name
+
+AniList's search needs every word of a name in one of an entry's names; TMDB's search is more
+forgiving and knows names in more languages (its alternative titles). So when nothing AniList
+finds for a group of files is sure, `_through_tmdb` in
+[kura/identify.py](../../engine/src/kura/identify.py) asks TMDB for the ways the name reads (three
+at most; films as films, a show's episodes as shows, specials as both), and scores the best
+three of each answer against the files (`tmdb_fit` in
+[kura/core/identify.py](../../engine/src/kura/core/identify.py)): the names, the year, film or
+show, Japanese animation. The first one's alternative titles are fetched when its own names fit
+less than surely: `Bola de Dragon Z` is one of Dragon Ball Z's. Each that fits well enough is
+asked of AniList by TMDB's names for it, and AniList's entries become guesses scored as if the
+files bore TMDB's name, no surer than TMDB's fit (`through_tmdb`), with "TMDB knows it as …"
+first among their reasons. A sure one is matched; the rest wait on the review screen, whose
+search asks TMDB the same way. TMDB away or refusing the key leaves AniList's guesses as they are.
 
 ## Limits and errors
 

@@ -204,11 +204,15 @@ Everything decided so far. Don't ask again; change only with the owner.
 - A pure core behind small interfaces: parse → match → plan → check → estimate.
 - Identification: anitopy parses names (chosen over guessit and aniparse after testing them on
   real names, see docs/stack/anitopy.md), AniList's search matches titles (a name that finds
-  nothing is asked again in shorter forms and as AniList writes it, docs/stack/anilist.md; the
-  fallback to TMDB's search that was planned isn't built), results map to TMDB IDs, low
-  confidence goes to a review screen, and manual fixes are pinned so a rescan never undoes them. The manami offline database was the first plan, but its
-  repository was archived in 2026 and stopped updating, so AniList's search, which is always
-  current and needs no download, took its place (2026-10-11).
+  nothing is asked again in shorter forms, with a series' initials written out, and as AniList
+  writes it, docs/stack/anilist.md; what AniList still can't find is searched on TMDB, which
+  knows more languages and spellings, and AniList is asked for TMDB's names for it,
+  docs/stack/tmdb.md; built 2026-10-13 at the owner's word), results map to TMDB IDs, low
+  confidence goes to a review screen, and manual fixes are pinned so a rescan never undoes
+  them. A series' special its show's list doesn't name is looked up by its own name, as an OVA
+  or special of its own. The manami offline database was the first plan, but its repository
+  was archived in 2026 and stopped updating, so AniList's search, which is always current and
+  needs no download, took its place (2026-10-11).
 - Metadata from TMDB and AniList together, for full coverage (the owner, 2026-10-11). TMDB gives
   the episode lists (titles, air dates, Plex's seasons) and the artwork, with the owner's own key:
   Kura asks for it in Setup and Settings and keeps it on the PC, never in the code or an export.

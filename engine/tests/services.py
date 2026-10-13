@@ -21,6 +21,8 @@ ANILIST_EXACT = {
     "dragon ball z: the tree of might": "dragon-ball-z-the-tree-of-might",
     "dragonball": "dragonball",
     "dragon ball gt": "dragon-ball-gt",
+    "dragon ball super broly": "dragon-ball-super-broly",
+    "dragon ball super: broly": "dragon-ball-super-broly",
 }
 # These answer any search that starts with them, more kindly than AniList.
 ANILIST_ANSWERS = {
@@ -90,7 +92,8 @@ def tmdb_show(details: dict[str, object]) -> Callable[[Asked], object]:
 
 def tmdb_search_tv(asked: Asked) -> object:
     query = asked.query["query"].casefold()
-    if query == "dragon ball z":
+    # TMDB knows Dragon Ball Z by its Spanish name too, as AniList doesn't.
+    if query in ("dragon ball z", "bola de dragon z"):
         return tv_search((12971, "Dragon Ball Z", date(1989, 4, 26)))
     if query == "cowboy bebop":
         return tv_search((30991, "Cowboy Bebop", date(1998, 4, 3)))
@@ -110,6 +113,10 @@ def internet(*, tmdb: bool = True, airing: Mapping[int, int] | None = None) -> F
             f"GET {TMDB}/search/tv": tmdb_search_tv,
             f"GET {TMDB}/search/movie": tmdb_search_movie,
             f"GET {TMDB}/tv/12971": tmdb_show(DBZ_DETAILS),
+            f"GET {TMDB}/tv/12971/alternative_titles": {
+                "id": 12971,
+                "results": [{"iso_3166_1": "ES", "title": "Bola de Dragón Z", "type": ""}],
+            },
             f"GET {TMDB}/tv/30991": tmdb_show(BEBOP_DETAILS),
             f"GET {TMDB}/movie/11299": movie_details(
                 11299, "Cowboy Bebop: The Movie", date(2001, 9, 1), 115

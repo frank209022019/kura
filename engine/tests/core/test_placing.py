@@ -8,7 +8,7 @@ import pytest
 
 from kura.core.catalog import Anime, Show, anime_list, show
 from kura.core.names import parse_name
-from kura.core.placing import How, Placement, lists_special, place
+from kura.core.placing import How, Placement, lists_special, named_special, place
 from tests.tmdb_data import DBZ_SEASONS, tv_details
 
 ANILIST = Path(__file__).parent.parent / "data" / "anilist"
@@ -185,6 +185,7 @@ SPECIALS = r"D:\Anime\DRAGON BALL Z (1989-2019) - The COMPLETE Series\3. TV Spec
     ("name", "number"),
     [
         ("Dragon Ball Z - Special 01 - Bardock, The Father of Goku (1990 BluRay).mkv", 1),
+        ("Dragon Ball Z - Special 02a - Summer Vacation aka Movie Overview (1992).mkv", 2),
         ("Dragon Ball Z - Special 06 - The History of Trunks (1995 BluRay).mkv", 3),
         ("Dragon Ball Z - OVA 01a - Plan to Eradicate The Saiyans, Part 1 of 2 (1993).mkv", 4),
         ("Dragon Ball Z - OVA 01b - Plan to Eradicate The Saiyans, Part 2 of 2 (1993).mkv", 5),
@@ -202,13 +203,33 @@ def test_a_special_goes_by_its_own_name_among_the_shows_specials(name: str, numb
 @pytest.mark.parametrize(
     "name",
     [
-        "Dragon Ball Z - Special 02a - Summer Vacation aka Movie Overview (1992).mkv",
         "Dragon Ball Z - Special 02b - Summer Vacation COMMERCIALS (1992).mkv",
         "Dragon Ball Z - Special 05 (GT) - A Hero's Legacy (1997 DVDRip).mkv",
     ],
 )
 def test_a_special_whose_name_fits_none_of_the_shows_well_isnt_placed(name: str):
     assert placed(rf"{SPECIALS}\{name}", DBZ_SPECIALS, anilist("dragon-ball-z", 813)) is None
+
+
+def test_an_entry_found_by_a_specials_own_name_goes_by_its_names_among_the_shows():
+    names = ("Dragon Ball Z: Atsumare! Goku's World", "ドラゴンボールZ 集まれ!悟空ワールド")
+    show_ = tmdb_show(
+        tv_details(
+            12971,
+            "Dragon Ball Z",
+            DBZ_SEASONS,
+            first_aired=date(1989, 4, 26),
+            specials=3,
+            titles={
+                (0, 1): "Bardock",
+                (0, 2): "Summer Vacation Special",
+                (0, 3): "Atsumare Goku World",
+            },
+        )
+    )
+
+    assert named_special(names, show_) == Placement(0, 3, None, How.BY_NAME)
+    assert named_special(("Dragon Ball Z: Something Else",), show_) is None
 
 
 def test_a_one_off_special_is_the_one_from_its_day_whatever_the_release_numbers_it():
