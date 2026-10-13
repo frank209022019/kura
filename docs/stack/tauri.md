@@ -133,7 +133,9 @@ folder, with `LICENSE.txt` and `THIRD-PARTY-NOTICES.txt` beside Kura; and turns 
 Hooks can use the template's variables (`$UpdateMode`, `$PassiveMode`, `$DeleteAppDataCheckboxState`).
 After a Tauri upgrade, build an installer and test an install, an update and an uninstall. The
 pre-install hook runs before the template checks whether Kura is open, and nothing runs between
-that check and the copying.
+that check and the copying. `windows/hooks-test.ps1` checks the engine's replacement on a scratch
+folder in `target/` (an update, a first install, a stopped install, a running engine), with the
+NSIS that `pnpm build:installer` downloads: run it after changing `hooks.nsh` or upgrading Tauri.
 
 ## Commands you'll use
 
