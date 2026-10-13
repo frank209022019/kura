@@ -63,17 +63,23 @@ def rest_of_bebop(conn: sqlite3.Connection) -> franchises.Rest:
     return franchises.rest(conn, franchise)
 
 
-def test_a_franchise_is_looked_up_a_few_entries_at_a_time_the_librarys_own_first(
+def test_a_franchise_is_looked_up_a_few_entries_at_a_time_what_the_library_lacks_first(
     bebop: sqlite3.Connection,
 ):
     web = internet()
     anilist = AniList(web)
 
     assert franchises.look_up(bebop, anilist, NOW, count=2) == 2
-    assert asked_about(web) == [BEBOP, BEBOP_MOVIE]
+    assert asked_about(web) == [YOSEATSUME_BLUES, EINS_SUMMER_VACATION]
+    shown = rest_of_bebop(bebop)  # before the library's own are asked about again
+    assert [entry.name for entry in shown.titles] == [
+        "Cowboy Bebop: Yoseatsume Blues",
+        "Ein's Summer Vacation",
+    ]
+    assert not shown.looking
     look_up_everything(bebop, anilist)
 
-    assert asked_about(web) == [BEBOP, BEBOP_MOVIE, YOSEATSUME_BLUES, EINS_SUMMER_VACATION]
+    assert asked_about(web) == [YOSEATSUME_BLUES, EINS_SUMMER_VACATION, BEBOP, BEBOP_MOVIE]
     kept = {row["id"]: row for row in bebop.execute("SELECT * FROM anilist_entries")}
     assert kept[YOSEATSUME_BLUES]["name"] == "Cowboy Bebop: Yoseatsume Blues"
     assert (kept[YOSEATSUME_BLUES]["format"], kept[YOSEATSUME_BLUES]["status"]) == (

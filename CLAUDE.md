@@ -183,13 +183,16 @@ Everything decided so far. Don't ask again; change only with the owner.
 - A franchise's page shows what the library is missing of the whole franchise (the owner,
   2026-10-13): "Missing titles", beside the sort after a divider, puts in among its titles the
   series, films, OVAs and specials AniList ties to it by story that the library has no part of,
-  each in its place, dimmed with a hollow "Not in library" ("Coming" for one not out yet). One
-  the library holds some of (a season TMDB keeps under a show it has, a special in a show's
-  specials) isn't missing. Kura looks franchises up in the background, a few entries at a
-  time, and asks about each again weekly, daily while it airs or is still to come, so a new
-  one ("now there is a new Dragon Ball Super: Beerus out") appears by itself. Which titles
-  make a franchise on Home doesn't change with what's looked up: only the links of entries
-  the library holds tie titles together, as before.
+  each in its place as a dotted placeholder (the owner, 2026-10-13: "it should be a dotted
+  placeholder for it in the library"), AniList's cover dimmed in it, with a hollow "Not in
+  library" ("Coming" for one not out yet). One the library holds some of (a season TMDB keeps
+  under a show it has, a special in a show's specials) isn't missing. A title's page has
+  "Missing titles" too, leading to its franchise's page with them in, a title alone in the
+  library included. Kura looks franchises up in the background, a few entries at a time,
+  what the library lacks first, and asks about each again weekly, daily while it airs or is
+  still to come, so a new one ("now there is a new Dragon Ball Super: Beerus out") appears by
+  itself. Which titles make a franchise on Home doesn't change with what's looked up: only the
+  links of entries the library holds tie titles together, as before.
 - Everything says what it is (the owner, 2026-10-11): TV series, movie, OVA or special, as a word
   on its card, title page, review and report (status keeps the shapes), with counts by kind
   ("TV · 26 episodes · 2 OVAs · 1 movie"). Specials and OVAs are listed apart from missing

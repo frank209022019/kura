@@ -13,6 +13,7 @@ from kura.core.franchise import (
     nearest,
     own_links,
     story_neighbours,
+    taking_turns,
 )
 
 # AniList's numbers for a few Dragon Ball entries, and Cowboy Bebop's.
@@ -275,3 +276,12 @@ def test_an_ova_out_a_week_from_a_special_the_library_has_isnt_held_by_it():
     ova = entry(13, "A Show: Something Else", "OVA", date(2005, 8, 8), 1)
 
     assert missing([ova], {10}, [Kept(frozenset({10}), show_, frozenset({(0, 1)}))], []) == [ova]
+
+
+def test_franchises_take_turns_the_least_looked_up_first():
+    # Five franchises waiting; the last two newly added, nothing of them looked up yet.
+    waiting = [[11, 12, 13], [21, 22, 23], [31, 32, 33], [41, 42], [51]]
+    looked_up = [9, 9, 9, 0, 0]
+
+    assert taking_turns(waiting, looked_up)[:3] == [41, 51, 11]  # never behind three others
+    assert taking_turns(waiting, looked_up) == [41, 51, 11, 21, 31, 42, 12, 22, 32, 13, 23, 33]

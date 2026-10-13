@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
-import { Cover, Poster } from "@/components/poster";
+import { Poster } from "@/components/poster";
 import { SortControl } from "@/components/sort-control";
 import { StatusShape } from "@/components/status";
 import { TitleCard } from "@/components/title-card";
@@ -13,6 +13,7 @@ import {
   type TitleKind,
   type TitleSort,
   type TitleSummary,
+  useCover,
   useFranchise,
   useFranchiseMissing,
 } from "@/lib/engine";
@@ -27,11 +28,15 @@ type Shelved =
 
 /** A franchise: its series, films, OVAs and specials, by type and oldest release first unless the
  * owner picks another order, each leading to its own page. "Missing titles" puts in among them
- * the ones AniList ties to the franchise that the library has no part of. */
+ * the ones AniList ties to the franchise that the library has no part of. The address keeps
+ * whether they're in (`?missing`, as a title's own "Missing titles" leads here), so going back
+ * to the page finds it as it was left. */
 export function FranchisePage() {
   const { id } = useParams();
+  const [address, setAddress] = useSearchParams();
   const [sort, setSort] = useState<TitleSort>("released");
-  const [whole, setWhole] = useState(false);
+  const whole = address.has("missing");
+  const setWhole = (on: boolean) => setAddress(on ? { missing: "" } : {}, { replace: true });
   const franchise = useFranchise(Number(id), sort);
   const missing = useFranchiseMissing(Number(id));
 
@@ -55,7 +60,7 @@ export function FranchisePage() {
         `${found.titles.length} of ${found.titles.length + lacking.length} titles`,
         offered.looking && "still looking up the rest",
       ]
-    : [`${found.titles.length} titles`];
+    : [found.titles.length === 1 ? "1 title" : `${found.titles.length} titles`];
   return (
     <>
       <Breadcrumb trail={[LIBRARY]} current={found.name} />
@@ -159,14 +164,28 @@ function MissingToggle(props: {
   );
 }
 
-/** A title the library has no part of: AniList's cover, dimmed, with a hollow "Not in library"
- * (a faint "Coming" for one not out yet). Kura has no page for it, so it leads nowhere. */
+/** A title the library has no part of: a place kept for it, its outline dotted, AniList's cover
+ * dimmed in it, with a hollow "Not in library" (a fainter "Coming" for one not out yet). Kura
+ * has no page for it, so it leads nowhere. */
 function MissingCard({ title }: { title: MissingTitle }) {
+  const cover = useCover(title.cover);
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="relative">
-        <Cover name={title.name} cover={title.cover} className="opacity-45" />
-        <span className="absolute top-2.5 left-2.5 inline-flex h-6 items-center gap-1.5 rounded-full bg-window/60 px-2.25 font-bold text-11">
+      <div
+        className={cn(
+          "relative aspect-[2/3] overflow-hidden rounded-14 border-2 border-dotted",
+          title.coming ? "border-missing/40" : "border-missing",
+        )}
+      >
+        {cover && (
+          <img
+            src={cover}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 size-full object-cover opacity-40"
+          />
+        )}
+        <span className="absolute top-2 left-2 inline-flex h-6 items-center gap-1.5 rounded-full bg-window/60 px-2.25 font-bold text-11">
           <StatusShape state={title.coming ? "upcoming" : "missing"} className="size-2" />
           {title.coming ? "Coming" : "Not in library"}
         </span>
@@ -210,7 +229,8 @@ function Header({ franchise }: { franchise: FranchiseSummary }) {
       <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex h-6.5 items-center rounded-full bg-accent px-2.5 font-extrabold text-12 text-on-accent">
-            Franchise
+            {/* A title alone in the library, come for what its franchise lacks, says what it is. */}
+            {franchise.titles.length === 1 && lead ? kindWord(lead.kind) : "Franchise"}
           </span>
           {franchise.airing && <span className="text-12 text-accent-fg">Still airing</span>}
         </div>

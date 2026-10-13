@@ -176,6 +176,61 @@ describe("TitlePage", () => {
     );
   });
 
+  it("leads to what its franchise lacks, even alone in the library", async () => {
+    const kai = {
+      anilistId: 6033,
+      kind: "series",
+      name: "Dragon Ball Z Kai",
+      year: 2009,
+      released: "2009-04-05",
+      episodes: 97,
+      coming: false,
+      airing: false,
+      cover: null,
+    };
+    renderTitle(DBZ, undefined, null, {
+      "/franchises/1/missing": { titles: [kai], looking: false },
+    });
+
+    expect(await screen.findByRole("link", { name: "Missing titles 1" })).toHaveAttribute(
+      "href",
+      "/franchises/1?missing",
+    );
+  });
+
+  it("leads to its franchise's page for what the franchise lacks", async () => {
+    const lacking = { titles: [{ anilistId: 502, kind: "movie" }], looking: false };
+    renderTitle({ ...DBZ, franchise: { id: 7, name: "Dragon Ball" } }, undefined, null, {
+      "/franchises/7/missing": lacking,
+    });
+
+    expect(await screen.findByRole("link", { name: "Missing titles 1" })).toHaveAttribute(
+      "href",
+      "/franchises/7?missing",
+    );
+  });
+
+  it("offers no missing titles once its videos are all gone", async () => {
+    const fetch = renderTitle({ ...DBZ, files: 0, videos: [] }, undefined, null, {
+      "/franchises/1/missing": { titles: [{ anilistId: 6033, kind: "series" }], looking: false },
+    });
+
+    await screen.findByRole("button", { name: "Change match" });
+    await waitFor(() => expect(sent(fetch, "GET", "/franchises/1/missing")).toHaveLength(1));
+    await new Promise((settled) => setTimeout(settled, 50)); // its answer read, too
+    expect(screen.queryByRole("link", { name: /Missing titles/ })).not.toBeInTheDocument();
+  });
+
+  it("offers no missing titles when its franchise lacks none", async () => {
+    const fetch = renderTitle(DBZ, undefined, null, {
+      "/franchises/1/missing": { titles: [], looking: false },
+    });
+
+    await screen.findByRole("button", { name: "Change match" });
+    await waitFor(() => expect(sent(fetch, "GET", "/franchises/1/missing")).toHaveLength(1));
+    expect(screen.queryByRole("link", { name: /Missing titles/ })).not.toBeInTheDocument();
+  });
+
   it("opens its folder, and leads to changing its match", async () => {
     renderTitle(DBZ);
 

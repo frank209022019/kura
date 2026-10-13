@@ -46,8 +46,10 @@ entries and asks about each entry it reaches (`Media(id: …)`), keeping its nam
 first day, episode count and cover in `anilist_entries` and its links with the rest
 ([kura/franchises.py](../../engine/src/kura/franchises.py)). It asks three at each of the
 watcher's look-arounds, every 15 seconds while no scan runs and no change waits for one: about
-12 a minute, leaving most of the limit to scans and the match screen. Franchises take turns, so
-a new one isn't kept waiting behind a big one. Dragon Ball's franchise is 43 entries (nine
+12 a minute, leaving most of the limit to scans and the match screen. What the library lacks
+comes first, since that's what a franchise's page shows, and the library's own entries after
+(Kura has their links from identifying them); franchises take turns, so a new one isn't kept
+waiting behind a big one. Dragon Ball's franchise is 43 entries (nine
 series, 21 films, three OVAs, nine specials and one not given a format yet), so it's known about
 four minutes after Kura first looks. Each entry is asked about afresh weekly, or daily while it
 airs or is still to come (and daily, too, while AniList gives nothing for it), and that's how a

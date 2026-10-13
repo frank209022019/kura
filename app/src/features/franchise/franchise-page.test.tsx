@@ -256,6 +256,34 @@ describe("FranchisePage", () => {
     expect(screen.queryByText("Not in library")).not.toBeInTheDocument();
   });
 
+  it("opens with the titles it lacks put in, when a title's page leads here", async () => {
+    fakeEngine({
+      "/franchises/7": DRAGON_BALL_FRANCHISE,
+      "/franchises/7/missing": { titles: [KAI], looking: false },
+    });
+    renderWithEngine(<FranchisePage />, "/franchises/7?missing");
+
+    expect(await screen.findByText("3 of 4 titles · by type, oldest release first")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Missing titles 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("Not in library")).toBeVisible();
+  });
+
+  it("is a title alone in the library's own page for what its franchise lacks", async () => {
+    fakeEngine({
+      "/franchises/7": franchiseOf([DRAGON_BALL]),
+      "/franchises/7/missing": { titles: [KAI], looking: false },
+    });
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    expect(await screen.findByText("1 title · by type, oldest release first")).toBeVisible();
+    expect(screen.getByText("TV series")).toBeVisible(); // what it is, not "Franchise"
+    screen.getByRole("button", { name: "Missing titles 1" }).click();
+    expect(await screen.findByText("1 of 2 titles · by type, oldest release first")).toBeVisible();
+  });
+
   it("lists the titles it lacks after its own when what's in the library comes first", async () => {
     fakeEngine({
       "/franchises/7": DRAGON_BALL_FRANCHISE,

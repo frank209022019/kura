@@ -12,7 +12,6 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from itertools import zip_longest
 
 from kura import titles
 from kura.anilist import AniList
@@ -25,6 +24,7 @@ from kura.core.franchise import (
     nearest,
     own_links,
     story_neighbours,
+    taking_turns,
 )
 from kura.identify import write_links
 from kura.web import WebError
@@ -64,9 +64,11 @@ def look_up(
 
 
 def next_to_ask(conn: sqlite3.Connection, now: datetime, count: int) -> list[int]:
-    """The entries of the library's franchises to ask AniList about next: the ones not asked
-    about yet, a few of each franchise in turn and nearest the library's first, then the ones
-    due again, longest waiting first."""
+    """The entries of the library's franchises to ask AniList about next. First the ones not
+    asked about yet that the library lacks, what a franchise's page shows: franchises take
+    turns, the ones least looked up first, each nearest the library's first. Then the library's
+    own, whose links Kura has from identifying them; then the ones due again, longest waiting
+    first."""
     known = {
         row["id"]: row
         for row in conn.execute("SELECT id, name, status, checked_at FROM anilist_entries")
@@ -75,20 +77,24 @@ def next_to_ask(conn: sqlite3.Connection, now: datetime, count: int) -> list[int
     neighbours = story_neighbours(links)
     held = titles.entries(conn)
     everywhere = set[int]().union(*held.values())
-    unasked: list[list[int]] = []
+    lacking: list[list[int]] = []
+    looked_up: list[int] = []
+    owned: list[int] = []
     due: list[tuple[str, int]] = []
     for group in franchises(held, own_links(links, everywhere)):
         own = set[int]().union(*(held[title_id] for title_id in group))
         waiting: list[int] = []
-        for number in nearest(own, neighbours, others=everywhere - own):
+        reach = nearest(own, neighbours, others=everywhere - own)
+        for number in reach:
             row = known.get(number)
             if row is None:
-                waiting.append(number)
+                (owned if number in own else waiting).append(number)
             elif _due(row, now):
                 due.append((row["checked_at"], number))
-        unasked.append(waiting)
-    in_turn = [number for turn in zip_longest(*unasked) for number in turn if number is not None]
-    return list(dict.fromkeys([*in_turn, *(number for _, number in sorted(due))]))[:count]
+        lacking.append(waiting)
+        looked_up.append(sum(1 for number in reach if number in known))
+    order = [*taking_turns(lacking, looked_up), *owned, *(number for _, number in sorted(due))]
+    return list(dict.fromkeys(order))[:count]
 
 
 def save(conn: sqlite3.Connection, number: int, entry: Anime | None, now: datetime) -> None:
@@ -141,7 +147,8 @@ def rest(conn: sqlite3.Connection, franchise: titles.Franchise) -> Rest:
     known = [entry for number in reach if number in rows if (entry := _entry(rows[number]))]
     return Rest(
         missing(known, _matched(conn), kept, links),
-        looking=any(number not in rows for number in reach),
+        # The library's own are asked about last, and add nothing to what it lacks till then.
+        looking=any(number not in rows and number not in own for number in reach),
     )
 
 

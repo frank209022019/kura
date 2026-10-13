@@ -12,6 +12,7 @@ from collections import defaultdict
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import zip_longest
 
 from kura.core.catalog import Episode, Show, TitleKind, kind_of
 from kura.core.placing import fits_special, same_day, show_episodes
@@ -152,6 +153,15 @@ def nearest(
                 seen.add(other)
                 order.append(other)
     return order
+
+
+def taking_turns(waiting: Sequence[Sequence[int]], looked_up: Sequence[int]) -> list[int]:
+    """The entries each franchise waits to have looked up, one of each in turn, the franchises
+    least looked up so far first: a new one isn't kept waiting behind a big one, and none waits
+    behind three others."""
+    order = sorted(range(len(waiting)), key=lambda at: looked_up[at])
+    turns = zip_longest(*(waiting[at] for at in order))
+    return [entry for turn in turns for entry in turn if entry is not None]
 
 
 def missing(

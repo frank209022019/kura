@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/components/delete";
 import { EngineProblem } from "@/components/engine-problem";
@@ -14,6 +14,7 @@ import {
   type TidyResult,
   type TitleDetail,
   type TitleFile,
+  useFranchiseMissing,
   useReport,
   useTitle,
 } from "@/lib/engine";
@@ -124,6 +125,11 @@ function Unfit({ count }: { count: number }) {
 function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) => void }) {
   const navigate = useNavigate();
   const explorer = useExplorer();
+  // What its franchise lacks, on the franchise's page: a title alone in the library has one too.
+  // A title whose videos are all gone has no franchise left to show.
+  const franchiseId = title.franchise?.id ?? title.id;
+  const missing = useFranchiseMissing(franchiseId);
+  const lacking = title.files > 0 && !missing.isError ? (missing.data?.titles.length ?? 0) : 0;
   const seasons = title.seasons.length;
   const facts = [
     title.year ? String(title.year) : null,
@@ -165,6 +171,13 @@ function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) 
           <Button size="sm" onClick={() => void navigate(`/match?title=${title.id}`)}>
             Change match
           </Button>
+          {lacking > 0 && (
+            <Button size="sm" asChild>
+              <Link to={`/franchises/${franchiseId}?missing`}>
+                Missing titles <span className="font-mono text-12 text-fg-muted">{lacking}</span>
+              </Link>
+            </Button>
+          )}
           {title.videos.length > 0 && (
             <Button
               size="sm"
