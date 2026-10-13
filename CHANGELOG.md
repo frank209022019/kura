@@ -21,6 +21,8 @@ shows these notes when it offers the update.
   seconds after the folder goes quiet (it could wait half a minute), and every screen catches up
   once the scan ends. A scan quicker than a second, as most are, used to go unseen, so nothing
   showed the change until you moved to another page.
+- The queue's "Now converting" keeps its full height when the queue is long: it was squashed to a
+  thin strip.
 
 ## 0.6.0 - 2026-10-13
 

@@ -23,11 +23,12 @@ export function AppShell() {
       <div className="flex min-h-0 flex-1 flex-col standard:flex-row">
         <NavRail />
         {/* A fresh start on every screen: it opens at its top, and one that failed to draw
-            doesn't follow you around. */}
+            doesn't follow you around. Every part of a page keeps its full height, so a long
+            page scrolls instead of squashing a panel that clips its corners. */}
         <main
           key={location.pathname}
           id="main"
-          className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-y-auto pr-8 pb-14 pl-3.5"
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-y-auto pr-8 pb-14 pl-3.5 *:shrink-0"
         >
           <ScreenError>{damage ? <DamagedRecords damage={damage} /> : <Outlet />}</ScreenError>
         </main>
