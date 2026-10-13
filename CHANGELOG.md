@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.3.0 - 2026-10-13
+
 ### Added
 - Check for a new version (Settings > Updates): Kura looks at once instead of waiting for its
   daily check, which carries on as before, and says when it last looked. A version it finds can
