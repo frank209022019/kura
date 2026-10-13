@@ -28,8 +28,8 @@ Every tool Kura uses, its version on 2026-10-10, and the page that explains how 
 | TanStack Query | 5.104 | Fetching and caching engine data | [react.md](stack/react.md) |
 | Biome | 2.5 | Lint and format for the UI | [react.md](stack/react.md) |
 | Tailwind CSS | 4.3 | Styling, fed by the Cinema tokens | [tailwind.md](stack/tailwind.md) |
-| shadcn/ui, Radix | shadcn 4.21, radix-ui 1.7 | Accessible component starting points | [tailwind.md](stack/tailwind.md) |
-| Lucide | 1.54 | Icons | [tailwind.md](stack/tailwind.md) |
+| shadcn/ui, Radix | shadcn 4.21, radix-ui 1.8 | Accessible component starting points | [tailwind.md](stack/tailwind.md) |
+| Lucide | 1.55 | Icons | [tailwind.md](stack/tailwind.md) |
 | Fontsource | 5.3 | Manrope and Geist Mono, bundled for offline use | [tailwind.md](stack/tailwind.md) |
 | Python | 3.14 | The engine's language | [python.md](stack/python.md) |
 | uv | 0.13 | Python, packages, lockfile, running tools | [python.md](stack/python.md) |
