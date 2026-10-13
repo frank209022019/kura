@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.7.0 - 2026-10-13
+
 ### Added
 - A scan says what it changed: Home, beside Scan again, says when the last one ran and what it
   found new or gone ("1 gone"), the scan page does too, and History lists it with each scan.
