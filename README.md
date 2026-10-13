@@ -9,25 +9,51 @@ Nothing changes until you review it, and everything stays on your PC: no account
 
 ## What it does
 
-- **Reads your library as it is.** Point Kura at your folders, in any layout: one anime per
-  folder, a franchise in sub-folders, or many anime mixed together. It reads every video (its
-  length, picture, sound and subtitles) and keeps watching, so new and removed files show at once.
-- **Knows every file.** Each anime, movie, OVA and special is identified with AniList, and with
-  your own free TMDB key also its seasons, episode titles and posters. What Kura isn't sure of
-  waits for you on "Which anime is this?", and your answers stay through every rescan.
-- **Says what's missing.** Each anime gets a gap analysis: the episodes that have aired that you
-  don't have, and the files that won't play. Home shows the whole shelf by type, oldest first.
+### Knows your library
+
+- **Reads it as it is.** Point Kura at your folders, in any layout: one anime per folder, a
+  franchise in sub-folders, or many anime mixed together. It reads every video (length, picture,
+  sound and subtitles) and keeps watching the folders: a video added or removed shows within
+  seconds, and every scan says what it found new and what's gone.
+- **Identifies every file.** Each series, movie, OVA and special is found on AniList, and with
+  your own free TMDB key also its seasons, episode titles, air dates and posters. Names AniList
+  can't find are searched on TMDB too, in other languages and spellings, and a special is found
+  by its own name. What Kura isn't sure of waits for you on "Which anime is this?", with stills
+  from the file; your answer, or "not anime", stays through every rescan.
+
+### Shows what's there, and what isn't
+
+- **Home is your shelf.** A summary of your videos by picture (SD, 720p, 1080p) on top, what
+  needs you, and every franchise and series by type, oldest first, or by name, newest added or
+  most missing.
+- **A page for every franchise and title.** Seasons and an episode map with each episode's state,
+  the episodes that aired that you don't have, specials and OVAs listed apart, the files that won't
+  play, and a gap analysis you can read in the app or beside the files.
+- **Missing titles.** A franchise's page can also show the series, films, OVAs and specials you
+  have none of, as dotted placeholders among your own (for Dragon Ball: Kai, DAIMA, the first
+  four films). Kura keeps the list current in the background, so a new one appears by itself,
+  marked "Coming" until it's out. Any title's page leads there.
+
+### Tidies and converts, when you say
+
 - **Tidies up.** Clean names and folders (`TV\Show (Year)\Season 01\…`, `Movies\Title (Year)\…`),
-  or your own names kept, proposed title by title and changed only when you say. History undoes
-  any of it.
-- **Converts to one standard.** HEVC 10-bit on the graphics card, with AI upscaling for SD and
-  Anime4K for 720p, at night if you like. See it first shows a frame before and after, and every
-  result is checked before it takes the original's place.
+  subtitles moving with their video, or your own names kept. Every change is proposed title by
+  title and made only when you apply it, and History undoes any of it.
+- **Converts to one standard.** Choose 1080p or 720p and see the time and space it takes at once.
+  Kura encodes HEVC 10-bit on the graphics card, upscaling SD with an AI model and 720p with
+  Anime4K, and "See it first" shows a frame before and after. The queue runs at night if you like,
+  says how far along it is, and waits when a drive is full or unplugged. Every result is checked
+  before it takes its original's place, and you can convert again later to a new standard.
+
+### Keeps it safe
+
 - **Loses nothing.** Replaced originals, duplicates and whatever you delete wait 30 days in a
-  quarantine on their own drive, unless you'd rather converted originals went at once. Kura's
-  records are backed up every night, and an export takes them to another PC.
-- **Looks after itself.** It can start with Windows and wait in the tray, tells you when a batch
-  is done, and updates itself, showing what's new first.
+  quarantine on their own drive, and History puts them back; converted originals can go at once
+  instead, if you choose. Kura's records are backed up every night and can be restored, and an
+  export takes them to another PC.
+- **Looks after itself.** It can start with Windows and wait in the tray, tells you when a batch is
+  done, says what happened after a crash or power cut, and updates itself, showing what's new
+  first.
 
 Kura is built in the open and ready for everyday use. Everything planned is built except light
 mode, which waits for its design: [What's next](CLAUDE.md#whats-next) says where it stands.
