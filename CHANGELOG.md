@@ -8,6 +8,11 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- The side bar says what's going on, as the design showed: Convert shows how far the file
+  converting now has got (63%), or how many files wait to convert, and Tidy up how many changes
+  and files to match wait for you.
+
 ## 0.9.0 - 2026-10-13
 
 ### Added

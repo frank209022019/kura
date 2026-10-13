@@ -162,6 +162,11 @@ Everything decided so far. Don't ask again; change only with the owner.
   and rename with it.
 - Only the page scrolls (the owner, 2026-10-11): the nav rail and the page's top (its title, or
   its breadcrumb) stay where they are, and so does a page's own section list beside it.
+- The nav rail's tiles carry badges, as the boards show (the owner, 2026-10-13: "the little
+  orange count badge is not showing over the convert side icon"): Convert, tinted, how far the
+  file converting now has got, or how many files wait; Tidy up, solid amber, how many changes
+  and files to match wait for the owner. Home, History and Settings have nothing that runs long
+  enough to need one.
 - The gap analysis shows in the app as a reader sees it, as an editor's Markdown preview would,
   under the title "Gap Analysis" (the owner, 2026-10-11).
 - Deleting from Kura (the owner, 2026-10-11): a whole title, a season or one video, from the

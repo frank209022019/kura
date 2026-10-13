@@ -1,7 +1,7 @@
 /** What the Convert screens work out from the engine's lists: the tree of what can be converted,
  * what a choice adds up to, and how long things take, in words. */
 
-import type { Convertible, FranchiseSummary, Job, Way } from "@/lib/engine";
+import type { Convertible, FranchiseSummary, Job, RunningJob, Way } from "@/lib/engine";
 import { KIND_ORDER } from "@/lib/kinds";
 
 /** A season of a title, or its specials, or a film's file. */
@@ -146,6 +146,11 @@ export function sizeClass(height: number): string {
 }
 
 /** GPU time in words: "12 min", "1 h", "35 h", "12 days". */
+/** How far the file converting now has got, in whole percents. */
+export function progress(running: Pick<RunningJob, "frames" | "total">): number {
+  return running.total > 0 ? Math.min(100, Math.round((running.frames / running.total) * 100)) : 0;
+}
+
 export function gpuTime(seconds: number): string {
   const minutes = seconds / 60;
   if (minutes < 59.5) return `${Math.max(1, Math.round(minutes))} min`;

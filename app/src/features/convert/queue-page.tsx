@@ -23,6 +23,7 @@ import {
   jobGroups,
   METHOD_ENGINES,
   METHOD_NAMES,
+  progress,
   retryIn,
 } from "@/lib/convert";
 import {
@@ -208,8 +209,7 @@ function NowConverting(props: { running: RunningJob; gpu: QueueStatus["gpu"]; pa
     (step) => step !== "Upscale" || job.method === "best" || job.method === "fast",
   );
   const at = steps.indexOf(STEPS[stepOf(running)] ?? "Read");
-  const share =
-    running.total > 0 ? Math.min(100, Math.round((running.frames / running.total) * 100)) : 0;
+  const share = progress(running);
   const speed = useSpeeds(running.fps);
   return (
     <section

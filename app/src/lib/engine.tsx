@@ -120,6 +120,25 @@ export function useEngineQuery<T>(
 }
 
 /**
+ * A glance at an engine endpoint for the window's shell (the nav rail's badges): like
+ * `useEngineQuery`, but it doesn't ask again when the window comes back into focus. What it shows
+ * catches up after every scan and change anyway, and the page that's open asks for itself.
+ */
+function useGlance<T>(path: string, poll?: number) {
+  const engine = useEngine();
+  return useQuery({
+    queryKey: engineKey(engine, path),
+    queryFn: () => {
+      if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
+      return callEngine<T>(engine, path);
+    },
+    enabled: engine.state === "ready",
+    refetchInterval: poll ?? false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
  * Asks the engine again for what these paths' queries show, so screens catch up with a change.
  * A path covers everything under it: "/titles" also refreshes "/titles?sort=name" and "/titles/3".
  */
@@ -281,6 +300,10 @@ export interface Scan {
 }
 
 const LIBRARY = ["/folders", "/library", "/scan"];
+
+/** The latest scan for the nav rail's badges: the window's shell asks for it already
+ * (`useScan`). */
+export const useScanGlance = () => useGlance<Scan>("/scan");
 
 export const useFolders = () => useEngineQuery<LibraryFolder[]>("/folders");
 export const useLibrary = () => useEngineQuery<Library>("/library");
@@ -712,9 +735,9 @@ export interface Chosen {
  * or with `title` instead of `also`, a whole title's new match (each file keeps its kind).
  */
 export const useChooseMatch = () =>
-  useEngineAction<Chosen>(["/review", "/titles", "/franchises", "/scan", "/library"]);
+  useEngineAction<Chosen>(["/review", "/titles", "/franchises", "/scan", "/library", "/tidy"]);
 /** Not anime: `ignore.mutate({ path: "/review/7/ignore" })`. */
-export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan"]);
+export const useIgnoreFile = () => useEngineAction<void>(["/review", "/scan", "/tidy"]);
 
 /** A file the owner said isn't anime: left where it is, out of the library. */
 export interface IgnoredFile {
@@ -727,7 +750,7 @@ export interface IgnoredFile {
 /** The files the owner said aren't anime, in name order. */
 export const useIgnored = () => useEngineQuery<IgnoredFile[]>("/review/ignored");
 /** Anime after all: `unignore.mutate({ path: "/review/7/ignore" })`; it waits for a match again. */
-export const useUnignore = () => useEngineAction<void>(["/review", "/scan"], "DELETE");
+export const useUnignore = () => useEngineAction<void>(["/review", "/scan", "/tidy"], "DELETE");
 
 /**
  * A picture the engine serves (a poster, a cover, a still) as an address the page can show (an
@@ -896,6 +919,9 @@ export const useTidy = (keep: string[] = []) =>
     true,
     true,
   );
+/** What tidying up proposes, for the nav rail's badge: asked again after every scan, tidy-up
+ * and match, not every time the window comes back into focus (it takes a moment to work out). */
+export const useTidyGlance = () => useGlance<TidyProposal>("/tidy");
 const TIDIED = [
   "/tidy",
   "/history",
@@ -1124,6 +1150,8 @@ export interface QueueStatus {
 /** The queue, asked again every two seconds while a file converts, else every ten. */
 export const useQueue = () =>
   useEngineQuery<QueueStatus>("/queue", (now) => (now?.running ? 2000 : 10_000));
+/** The queue for the nav rail's badge, asked every 10 seconds. */
+export const useQueueGlance = () => useGlance<QueueStatus>("/queue", 10_000);
 
 const QUEUED = ["/queue", "/convert", "/history", "/library", "/titles"];
 /**

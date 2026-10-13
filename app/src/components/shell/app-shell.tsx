@@ -2,7 +2,7 @@ import { Outlet, useLocation } from "react-router";
 import { ScreenError } from "@/components/screen-error";
 import { DamagedRecords } from "@/features/records/damaged-records";
 import { useRecords, useScan } from "@/lib/engine";
-import { NavRail } from "./nav-rail";
+import { BusyNavRail, NavRail } from "./nav-rail";
 import { Notices } from "./notices";
 import { Offline } from "./offline";
 import { TitleBar } from "./title-bar";
@@ -21,7 +21,8 @@ export function AppShell() {
     <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar />
       <div className="flex min-h-0 flex-1 flex-col standard:flex-row">
-        <NavRail />
+        {/* While the records are damaged the engine answers nothing else: no badges then. */}
+        {damage ? <NavRail /> : <BusyNavRail />}
         {/* A fresh start on every screen: it opens at its top, and one that failed to draw
             doesn't follow you around. Every part of a page keeps its full height, so a long
             page scrolls instead of squashing a panel that clips its corners. */}
