@@ -1,7 +1,7 @@
 import { type ReactNode, useId } from "react";
 import { sortWords } from "@/components/sort-control";
 import { shelfKind } from "@/components/title-card";
-import type { FranchiseSummary, TitleSort, TitleSummary } from "@/lib/engine";
+import type { FranchiseSummary, TitleKind, TitleSort } from "@/lib/engine";
 import { KIND_ORDER, kindHeading } from "@/lib/kinds";
 
 /** One type's share of a list, in the list's order. */
@@ -30,7 +30,7 @@ export function together<T>(items: T[]): Group<T>[] {
 
 /** A franchise's titles by type: series, then movies, OVAs and specials, each in the order the
  * titles came. */
-export function byKind(titles: TitleSummary[]): Group<TitleSummary>[] {
+export function byKind<T extends { kind: TitleKind }>(titles: T[]): Group<T>[] {
   return KIND_ORDER.map((kind) => ({
     key: kind,
     heading: kindHeading(kind),
@@ -53,7 +53,7 @@ export function shelfByKind(franchises: FranchiseSummary[]): Group<FranchiseSumm
 /** Poster cards in a grid; in groups, each under its type's heading, unless there's only one. */
 export function CardGrid<T>(props: {
   groups: Group<T>[];
-  keyOf: (item: T) => number;
+  keyOf: (item: T) => string | number;
   card: (item: T) => ReactNode;
 }) {
   const [only, ...more] = props.groups;
@@ -71,7 +71,7 @@ export function CardGrid<T>(props: {
 
 function Section<T>(props: {
   group: Group<T>;
-  keyOf: (item: T) => number;
+  keyOf: (item: T) => string | number;
   card: (item: T) => ReactNode;
 }) {
   const id = useId();
@@ -88,7 +88,11 @@ function Section<T>(props: {
   );
 }
 
-function Cards<T>(props: { items: T[]; keyOf: (item: T) => number; card: (item: T) => ReactNode }) {
+function Cards<T>(props: {
+  items: T[];
+  keyOf: (item: T) => string | number;
+  card: (item: T) => ReactNode;
+}) {
   return (
     <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-4.5 gap-y-5">
       {props.items.map((item) => (

@@ -234,4 +234,20 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     ALTER TABLE scans ADD COLUMN added INTEGER;
     ALTER TABLE scans ADD COLUMN gone INTEGER;
     """,
+    # 17. The rest of each franchise (kura/franchises.py): what AniList says of every entry tied
+    #     to the library's titles by story, the library's or not. Their links join
+    #     anilist_links, which then holds those of entries the library lacks too.
+    """
+    CREATE TABLE anilist_entries (
+        id         INTEGER PRIMARY KEY,  -- AniList's number for it
+        name       TEXT,     -- NULL once AniList no longer has it
+        names      TEXT,     -- JSON: every name it goes by
+        format     TEXT,     -- TV, MOVIE, OVA, SPECIAL, ONA, MUSIC, ...
+        status     TEXT,     -- FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED or HIATUS
+        started    TEXT,
+        episodes   INTEGER,
+        cover      TEXT,     -- the cover's web address
+        checked_at TEXT NOT NULL  -- when AniList was last asked about it
+    ) STRICT;
+    """,
 )

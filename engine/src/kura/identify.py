@@ -705,12 +705,17 @@ def save_links(conn: sqlite3.Connection, entry: Anime) -> None:
     """Remembers how AniList relates an entry to others: what ties a franchise together
     (kura/core/franchise.py)."""
     with conn:
-        conn.execute("DELETE FROM anilist_links WHERE anilist_id = ?", (entry.id,))
-        conn.executemany(
-            """INSERT OR IGNORE INTO anilist_links (anilist_id, related_id, relation)
-               VALUES (?, ?, ?)""",
-            [(entry.id, related.id, related.relation) for related in entry.related],
-        )
+        write_links(conn, entry)
+
+
+def write_links(conn: sqlite3.Connection, entry: Anime) -> None:
+    """`save_links`, within the caller's transaction."""
+    conn.execute("DELETE FROM anilist_links WHERE anilist_id = ?", (entry.id,))
+    conn.executemany(
+        """INSERT OR IGNORE INTO anilist_links (anilist_id, related_id, relation)
+           VALUES (?, ?, ?)""",
+        [(entry.id, related.id, related.relation) for related in entry.related],
+    )
 
 
 def identify_again(conn: sqlite3.Connection) -> int:

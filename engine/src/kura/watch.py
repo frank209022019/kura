@@ -6,6 +6,8 @@
   looked for every second while a change waits.
 - Episode lists are asked for again on schedule: every hour for shows still airing, every week
   for finished ones (kura/identify.py decides when one is due), and the gap reports follow.
+- The rest of each franchise is looked up on AniList a few entries at a time, and each entry
+  asked about again weekly, or daily while it airs (kura/franchises.py).
 
 Nothing here runs while a scan does, and a scan the owner paused stays paused.
 """
@@ -24,7 +26,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 from watchdog.observers.api import BaseObserver
 
-from kura import credentials, db
+from kura import credentials, db, franchises
 from kura.anilist import AniList
 from kura.cache import Cache
 from kura.config import DataPaths
@@ -74,6 +76,7 @@ class Watcher:
         self._changed_at: float | None = None  # when a video last changed, not yet scanned
         self._watched: dict[str, BaseObserver] = {}
         self._resting_until: datetime | None = None  # after a failed refresh, asked again then
+        self._looking_rests_until: datetime | None = None  # the same, for the franchises' rest
         self._stopping = threading.Event()
         self._wake = threading.Event()  # a change noticed, or stopping
         self._refreshed_at = float("-inf")  # when episode lists were last looked at
@@ -151,6 +154,8 @@ class Watcher:
         self._refreshed_at = self._clock()
         if self._scanner.status().state != "running":
             self.refresh()
+            if not self.pending:  # a change's scan never waits on AniList
+                self.look_further()
 
     def refresh(self) -> int:
         """Asks again for the episode lists that are due, of the titles the library holds a
@@ -190,6 +195,21 @@ class Watcher:
             if asked:
                 write_reports(conn, now=self._now())
         return asked
+
+    def look_further(self) -> int:
+        """Asks AniList about a few more entries of the library's franchises
+        (kura/franchises.py). Returns how many. Offline or out of requests, they wait an hour,
+        as episode lists do."""
+        resting = self._looking_rests_until
+        if resting is not None and self._now() < resting:
+            return 0
+        with closing(db.connect(self._paths.database)) as conn:
+            try:
+                return franchises.look_up(conn, self._anilist, self._now())
+            except WebError as error:
+                log.info("The rest of a franchise couldn't be looked up now: %s", error)
+                self._looking_rests_until = self._now() + AIRING_EVERY
+                return 0
 
     def _ask(self, conn: sqlite3.Connection, row: sqlite3.Row, tmdb: Tmdb | None) -> bool | None:
         """Asks again for one title's episode list: True when it came, False when TMDB or

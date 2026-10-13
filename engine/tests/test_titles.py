@@ -6,7 +6,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from kura import credentials
+from kura import credentials, franchises
+from kura.anilist import AniList
 from kura.config import DataPaths
 from kura.core.report import GAP_ANALYSIS_FILE
 from kura.reports import own_folder, write_reports
@@ -282,3 +283,27 @@ def test_franchises_form_for_a_library_identified_before_kura_kept_links(
     identify(paths, identified, internet())  # the next scan
 
     assert [len(f["titles"]) for f in client.get("/franchises").json()] == [1, 2]
+
+
+def test_a_franchise_says_what_the_library_has_no_part_of(
+    client: TestClient, identified: sqlite3.Connection
+):
+    ids = {t["name"]: t["id"] for t in client.get("/titles").json()}
+    before = client.get(f"/franchises/{ids['Cowboy Bebop']}/missing").json()
+    assert before == {"titles": [], "looking": True}  # its specials are only names so far
+
+    anilist = AniList(internet())
+    while franchises.look_up(identified, anilist, NOW):
+        pass
+    found = client.get(f"/franchises/{ids['Cowboy Bebop: The Movie']}/missing").json()
+
+    assert found["looking"] is False
+    assert [
+        (t["anilistId"], t["name"], t["kind"], t["released"], t["coming"], t["airing"])
+        for t in found["titles"]
+    ] == [
+        (4037, "Cowboy Bebop: Yoseatsume Blues", "special", "1998-06-26", False, False),
+        (17205, "Ein's Summer Vacation", "special", "2012-12-21", False, False),
+    ]
+    assert found["titles"][0]["cover"].startswith("https://s4.anilist.co/")
+    assert client.get("/franchises/999/missing").status_code == 404

@@ -25,7 +25,7 @@ from kura.library import add_folder
 from kura.scan import ScanBusyError, ScanStatus, State
 from kura.tmdb import API as TMDB
 from kura.watch import QUIET, TICK, Changes, Watcher
-from tests.fake_web import FakeWeb
+from tests.fake_web import FakeWeb, reply
 from tests.services import internet
 from tests.shelf import NOW, identify, library
 
@@ -389,3 +389,65 @@ def test_a_show_gone_from_tmdb_waits_until_its_next_due(
     asked = len(gone.asked)
     assert later.refresh() == 0
     assert len(gone.asked) == asked
+
+
+def test_a_look_around_looks_further_into_the_franchises_too(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    library(conn, tmp_path / "Anime", ["Cowboy Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    web = internet(tmdb=False)
+    watcher = Watcher(paths, Scans(), web, now=lambda: NOW, clock=clock)
+    try:
+        watcher.tick()
+    finally:
+        watcher.stop()
+
+    assert len(web.asked) == 3  # a few at each look: the series, its film, a special
+    assert watcher.look_further() == 1  # and the other special at the next
+    assert watcher.look_further() == 0  # none is due again yet
+
+
+def test_a_change_waiting_for_its_scan_never_waits_on_anilist(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    library(conn, tmp_path / "Anime", ["Cowboy Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    web = internet(tmdb=False)
+    watcher = Watcher(paths, Scans(), web, now=lambda: NOW, clock=clock)
+    watcher.notice()  # a video added, its folder not quiet yet
+    try:
+        watcher.tick()
+    finally:
+        watcher.stop()
+
+    assert web.asked == []
+
+
+def test_tmdb_refusing_an_episode_list_doesnt_hold_up_the_rest_of_a_franchise(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    credentials.save(paths, "tmdb", "a-test-key")
+    library(conn, tmp_path / "Anime", ["Cowboy Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet())
+    web = internet()
+    web.answers[f"GET {TMDB}/tv/30991"] = reply({"status_message": "Refused."}, 401)
+    later = Watcher(paths, Scans(), web, now=lambda: NOW + timedelta(days=8), clock=clock)
+
+    assert later.refresh() == 0  # TMDB refused: the lists rest for an hour
+    assert later.look_further() == 3  # AniList is asked all the same
+
+
+def test_offline_the_rest_of_a_franchise_waits_for_the_next_hour(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path, clock: Clock
+):
+    library(conn, tmp_path / "Anime", ["Cowboy Bebop/Cowboy Bebop - 01.mkv"])
+    identify(paths, conn, internet(tmdb=False))
+    offline = internet(tmdb=False)
+    offline.offline = True
+    watcher = Watcher(paths, Scans(), offline, now=lambda: NOW, clock=clock)
+
+    assert watcher.look_further() == 0
+    asked = len(offline.asked)
+    assert watcher.look_further() == 0  # the next look around, 15 seconds on
+    assert len(offline.asked) == asked

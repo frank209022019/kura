@@ -657,6 +657,51 @@
         }
       }
     },
+    "/franchises/{title_id}/missing": {
+      "get": {
+        "summary": "Franchise Missing",
+        "description": "The series, films, OVAs and specials AniList ties to the franchise that the library has no\npart of. Kura looks the franchise up in the background, a few entries at a time.",
+        "operationId": "franchise_missing_franchises__title_id__missing_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FranchiseMissing"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/titles/{title_id}": {
       "get": {
         "summary": "One Title",
@@ -3189,6 +3234,27 @@
         ],
         "title": "Exported"
       },
+      "FranchiseMissing": {
+        "properties": {
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/MissingTitle"
+            },
+            "type": "array",
+            "title": "Titles"
+          },
+          "looking": {
+            "type": "boolean",
+            "title": "Looking"
+          }
+        },
+        "type": "object",
+        "required": [
+          "titles",
+          "looking"
+        ],
+        "title": "FranchiseMissing"
+      },
       "FranchiseRef": {
         "properties": {
           "id": {
@@ -3858,6 +3924,87 @@
           "problems"
         ],
         "title": "LibraryFolder"
+      },
+      "MissingTitle": {
+        "properties": {
+          "anilistId": {
+            "type": "integer",
+            "title": "Anilistid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TitleKind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "released": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released"
+          },
+          "episodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episodes"
+          },
+          "coming": {
+            "type": "boolean",
+            "title": "Coming"
+          },
+          "airing": {
+            "type": "boolean",
+            "title": "Airing"
+          },
+          "cover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover"
+          }
+        },
+        "type": "object",
+        "required": [
+          "anilistId",
+          "kind",
+          "name",
+          "year",
+          "released",
+          "episodes",
+          "coming",
+          "airing",
+          "cover"
+        ],
+        "title": "MissingTitle",
+        "description": "A series, film, OVA or special of a franchise that the library has no part of, as AniList\nknows it."
       },
       "Moved": {
         "properties": {

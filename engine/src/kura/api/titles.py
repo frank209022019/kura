@@ -1,6 +1,6 @@
 """The library's titles: every anime and film with its kind, release date, files and gaps, one
 title in full with its seasons, the episodes it's missing, and its videos, and the franchises they
-make (a franchise's series, films, OVAs and specials together)."""
+make (a franchise's series, films, OVAs and specials together, and the ones it lacks)."""
 
 from datetime import date, datetime
 from pathlib import Path
@@ -9,9 +9,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import FileResponse
 
-from kura import artwork, titles
+from kura import artwork, franchises, titles
 from kura.api.common import ApiModel, Database, Paths, Web
 from kura.core.catalog import Episode, TitleKind
+from kura.core.franchise import Entry
 from kura.core.report import GAP_ANALYSIS_FILE
 from kura.preferences import library_standard
 from kura.reports import own_folder
@@ -106,6 +107,26 @@ class FranchiseSummary(ApiModel):
     titles: list[TitleSummary]  # in the order asked for
 
 
+class MissingTitle(ApiModel):
+    """A series, film, OVA or special of a franchise that the library has no part of, as AniList
+    knows it."""
+
+    anilist_id: int
+    kind: TitleKind
+    name: str
+    year: int | None
+    released: str | None  # its first episode, or the film's release
+    episodes: int | None  # None while AniList doesn't know how many
+    coming: bool  # not out yet
+    airing: bool  # out, with more of it still to come
+    cover: str | None  # AniList's cover address (shown through /artwork)
+
+
+class FranchiseMissing(ApiModel):
+    titles: list[MissingTitle]  # oldest release first
+    looking: bool  # some of the franchise is still to be looked up on AniList
+
+
 class TitleDetail(TitleSummary):
     franchise: FranchiseRef | None  # when the title is one of several
     source: Literal["tmdb", "anilist"]  # where its episode list comes from
@@ -141,6 +162,20 @@ def one_franchise(title_id: int, conn: Database, sort: Sort = "released") -> Fra
     if found is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no such franchise.")
     return _franchise(found)
+
+
+@router.get("/franchises/{title_id}/missing")
+def franchise_missing(title_id: int, conn: Database) -> FranchiseMissing:
+    """The series, films, OVAs and specials AniList ties to the franchise that the library has no
+    part of. Kura looks the franchise up in the background, a few entries at a time."""
+    found = titles.franchise_of(conn, title_id, _today())
+    if found is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kura has no such franchise.")
+    rest = franchises.rest(conn, found)
+    return FranchiseMissing(
+        titles=[_missing(entry, kind) for entry in rest.titles if (kind := entry.kind)],
+        looking=rest.looking,
+    )
 
 
 @router.get("/titles/{title_id}")
@@ -284,6 +319,20 @@ def _franchise(found: titles.Franchise) -> FranchiseSummary:
         specials_missing=sum(m.specials_missing for m in members),
         upcoming=sum(m.upcoming for m in members),
         titles=members,
+    )
+
+
+def _missing(entry: Entry, kind: TitleKind) -> MissingTitle:
+    return MissingTitle(
+        anilist_id=entry.id,
+        kind=kind,
+        name=entry.name,
+        year=entry.start.year if entry.start else None,
+        released=entry.start.isoformat() if entry.start else None,
+        episodes=entry.episodes,
+        coming=entry.coming,
+        airing=entry.airing,
+        cover=entry.cover if artwork.poster_address(entry.cover) else None,
     )
 
 

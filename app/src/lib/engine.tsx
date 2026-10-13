@@ -615,6 +615,39 @@ export const useFranchises = (sort: TitleSort = "released") =>
 export const useFranchise = (id: number, sort: TitleSort = "released") =>
   useEngineQuery<FranchiseSummary>(`/franchises/${id}?sort=${sort}`, undefined, true, true);
 
+/** A series, film, OVA or special of a franchise that the library has no part of, as AniList
+ * knows it. */
+export interface MissingTitle {
+  anilistId: number;
+  kind: TitleKind;
+  name: string;
+  year: number | null;
+  /** Its first episode, or the film's release (ISO date). */
+  released: string | null;
+  /** Null while AniList doesn't know how many. */
+  episodes: number | null;
+  /** Not out yet. */
+  coming: boolean;
+  /** Out, with more of it still to come. */
+  airing: boolean;
+  /** AniList's cover address (shown through the engine, `useCover`). */
+  cover: string | null;
+}
+
+/** What AniList ties to a franchise that the library has no part of. */
+export interface FranchiseMissing {
+  /** Oldest release first. */
+  titles: MissingTitle[];
+  /** Kura is still looking some of the franchise up, a few entries at a time. */
+  looking: boolean;
+}
+
+/** What a franchise lacks, asked again every 10 seconds while Kura is still looking it up. */
+export const useFranchiseMissing = (id: number) =>
+  useEngineQuery<FranchiseMissing>(`/franchises/${id}/missing`, (now) =>
+    now?.looking ? 10_000 : false,
+  );
+
 /** One of Kura's guesses for a file it couldn't place surely. */
 export interface Guess {
   anilistId: number;

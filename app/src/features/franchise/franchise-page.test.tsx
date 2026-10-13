@@ -1,9 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ShelfCard } from "@/components/title-card";
-import { EngineProvider, type FranchiseSummary, type TitleSummary } from "@/lib/engine";
+import {
+  EngineProvider,
+  type FranchiseMissing,
+  type FranchiseSummary,
+  type MissingTitle,
+  type TitleSummary,
+} from "@/lib/engine";
 import { fakeEngine, franchiseOf, READY } from "@/test/engine";
 import { FranchisePage } from "./franchise-page";
 
@@ -53,6 +59,46 @@ const BATTLE_OF_GODS: TitleSummary = {
 };
 const DRAGON_BALL_FRANCHISE = franchiseOf([DRAGON_BALL, DBZ, BATTLE_OF_GODS]);
 
+// What AniList ties to Dragon Ball that the library has no part of.
+const CURSE_OF_THE_BLOOD_RUBIES: MissingTitle = {
+  anilistId: 502,
+  kind: "movie",
+  name: "Dragon Ball: Curse of the Blood Rubies",
+  year: 1986,
+  released: "1986-12-20",
+  episodes: 1,
+  coming: false,
+  airing: false,
+  cover: null,
+};
+const KAI: MissingTitle = {
+  ...CURSE_OF_THE_BLOOD_RUBIES,
+  anilistId: 6033,
+  kind: "series",
+  name: "Dragon Ball Z Kai",
+  year: 2009,
+  released: "2009-04-05",
+  episodes: 97,
+};
+const BEERUS: MissingTitle = {
+  ...KAI,
+  anilistId: 206814,
+  name: "Dragon Ball Super: Beerus",
+  year: 2026,
+  released: "2026-10-11",
+  episodes: null,
+  airing: true,
+};
+const GINGA_PATROL: MissingTitle = {
+  ...KAI,
+  anilistId: 206812,
+  name: "Dragon Ball Super: Ginga Patrol",
+  year: null,
+  released: null,
+  episodes: null,
+  coming: true,
+};
+
 function renderWithEngine(children: React.ReactNode, at: string) {
   shell.invoke.mockImplementation(async (command: string) =>
     command === "engine_status" ? READY : undefined,
@@ -71,6 +117,7 @@ function renderWithEngine(children: React.ReactNode, at: string) {
       </EngineProvider>
     </QueryClientProvider>,
   );
+  return queries;
 }
 
 afterEach(() => {
@@ -161,6 +208,99 @@ describe("FranchisePage", () => {
     screen.getByRole("link", { name: /Battle of Gods/ }).click();
 
     expect(await screen.findByText("A title")).toBeInTheDocument();
+  });
+
+  it("puts in the titles the library has no part of, in their places, when asked", async () => {
+    fakeEngine({
+      "/franchises/7": DRAGON_BALL_FRANCHISE,
+      "/franchises/7/missing": {
+        titles: [CURSE_OF_THE_BLOOD_RUBIES, KAI, BEERUS, GINGA_PATROL],
+        looking: false,
+      },
+    });
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    const toggle = await screen.findByRole("button", { name: "Missing titles 4" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText("Not in library")).not.toBeInTheDocument();
+    toggle.click();
+
+    expect(await screen.findByText("3 of 7 titles · by type, oldest release first")).toBeVisible();
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    const series = screen.getByRole("region", { name: "Series 5" });
+    expect(
+      within(series)
+        .getAllByRole("listitem")
+        .map((card) => card.textContent),
+    ).toEqual([
+      expect.stringContaining("Dragon Ball"), // 1986, the library's
+      expect.stringContaining("Dragon Ball Z"), // 1989, the library's
+      expect.stringMatching(/Not in library.*Dragon Ball Z Kai.*TV series · 2009 · 97 episodes/),
+      expect.stringMatching(/Not in library.*Dragon Ball Super: Beerus.*TV series · 2026 · airing/),
+      expect.stringMatching(/Coming.*Dragon Ball Super: Ginga Patrol/), // undated, last
+    ]);
+    const movies = screen.getByRole("region", { name: "Movies 2" });
+    expect(
+      within(movies)
+        .getAllByRole("listitem")
+        .map((card) => card.textContent),
+    ).toEqual([
+      expect.stringMatching(/Not in library.*Curse of the Blood Rubies.*Movie · 1986$/),
+      expect.stringContaining("Battle of Gods"),
+    ]);
+    // Kura has no page for a title it doesn't have.
+    expect(screen.queryByRole("link", { name: /Kai|Beerus|Blood Rubies/ })).not.toBeInTheDocument();
+
+    toggle.click();
+    expect(await screen.findByText("3 titles · by type, oldest release first")).toBeVisible();
+    expect(screen.queryByText("Not in library")).not.toBeInTheDocument();
+  });
+
+  it("lists the titles it lacks after its own when what's in the library comes first", async () => {
+    fakeEngine({
+      "/franchises/7": DRAGON_BALL_FRANCHISE,
+      "/franchises/7/missing": { titles: [CURSE_OF_THE_BLOOD_RUBIES], looking: false },
+    });
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    (await screen.findByRole("radio", { name: "Recently added" })).click();
+    (await screen.findByRole("button", { name: "Missing titles 1" })).click();
+
+    expect(await screen.findByText("3 of 4 titles · newest added first")).toBeVisible();
+    expect(screen.getAllByRole("listitem").at(-1)).toHaveTextContent("Curse of the Blood Rubies");
+  });
+
+  it("says it's still looking the rest of the franchise up", async () => {
+    fakeEngine({
+      "/franchises/7": DRAGON_BALL_FRANCHISE,
+      "/franchises/7/missing": { titles: [], looking: true },
+    });
+    renderWithEngine(<FranchisePage />, "/franchises/7");
+
+    (await screen.findByRole("button", { name: "Missing titles …" })).click();
+
+    expect(
+      await screen.findByText(
+        "3 of 3 titles · still looking up the rest · by type, oldest release first",
+      ),
+    ).toBeVisible();
+  });
+
+  it("offers no missing titles once the library has the whole franchise", async () => {
+    let rest: FranchiseMissing = { titles: [KAI], looking: false };
+    fakeEngine({ "/franchises/7": DRAGON_BALL_FRANCHISE, "/franchises/7/missing": () => rest });
+    const queries = renderWithEngine(<FranchisePage />, "/franchises/7");
+    (await screen.findByRole("button", { name: "Missing titles 1" })).click();
+    expect(await screen.findByText("3 of 4 titles · by type, oldest release first")).toBeVisible();
+
+    // A scan finds the last one, and every screen asks again.
+    rest = { titles: [], looking: false };
+    await act(async () => {
+      await queries.invalidateQueries();
+    });
+
+    expect(await screen.findByText("3 titles · by type, oldest release first")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Missing titles/ })).not.toBeInTheDocument();
   });
 
   it("says when the engine couldn't find it", async () => {

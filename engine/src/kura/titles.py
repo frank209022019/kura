@@ -10,7 +10,7 @@ from datetime import date
 from typing import Literal
 
 from kura.core.catalog import Episode, Show, TitleKind
-from kura.core.franchise import Link
+from kura.core.franchise import Link, own_links
 from kura.core.franchise import franchises as group_franchises
 from kura.core.gaps import Gaps, find_gaps
 from kura.core.media import MediaInfo, media_from_ffprobe
@@ -103,20 +103,39 @@ def franchises(conn: sqlite3.Connection, today: date, order: Order = "released")
     """Every franchise the library holds a video of, in the order asked for, each with its titles
     in that order too."""
     found = titles(conn, today, "released")  # so a franchise's first series leads it
-    entries: dict[int, set[int]] = {t.id: {t.anilist_id} if t.anilist_id else set() for t in found}
+    held = entries(conn)
+    by_id = {t.id: t for t in found}
+    tying = own_links(links(conn), set[int]().union(*held.values()))
+    grouped = group_franchises({t.id: held.get(t.id, set()) for t in found}, tying)
+    made = [_franchise([by_id[title_id] for title_id in group], order) for group in grouped]
+    return sort_franchises(made, order)
+
+
+def entries(conn: sqlite3.Connection) -> dict[int, set[int]]:
+    """The AniList entries of each title the library holds a video of: the one it was found by,
+    and the ones its videos matched."""
+    found: dict[int, set[int]] = {
+        row["id"]: {row["anilist_id"]} if row["anilist_id"] else set()
+        for row in conn.execute(
+            """SELECT id, anilist_id FROM titles AS t
+               WHERE EXISTS (SELECT 1 FROM files AS f
+                             WHERE f.title_id = t.id AND f.gone_at IS NULL)"""
+        )
+    }
     for row in conn.execute(
         """SELECT DISTINCT title_id, anilist_id FROM files
            WHERE gone_at IS NULL AND title_id IS NOT NULL AND anilist_id IS NOT NULL"""
     ):
-        entries.setdefault(row["title_id"], set()).add(row["anilist_id"])
-    links = [
+        found.setdefault(row["title_id"], set()).add(row["anilist_id"])
+    return found
+
+
+def links(conn: sqlite3.Connection) -> list[Link]:
+    """How AniList relates every entry Kura knows to others."""
+    return [
         Link(row["anilist_id"], row["related_id"], row["relation"])
         for row in conn.execute("SELECT * FROM anilist_links")
     ]
-    by_id = {t.id: t for t in found}
-    grouped = group_franchises({t.id: entries[t.id] for t in found}, links)
-    made = [_franchise([by_id[title_id] for title_id in group], order) for group in grouped]
-    return sort_franchises(made, order)
 
 
 def franchise_of(

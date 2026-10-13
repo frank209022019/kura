@@ -39,6 +39,24 @@ relations of every entry the library matched are kept (`anilist_links`), and the
 together: sequels, prequels, alternative versions, films and side stories do, crossovers
 (`CHARACTER`) and loose links (`OTHER`) don't.
 
+## The rest of a franchise
+
+To show what a franchise lacks, Kura follows those same story links out from the library's
+entries and asks about each entry it reaches (`Media(id: …)`), keeping its name, format, status,
+first day, episode count and cover in `anilist_entries` and its links with the rest
+([kura/franchises.py](../../engine/src/kura/franchises.py)). It asks three at each of the
+watcher's look-arounds, every 15 seconds while no scan runs and no change waits for one: about
+12 a minute, leaving most of the limit to scans and the match screen. Franchises take turns, so
+a new one isn't kept waiting behind a big one. Dragon Ball's franchise is 43 entries (nine
+series, 21 films, three OVAs, nine specials and one not given a format yet), so it's known about
+four minutes after Kura first looks. Each entry is asked about afresh weekly, or daily while it
+airs or is still to come (and daily, too, while AniList gives nothing for it), and that's how a
+new one turns up: AniList links Dragon Ball Super: Beerus from Dragon Ball Z and Super, so the
+next look at either finds it. A franchise is followed 200 entries out at most, and never into
+another franchise the library has (through a crossover AniList ties to both). What's looked up
+this way never changes which titles make a franchise on Home: only the links of the library's
+own entries do. Music videos, cancelled entries and ones without a format yet aren't listed.
+
 Answers are kept a week in the data folder's `cache/`, so a rescan asks nothing again. A show
 still airing is the exception: whenever its episode list is due (every hour), a scan or the hourly
 check asks AniList afresh, or a new episode would go unnoticed for a week.

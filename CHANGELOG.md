@@ -8,6 +8,13 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- A franchise's page can show what you're missing of the whole franchise: "Missing titles",
+  beside the sort, puts in the series, films, OVAs and specials you have no part of, each in its
+  place, dimmed and marked "Not in library" ("Coming" for one not out yet). Kura looks each
+  franchise up on AniList in the background, a few entries at a time, and keeps it current,
+  so a new one, such as Dragon Ball Super: Beerus, appears by itself.
+
 ## 0.7.0 - 2026-10-13
 
 ### Added

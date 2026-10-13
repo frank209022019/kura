@@ -64,6 +64,8 @@ class Anime:
     cover: str | None  # the cover's web address
     related: tuple[Related, ...]
     banner: str | None = None  # the wide banner's web address: a background behind the poster
+    format: str | None = None  # AniList's own word: TV, MOVIE, OVA, SPECIAL, ONA, MUSIC, …
+    status: str | None = None  # FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED or HIATUS
 
     @property
     def year(self) -> int | None:
@@ -160,7 +162,7 @@ def anime(media: Json) -> Anime | None:
         id=number,
         title=english or romaji or titles[0],
         titles=titles,
-        kind=_kind(fields.text(media, "format")),
+        kind=kind_of(fields.text(media, "format")),
         episodes=fields.whole(media, "episodes"),
         minutes=fields.whole(media, "duration"),
         start=_fuzzy_date(fields.mapping(media, "startDate")),
@@ -170,6 +172,8 @@ def anime(media: Json) -> Anime | None:
         cover=fields.text(fields.mapping(media, "coverImage"), "large"),
         related=tuple(_related(fields.mapping(media, "relations"))),
         banner=fields.text(media, "bannerImage"),
+        format=fields.text(media, "format"),
+        status=status,
     )
 
 
@@ -291,7 +295,7 @@ def _related(relations: Json) -> list[Related]:
             Related(
                 id=number,
                 relation=fields.text(edge, "relationType") or "OTHER",
-                kind=_kind(fields.text(node, "format")),
+                kind=kind_of(fields.text(node, "format")),
                 title=title,
                 start=_fuzzy_date(fields.mapping(node, "startDate")),
             )
@@ -299,7 +303,8 @@ def _related(relations: Json) -> list[Related]:
     return found
 
 
-def _kind(format_: str | None) -> TitleKind | None:
+def kind_of(format_: str | None) -> TitleKind | None:
+    """AniList's format as Kura's kind, or None while AniList doesn't say."""
     return _KINDS.get(format_) if format_ else None
 
 

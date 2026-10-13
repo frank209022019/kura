@@ -99,7 +99,7 @@ def _start_of(entry: Anime | None, numbered: list[Episode]) -> int | None:
     if entry is None or entry.start is None or entry.kind not in (TitleKind.SERIES, None):
         return None
     for index, episode in enumerate(numbered):
-        if episode.aired is not None and _same_day(episode.aired, entry.start):
+        if episode.aired is not None and same_day(episode.aired, entry.start):
             return index
     return None
 
@@ -107,7 +107,7 @@ def _start_of(entry: Anime | None, numbered: list[Episode]) -> int | None:
 def lists_special(show: Show, day: date) -> bool:
     """Whether the show's specials (season 0) hold one that first aired on this day."""
     return any(
-        episode.aired is not None and _same_day(episode.aired, day) for episode in show.season(0)
+        episode.aired is not None and same_day(episode.aired, day) for episode in show.season(0)
     )
 
 
@@ -125,7 +125,7 @@ def _special(parsed: ParsedName, show: Show, entry: Anime | None) -> Placement |
         # A one-off is its day's special, whatever a release numbers it ("Special 05").
         offset = 0 if entry.episodes == 1 else number - 1
         for index, episode in enumerate(specials):
-            if episode.aired is not None and _same_day(episode.aired, entry.start):
+            if episode.aired is not None and same_day(episode.aired, entry.start):
                 at = index + offset
                 if 0 <= at < len(specials):
                     return Placement(0, specials[at].number, None, How.BY_DATE)
@@ -152,6 +152,20 @@ def named_special(names: Iterable[str], show: Show) -> Placement | None:
     if len(found) != 1:
         return None
     return Placement(0, found.pop(), None, How.BY_NAME)
+
+
+def fits_special(names: Iterable[str], special: Episode) -> bool:
+    """Whether one of an entry's names is this special's, read as `named_special` reads them:
+    "Dragon Ball Z: Plan to Eradicate the Saiyans" fits both of TMDB's "Plan to Eradicate the
+    Saiyans (1)" and "(2)"."""
+    if not special.title:
+        return False
+    theirs = _part_number(_plain(special.title))
+    return any(
+        similarity(_part_number(_plain(part)), theirs) >= _SAME_NAME
+        for name in names
+        for part in dict.fromkeys((name, name.split(": ", 1)[-1]))
+    )
 
 
 def _named(title: str, specials: Sequence[Episode]) -> Episode | None:
@@ -192,5 +206,6 @@ def _part_number(name: str) -> str:
     return _PART.sub(r"\1", name)
 
 
-def _same_day(a: date, b: date) -> bool:
+def same_day(a: date, b: date) -> bool:
+    """Whether two listings' days are the same air date: they differ by a few days at most."""
     return abs(a - b) <= _SAME_DAY

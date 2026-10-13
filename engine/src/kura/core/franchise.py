@@ -1,4 +1,6 @@
-"""Which titles make one franchise: the ones AniList ties together by story.
+"""Which titles make one franchise: the ones AniList ties together by story. And the rest of a
+franchise: every series, film, OVA and special tied to the library's titles, and which of them
+the library has no part of.
 
 Dragon Ball, Dragon Ball Z, GT, Kai, Super and their films are one franchise because AniList says
 each is a sequel, prequel, alternative version, side story or film of another. A crossover
@@ -6,8 +8,13 @@ each is a sequel, prequel, alternative version, side story or film of another. A
 the library lacks still ties its neighbours: GT and Kai both name Dragon Ball Z.
 """
 
-from collections.abc import Iterable, Mapping
+from collections import defaultdict
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date, timedelta
+
+from kura.core.catalog import Episode, Show, TitleKind, kind_of
+from kura.core.placing import fits_special, same_day, show_episodes
 
 # How AniList relates entries of one story.
 STORY = frozenset(
@@ -23,6 +30,11 @@ STORY = frozenset(
         "CONTAINS",
     }
 )
+# How AniList relates the parts of one telling: TMDB often keeps them as one show's seasons.
+_TELLING = frozenset({"PREQUEL", "SEQUEL"})
+
+LIMIT = 200  # entries of one franchise Kura looks into at most: the biggest have about this many
+_REMADE = timedelta(days=366)  # a special named alike years later is a remake, not the same one
 
 
 @dataclass(frozen=True)
@@ -34,9 +46,49 @@ class Link:
     relation: str
 
 
+@dataclass(frozen=True)
+class Entry:
+    """What Kura knows of one entry of a franchise, the library's or not."""
+
+    id: int
+    name: str  # the English title when there is one, else the romaji one
+    names: tuple[str, ...]  # every name it goes by
+    format: str | None  # AniList's own word: TV, MOVIE, OVA, SPECIAL, ONA, MUSIC, …
+    status: str | None  # FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED or HIATUS
+    start: date | None
+    episodes: int | None
+    cover: str | None  # the cover's web address
+
+    @property
+    def kind(self) -> TitleKind | None:
+        return kind_of(self.format)
+
+    @property
+    def coming(self) -> bool:
+        """Not out yet."""
+        return self.status == "NOT_YET_RELEASED"
+
+    @property
+    def airing(self) -> bool:
+        """Out, and more of it still to come."""
+        return self.status == "RELEASING"
+
+
+@dataclass(frozen=True)
+class Kept:
+    """A show of the franchise the library has: the AniList entries its videos are matched to,
+    its episode list, and where its videos sit in it."""
+
+    entries: frozenset[int]
+    show: Show
+    held: frozenset[tuple[int, int]]  # (season, episode) of each episode with a video
+
+
 def franchises(titles: Mapping[int, Iterable[int]], links: Iterable[Link]) -> list[list[int]]:
     """The titles grouped by franchise. `titles` maps each title to the AniList entries its files
-    matched. Groups come in the order of their first titles, and keep the titles' order."""
+    matched, and `links` are those entries' own: what Kura looks up of the rest of a franchise
+    never ties two of the library's together. Groups come in the order of their first titles,
+    and keep the titles' order."""
     parent: dict[int, int] = {}
 
     def root(entry: int) -> int:
@@ -63,3 +115,136 @@ def franchises(titles: Mapping[int, Iterable[int]], links: Iterable[Link]) -> li
         key: object = root(known[0]) if known else ("alone", title_id)
         groups.setdefault(key, []).append(title_id)
     return list(groups.values())
+
+
+def own_links(links: Iterable[Link], held: Collection[int]) -> list[Link]:
+    """The links of the library's own entries: all that ties its titles into franchises."""
+    return [link for link in links if link.anilist_id in held]
+
+
+def story_neighbours(links: Iterable[Link]) -> dict[int, list[int]]:
+    """Each entry's neighbours by story, whichever of the two says how they relate."""
+    neighbours: dict[int, list[int]] = defaultdict(list)
+    for link in links:
+        if link.relation in STORY:
+            neighbours[link.anilist_id].append(link.related)
+            neighbours[link.related].append(link.anilist_id)
+    return neighbours
+
+
+def nearest(
+    held: Iterable[int],
+    neighbours: Mapping[int, Sequence[int]],
+    limit: int = LIMIT,
+    others: Collection[int] = (),
+) -> list[int]:
+    """The rest of a franchise: the entries tied by story (`story_neighbours`) to the library's
+    `held` ones, those first and then the nearest, as far as Kura knows the links, at most
+    `limit` of them. It stops at the entries of the library's `others` franchises, so one
+    reached through a crossover isn't taken for this one's."""
+    order = sorted(set(held))[:limit]
+    seen = {*order, *others}
+    for entry in order:  # grows as it goes: each entry's neighbours join the end
+        for other in neighbours.get(entry, ()):
+            if len(order) >= limit:
+                return order
+            if other not in seen:
+                seen.add(other)
+                order.append(other)
+    return order
+
+
+def missing(
+    entries: Iterable[Entry], held: Collection[int], kept: Sequence[Kept], links: Iterable[Link]
+) -> list[Entry]:
+    """The entries the library has no part of, oldest first: no video is matched to one, and
+    none sits where it would in a show the library has (a later part TMDB keeps as the show's
+    next season, or a special among its specials). Music videos, cancelled entries and ones
+    AniList gives no kind yet aren't titles anyone keeps."""
+    tellings = _tellings(links)
+    found = [
+        entry
+        for entry in entries
+        if entry.kind is not None
+        and entry.format != "MUSIC"
+        and entry.status != "CANCELLED"
+        and entry.id not in held
+        and not any(_inside(entry, show, tellings) for show in kept)
+    ]
+    return sorted(found, key=lambda e: (e.start is None, e.start or date.max, e.name.casefold()))
+
+
+def _inside(entry: Entry, kept: Kept, tellings: Mapping[int, int]) -> bool:
+    """Whether a video of the library sits where the entry would in a show it has."""
+    if entry.kind is TitleKind.SERIES:
+        told = {tellings.get(other, other) for other in kept.entries}
+        if tellings.get(entry.id, entry.id) not in told:
+            return False  # a series of another telling that aired alongside, say
+    return any(spot in kept.held for spot in _spots(entry, kept.show))
+
+
+def _spots(entry: Entry, show: Show) -> list[tuple[int, int]]:
+    """Where the entry's episodes would sit in the show: a series' later part among the
+    numbered episodes from its first day on, as Kura places a file (kura/core/placing.py); a
+    film, OVA or special among the specials, from its day on or by its names."""
+    if entry.kind is TitleKind.SERIES:
+        listed = show_episodes(show)
+        first = next(
+            (
+                at
+                for at, episode in enumerate(listed)
+                if entry.start and episode.aired and same_day(episode.aired, entry.start)
+            ),
+            None,
+        )
+        if first is None:
+            return []
+        count = entry.episodes or len(listed) - first  # still airing: all from its first day on
+        return [(episode.season, episode.number) for episode in listed[first : first + count]]
+    specials = show.season(0)
+    named = [
+        (0, special.number)
+        for special in specials
+        if _near(entry.start, special.aired, _REMADE) and fits_special(entry.names, special)
+    ]
+    return named or _from_its_day(entry, specials)
+
+
+def _from_its_day(entry: Entry, specials: Sequence[Episode]) -> list[tuple[int, int]]:
+    """The special nearest the entry's first day, when one aired on it, and the ones after it
+    for its other episodes: for one its names don't name (TMDB's "A Hero's Legacy - The
+    Movie")."""
+    start = entry.start
+    if start is None:
+        return []
+    near = [
+        (abs(special.aired - start), at)
+        for at, special in enumerate(specials)
+        if special.aired and same_day(special.aired, start)
+    ]
+    if not near:
+        return []
+    first = min(near)[1]
+    return [(0, special.number) for special in specials[first : first + (entry.episodes or 1)]]
+
+
+def _near(day: date | None, other: date | None, within: timedelta) -> bool:
+    """Whether two days are within so long of each other; an unknown day could be either."""
+    return day is None or other is None or abs(day - other) <= within
+
+
+def _tellings(links: Iterable[Link]) -> dict[int, int]:
+    """Each entry's telling, by one entry of it: the entries joined as prequel and sequel."""
+    parent: dict[int, int] = {}
+
+    def root(entry: int) -> int:
+        parent.setdefault(entry, entry)
+        while parent[entry] != entry:
+            parent[entry] = parent[parent[entry]]
+            entry = parent[entry]
+        return entry
+
+    for link in links:
+        if link.relation in _TELLING:
+            parent[root(link.anilist_id)] = root(link.related)
+    return {entry: root(entry) for entry in parent}
