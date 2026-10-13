@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.9.0 - 2026-10-13
+
 ### Added
 - A title's page has "Missing titles" too, when its franchise has titles you're missing: it
   leads to the franchise's page with them shown, even for a title that's alone in your library.

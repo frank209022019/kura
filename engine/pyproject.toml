@@ -1,6 +1,6 @@
 [project]
 name = "kura"
-version = "0.8.0"
+version = "0.9.0"
 description = "Kura's engine: scans, identifies, plans and converts one anime library."
 requires-python = ">=3.14"
 license = "MIT"
