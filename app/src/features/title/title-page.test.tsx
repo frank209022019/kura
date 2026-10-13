@@ -264,10 +264,16 @@ describe("TitlePage", () => {
 
     expect(await screen.findByText("2 missing")).toBeInTheDocument();
     expect(screen.getByText("complete")).toBeInTheDocument();
+    // The map goes season by season.
+    const map = screen.getByRole("region", { name: "Episode map" });
     expect(
-      screen.getByRole("img", {
-        name: "Episode map: 39 to convert, 29 ready, 1 broken, 2 missing",
-      }),
+      within(map)
+        .getAllByRole("img")
+        .map((season) => season.getAttribute("aria-label")),
+    ).toEqual(["Season 1: 39 to convert", "Season 4: 29 ready, 1 broken, 2 missing"]);
+    expect(within(map).getByText("Season 4")).toBeInTheDocument();
+    expect(
+      within(map).getByTitle("S04E12 · episode 51 · Episode 12 · missing"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Episode 51 · missing/)).toBeInTheDocument();
     expect(screen.getByText(/Episode 50 · The Ginyu Force · missing/)).toBeInTheDocument();

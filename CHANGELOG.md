@@ -8,6 +8,10 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Changed
+- A title's episode map goes season by season: each season's episodes on a row of their own,
+  named, instead of one long block of squares.
+
 ## 0.10.0 - 2026-10-13
 
 ### Added

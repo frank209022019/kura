@@ -264,29 +264,61 @@ function Seasons(props: {
   );
 }
 
+/** Every numbered episode by its state, status by shape: a row of squares to each season, so a
+ * long show reads season by season. */
 function EpisodeMap({ episodes }: { episodes: EpisodeState[] }) {
-  const counts = new Map<string, number>();
-  for (const episode of episodes) counts.set(episode.state, (counts.get(episode.state) ?? 0) + 1);
-  const label = [...counts]
-    .map(([state, count]) => `${count} ${statusWord(state as EpisodeState["state"]).toLowerCase()}`)
-    .join(", ");
+  const counted = new Map(episodes.map((episode, index) => [key(episode), index + 1]));
   return (
     <Panel id="map-title" title="Episode map" note="Hover a square for the episode">
-      <div role="img" aria-label={`Episode map: ${label}`} className="flex flex-wrap gap-1">
-        {episodes.map((episode, index) => (
-          <span
-            key={`${episode.season}-${episode.number}`}
-            title={`S${pad(episode.season)}E${pad(episode.number)} · episode ${index + 1}${
-              episode.name ? ` · ${episode.name}` : ""
-            } · ${statusWord(episode.state).toLowerCase()}`}
-          >
-            <StatusShape state={episode.state} className="size-3" />
-          </span>
+      <div className="flex flex-col gap-2.5">
+        {seasonsOf(episodes).map(([season, mine]) => (
+          <div key={season} className="grid grid-cols-[5rem_1fr] items-start gap-3">
+            <span className="font-bold text-12 text-fg-muted leading-3">Season {season}</span>
+            <div
+              role="img"
+              aria-label={`Season ${season}: ${statesIn(mine)}`}
+              className="flex flex-wrap gap-1"
+            >
+              {mine.map((episode) => (
+                <span
+                  key={key(episode)}
+                  className="flex"
+                  title={`S${pad(episode.season)}E${pad(episode.number)} · episode ${counted.get(
+                    key(episode),
+                  )}${episode.name ? ` · ${episode.name}` : ""} · ${statusWord(
+                    episode.state,
+                  ).toLowerCase()}`}
+                >
+                  <StatusShape state={episode.state} className="size-3" />
+                </span>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
       <StatusLegend states={[...new Set(episodes.map((episode) => episode.state))]} />
     </Panel>
   );
+}
+
+/** The episodes by season, in order: [season, its episodes]. */
+function seasonsOf(episodes: EpisodeState[]): [number, EpisodeState[]][] {
+  const seasons = new Map<number, EpisodeState[]>();
+  for (const episode of episodes) {
+    const mine = seasons.get(episode.season);
+    if (mine) mine.push(episode);
+    else seasons.set(episode.season, [episode]);
+  }
+  return [...seasons];
+}
+
+/** "29 ready, 1 broken, 2 missing": how many of each state, in the order they first come. */
+function statesIn(episodes: EpisodeState[]): string {
+  const counts = new Map<EpisodeState["state"], number>();
+  for (const episode of episodes) counts.set(episode.state, (counts.get(episode.state) ?? 0) + 1);
+  return [...counts]
+    .map(([state, count]) => `${count} ${statusWord(state).toLowerCase()}`)
+    .join(", ");
 }
 
 function MissingAndBroken({ title, episodes }: { title: TitleDetail; episodes: EpisodeState[] }) {
