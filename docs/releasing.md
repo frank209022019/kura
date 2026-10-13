@@ -76,7 +76,8 @@ address). Then, for that tag or for one pushed from a PC:
    writes `Kura_<version>_x64-setup.exe.sig`.
 5. Started from the site, pushes the release commit and tag to `main` together (`--atomic`):
    if `main` moved on during the run, nothing is pushed or published, and running it again
-   releases the newer `main`.
+   releases the newer `main`. Then it starts CI on the release commit, which a push made with
+   the workflow's own token doesn't start by itself.
 6. Creates a **draft** release with the installer, its signature, `THIRD-PARTY-NOTICES.txt` and the
    notes, writes `latest.json` (the update manifest: version, notes, date, signature, and the
    installer's download address), uploads it, then publishes the release as the latest. Installed

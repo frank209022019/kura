@@ -157,6 +157,12 @@ jobs:
         if: env.PREPARE == 'true' && env.PUBLISH == 'true'
         run: git push --atomic origin main "v$VERSION"
 
+      # Pushed with the workflow's token, the release commit starts no workflow by itself, so CI
+      # is started for it by name: the new version is checked like any push to main.
+      - name: Check the release commit like any push to main
+        if: env.PREPARE == 'true' && env.PUBLISH == 'true'
+        run: gh workflow run ci.yml --ref main
+
       # The release starts as a draft, so installed copies only see it once
       # latest.json (the update manifest) is in place.
       - name: Publish the release

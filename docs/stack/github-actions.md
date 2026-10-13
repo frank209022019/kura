@@ -7,7 +7,7 @@ page is only a web page, so it builds on Linux.
 | Workflow | Runs on | Does |
 | --- | --- | --- |
 | [ci.yml](../../.github/workflows/ci.yml) | every push to `main`, pull requests (only collaborators can open them), by hand | Engine: Ruff, Pyright, pytest. App: Biome, TypeScript, Vitest, the release scripts' tests, the UI build, rustfmt, Clippy, cargo test. Bundle: the engine as the installer bundles it, the third-party notices' licence check, and a start of the bundled engine, so a release never meets a bundling problem first |
-| [release.yml](../../.github/workflows/release.yml) | by hand on `main` (the owner releasing from the site), a `v*` tag pushed from a PC, or by hand on a tag to publish it again | On `main`: checks CI passed, then makes the release commit and tag with `scripts/release.mjs`. Writes the notes from CHANGELOG.md; builds, smoke-tests and signs the installer; pushes the release commit and tag; publishes the release with its notes, `latest.json` and the third-party notices; checks installed copies see the update; refreshes the downloads page. A dry run stops before pushing and keeps the installer |
+| [release.yml](../../.github/workflows/release.yml) | by hand on `main` (the owner releasing from the site), a `v*` tag pushed from a PC, or by hand on a tag to publish it again | On `main`: checks CI passed, then makes the release commit and tag with `scripts/release.mjs`. Writes the notes from CHANGELOG.md; builds, smoke-tests and signs the installer; pushes the release commit and tag, and starts CI on it; publishes the release with its notes, `latest.json` and the third-party notices; checks installed copies see the update; refreshes the downloads page. A dry run stops before pushing and keeps the installer |
 | [downloads.yml](../../.github/workflows/downloads.yml) | after each release (started by release.yml), a push that changes the page's code, or by hand | Builds the downloads page from the releases and publishes it on GitHub Pages |
 
 The jobs run the same commands as [../development.md](../development.md), so a green local run
@@ -27,9 +27,9 @@ means a green CI run.
   result and start the downloads page); the downloads page workflow may publish to Pages
   (`pages: write`, `id-token: write`). All use the built-in `GITHUB_TOKEN`, and the GitHub CLI is
   available on the runners. Pushes and events made with `GITHUB_TOKEN` don't start other workflows:
-  the release commit doesn't start CI (CI passed on the commit before it, and the release checks
-  the build itself), its tag doesn't start the release a second time, and the release starts the
-  downloads page explicitly.
+  the release commit doesn't start CI by itself, so the release starts it by name (a new version
+  once failed tests that spelled out the old one, unseen till the next push); its tag doesn't
+  start the release a second time; and the release starts the downloads page by name too.
 - **Who commits.** The release commit and tag made on GitHub carry the name and GitHub no-reply
   address of whoever started the run, looked up from the run (`GITHUB_ACTOR`, `GITHUB_ACTOR_ID`),
   so no address is written in the repo.
