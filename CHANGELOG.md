@@ -8,6 +8,11 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Fixed
+- Updated to 0.2.0, Settings still said Kura 0.1.0: the update had left the old engine's files
+  beside the new one's, and the engine read its version from the old ones. An update now
+  replaces the engine whole, and this one clears what the last one left.
+
 ## 0.2.0 - 2026-10-13
 
 ### Added

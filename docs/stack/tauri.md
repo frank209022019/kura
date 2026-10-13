@@ -121,9 +121,19 @@ folder, with `LICENSE.txt` and `THIRD-PARTY-NOTICES.txt` beside Kura; and turns 
   `FileReadUTF16LE`) goes too, but only Kura's own
   parts of it (`kura.db`, `artwork`, `backups`, `cache`, `logs`, `tools`…), and only when it holds
   `kura.db`; its folder goes only if nothing else is left in it.
+- `NSIS_HOOK_PREINSTALL` and `NSIS_HOOK_POSTINSTALL` replace the engine whole. NSIS copies a new
+  version's files over the old ones and leaves the ones it doesn't have, so Python found both
+  versions of whatever changed (updated to 0.2.0, the engine still said 0.1.0, from the old
+  version's `kura-0.1.0.dist-info` beside the new one's). Before copying, the old `engine` folder
+  becomes `engine-old`; after, `engine-old` goes, with a few tries while an engine that's only
+  just stopped lets go of its files. `.onInstFailed` puts it back if the install stops between.
+  Windows lets a running program's folder be renamed, so a running engine is set aside too; the
+  files it holds stay in `engine-old` until the next install or the uninstall.
 
 Hooks can use the template's variables (`$UpdateMode`, `$PassiveMode`, `$DeleteAppDataCheckboxState`).
-After a Tauri upgrade, build an installer and test an install, an update and an uninstall.
+After a Tauri upgrade, build an installer and test an install, an update and an uninstall. The
+pre-install hook runs before the template checks whether Kura is open, and nothing runs between
+that check and the copying.
 
 ## Commands you'll use
 

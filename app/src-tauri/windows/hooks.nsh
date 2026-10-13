@@ -65,8 +65,52 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
+    ; What an install couldn't remove of an old engine (see 5), then Kura's folder if that was
+    ; all that kept it.
+    RMDir /r "$INSTDIR\engine-old"
+    RMDir "$INSTDIR"
     ${If} $DeleteAppDataCheckboxState = 1
     ${AndIf} $UpdateMode <> 1
         !insertmacro KuraDeleteData "$LOCALAPPDATA\Kura"
     ${EndIf}
+!macroend
+
+; 5. An update brings a whole new engine. NSIS copies the new version's files over the old ones
+;    but leaves the ones the new version doesn't have, and Python then finds both versions of
+;    what changed: updated to 0.2.0, the engine still said 0.1.0, reading the old version's
+;    record beside its own. So the old engine is set aside before the new one is copied into a
+;    folder of its own, and removed once the new one is in. If the install stops before then,
+;    the old engine goes back. An old engine still stopping gets a few seconds to let go of its
+;    files; anything it still holds goes at the next install, or with Kura.
+!macro NSIS_HOOK_PREINSTALL
+    RMDir /r "$INSTDIR\engine-old" ; what an earlier install couldn't remove
+    !insertmacro KuraTryUntilGone 'Rename "$INSTDIR\engine" "$INSTDIR\engine-old"' "$INSTDIR\engine"
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+    !insertmacro KuraTryUntilGone 'RMDir /r "$INSTDIR\engine-old"' "$INSTDIR\engine-old"
+!macroend
+
+Function .onInstFailed
+    ${If} ${FileExists} "$INSTDIR\engine-old\*.*"
+        RMDir /r "$INSTDIR\engine"
+        Rename "$INSTDIR\engine-old" "$INSTDIR\engine"
+    ${EndIf}
+FunctionEnd
+
+; Does ACTION until FOLDER is gone, at most 10 times, half a second apart.
+!macro KuraTryUntilGone ACTION FOLDER
+    Push $R9
+    StrCpy $R9 0
+    ${DoWhile} ${FileExists} "${FOLDER}\*.*"
+        ${If} $R9 >= 10
+            ${ExitDo}
+        ${EndIf}
+        ${If} $R9 > 0
+            Sleep 500
+        ${EndIf}
+        ${ACTION}
+        IntOp $R9 $R9 + 1
+    ${Loop}
+    Pop $R9
 !macroend
