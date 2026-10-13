@@ -164,6 +164,20 @@ class MoveRequest(ApiModel):
     before: int | None = Field(default=None, description="The job to go before; None: last")
 
 
+class JobsRequest(ApiModel):
+    """Several files in the queue at once, by their jobs."""
+
+    ids: list[int]
+
+
+class MoveJobsRequest(JobsRequest):
+    before: int | None = Field(default=None, description="The job to go before; None: last")
+
+
+class Changed(ApiModel):
+    changed: int  # how many files it changed: the others weren't waiting any more
+
+
 class ScheduleRequest(ApiModel):
     schedule: Literal["now", "nights"]
 
@@ -351,6 +365,26 @@ def plan_tonight(body: TonightRequest, queue: Queue, card: Card) -> QueueStatus:
     """On the nights-only schedule: tonight's run stops taking files at 03:00, so Windows' sleep
     comes back sooner, or goes on till 07:00."""
     queue.stop_early(early=body.early)
+    return _status(queue.status(), card)
+
+
+@router.post("/queue/remove")
+def remove_jobs(body: JobsRequest, queue: Queue) -> Changed:
+    """Takes several waiting files out of the queue; one no longer waiting is passed over."""
+    return Changed(changed=queue.remove_all(body.ids))
+
+
+@router.post("/queue/move")
+def move_jobs(body: MoveJobsRequest, queue: Queue) -> Changed:
+    """Puts several waiting files together before another, or last, in the order they wait in."""
+    return Changed(changed=queue.move_all(body.ids, body.before))
+
+
+@router.post("/queue/cancel")
+def cancel_queue(queue: Queue, card: Card) -> QueueStatus:
+    """Cancels everything: every file waiting leaves the queue, and the one converting stops. The
+    files themselves stay as they are."""
+    queue.cancel_all()
     return _status(queue.status(), card)
 
 

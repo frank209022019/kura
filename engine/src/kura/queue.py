@@ -35,7 +35,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable, Generator, Iterable
-from contextlib import ExitStack, closing, contextmanager
+from contextlib import ExitStack, closing, contextmanager, suppress
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from datetime import time as clock_time
@@ -369,18 +369,33 @@ class Queue:
     def remove(self, job_id: int) -> None:
         """Takes a waiting file out of the queue, as if it had never been added: a result that
         waited beside it goes too."""
-        with self._lock, closing(db.connect(self._paths.database)) as conn:
-            if _waiting_job(conn, job_id):
-                throw_away_kept(conn, job_id)
-            with conn:
-                gone = conn.execute(
-                    "DELETE FROM jobs WHERE id = ? AND state = 'queued'", (job_id,)
-                ).rowcount
-        if not gone:
+        if not self.remove_all([job_id]):
             raise LookupError("That file isn't waiting in the queue.")
+
+    def remove_all(self, job_ids: Iterable[int]) -> int:
+        """Takes waiting files out of the queue, as `remove` does one. A file no longer waiting
+        (it started, say) is passed over. Returns how many went."""
+        gone = 0
+        with self._lock, closing(db.connect(self._paths.database)) as conn:
+            for job_id in dict.fromkeys(job_ids):
+                if _waiting_job(conn, job_id):
+                    throw_away_kept(conn, job_id)
+                with conn:
+                    gone += conn.execute(
+                        "DELETE FROM jobs WHERE id = ? AND state = 'queued'", (job_id,)
+                    ).rowcount
+        return gone
 
     def move(self, job_id: int, before: int | None) -> None:
         """Puts a waiting file before another (`before`), or last when that's None."""
+        if not self.move_all([job_id], before):
+            raise LookupError("That file isn't waiting in the queue.")
+
+    def move_all(self, job_ids: Iterable[int], before: int | None) -> int:
+        """Puts waiting files together before another (`before`), or last when that's None or
+        among them, in the order they wait in. A file no longer waiting is passed over. Returns
+        how many moved."""
+        moving = set(job_ids)
         with closing(db.connect(self._paths.database)) as conn, conn:
             order = [
                 row[0]
@@ -388,17 +403,35 @@ class Queue:
                     "SELECT id FROM jobs WHERE state = 'queued' ORDER BY position, id"
                 )
             ]
-            if job_id not in order:
-                raise LookupError("That file isn't waiting in the queue.")
-            order.remove(job_id)
-            order.insert(order.index(before) if before in order else len(order), job_id)
+            block = [job for job in order if job in moving]
+            rest = [job for job in order if job not in moving]
+            at = rest.index(before) if before in rest else len(rest)
             first: int = conn.execute(
                 "SELECT COALESCE(MIN(position), 1) FROM jobs WHERE state = 'queued'"
             ).fetchone()[0]
             conn.executemany(
                 "UPDATE jobs SET position = ? WHERE id = ?",
-                [(first + index, job) for index, job in enumerate(order)],
+                [
+                    (first + index, job)
+                    for index, job in enumerate([*rest[:at], *block, *rest[at:]])
+                ],
             )
+        return len(block)
+
+    def cancel_all(self) -> int:
+        """Cancels everything: every file waiting leaves the queue, then the one converting stops
+        as skipping it does (the waiting ones first, so no other starts meanwhile). The files
+        themselves stay as they are. Returns how many were cancelled."""
+        with closing(db.connect(self._paths.database)) as conn:
+            waiting = [row[0] for row in conn.execute("SELECT id FROM jobs WHERE state = 'queued'")]
+        cancelled = self.remove_all(waiting)
+        with self._lock:
+            running = self._job_id
+        if running is not None:
+            with suppress(LookupError):  # it finished meanwhile
+                self.skip(running)
+                cancelled += 1
+        return cancelled
 
     def retry(self, job_id: int) -> None:
         """A failed or skipped file goes back in the queue, last. One made and waiting for its

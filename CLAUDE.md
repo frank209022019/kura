@@ -174,6 +174,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   (listed there to match after all), from "Which anime is this?" (2026-10-13). It goes to
   quarantine like any copy set aside, never straight to deletion, and History (or the page,
   right after) puts it back until the clear-out.
+- The queue works on several files at once (the owner, 2026-10-13: "batch selection to do
+  certain actions like remove from queue", "we should be able to cancel all"): ticked files, or
+  a whole season or title, go next, to the end or out of the queue together, and "Cancel all"
+  empties it and stops the file converting, after asking. Files themselves never change.
 - Not enough space (the owner, 2026-10-12): when a drive hasn't room for what's queued, the
   queue pauses and says what the files there need. The owner can empty that drive's quarantine
   first (with a second "are you sure": what's set aside there is deleted for good, before its

@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { STANDARDS } from "@/components/standard-choices";
@@ -371,7 +372,7 @@ function TreeRow(props: {
         onChange={() => props.onToggle(props.files)}
         className="peer sr-only"
       />
-      <Box state={state} />
+      <CheckBox state={state} />
       <span className="min-w-0 truncate">{props.name}</span>
       <span
         className={cn(
@@ -382,47 +383,6 @@ function TreeRow(props: {
         {props.meta}
       </span>
     </label>
-  );
-}
-
-const FOCUS =
-  "peer-focus-visible:outline-2 peer-focus-visible:outline-accent-fg peer-focus-visible:outline-offset-3";
-
-function Box({ state }: { state: boolean | "mixed" }) {
-  if (state === true) {
-    return (
-      <span
-        aria-hidden="true"
-        className={cn(
-          "inline-flex size-5 shrink-0 items-center justify-center rounded-6 bg-accent text-on-accent",
-          FOCUS,
-        )}
-      >
-        <Check size={11} strokeWidth={3.6} />
-      </span>
-    );
-  }
-  if (state === "mixed") {
-    return (
-      <span
-        aria-hidden="true"
-        className={cn(
-          "inline-flex size-5 shrink-0 items-center justify-center rounded-6 bg-accent/25 shadow-[inset_0_0_0_2px_var(--color-accent)]",
-          FOCUS,
-        )}
-      >
-        <span className="h-0.5 w-2.5 bg-accent-fg" />
-      </span>
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "size-5 shrink-0 rounded-6 shadow-[inset_0_0_0_2px_var(--color-control)]",
-        FOCUS,
-      )}
-    />
   );
 }
 

@@ -1793,6 +1793,118 @@
         ]
       }
     },
+    "/queue/remove": {
+      "post": {
+        "summary": "Remove Jobs",
+        "description": "Takes several waiting files out of the queue; one no longer waiting is passed over.",
+        "operationId": "remove_jobs_queue_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Changed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue/move": {
+      "post": {
+        "summary": "Move Jobs",
+        "description": "Puts several waiting files together before another, or last, in the order they wait in.",
+        "operationId": "move_jobs_queue_move_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveJobsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Changed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/queue/cancel": {
+      "post": {
+        "summary": "Cancel Queue",
+        "description": "Cancels everything: every file waiting leaves the queue, and the one converting stops. The\nfiles themselves stay as they are.",
+        "operationId": "cancel_queue_queue_cancel_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/queue/{job_id}/skip": {
       "post": {
         "summary": "Skip Job",
@@ -2515,6 +2627,19 @@
           "problem"
         ],
         "title": "ChangeProblem"
+      },
+      "Changed": {
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "title": "Changed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed"
+        ],
+        "title": "Changed"
       },
       "Choice": {
         "properties": {
@@ -3800,6 +3925,23 @@
         ],
         "title": "Job"
       },
+      "JobsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "JobsRequest",
+        "description": "Several files in the queue at once, by their jobs."
+      },
       "KindCounts": {
         "properties": {
           "series": {
@@ -4005,6 +4147,34 @@
         ],
         "title": "MissingTitle",
         "description": "A series, film, OVA or special of a franchise that the library has no part of, as AniList\nknows it."
+      },
+      "MoveJobsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before",
+            "description": "The job to go before; None: last"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "MoveJobsRequest"
       },
       "Moved": {
         "properties": {

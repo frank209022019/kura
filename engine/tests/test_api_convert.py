@@ -197,6 +197,24 @@ def test_waiting_files_can_be_moved_skipped_removed_and_tried_again(
     assert client.post("/queue/99/skip").status_code == 404
 
 
+def test_several_waiting_files_can_be_moved_and_removed_at_once_and_all_cancelled(
+    client: TestClient, shelf: Path
+):
+    client.post("/queue", json={"files": [1, 2]})
+    first, second = (job["id"] for job in client.get("/queue").json()["queued"])
+
+    moved = client.post("/queue/move", json={"ids": [second, 999], "before": first})
+    assert moved.json() == {"changed": 1}
+    assert [job["id"] for job in client.get("/queue").json()["queued"]] == [second, first]
+    removed = client.post("/queue/remove", json={"ids": [second, 999]})
+    assert removed.json() == {"changed": 1}
+    assert [job["id"] for job in client.get("/queue").json()["queued"]] == [first]
+
+    status = client.post("/queue/cancel").json()
+
+    assert (status["queued"], status["running"]) == ([], None)
+
+
 def test_the_room_said_is_where_the_files_are(
     client: TestClient, shelf: Path, monkeypatch: pytest.MonkeyPatch
 ):

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type Job, type QueueStatus, type Room } from "@/lib/engine";
@@ -149,7 +149,7 @@ describe("QueuePage", () => {
     const next = await screen.findByRole("region", { name: "Up next" });
     expect(next).toHaveTextContent("Dragon Ball Z · Season 1 · 2 left");
     expect(next).toHaveTextContent("S01E06Dragon Ball Z (1989) - S01E06.mkvBest≈ 1 h");
-    expect(next).toHaveTextContent("Dragon Ball Z · Season 21 · ≈ 1 h");
+    expect(next).toHaveTextContent("Dragon Ball Z · Season 2 · 1 left≈ 1 h");
 
     fireEvent.keyDown(screen.getByRole("button", { name: "More for Dragon Ball Z · S01E07" }), {
       key: "Enter",
@@ -159,6 +159,67 @@ describe("QueuePage", () => {
     await waitFor(() => expect(sent(fetch, "POST", "/queue/7/move")).toHaveLength(1));
     const [[, init]] = sent(fetch, "POST", "/queue/7/move") as [[unknown, RequestInit]];
     expect(JSON.parse(String(init.body))).toEqual({ before: 6 });
+  });
+
+  it("takes a whole season out of the queue at once", async () => {
+    const fetch = fakeEngine({ "/queue": RUNNING, "POST /queue/remove": { changed: 2 } });
+    renderQueue();
+
+    (await screen.findByRole("checkbox", { name: "Dragon Ball Z · Season 1 · 2 left" })).click();
+    const ticked = screen.getByRole("group", { name: "Ticked files" });
+    expect(ticked).toHaveTextContent("2 ticked");
+    within(ticked).getByRole("button", { name: "Take out of the queue" }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/remove")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/queue/remove") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ ids: [6, 7] });
+    expect(await screen.findByText("Tick files to move or take out several at once")).toBeVisible();
+  });
+
+  it("moves ticked files from different seasons together, next or to the end", async () => {
+    const fetch = fakeEngine({ "/queue": RUNNING, "POST /queue/move": { changed: 2 } });
+    renderQueue();
+
+    (await screen.findByRole("checkbox", { name: /S01E07/ })).click();
+    const season = screen.getByRole("checkbox", { name: "Dragon Ball Z · Season 1 · 2 left" });
+    expect(season).toBePartiallyChecked();
+    screen.getByRole("button", { name: "Show the files of Dragon Ball Z · Season 2" }).click();
+    (await screen.findByRole("checkbox", { name: /S02E01/ })).click();
+    screen.getByRole("button", { name: "Convert next" }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/move")).toHaveLength(1));
+    const [[, next]] = sent(fetch, "POST", "/queue/move") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(next.body))).toEqual({ ids: [7, 8], before: 6 });
+
+    (await screen.findByRole("checkbox", { name: /S01E06/ })).click();
+    screen.getByRole("button", { name: "Move to the end" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/move")).toHaveLength(2));
+    const [, [, last]] = sent(fetch, "POST", "/queue/move") as [unknown, [unknown, RequestInit]];
+    expect(JSON.parse(String(last.body))).toEqual({ ids: [6], before: null });
+  });
+
+  it("cancels everything only once asked, and can be talked out of it", async () => {
+    const fetch = fakeEngine({ "/queue": RUNNING, "POST /queue/cancel": RUNNING });
+    renderQueue();
+
+    (await screen.findByRole("button", { name: "Cancel all" })).click();
+    const asking = await screen.findByRole("group", { name: "Cancel all?" });
+    expect(asking).toHaveTextContent(
+      "Cancel all 4 files?The file converting now stops, and every file waiting leaves the queue.",
+    );
+    within(asking).getByRole("button", { name: "Keep them" }).click();
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Cancel all?" })).not.toBeInTheDocument(),
+    );
+    expect(sent(fetch, "POST", "/queue/cancel")).toHaveLength(0);
+
+    screen.getByRole("button", { name: "Cancel all" }).click();
+    (await screen.findByRole("button", { name: "Cancel all 4 files" })).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/cancel")).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Cancel all?" })).not.toBeInTheDocument(),
+    );
   });
 
   it("counts today's results, and tries a failed file again", async () => {

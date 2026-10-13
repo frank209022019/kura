@@ -1,15 +1,8 @@
-import {
-  AlertTriangle,
-  Check,
-  EllipsisVertical,
-  GripVertical,
-  Lock,
-  Pause,
-  Play,
-} from "lucide-react";
+import { AlertTriangle, Check, EllipsisVertical, Lock, Pause, Play } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Button } from "@/components/ui/button";
@@ -45,7 +38,7 @@ import { cn } from "@/lib/utils";
 import { ConvertTabs } from "./convert-tabs";
 import { NoRoom } from "./no-room";
 
-const LISTED = 5; // waiting files shown in the first group before "Show all"
+const LISTED = 5; // waiting files a group shows before "Show more"
 
 /** The queue: the file converting now, what's next, when it runs, and today's results. */
 export function QueuePage() {
@@ -53,6 +46,7 @@ export function QueuePage() {
   const action = useQueueAction();
   const settings = useSettings();
   const status = queue.data;
+  const [cancelling, setCancelling] = useState(false);
 
   // Space pauses or resumes, as the board's key hint says, unless a control has the focus.
   const toggle = useRef<() => void>(() => {});
@@ -91,6 +85,11 @@ export function QueuePage() {
             </kbd>
           </Button>
         )}
+        {status && (status.running || status.queued.length > 0) && (
+          <Button variant="ghost" onClick={() => setCancelling(true)}>
+            Cancel all
+          </Button>
+        )}
       </div>
     </header>
   );
@@ -107,6 +106,13 @@ export function QueuePage() {
   return (
     <>
       {header}
+      {cancelling && !idle && (
+        <CancelAll
+          files={status.queued.length + (status.running ? 1 : 0)}
+          converting={status.running !== null}
+          onClose={() => setCancelling(false)}
+        />
+      )}
       <EngineProblem queries={[queue]} />
       <Problem error={action.error} />
       {status.problem && (
@@ -634,70 +640,219 @@ function unpluggedWords(drives: string[]): string {
     : `Every file waiting is on ${either(drives)}, which aren't connected. Plug one in to carry on.`;
 }
 
+/** Asks before cancelling everything: the file converting now stops, and every file waiting
+ * leaves the queue. The files themselves stay as they are. */
+function CancelAll(props: { files: number; converting: boolean; onClose: () => void }) {
+  const action = useQueueAction();
+  const files = props.files === 1 ? "1 file" : `${props.files} files`;
+  return (
+    <fieldset
+      aria-label="Cancel all?"
+      className="flex animate-fade-up flex-col gap-3 rounded-16 border border-danger/40 bg-danger/8 p-4"
+    >
+      <span className="font-extrabold text-14">Cancel all {files}?</span>
+      <span className="text-13 text-fg-soft">
+        {props.converting
+          ? "The file converting now stops, and every file waiting leaves the queue."
+          : "Every file waiting leaves the queue."}{" "}
+        Your files stay as they are, and you can add them again from Convert.
+      </span>
+      <Problem error={action.error} />
+      <div className="flex flex-wrap gap-2.5">
+        <Button
+          size="sm"
+          variant="danger"
+          disabled={action.isPending}
+          onClick={() => action.mutate({ path: "/queue/cancel" }, { onSuccess: props.onClose })}
+        >
+          Cancel all {files}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={props.onClose}>
+          Keep them
+        </Button>
+      </div>
+    </fieldset>
+  );
+}
+
+/** What waits, by title and season, each group with a tick for all its files. Ticked files can be
+ * moved or taken out all at once; each file's own menu does the same for it alone. */
 function UpNext({ jobs }: { jobs: Job[] }) {
   const groups = jobGroups(jobs);
-  const [all, setAll] = useState(false);
-  const [first, ...rest] = groups;
-  if (!first) return null;
-  const listed = all ? first.jobs : first.jobs.slice(0, LISTED);
+  const batch = useQueueAction();
+  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
+  // The ticked files in the order they wait in: one that started converting meanwhile drops out.
+  const chosen = jobs.filter((job) => picked.has(job.id)).map((job) => job.id);
+  const next = jobs.find((job) => !picked.has(job.id));
+  const pick = (ids: number[], on: boolean) =>
+    setPicked((before) => {
+      const after = new Set(before);
+      for (const id of ids) {
+        if (on) after.add(id);
+        else after.delete(id);
+      }
+      return after;
+    });
+  const act = (path: string, body: object) =>
+    batch.mutate({ path, body }, { onSuccess: () => setPicked(new Set()) });
+  if (groups.length === 0) return null;
   return (
     <section
       aria-labelledby="next-title"
       className="flex min-w-0 flex-[999_1_560px] animate-fade-up flex-col gap-1 rounded-24 border border-edge bg-glass p-5.5"
     >
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+      <div className="mb-2 flex min-h-9 flex-wrap items-center justify-between gap-2">
         <h2 id="next-title" className="font-extrabold text-18">
           Up next
         </h2>
-        <span className="text-12 text-fg-muted">Each file's menu moves or removes it</span>
+        {chosen.length > 0 ? (
+          <fieldset aria-label="Ticked files" className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 font-bold text-13">{chosen.length} ticked</span>
+            {next && (
+              <Button
+                size="sm"
+                disabled={batch.isPending}
+                onClick={() => act("/queue/move", { ids: chosen, before: next.id })}
+              >
+                Convert next
+              </Button>
+            )}
+            <Button
+              size="sm"
+              disabled={batch.isPending}
+              onClick={() => act("/queue/move", { ids: chosen, before: null })}
+            >
+              Move to the end
+            </Button>
+            <Button
+              size="sm"
+              disabled={batch.isPending}
+              onClick={() => act("/queue/remove", { ids: chosen })}
+            >
+              Take out of the queue
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>
+              Untick all
+            </Button>
+          </fieldset>
+        ) : (
+          <span className="text-12 text-fg-muted">
+            Tick files to move or take out several at once
+          </span>
+        )}
       </div>
-      <GroupLabel group={first} />
-      <ul className="flex flex-col">
-        {listed.map((job, index) => (
-          <JobRow key={job.id} job={job} first={jobs[0]?.id ?? null} top={index === 0} />
-        ))}
-      </ul>
-      {first.jobs.length > listed.length && (
-        <Button size="sm" variant="ghost" className="self-start" onClick={() => setAll(true)}>
-          Show {first.jobs.length - listed.length} more
-        </Button>
-      )}
-      {rest.length > 0 && (
-        <ul className="mt-2 flex flex-col border-white/6 border-t pt-2">
-          {rest.map((group) => (
-            <li key={group.key} className="flex items-center gap-2.5 py-2 text-13">
-              <span aria-hidden="true" className="size-2 rounded-full bg-[#2449b8]" />
-              <span className="min-w-0 flex-1 truncate">{group.label}</span>
-              <span className="font-mono text-12 text-fg-muted">
-                {group.jobs.length} · ≈ {gpuTimeShort(sum(group.jobs))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Problem error={batch.error} />
+      {groups.map((group, at) => (
+        <Group
+          key={group.key}
+          group={group}
+          first={at === 0}
+          picked={picked}
+          onPick={pick}
+          top={jobs[0]?.id ?? null}
+        />
+      ))}
     </section>
   );
 }
 
-function GroupLabel({ group }: { group: JobGroup }) {
+/** One title's (or season's) files waiting: a tick for all of them, then the files themselves, a
+ * few at first. The first group shows its files; the others on asking. */
+function Group(props: {
+  group: JobGroup;
+  first: boolean;
+  picked: ReadonlySet<number>;
+  onPick: (ids: number[], on: boolean) => void;
+  top: number | null;
+}) {
+  const { group } = props;
+  // The first group shows its files till the owner says otherwise, whichever group is first.
+  const [shown, setShown] = useState<boolean | null>(null);
+  const open = shown ?? props.first;
+  const [all, setAll] = useState(false);
+  const ids = group.jobs.map((job) => job.id);
+  const ticked = ids.filter((id) => props.picked.has(id)).length;
+  const state = ticked === 0 ? false : ticked === ids.length ? true : "mixed";
+  const listed = all ? group.jobs : group.jobs.slice(0, LISTED);
   return (
-    <div className="flex items-center gap-2.5 py-2 font-extrabold text-12 text-fg-muted">
-      <span aria-hidden="true" className="size-2 rounded-full bg-[#2449b8]" />
-      {group.label} · {group.jobs.length} left
+    <div className={cn("flex flex-col", !props.first && "mt-1 border-white/6 border-t pt-1")}>
+      <div className="flex min-h-10 items-center gap-2.5 px-1.5">
+        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 font-extrabold text-12 text-fg-muted">
+          <input
+            type="checkbox"
+            checked={state === true}
+            ref={(box) => {
+              if (box) box.indeterminate = state === "mixed";
+            }}
+            onChange={() => props.onPick(ids, state !== true)}
+            className="peer sr-only"
+          />
+          <CheckBox state={state} />
+          <span className="min-w-0 truncate">
+            {group.label} · {group.jobs.length} left
+          </span>
+        </label>
+        <span className="font-mono text-12 text-fg-muted">≈ {gpuTimeShort(sum(group.jobs))}</span>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} the files of ${group.label}`}
+          onClick={() => setShown(!open)}
+        >
+          {open ? "Hide" : "Show"}
+        </Button>
+      </div>
+      {open && (
+        <>
+          <ul className="flex flex-col">
+            {listed.map((job) => (
+              <JobRow
+                key={job.id}
+                job={job}
+                first={props.top}
+                top={job.id === props.top}
+                picked={props.picked.has(job.id)}
+                onPick={(on) => props.onPick([job.id], on)}
+              />
+            ))}
+          </ul>
+          {group.jobs.length > listed.length && (
+            <Button size="sm" variant="ghost" className="self-start" onClick={() => setAll(true)}>
+              Show {group.jobs.length - listed.length} more
+            </Button>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function JobRow({ job, first, top }: { job: Job; first: number | null; top: boolean }) {
+function JobRow(props: {
+  job: Job;
+  first: number | null;
+  top: boolean;
+  picked: boolean;
+  onPick: (on: boolean) => void;
+}) {
+  const { job, first, top } = props;
   const action = useQueueAction();
   const remove = useRemoveFromQueue();
   const [name] = split(job.path);
   return (
     <li className="flex flex-col border-white/6 border-b px-1.5 text-13 last:border-b-0">
       <div className="flex min-h-13 items-center gap-3">
-        <GripVertical size={14} aria-hidden="true" className="shrink-0 text-fg-faint" />
-        <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
-        <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
+        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            checked={props.picked}
+            onChange={(event) => props.onPick(event.target.checked)}
+            className="peer sr-only"
+          />
+          <CheckBox state={props.picked} />
+          <span className="w-17 shrink-0 font-mono">{episodeCode(job)}</span>
+          <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
+        </label>
         {job.driveMissing ? (
           <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Its drive isn't connected

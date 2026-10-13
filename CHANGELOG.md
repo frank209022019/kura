@@ -12,6 +12,11 @@ shows these notes when it offers the update.
 - The side bar says what's going on, as the design showed: Convert shows how far the file
   converting now has got (63%), or how many files wait to convert, and Tidy up how many changes
   and files to match wait for you.
+- The queue takes several files at once: tick files, or a whole season or title, and convert
+  them next, move them to the end or take them out of the queue together. Every season and title
+  waiting can be opened to its files, not only the first.
+- "Cancel all" beside "Pause all" empties the queue and stops the file converting now, once you
+  say so. Your files stay as they are.
 
 ## 0.9.0 - 2026-10-13
 

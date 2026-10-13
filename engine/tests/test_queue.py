@@ -370,6 +370,50 @@ def test_files_waiting_can_be_skipped_moved_and_removed(queue: Queue, conn: sqli
         queue.remove(second)
 
 
+def test_several_files_waiting_can_be_moved_and_removed_at_once(
+    queue: Queue, conn: sqlite3.Connection
+):
+    queue.add([1, 2, 3])
+    first, second, third = (job.id for job in queue.status().queued)
+
+    assert queue.move_all([third, second], before=first) == 2  # together, in the order they wait
+    assert [job.file_id for job in queue.status().queued] == [2, 3, 1]
+    assert queue.move_all([second, 999], before=None) == 1  # one not waiting is passed over
+    assert [job.file_id for job in queue.status().queued] == [3, 1, 2]
+    assert queue.move_all([first, third], before=first) == 2  # before one of them: last
+    assert [job.file_id for job in queue.status().queued] == [2, 3, 1]
+
+    assert queue.remove_all([first, third, 999]) == 2
+    assert states(conn) == [(2, "queued")]
+
+
+def test_cancelling_all_takes_every_file_out_and_stops_the_one_converting(
+    queue: Queue, conn: sqlite3.Connection, shows: Path, monkeypatch: pytest.MonkeyPatch
+):
+    original = (shows / "Trigun (1998) - S01E01.mkv").read_bytes()
+    queue.add([1, 2, 3])
+    worker = converting(queue, monkeypatch)
+
+    assert queue.cancel_all() == 3
+    worker.join(timeout=20)
+
+    assert states(conn) == [(1, "skipped")]  # it can be tried again from today's list
+    assert queue.status().running is None
+    assert not queue.status().queued
+    assert (shows / "Trigun (1998) - S01E01.mkv").read_bytes() == original
+    assert not list(shows.glob(f"*{WORKING}"))
+
+
+def test_cancelling_all_with_nothing_converting_takes_out_what_waits(
+    queue: Queue, conn: sqlite3.Connection
+):
+    queue.add([1, 2])
+
+    assert queue.cancel_all() == 2
+    assert states(conn) == []
+    assert queue.cancel_all() == 0
+
+
 def test_without_ffmpeg_files_wait_and_the_queue_says_why(
     paths: DataPaths, shows: Path, conn: sqlite3.Connection
 ):
