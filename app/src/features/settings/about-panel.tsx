@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { TmdbCredit } from "@/components/tmdb-credit";
 import { useEngine, useHealth, useTmdb } from "@/lib/engine";
 import { openDownloadsPage } from "@/lib/links";
-import { useReadyUpdate } from "@/lib/updates";
+import { updateStatus, useReadyUpdate } from "@/lib/updates";
 import { Panel } from "./panel";
 
 const LINK =
@@ -19,14 +19,6 @@ export function AboutPanel() {
   const engineText = { starting: "Starting…", ready: "Running", failed: "Not running" }[
     engine.state
   ];
-
-  let updateText = "Checked in installed copies of Kura";
-  if (import.meta.env.PROD) {
-    if (update.isPending) updateText = "Checking…";
-    else if (update.isError) updateText = `Can't check right now: ${String(update.error)}`;
-    else if (update.data) updateText = `Kura ${update.data.version} is ready to install`;
-    else updateText = "Up to date";
-  }
 
   return (
     <Panel title="About Kura" note="蔵, a storehouse: a personal tool for one anime library.">
@@ -60,7 +52,7 @@ export function AboutPanel() {
           {!tmdb.data && "…"}
         </dd>
         <dt className="text-fg-muted">Updates</dt>
-        <dd>{updateText}</dd>
+        <dd>{updateStatus(update)}</dd>
         <dt className="text-fg-muted">Versions</dt>
         <dd>
           <button type="button" className={LINK} onClick={() => void openDownloadsPage()}>

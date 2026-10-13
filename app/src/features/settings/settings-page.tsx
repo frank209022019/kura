@@ -28,6 +28,7 @@ import {
   useSetStartWithWindows,
   useStartWithWindows,
 } from "@/lib/startup";
+import { updateStatus, useInstallUpdate, useReadyUpdate } from "@/lib/updates";
 import { cn } from "@/lib/utils";
 import { AboutPanel } from "./about-panel";
 import { BackupsPanel } from "./backups-panel";
@@ -420,19 +421,46 @@ function Quarantine({ sizes, settings }: { sizes: DataSizes; settings: Settings 
   );
 }
 
+/** This copy's version, where the update check stands, and checking now rather than waiting for
+ * the daily check. A version found can be installed from here too, though its card was put off. */
 function Updates() {
   const health = useHealth();
+  const update = useReadyUpdate();
+  const install = useInstallUpdate();
   return (
     <Panel
       title="Updates"
-      note="Kura looks for a new version once a day and downloads it in the background. When one is ready, it shows what's new and asks before restarting."
+      note="Kura looks for a new version when it starts and once a day, and downloads it in the background. When one is ready, it shows what's new and asks before restarting."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-14">
-          This is Kura <span className="font-mono">{health.data?.version ?? "…"}</span>
+        <span className="flex flex-col gap-0.5">
+          <span className="text-14">
+            This is Kura <span className="font-mono">{health.data?.version ?? "…"}</span>
+          </span>
+          <span role="status" className="text-13 text-fg-muted">
+            {updateStatus(update)}
+          </span>
         </span>
-        <Button onClick={() => void openDownloadsPage()}>Every version</Button>
+        <div className="flex flex-wrap gap-2.5">
+          {update.data ? (
+            <Button variant="primary" disabled={install.isPending} onClick={() => install.mutate()}>
+              Restart and update
+            </Button>
+          ) : (
+            import.meta.env.PROD && (
+              <Button disabled={update.isFetching} onClick={() => void update.refetch()}>
+                Check for a new version
+              </Button>
+            )
+          )}
+          <Button onClick={() => void openDownloadsPage()}>Every version</Button>
+        </div>
       </div>
+      {install.isError && (
+        <p role="alert" className="text-13 text-broken-fg">
+          The update didn't start: {String(install.error)}
+        </p>
+      )}
     </Panel>
   );
 }

@@ -9,6 +9,7 @@ import {
   type Health,
   type LibraryFolder,
 } from "@/lib/engine";
+import type { ReadyUpdate } from "@/lib/updates";
 import { fakeEngine, READY, SETTINGS } from "@/test/engine";
 import { SettingsPage } from "./settings-page";
 
@@ -102,6 +103,21 @@ function renderSettings(section = "libraries", shellAnswers = true) {
   );
 }
 
+/** The shell's answers when Kura checks for updates, in turn (the last one repeats): an update,
+ * none (null), or why it couldn't check (a string, as the shell's errors are). */
+function answerUpdates(answers: (ReadyUpdate | null | string)[]) {
+  shell.invoke.mockImplementation((command: string) => {
+    if (command === "engine_status") return Promise.resolve(READY);
+    if (command !== "prepare_update") return Promise.resolve(undefined);
+    const answer = answers.length > 1 ? answers.shift() : answers[0];
+    return typeof answer === "string" ? Promise.reject(answer) : Promise.resolve(answer);
+  });
+}
+
+function checks() {
+  return shell.invoke.mock.calls.filter(([command]) => command === "prepare_update").length;
+}
+
 function sent(fetch: ReturnType<typeof fakeEngine>, method: string, path: string) {
   return fetch.mock.calls.filter(
     ([input, init]) =>
@@ -117,6 +133,7 @@ function body(fetch: ReturnType<typeof fakeEngine>, method: string, path: string
 describe("SettingsPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     shell.invoke.mockReset();
   });
 
@@ -417,6 +434,49 @@ describe("SettingsPage", () => {
     (await screen.findByRole("button", { name: "Every version and what changed" })).click();
 
     expect(shell.invoke).toHaveBeenCalledWith("open_downloads_page");
+  });
+
+  it("checks for a new version when asked, and installs the one it finds", async () => {
+    vi.stubEnv("PROD", true); // only installed copies check for updates
+    answerUpdates([null, { version: "0.3.0", notes: "- Check for a new version." }]);
+    fakeEngine({ "/folders": FOLDERS, "/health": HEALTH });
+    renderSettings("updates", false);
+
+    expect(
+      await screen.findByText(/^Up to date · last checked today \d\d:\d\d$/),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("0.1.0")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Check for a new version" }).click();
+
+    expect(await screen.findByText("Kura 0.3.0 is ready to install")).toBeInTheDocument();
+    expect(checks()).toBe(2);
+    expect(screen.queryByRole("button", { name: "Check for a new version" })).toBeNull();
+    screen.getByRole("button", { name: "Restart and update" }).click();
+
+    await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("install_update"));
+  });
+
+  it("says why it couldn't check, and checks again when asked", async () => {
+    vi.stubEnv("PROD", true);
+    answerUpdates(["error sending request", null]);
+    fakeEngine({ "/folders": FOLDERS, "/health": HEALTH });
+    renderSettings("updates", false);
+
+    expect(
+      await screen.findByText("Can't check right now: error sending request"),
+    ).toBeInTheDocument();
+    screen.getByRole("button", { name: "Check for a new version" }).click();
+
+    expect(await screen.findByText(/^Up to date · last checked today/)).toBeInTheDocument();
+  });
+
+  it("leaves checking for updates to installed copies", async () => {
+    fakeEngine({ "/folders": FOLDERS, "/health": HEALTH });
+    renderSettings("updates");
+
+    expect(await screen.findByText("Checked in installed copies of Kura")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check for a new version" })).toBeNull();
+    expect(checks()).toBe(0);
   });
 
   it("takes an unknown section to the first", async () => {

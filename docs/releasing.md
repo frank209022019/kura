@@ -94,8 +94,8 @@ after its tag reached GitHub (publishing failed, say), run the workflow from tha
 
 The releases are public, so updates need no login.
 
-1. At start and once a day, Tauri's updater reads
-   `https://github.com/frankgrobbelaar/kura/releases/latest/download/latest.json`
+1. At start, once a day, and on Settings › Updates' "Check for a new version", Tauri's updater
+   reads `https://github.com/frankgrobbelaar/kura/releases/latest/download/latest.json`
    (`plugins.updater.endpoints` in `tauri.conf.json`): the manifest of the newest published
    release. Until the first release exists GitHub answers 404, which Kura takes as up to date.
 2. If the version is newer, it downloads the installer in the background and checks its signature
@@ -104,8 +104,9 @@ The releases are public, so updates need no login.
    version on the downloads page. "Restart and update" stops the engine, runs the installer in
    passive mode (a progress bar, no questions), and the installer opens Kura again.
 
-If a check fails (no internet, say), Settings › About says so ("Can't check right now: …") and
-Kura tries again the next day. The code is
+If a check fails (no internet, say), Settings › Updates and About say so ("Can't check right
+now: …") and Kura tries again the next day, or when asked. Settings › Updates also says when it
+last checked, and installs a version it found though its card was put off with Later. The code is
 [app/src-tauri/src/updater.rs](../app/src-tauri/src/updater.rs).
 
 ## Installing for the first time

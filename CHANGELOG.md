@@ -8,6 +8,11 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Check for a new version (Settings > Updates): Kura looks at once instead of waiting for its
+  daily check, which carries on as before, and says when it last looked. A version it finds can
+  be installed from there too, even after Later on its card.
+
 ### Fixed
 - Updated to 0.2.0, Settings still said Kura 0.1.0: the update had left the old engine's files
   beside the new one's, and the engine read its version from the old ones. An update now

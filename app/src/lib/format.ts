@@ -21,11 +21,15 @@ export function clockLength(minutes: number): string {
   return whole >= 60 ? `${Math.floor(whole / 60)} h ${whole % 60} min` : `${whole} min`;
 }
 
-/** "233 MB", "1.1 GB" from a billion bytes, "16 GB" from ten billion, "320 KB" under a million. */
 /** When a backup was made, as the owner reads it: "today 03:00", "yesterday 03:00", "11 October 03:00". */
 export function madeAt(made: string): string {
   const moment = new Date(made);
   if (Number.isNaN(moment.getTime())) return "a backup Kura no longer has";
+  return dayAndTime(moment);
+}
+
+/** A moment as the owner reads it: "today 03:00", "yesterday 03:00", "11 October 03:00". */
+export function dayAndTime(moment: Date): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
@@ -40,6 +44,7 @@ export function keptFor(days: number | null | undefined): string {
   return days === null ? "for good" : `for ${days ?? 30} days`;
 }
 
+/** "233 MB", "1.1 GB" from a billion bytes, "16 GB" from ten billion, "320 KB" under a million. */
 export function size(bytes: number): string {
   if (bytes >= 1e10) return `${Math.round(bytes / 1e9)} GB`;
   if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;

@@ -1,5 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { type UseQueryResult, useMutation, useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
+import { dayAndTime } from "@/lib/format";
 
 /** An update the shell has downloaded and checked. Mirrors src-tauri/src/updater.rs. */
 export interface ReadyUpdate {
@@ -11,7 +12,8 @@ export interface ReadyUpdate {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Checks for an update once a day and downloads it in the background.
+ * Checks for an update as Kura starts and once a day, or when asked (`refetch()`, Settings'
+ * "Check for a new version"), and downloads it in the background.
  * Resolves to the update once it is ready to install, or null when Kura is up to date.
  * Installed builds only: a development build has nothing to update.
  */
@@ -30,6 +32,22 @@ export function useReadyUpdate() {
 /** Closes Kura, installs the update and opens Kura again. */
 export function useInstallUpdate() {
   return useMutation({ mutationFn: () => invoke<void>("install_update") });
+}
+
+/**
+ * Where the update check stands, as Settings says it: "Up to date · last checked today 07:12",
+ * "Kura 0.3.0 is ready to install", "Checking…", or why Kura can't check.
+ */
+export function updateStatus(update: UseQueryResult<ReadyUpdate | null>): string {
+  if (!import.meta.env.PROD) return "Checked in installed copies of Kura";
+  if (update.isFetching) return "Checking…";
+  if (update.isPaused) return "You're offline: Kura checks once you're back";
+  if (update.isError) return `Can't check right now: ${String(update.error)}`;
+  if (update.data) return `Kura ${update.data.version} is ready to install`;
+  if (update.isSuccess) {
+    return `Up to date · last checked ${dayAndTime(new Date(update.dataUpdatedAt))}`;
+  }
+  return "Checking…";
 }
 
 /**
