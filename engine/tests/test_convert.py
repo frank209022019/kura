@@ -11,6 +11,7 @@ from typing import BinaryIO, cast
 
 import pytest
 
+from kura import __version__
 from kura.convert import (
     WORKING,
     ConvertError,
@@ -108,7 +109,7 @@ def test_a_720p_episode_is_made_in_one_command(conn: sqlite3.Connection, episode
 
     run(
         conn,
-        programs(report(1920, 1080, tag="fast to 1080p · Kura 0.1.0"), commands),
+        programs(report(1920, 1080, tag=f"fast to 1080p · Kura {__version__}"), commands),
         seen=seen,
     )
 
@@ -398,7 +399,7 @@ def test_a_file_to_remux_found_interlaced_is_encoded_anew(conn: sqlite3.Connecti
         )
     commands: list[Sequence[str]] = []
 
-    run(conn, programs(report(1440, 1080, tag="reencode to 1080p · Kura 0.1.0"), commands))
+    run(conn, programs(report(1440, 1080, tag=f"reencode to 1080p · Kura {__version__}"), commands))
 
     [made] = [command for command in commands if "-progress" in command]
     assert made[made.index("-c:v") + 1] == "hevc_nvenc"  # a filtered picture can't be copied
@@ -417,7 +418,7 @@ def test_an_sd_episode_can_be_only_re_encoded(conn: sqlite3.Connection, episode:
         conn.execute("UPDATE jobs SET method = 'reencode'")
     commands: list[Sequence[str]] = []
 
-    run(conn, programs(report(1440, 1080, tag="reencode to 1080p · Kura 0.1.0"), commands))
+    run(conn, programs(report(1440, 1080, tag=f"reencode to 1080p · Kura {__version__}"), commands))
 
     assert episode.read_bytes().startswith(b"converted ")
     assert not any("rawvideo" in command for command in commands)

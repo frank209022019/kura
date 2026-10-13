@@ -10,6 +10,7 @@ from typing import cast
 
 import pytest
 
+from kura import __version__
 from kura.convert import Programs, start
 from kura.core.fields import Json
 from kura.upscale import Frame
@@ -17,7 +18,7 @@ from tests.fake_ffprobe import REPORT
 
 FAKE_FFMPEG = [sys.executable, str(Path(__file__).parent / "fake_ffmpeg.py")]
 SHADER = Path(__file__).parent / "fake.glsl"
-BEST_TAG = "best to 1080p · Kura 0.1.0"
+BEST_TAG = f"best to 1080p · Kura {__version__}"
 
 
 def report(width: int, height: int, *, codec: str = "hevc", tag: str | None = None) -> Json:
