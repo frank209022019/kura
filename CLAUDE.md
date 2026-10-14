@@ -20,7 +20,7 @@ file open in another app, a crash told on Home, a failed conversion's log and "M
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
 overnight note); and light mode, Paper, as Windows is or as chosen. Kura 0.1.0, the first
 release, went out on 2026-10-12; CHANGELOG.md has every release since. Everything in
-[What's next](#whats-next) is built.
+[What's next](#whats-next) is built but the small player, drawn for the owner to approve.
 
 ## Ground rules
 
@@ -210,6 +210,13 @@ Everything decided so far. Don't ask again; change only with the owner.
   episodes, so they never count as missing.
 - "A simple tool, but we don't want to struggle with small things": empty, error and recovery
   states are designed, not afterthoughts (see the "small things" screen).
+- A player inside Kura (the owner, 2026-10-14: "mostly just for quick checks, but could be
+  watching"; "inside Kura's window, with the ability to go full screen or back to pip"): Play on
+  a video opens a small player in a corner of the window, which stays while you move between
+  pages, goes full screen and comes back. It plays in Kura's own window: the engine hands the
+  file over in a form the window plays (the picture as it is where the window can decode it,
+  else made H.264 by the graphics card as it plays; surround sound as stereo AAC; styled
+  subtitles drawn), with nothing new to download. The design comes first (What's next, 10).
 - Order of work: design language (done), repo and pipelines (done), then building.
 
 **Design: Cinema** (the owner's pick of three; tokens in `app/src/styles/tokens.css`)
@@ -391,6 +398,11 @@ Everything decided so far. Don't ask again; change only with the owner.
    that night, the one converting finishing).
 9. Light mode: done (Paper, the owner's pick of three drafted on 2026-10-14, over A Daylight's
    cool grey and C Ink's white and black; as Windows is, or chosen in Settings › General).
+10. A small player inside Kura's window: drawn on the
+    [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3) canvas (2026-10-14: the small
+    player over a title page, full screen with sound and subtitles, in light, a quick check on
+    "Which anime is this?", and its small things), for the owner to approve before any of it is
+    built.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`
