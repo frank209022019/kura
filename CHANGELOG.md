@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.12.0 - 2026-10-14
+
 ### Added
 - Every page shows its shape while it loads: grey placeholders where its header, cards, panels
   and rows will be, instead of an empty page. They breathe softly, and hold still when
