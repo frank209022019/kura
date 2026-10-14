@@ -47,6 +47,14 @@ def originals_deleted(conn: sqlite3.Connection) -> bool:
     return row is not None and json.loads(row["value"]) == "delete"
 
 
+def history_days(conn: sqlite3.Connection) -> int | None:
+    """How many days History keeps what Kura did before it's cleared out each day (Settings >
+    Your data), or None: for good, the first choice."""
+    row = conn.execute("SELECT value FROM settings WHERE key = 'history_days'").fetchone()
+    days = json.loads(row["value"]) if row else None
+    return days if days in (7, 30, 90) else None
+
+
 def quarantine_days(conn: sqlite3.Connection) -> int | None:
     """How many days what's set aside is kept before it's cleared out (Settings > Your data), or
     None: for good."""

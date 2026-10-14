@@ -65,6 +65,21 @@ const UNDONE: PlanDone = {
   quarantined: 0,
   undone: 3,
 };
+const RENAMED_EARLIER: PlanDone = {
+  ...RENAMED,
+  id: 8,
+  title: "Renamed 12 Trigun files",
+  appliedAt: "2026-10-08T17:00:00+00:00",
+  moved: 12,
+};
+
+/** "2026-10-14": the day a moment fell on, on this PC. */
+function localDay(moment: Date): string {
+  const month = String(moment.getMonth() + 1).padStart(2, "0");
+  const day = String(moment.getDate()).padStart(2, "0");
+  return `${moment.getFullYear()}-${month}-${day}`;
+}
+
 const HISTORY: History = {
   plans: [TIDIED, RENAMED, UNDONE],
   scans: [
@@ -79,6 +94,7 @@ const HISTORY: History = {
       gone: 1,
     },
   ],
+  older: null,
 };
 
 function renderHistory() {
@@ -149,7 +165,7 @@ describe("HistoryPage", () => {
       deleted: true,
     };
     const fetch = fakeEngine({
-      "/history": { plans: [deleted], scans: [] },
+      "/history": { plans: [deleted], scans: [], older: null },
       "POST /plans/15/undo": { planId: 15, moved: 0, quarantined: 2, problems: [] },
     });
     renderHistory();
@@ -171,7 +187,7 @@ describe("HistoryPage", () => {
 
   it("keeps Undo for a tidy-up not all put back", async () => {
     const partly: PlanDone = { ...TIDIED, moved: 1, quarantined: 0, undone: 29 };
-    fakeEngine({ "/history": { plans: [partly], scans: [] } });
+    fakeEngine({ "/history": { plans: [partly], scans: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -181,7 +197,7 @@ describe("HistoryPage", () => {
 
   it("lists each conversion with what it made, and puts an original back", async () => {
     const fetch = fakeEngine({
-      "/history": { plans: [CONVERTED, TIDIED], scans: [] },
+      "/history": { plans: [CONVERTED, TIDIED], scans: [], older: null },
       "POST /plans/14/undo": { planId: 14, moved: 1, quarantined: 0, problems: [] },
     });
     renderHistory();
@@ -206,7 +222,7 @@ describe("HistoryPage", () => {
 
   it("says when a converted file's original is gone, and offers nothing to put back", async () => {
     const gone: PlanDone = { ...CONVERTED, quarantined: 0 }; // deleted, or cleared out
-    fakeEngine({ "/history": { plans: [gone], scans: [] } });
+    fakeEngine({ "/history": { plans: [gone], scans: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -222,7 +238,7 @@ describe("HistoryPage", () => {
       undoneAt: today(15, 0),
       conversion: CONVERTED.conversion && { ...CONVERTED.conversion, restored: true },
     };
-    fakeEngine({ "/history": { plans: [back], scans: [] } });
+    fakeEngine({ "/history": { plans: [back], scans: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -243,9 +259,103 @@ describe("HistoryPage", () => {
   });
 
   it("says when there's nothing yet", async () => {
-    fakeEngine({ "/history": { plans: [], scans: [] } });
+    fakeEngine({ "/history": { plans: [], scans: [], older: null } });
     renderHistory();
 
     expect(await screen.findByRole("heading", { name: "Nothing yet" })).toBeInTheDocument();
+  });
+
+  it("shows older days on asking, an undo on the day it happened", async () => {
+    // Undone today, applied on 8 October: today's page has its undo, the older page the rest.
+    const lately: PlanDone = { ...UNDONE, id: 20, undoneAt: today(9, 15) };
+    const fetch = fakeEngine({
+      "/history": (_init: RequestInit | undefined, url: URL) =>
+        url.searchParams.get("before") === null
+          ? { plans: [lately], scans: [], older: localDay(new Date()) }
+          : { plans: [lately, RENAMED_EARLIER], scans: [], older: null },
+    });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "09:15UndoneRenamed 3 Sailor Moon filesYou put 3 files back",
+    );
+    expect(screen.queryByRole("region", { name: "8 October" })).not.toBeInTheDocument();
+
+    screen.getByRole("button", { name: "Show older" }).click();
+
+    const older = await screen.findByRole("region", { name: "8 October" });
+    expect(older).toHaveTextContent("RenamedRenamed 3 Sailor Moon files");
+    expect(older).toHaveTextContent("RenamedRenamed 12 Trigun files");
+    expect(screen.queryByRole("button", { name: "Show older" })).not.toBeInTheDocument();
+    const asked = fetch.mock.calls.map(([input]) => new URL(String(input)).search);
+    expect(asked).toContain(`?before=${localDay(new Date())}`);
+  });
+
+  it("shows a busy day's first 20, and all of them on asking", async () => {
+    const night = Array.from(
+      { length: 26 },
+      (_, n): PlanDone => ({
+        ...CONVERTED,
+        id: 100 + n,
+        title: `Converted Trigun · S01E${String(n + 1).padStart(2, "0")}`,
+        appliedAt: today(1, n),
+      }),
+    );
+    fakeEngine({ "/history": { plans: night, scans: [], older: null } });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList.querySelectorAll("li")).toHaveLength(20);
+
+    screen.getByRole("button", { name: "Show all 26" }).click();
+
+    await waitFor(() => expect(todayList.querySelectorAll("li")).toHaveLength(26));
+    expect(screen.queryByRole("button", { name: "Show all 26" })).not.toBeInTheDocument();
+  });
+
+  it("clears History after asking what to keep", async () => {
+    let cleared = false;
+    const fetch = fakeEngine({
+      "/history": () => (cleared ? { plans: [TIDIED], scans: [], older: null } : HISTORY),
+      "POST /history/clear": () => {
+        cleared = true;
+        return { cleared: 3 };
+      },
+    });
+    renderHistory();
+
+    (await screen.findByRole("button", { name: "Clear History" })).click();
+    const asking = await screen.findByRole("group", { name: "Clear History?" });
+    expect(asking).toHaveTextContent("What's cleared can't be undone or put back from here.");
+    screen.getByRole("radio", { name: "Nothing" }).click();
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Nothing" })).toHaveAttribute("data-state", "on"),
+    );
+    screen.getByRole("button", { name: "Clear all of History" }).click();
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "3 entries cleared from History. Your files stay as they are.",
+    );
+    const sent = fetch.mock.calls.find(([input]) => String(input).endsWith("/history/clear"));
+    expect(JSON.parse(String(sent?.[1]?.body))).toEqual({ keep: "nothing" });
+    await waitFor(() =>
+      expect(screen.queryByText("Renamed 287 Dragon Ball Z files")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("asks again without clearing on Back", async () => {
+    const fetch = fakeEngine({ "/history": HISTORY });
+    renderHistory();
+
+    (await screen.findByRole("button", { name: "Clear History" })).click();
+    (await screen.findByRole("button", { name: "Back" })).click();
+
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Clear History?" })).not.toBeInTheDocument(),
+    );
+    expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/history/clear"))).toBe(
+      false,
+    );
   });
 });

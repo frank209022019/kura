@@ -1336,8 +1336,32 @@
     "/history": {
       "get": {
         "summary": "What Kura Did",
-        "description": "Every tidy-up applied and every scan, newest first.",
+        "description": "What Kura did on its latest days with anything on them (a week's worth), newest first:\neach tidy-up applied, each conversion and each scan. `before` (\"2026-10-07\", the page's\n`older`) asks for the days before that one.",
         "operationId": "what_kura_did_history_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1345,6 +1369,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/History"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history/clear": {
+      "post": {
+        "summary": "Clear History",
+        "description": "Forgets what Kura did before the last day, week or month, or all of it. What still has a\ncopy in quarantine stays, so it can be put back, and nothing on disk changes.",
+        "operationId": "clear_history_history_clear_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearHistory"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cleared"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2731,6 +2804,38 @@
         ],
         "title": "Chosen"
       },
+      "ClearHistory": {
+        "properties": {
+          "keep": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "nothing"
+            ],
+            "title": "Keep"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keep"
+        ],
+        "title": "ClearHistory"
+      },
+      "Cleared": {
+        "properties": {
+          "cleared": {
+            "type": "integer",
+            "title": "Cleared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cleared"
+        ],
+        "title": "Cleared"
+      },
       "Compared": {
         "properties": {
           "there": {
@@ -3658,6 +3763,17 @@
             },
             "type": "array",
             "title": "Scans"
+          },
+          "older": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Older"
           }
         },
         "type": "object",
@@ -5157,6 +5273,22 @@
             "type": "boolean",
             "title": "Artwork",
             "default": false
+          },
+          "historyDays": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  7,
+                  30,
+                  90
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historydays"
           }
         },
         "type": "object",

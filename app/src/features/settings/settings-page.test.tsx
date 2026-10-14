@@ -180,7 +180,11 @@ describe("SettingsPage", () => {
         "3.4 GB in 14 files: copies set aside and converted files' originals, each on its own drive.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "30 days" })).toHaveAttribute("aria-checked", "true");
+    const quarantine = screen.getByRole("radiogroup", { name: "Keep what's set aside" });
+    expect(within(quarantine).getByRole("radio", { name: "30 days" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 
   it("turns the reports off, and keeps what's set aside longer", async () => {
@@ -224,6 +228,28 @@ describe("SettingsPage", () => {
         "Deleted for good once each converted copy is checked and in place: no putting back.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("keeps History as long as the owner says, clearing what's older each day", async () => {
+    let saved = SETTINGS;
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/settings": () => saved,
+      "/data": DATA,
+      "PUT /settings": (init?: RequestInit) => {
+        saved = JSON.parse(String(init?.body));
+        return saved;
+      },
+    });
+    renderSettings("data");
+
+    const keep = await screen.findByRole("radiogroup", { name: "Keep History" });
+    expect(screen.getByText("Kept till you clear it on History.")).toBeInTheDocument();
+    within(keep).getByRole("radio", { name: "30 days" }).click();
+
+    await waitFor(() => expect(sent(fetch, "PUT", "/settings")).toHaveLength(1));
+    expect(body(fetch, "PUT", "/settings")).toMatchObject({ historyDays: 30 });
+    expect(await screen.findByText(/^Cleared each day of what's older/)).toBeInTheDocument();
   });
 
   it("says what changing the standard does to what's converted already", async () => {

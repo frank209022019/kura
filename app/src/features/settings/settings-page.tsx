@@ -334,6 +334,7 @@ function YourData() {
         <BackupsPanel className="flex-[1_1_300px]" />
         <ExportPanel />
         {found && settings && <Quarantine sizes={found} settings={settings} />}
+        {settings && <HistoryKept settings={settings} />}
       </div>
       <p className="flex items-start gap-2.5 rounded-20 border border-tint/14 border-dashed px-5 py-4 text-13 text-fg-soft">
         <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-muted" />
@@ -467,6 +468,50 @@ function Quarantine({ sizes, settings }: { sizes: DataSizes; settings: Settings 
           </li>
         ))}
       </ul>
+    </Panel>
+  );
+}
+
+const HISTORY_KEEP = [
+  { value: "7", label: "7 days" },
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+  { value: "forever", label: "Forever" },
+] as const;
+
+/** How long History keeps what Kura did: cleared each day of what's older, or kept till the
+ * owner clears it on History. */
+function HistoryKept({ settings }: { settings: Settings }) {
+  const save = useSaveSettings();
+  const keep = settings.historyDays === null ? "forever" : String(settings.historyDays);
+  return (
+    <Panel
+      title="History"
+      note="Every tidy-up, conversion and scan, and what can be undone or put back."
+      className="flex-[1_1_300px]"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="font-bold text-14">Keep it</span>
+        <Segmented
+          label="Keep History"
+          value={keep as (typeof HISTORY_KEEP)[number]["value"]}
+          options={HISTORY_KEEP}
+          onChange={(value) =>
+            save.mutate({
+              path: "/settings",
+              body: {
+                ...settings,
+                historyDays: value === "forever" ? null : (Number(value) as 7 | 30 | 90),
+              },
+            })
+          }
+        />
+      </div>
+      <span className="text-12 text-fg-muted">
+        {settings.historyDays === null
+          ? "Kept till you clear it on History."
+          : "Cleared each day of what's older, but for what still has a copy in quarantine. Your files never change."}
+      </span>
     </Panel>
   );
 }

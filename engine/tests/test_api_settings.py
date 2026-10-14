@@ -22,6 +22,7 @@ def test_a_new_kura_starts_from_the_recommended_choices(client: TestClient):
         "quarantineDays": 30,
         "originals": "quarantine",
         "artwork": False,
+        "historyDays": None,  # History keeps everything till the owner chooses
     }
 
 
@@ -56,6 +57,7 @@ def test_choices_are_kept(client: TestClient, conn: sqlite3.Connection):
         "quarantineDays": None,
         "originals": "delete",
         "artwork": True,
+        "historyDays": 30,
     }
 
     saved = client.put("/settings", json=chosen)

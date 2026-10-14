@@ -220,7 +220,13 @@ again where the shows are. Nothing moves while a scan runs, and no scan starts w
 (`Scanner.hold`); what Windows tells of Kura's own moves starts no scan, since the records
 follow them already. History lists every tidy-up,
 which can be undone from there, and undone again for any file that couldn't go back the first
-time (the plan counts as undone only once nothing is left).
+time (the plan counts as undone only once nothing is left). It comes a week's worth of days at a
+time (`history.page`, the local day each thing happened on; an undo shows on its own day), and
+the owner can clear it (`history.clear`): all of it or what's older than a day, week or month by
+hand, or what's older than 7, 30 or 90 days each day with the quarantine's clear-out (Settings ›
+Your data; kept for good at first). Clearing forgets records only: what still has a copy in
+quarantine stays, so it can be put back and the clear-out finds it, as does a change under way
+and the latest scan; no file changes.
 
 Deleting (`tidy.delete`, from a title's page: the whole title, a season or one video; and from
 "Which anime is this?": a file waiting for a match) is a plan of the same kind: each video and the subtitles named after it go to the quarantine on their own

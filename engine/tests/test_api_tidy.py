@@ -3,6 +3,7 @@
 import sqlite3
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -122,6 +123,33 @@ def test_applying_lists_the_plan_in_history_and_undo_puts_it_back(
     [plan] = client.get("/history").json()["plans"]
     assert plan["undoneAt"] is not None
     assert plan["undone"] == 3
+
+
+def test_history_pages_by_days_and_clears_what_the_owner_lets_go(
+    client: TestClient, conn: sqlite3.Connection
+):
+    with conn:
+        for days_ago in range(8, -1, -1):  # a scan a day for nine days, the latest today
+            at = (datetime.now().astimezone() - timedelta(days=days_ago)).isoformat()
+            conn.execute(
+                "INSERT INTO scans (started_at, finished_at, state, stage)"
+                " VALUES (?, ?, 'done', 'done')",
+                (at, at),
+            )
+
+    first = client.get("/history").json()
+    assert len(first["scans"]) == 7
+    rest = client.get("/history", params={"before": first["older"]}).json()
+    assert (len(rest["scans"]), rest["older"]) == (2, None)
+    assert client.get("/history", params={"before": "last week"}).status_code == 422
+
+    cleared = client.post("/history/clear", json={"keep": "week"}).json()
+
+    assert cleared == {"cleared": 2}
+    assert client.post("/history/clear", json={"keep": "nothing"}).json() == {"cleared": 6}
+    [latest] = client.get("/history").json()["scans"]  # the latest scan stays: Home tells of it
+    assert latest["id"] == 9
+    assert client.post("/history/clear", json={"keep": "year"}).status_code == 422
 
 
 def test_a_copys_subtitles_go_with_it_and_count_as_no_copy_of_their_own(

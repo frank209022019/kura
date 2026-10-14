@@ -1,4 +1,10 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -380,6 +386,8 @@ export interface Settings {
   originals: "quarantine" | "delete";
   /** Poster and background pictures next to each show, for media servers. */
   artwork: boolean;
+  /** Days History keeps what Kura did before it's cleared out each day, or null: for good. */
+  historyDays: 7 | 30 | 90 | null;
 }
 
 export const useSettings = () => useEngineQuery<Settings>("/settings");
@@ -992,13 +1000,36 @@ export interface ScanDone {
   gone: number | null;
 }
 
-/** Everything Kura did, newest first. */
+/** What Kura did on a week's worth of days with anything on them, newest first. */
 export interface History {
+  /** A tidy-up undone on a later day is on that day's page too. */
   plans: PlanDone[];
   scans: ScanDone[];
+  /** The day the next page starts before ("2026-10-07"); null: there's no more. */
+  older: string | null;
 }
 
-export const useHistory = () => useEngineQuery<History>("/history");
+/**
+ * History, a page of days at a time: `fetchNextPage()` adds the days before. Every page loaded is
+ * asked again when History changes.
+ */
+export function useHistory() {
+  const engine = useEngine();
+  return useInfiniteQuery({
+    queryKey: engineKey(engine, "/history"),
+    queryFn: ({ pageParam }) => {
+      if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
+      return callEngine<History>(engine, pageParam ? `/history?before=${pageParam}` : "/history");
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.older ?? null,
+    enabled: engine.state === "ready",
+  });
+}
+
+/** Forgets what Kura did before the last day, week or month, or all of it:
+ * `clear.mutate({ path: "/history/clear", body: { keep } })`. Files don't change. */
+export const useClearHistory = () => useEngineAction<{ cleared: number }>(["/history"]);
 
 /** How a file is converted: copied into MKV, re-encoded, or upscaled fast or with the AI model. */
 export type Method = "remux" | "reencode" | "fast" | "best";

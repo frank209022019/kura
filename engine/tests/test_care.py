@@ -1,4 +1,5 @@
-"""Looking after Kura in the background: tonight's backup, and the quarantine cleared daily."""
+"""Looking after Kura in the background: tonight's backup, and the quarantine and History cleared
+daily."""
 
 import sqlite3
 from datetime import datetime, timedelta
@@ -96,6 +97,22 @@ def test_kept_for_good_nothing_is_cleared(
     look_after(paths, [NOW]).look_after()
 
     assert not cleared(conn, old)
+
+
+def test_history_is_cleared_daily_only_when_the_owner_chose_how_long_it_keeps(
+    paths: DataPaths, conn: sqlite3.Connection, tmp_path: Path
+):
+    old = set_aside(conn, tmp_path, "Old", days_ago=40)  # its copy is cleared out first
+    at = [NOW]
+
+    look_after(paths, at).look_after()  # History keeps everything at first
+    assert conn.execute("SELECT id FROM plans").fetchall() != []
+
+    with conn:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('history_days', '30')")
+    at[0] += timedelta(days=1)
+    look_after(paths, at).look_after()
+    assert conn.execute("SELECT id FROM plans WHERE id = ?", (old,)).fetchone() is None
 
 
 def test_the_clear_out_waits_while_files_move(

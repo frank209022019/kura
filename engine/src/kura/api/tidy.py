@@ -2,7 +2,7 @@
 tidy-up can be undone. Nothing moves while a scan runs, and no scan starts while files move."""
 
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -145,6 +145,24 @@ class ScanDone(ApiModel):
 class History(ApiModel):
     plans: list[PlanDone]  # newest first
     scans: list[ScanDone]  # newest first
+    older: str | None = None  # the day the next page starts before ("2026-10-07"); None: no more
+
+
+class ClearHistory(ApiModel):
+    # What stays: the last day, week or month of it, or nothing.
+    keep: Literal["day", "week", "month", "nothing"]
+
+
+class Cleared(ApiModel):
+    cleared: int  # tidy-ups, conversions and scans forgotten
+
+
+KEEPS = {
+    "day": timedelta(days=1),
+    "week": timedelta(days=7),
+    "month": timedelta(days=30),
+    "nothing": timedelta(0),
+}
 
 
 Keep = Annotated[list[str], Query(description="Copies to keep over the others of an episode")]
@@ -232,13 +250,27 @@ def delete_files(body: DeleteRequest, conn: Database, scans: Scans) -> TidyResul
     return _result(done)
 
 
+Day = Annotated[str | None, Query(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+
+
 @router.get("/history")
-def what_kura_did(conn: Database) -> History:
-    """Every tidy-up applied and every scan, newest first."""
+def what_kura_did(conn: Database, before: Day = None) -> History:
+    """What Kura did on its latest days with anything on them (a week's worth), newest first:
+    each tidy-up applied, each conversion and each scan. `before` ("2026-10-07", the page's
+    `older`) asks for the days before that one."""
+    found = history.page(conn, before=before)
     return History(
-        plans=[PlanDone.model_validate(asdict(plan)) for plan in history.plans(conn)],
-        scans=[ScanDone.model_validate(scan.__dict__) for scan in history.scans(conn)],
+        plans=[PlanDone.model_validate(asdict(plan)) for plan in found.plans],
+        scans=[ScanDone.model_validate(scan.__dict__) for scan in found.scans],
+        older=found.older,
     )
+
+
+@router.post("/history/clear")
+def clear_history(body: ClearHistory, conn: Database) -> Cleared:
+    """Forgets what Kura did before the last day, week or month, or all of it. What still has a
+    copy in quarantine stays, so it can be put back, and nothing on disk changes."""
+    return Cleared(cleared=history.clear(conn, keep=KEEPS[body.keep], now=_now()))
 
 
 @router.post("/plans/{plan_id}/undo")

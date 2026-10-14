@@ -1,9 +1,9 @@
 """Looking after Kura while it's open, on a background thread: tonight's backup of its records
 (from 03:00, or the first chance after: kura/backups.py), once a day clearing out of the
-quarantine what has waited longer than the owner keeps it (kura/quarantine.py), and the poster
-and background pictures next to each show when the owner wants them (kura/artwork_files.py).
-The clear-out waits while files move (Scanner.hold), so a tidy-up putting a copy back never
-meets it.
+quarantine what has waited longer than the owner keeps it (kura/quarantine.py) and of History
+what's older than the owner keeps it (kura/history.py), and the poster and background pictures
+next to each show when the owner wants them (kura/artwork_files.py). The clear-out waits while
+files move (Scanner.hold), so a tidy-up putting a copy back never meets it.
 """
 
 import logging
@@ -12,11 +12,11 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager, closing
 from datetime import date, datetime, timedelta
 
-from kura import backups, db
+from kura import backups, db, history
 from kura.artwork_files import write_artwork
 from kura.backups import BackupError
 from kura.config import DataPaths
-from kura.preferences import quarantine_days
+from kura.preferences import history_days, quarantine_days
 from kura.quarantine import clear_out
 from kura.scan import ScanBusyError
 from kura.web import Send
@@ -82,6 +82,10 @@ class Care:
             try:
                 with self._hold(), closing(db.connect(self._paths.database)) as conn:
                     clear_out(conn, days=quarantine_days(conn), now=now)
+                    # Then History, so what the clear-out just emptied can go from it too.
+                    days = history_days(conn)
+                    if days is not None:
+                        history.clear(conn, keep=timedelta(days=days), now=now)
             except ScanBusyError:
                 return  # a scan runs, or files move: next time
             self._cleared_on = now.date()

@@ -186,6 +186,12 @@ Everything decided so far. Don't ask again; change only with the owner.
   days are up) or convert the files that fit now, the rest waiting for room. Kura doesn't write
   results to another drive. The Convert screen asks the same before queueing a choice that
   doesn't fit.
+- History (the owner, 2026-10-14): a week's worth of days at a time with "Show older", a busy
+  day's first 20 entries till "Show all", an undo on the day it was made. "Clear History" keeps
+  the last 24 hours, 7 or 30 days, or nothing, after asking; Settings › Your data can have it
+  cleared each day of what's older than 7, 30 or 90 days ("Forever", the default). Clearing
+  forgets records only: files never change, and what still has a copy in quarantine stays, so
+  it can be put back.
 - Lists sort by release date by default, oldest first, on every page that lists series, movies,
   OVAs or specials, and can sort by name and other orders (the owner, 2026-10-11). They're
   grouped by type (the owner, 2026-10-13: "we need to order by type"): series first, then

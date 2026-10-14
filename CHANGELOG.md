@@ -8,6 +8,14 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- History comes a week at a time, with "Show older" for the days before, and a busy day shows its
+  first 20 entries till you ask for all of them. An undo shows on the day you made it.
+- Clear History: keep its last 24 hours, 7 days or 30 days, or nothing, after Kura asks. Or have
+  Kura clear what's older than 7, 30 or 90 days each day, in Settings › Your data (it keeps
+  everything till you choose). Clearing never touches your files, and what still has a copy in
+  quarantine stays listed, so you can put it back.
+
 ## 0.13.0 - 2026-10-14
 
 ### Added

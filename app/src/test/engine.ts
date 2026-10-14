@@ -26,6 +26,7 @@ export const SETTINGS: Settings = {
   quarantineDays: 30,
   originals: "quarantine",
   artwork: false,
+  historyDays: null,
 };
 
 export const NO_LIBRARY: Library = {
@@ -61,11 +62,12 @@ export const NO_SCAN: Scan = {
   gone: null,
 };
 
-type Answer = unknown | ((init: RequestInit | undefined) => unknown);
+type Answer = unknown | ((init: RequestInit | undefined, url: URL) => unknown);
 
 /**
  * Stands in for the engine's HTTP API: `answers` maps "GET /scan" (or just "/scan" for GET) to the
- * JSON to send back, or to a function of the request. Anything else gets a 404.
+ * JSON to send back, or to a function of the request (its init and address, query and all).
+ * Anything else gets a 404.
  */
 export function fakeEngine(answers: Record<string, Answer>) {
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
@@ -77,7 +79,9 @@ export function fakeEngine(answers: Record<string, Answer>) {
     const answer = key !== null && key in answers ? answers[key] : undefined;
     if (answer === undefined) return Response.json({ detail: "Not found" }, { status: 404 });
     const body =
-      typeof answer === "function" ? (answer as (init?: RequestInit) => unknown)(init) : answer;
+      typeof answer === "function"
+        ? (answer as (init: RequestInit | undefined, url: URL) => unknown)(init, url)
+        : answer;
     if (body instanceof Response) return body;
     return body === null ? new Response(null, { status: 204 }) : Response.json(body);
   });

@@ -12,6 +12,7 @@ import {
   type PlanDone,
   type ScanDone,
   type TidyResult,
+  useClearHistory,
   useHistory,
   useSettings,
   useUndoPlan,
@@ -33,28 +34,72 @@ type Event =
   | { kind: "undo"; at: string; plan: PlanDone }
   | { kind: "scan"; at: string; scan: ScanDone };
 
-/** Everything Kura changed, newest first; a tidy-up can be undone from here. */
+/** What a day shows before "Show all": a night's conversions or a day of scans can be many. */
+const A_DAY = 20;
+
+type Keep = "day" | "week" | "month" | "nothing";
+
+const KEEP = [
+  { value: "day", label: "Last 24 hours" },
+  { value: "week", label: "Last 7 days" },
+  { value: "month", label: "Last 30 days" },
+  { value: "nothing", label: "Nothing" },
+] as const;
+
+/** Everything Kura changed, newest first, a week's worth of days at a time; a tidy-up can be
+ * undone from here, and History cleared, all of it or what's older than a day, week or month. */
 export function HistoryPage() {
   const history = useHistory();
   const undo = useUndoPlan();
-  const kept = useSettings().data?.quarantineDays;
+  const settings = useSettings().data;
+  const kept = settings?.quarantineDays;
   const [shown, setShown] = useState<Shown>("all");
   const [result, setResult] = useState<TidyResult | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [cleared, setCleared] = useState<number | null>(null);
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
 
-  const events = history.data ? eventsOf(history.data, shown) : [];
+  const pages = history.data?.pages;
+  const events = pages ? eventsOf(together(pages), shown) : [];
+  const anything = pages?.some((page) => page.plans.length + page.scans.length > 0) ?? false;
   return (
     <>
       <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
         <div className="flex max-w-xl flex-col gap-1.5">
           <h1 className="type-title">History</h1>
           <p className="text-14 text-fg-muted">
-            Everything Kura changed, newest first. Renames and moves can be undone at any time, and
-            a converted file's original put back{" "}
+            {settings?.historyDays
+              ? `Everything Kura changed in the last ${settings.historyDays} days, newest first. Renames and moves can be undone while they're here`
+              : "Everything Kura changed, newest first. Renames and moves can be undone at any time"}
+            , and a converted file's original put back{" "}
             {kept === null ? "while it's in quarantine" : `for ${kept ?? 30} days`}.
           </p>
         </div>
-        <Segmented label="Show" value={shown} options={FILTERS} onChange={setShown} />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Segmented label="Show" value={shown} options={FILTERS} onChange={setShown} />
+          {anything && !clearing && (
+            <Button variant="ghost" onClick={() => setClearing(true)}>
+              Clear History
+            </Button>
+          )}
+        </div>
       </header>
+      {clearing && (
+        <ClearHistory
+          onClose={() => setClearing(false)}
+          onCleared={(gone) => {
+            setCleared(gone);
+            setClearing(false);
+          }}
+        />
+      )}
+      {cleared !== null && !clearing && (
+        <p role="status" className="text-13 text-fg-muted">
+          {cleared === 0
+            ? "There was nothing to clear: what's left is newer, or can still be put back."
+            : `${count(cleared, "entry", "entries")} cleared from History. Your files stay as they are.`}
+        </p>
+      )}
       <EngineProblem queries={[history]} />
       {!history.data && (
         <Loading label="Loading history" queries={[history]}>
@@ -68,35 +113,105 @@ export function HistoryPage() {
         </p>
       )}
       {result && result.problems.length > 0 && <Stayed problems={result.problems} />}
-      {history.data &&
-        (events.length === 0 ? (
-          <EmptyState title="Nothing yet">
-            Kura lists here everything it changes in your folders, newest first.
-          </EmptyState>
-        ) : (
-          days(events).map(([day, onDay]) => (
-            <section
-              key={day}
-              aria-label={day}
-              className="flex animate-fade-up flex-col gap-1 rounded-22 border border-edge bg-glass px-5 py-4 shadow-panel"
-            >
-              <h2 className="pb-1 font-extrabold text-15">{day}</h2>
-              <ul className="flex flex-col">
-                {onDay.map((event) => (
-                  <EventRow
-                    key={`${event.kind}-${event.kind === "scan" ? event.scan.id : event.plan.id}`}
-                    event={event}
-                    busy={undo.isPending}
-                    onUndo={(plan) =>
-                      undo.mutate({ path: `/plans/${plan.id}/undo` }, { onSuccess: setResult })
-                    }
-                  />
-                ))}
-              </ul>
-            </section>
-          ))
-        ))}
+      {history.data && events.length === 0 && !history.hasNextPage && (
+        <EmptyState title="Nothing yet">
+          Kura lists here everything it changes in your folders, newest first.
+        </EmptyState>
+      )}
+      {history.data && events.length === 0 && history.hasNextPage && (
+        <p className="text-13 text-fg-muted">Nothing of that kind on the days shown.</p>
+      )}
+      {days(events).map(([day, onDay]) => {
+        const all = opened.has(day) || onDay.length <= A_DAY;
+        return (
+          <section
+            key={day}
+            aria-label={day}
+            className="flex animate-fade-up flex-col gap-1 rounded-22 border border-edge bg-glass px-5 py-4 shadow-panel"
+          >
+            <h2 className="pb-1 font-extrabold text-15">{day}</h2>
+            <ul className="flex flex-col">
+              {(all ? onDay : onDay.slice(0, A_DAY)).map((event) => (
+                <EventRow
+                  key={`${event.kind}-${event.kind === "scan" ? event.scan.id : event.plan.id}`}
+                  event={event}
+                  busy={undo.isPending}
+                  onUndo={(plan) =>
+                    undo.mutate({ path: `/plans/${plan.id}/undo` }, { onSuccess: setResult })
+                  }
+                />
+              ))}
+            </ul>
+            {!all && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="self-start"
+                onClick={() => setOpened((before) => new Set(before).add(day))}
+              >
+                Show all {onDay.length}
+              </Button>
+            )}
+          </section>
+        );
+      })}
+      {history.hasNextPage && (
+        <Button
+          className="self-center"
+          disabled={history.isFetchingNextPage}
+          onClick={() => void history.fetchNextPage()}
+        >
+          {history.isFetchingNextPage ? "Loading older days…" : "Show older"}
+        </Button>
+      )}
     </>
+  );
+}
+
+/** Asks before clearing History: what stays (the last day, week or month, or nothing), and
+ * that what goes can't be undone from here. Files never change, and what still has a copy in
+ * quarantine stays, so it can be put back. */
+function ClearHistory(props: { onClose: () => void; onCleared: (gone: number) => void }) {
+  const clear = useClearHistory();
+  const [keep, setKeep] = useState<Keep>("week");
+  return (
+    <fieldset
+      aria-label="Clear History?"
+      className="flex animate-fade-up flex-col gap-3 rounded-16 border border-danger/40 bg-danger/8 p-4"
+    >
+      <span className="font-extrabold text-14">Clear History?</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-bold text-13">Keep</span>
+        <Segmented label="Keep" value={keep} options={KEEP} onChange={setKeep} />
+      </div>
+      <span className="text-13 text-fg-soft">
+        What's cleared can't be undone or put back from here. Your files stay as they are, and
+        anything with a copy still in quarantine stays listed, so you can still put it back.
+      </span>
+      {clear.isError && (
+        <p role="alert" className="text-13 text-broken-fg">
+          {clear.error.message}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2.5">
+        <Button
+          size="sm"
+          variant="danger"
+          disabled={clear.isPending}
+          onClick={() =>
+            clear.mutate(
+              { path: "/history/clear", body: { keep } },
+              { onSuccess: (done) => props.onCleared(done.cleared) },
+            )
+          }
+        >
+          {keep === "nothing" ? "Clear all of History" : "Clear the rest"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={props.onClose}>
+          Back
+        </Button>
+      </div>
+    </fieldset>
   );
 }
 
@@ -209,7 +324,24 @@ function conversionWords(made: Conversion): string {
     .join(" · ");
 }
 
-function eventsOf(history: History, shown: Shown): Event[] {
+/** The pages loaded, as one: a tidy-up undone on a later day is on both days' pages. Only
+ * what happened on the days loaded shows (from `from` on), so the tidy-up itself waits for its
+ * own page. */
+function together(pages: History[]): { plans: PlanDone[]; scans: ScanDone[]; from: string | null } {
+  const plans = new Map<number, PlanDone>();
+  const scans = new Map<number, ScanDone>();
+  for (const page of pages) {
+    for (const plan of page.plans) if (!plans.has(plan.id)) plans.set(plan.id, plan);
+    for (const scan of page.scans) if (!scans.has(scan.id)) scans.set(scan.id, scan);
+  }
+  return {
+    plans: [...plans.values()],
+    scans: [...scans.values()],
+    from: pages.at(-1)?.older ?? null,
+  };
+}
+
+function eventsOf(history: ReturnType<typeof together>, shown: Shown): Event[] {
   const events: Event[] = [];
   const kinds: Record<Shown, PlanDone["kind"][]> = {
     all: ["tidy", "convert"],
@@ -225,7 +357,17 @@ function eventsOf(history: History, shown: Shown): Event[] {
   if (shown === "all" || shown === "scans") {
     for (const scan of history.scans) events.push({ kind: "scan", at: scan.startedAt, scan });
   }
-  return events.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return events
+    .filter((event) => history.from === null || localDay(event.at) >= history.from)
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+/** "2026-10-14": the day on this PC a moment fell on, as the engine counts History's days. */
+function localDay(at: string): string {
+  const moment = new Date(at);
+  const month = String(moment.getMonth() + 1).padStart(2, "0");
+  const day = String(moment.getDate()).padStart(2, "0");
+  return `${moment.getFullYear()}-${month}-${day}`;
 }
 
 /** The events by day, as the owner reads them: "Today", "Yesterday", "8 October". */
