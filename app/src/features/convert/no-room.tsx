@@ -66,7 +66,7 @@ export function NoRoom(props: {
       role="alertdialog"
       aria-label="Not enough space"
       aria-describedby={id}
-      className="flex animate-fade-up flex-col gap-3 rounded-20 border border-white/10 bg-raised p-4.5"
+      className="flex animate-fade-up flex-col gap-3 rounded-20 border border-tint/10 bg-raised p-4.5 shadow-panel"
     >
       <span id={id} className="font-extrabold">
         {props.waitingForRoom ? waitingWords(props) : neededWords(props)}
@@ -139,7 +139,7 @@ function Choice(props: {
         "press flex min-h-11 w-full cursor-pointer items-center justify-between gap-2.5 rounded-14 px-3.5 text-left disabled:pointer-events-none disabled:opacity-50",
         props.primary
           ? "bg-accent/12 font-extrabold text-accent-fg"
-          : "bg-white/5 font-bold text-fg",
+          : "bg-tint/5 font-bold text-fg",
       )}
     >
       {props.children}

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /** The Convert section's two screens: choosing what to convert, and the queue converting it. */
 export function ConvertTabs({ queued }: { queued: number | null }) {
   return (
-    <nav aria-label="Convert sections" className="inline-flex gap-1 rounded-24 bg-white/5 p-1">
+    <nav aria-label="Convert sections" className="inline-flex gap-1 rounded-24 bg-well p-1">
       <Tab to="/convert">Choose</Tab>
       <Tab to="/convert/queue">
         Queue
@@ -46,7 +46,7 @@ export function Step(props: {
     <section
       aria-labelledby={props.id}
       className={cn(
-        "flex min-w-0 animate-fade-up flex-col gap-3 rounded-24 border border-edge bg-glass p-5.5",
+        "flex min-w-0 animate-fade-up flex-col gap-3 rounded-24 border border-edge bg-glass p-5.5 shadow-panel",
         props.className,
       )}
     >

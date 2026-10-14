@@ -37,7 +37,7 @@ function WindowButton(props: { label: string; onClick: () => void; children: Rea
       type="button"
       aria-label={props.label}
       onClick={props.onClick}
-      className="inline-flex h-13 w-11.5 cursor-pointer items-center justify-center text-fg transition-colors duration-120 hover:bg-white/8"
+      className="inline-flex h-13 w-11.5 cursor-pointer items-center justify-center text-fg transition-colors duration-120 hover:bg-tint/8"
     >
       {props.children}
     </button>

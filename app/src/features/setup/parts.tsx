@@ -22,7 +22,7 @@ export function Panel(props: {
     <section
       ref={panel}
       aria-labelledby={props.labelledBy}
-      className="flex animate-pop scroll-mt-6 flex-col gap-5 rounded-24 border border-accent/35 bg-raised p-6"
+      className="flex animate-pop scroll-mt-6 flex-col gap-5 rounded-24 border border-accent/35 bg-raised p-6 shadow-panel"
     >
       <div className="flex flex-col gap-1">
         <h2 id={props.labelledBy} className="font-extrabold text-24 tracking-[-0.02em]">
@@ -56,7 +56,7 @@ export function Row(props: {
       className={cn(
         "flex animate-fade-up flex-wrap items-center gap-4 rounded-20 border px-5 py-4.5",
         props.dashed
-          ? "border-white/12 border-dashed text-fg-muted"
+          ? "border-tint/12 border-dashed text-fg-muted"
           : "border-edge bg-glass text-fg",
       )}
     >
@@ -64,7 +64,7 @@ export function Row(props: {
         aria-hidden="true"
         className={cn(
           "inline-flex size-10 shrink-0 items-center justify-center rounded-full",
-          props.dashed ? "bg-white/5" : "bg-accent/12 text-accent-fg",
+          props.dashed ? "bg-tint/5" : "bg-accent/12 text-accent-fg",
         )}
       >
         {props.icon}
@@ -82,7 +82,7 @@ export function Row(props: {
 
 export function FolderChip({ path, onRemove }: { path: string; onRemove?: () => void }) {
   return (
-    <span className="inline-flex h-8 items-center gap-2 rounded-16 bg-white/6 pr-1.5 pl-3 font-mono text-12">
+    <span className="inline-flex h-8 items-center gap-2 rounded-16 bg-tint/6 pr-1.5 pl-3 font-mono text-12">
       {path}
       <span className="font-bold font-sans text-11 text-accent-fg">watching</span>
       {onRemove && (
@@ -90,7 +90,7 @@ export function FolderChip({ path, onRemove }: { path: string; onRemove?: () => 
           type="button"
           aria-label={`Remove ${path}`}
           onClick={onRemove}
-          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:bg-white/8 hover:text-fg"
+          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-full text-fg-muted hover:bg-tint/8 hover:text-fg"
         >
           <X size={14} aria-hidden="true" />
         </button>

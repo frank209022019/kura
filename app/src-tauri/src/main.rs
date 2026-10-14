@@ -2,10 +2,12 @@
 // See docs/stack/tauri.md.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod choices;
 mod dialogs;
 mod engine;
 mod explorer;
 mod links;
+mod look;
 mod process;
 mod tray;
 mod updater;
@@ -46,19 +48,25 @@ fn main() {
             tray::set_start_with_windows,
             tray::keep_in_tray,
             tray::set_keep_in_tray,
+            look::look,
+            look::set_look,
         ])
-        // As the owner chose in Settings > General, closing the window keeps Kura working in the
-        // tray, or quits it.
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event
-                && window.app_handle().state::<tray::Tray>().keeps()
+        .on_window_event(|window, event| match event {
+            // As the owner chose in Settings > General, closing the window keeps Kura working in
+            // the tray, or quits it.
+            WindowEvent::CloseRequested { api, .. }
+                if window.app_handle().state::<tray::Tray>().keeps() =>
             {
                 api.prevent_close();
                 let _ = window.hide();
             }
+            // Light or dark changed: Windows' own setting, or the owner's choice.
+            WindowEvent::ThemeChanged(theme) => look::follow(window, *theme),
+            _ => {}
         })
         .setup(|app| {
             tray::set_up(app.handle())?;
+            look::make_window(app.handle())?;
             if !tray::started_in_tray(std::env::args()) {
                 tray::show(app.handle());
             }

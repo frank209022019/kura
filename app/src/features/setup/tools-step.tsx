@@ -142,7 +142,7 @@ function ToolRow({ tool }: { tool: Tool }) {
 
 export function CardFound({ name }: { name: string }) {
   return (
-    <span className="inline-flex h-7.5 items-center gap-2 rounded-full bg-white/5 px-3 font-bold text-12 text-fg-soft">
+    <span className="inline-flex h-7.5 items-center gap-2 rounded-full bg-tint/5 px-3 font-bold text-12 text-fg-soft">
       <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-accent" />
       {name.replace(/^NVIDIA GeForce /, "")} found
     </span>

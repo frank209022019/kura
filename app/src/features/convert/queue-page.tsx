@@ -81,7 +81,7 @@ export function QueuePage() {
               <Pause size={14} fill="currentColor" aria-hidden="true" />
             )}
             {status.paused ? "Resume" : "Pause all"}
-            <kbd className="rounded-6 border border-white/14 px-1.5 font-mono text-11 text-fg-muted leading-[18px]">
+            <kbd className="rounded-6 border border-tint/14 px-1.5 font-mono text-11 text-fg-muted leading-[18px]">
               Space
             </kbd>
           </Button>
@@ -230,7 +230,7 @@ function NowConverting(props: { running: RunningJob; gpu: QueueStatus["gpu"]; pa
   return (
     <section
       aria-label="Now converting"
-      className="relative flex animate-fade-up flex-wrap items-center gap-6 overflow-hidden rounded-26 bg-featured p-6.5 text-white"
+      className="relative flex animate-fade-up flex-wrap items-center gap-6 overflow-hidden rounded-26 bg-featured p-6.5 text-white scheme-dark"
     >
       <span
         aria-hidden="true"
@@ -477,7 +477,7 @@ function Waiting({ status }: { status: QueueStatus }) {
   return (
     <section
       aria-label="Waiting"
-      className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-24 border border-edge bg-glass px-5.5 py-4.5"
+      className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-24 border border-edge bg-glass px-5.5 py-4.5 shadow-panel"
     >
       <span className="text-14">{words}</span>
       {status.paused && (
@@ -514,7 +514,7 @@ function Tonight({ endsAt, early }: { endsAt: string; early: boolean }) {
   return (
     <div
       role="status"
-      className="flex animate-fade-up flex-wrap items-center gap-3 rounded-18 border border-white/10 bg-white/5 px-4 py-3.5"
+      className="flex animate-fade-up flex-wrap items-center gap-3 rounded-18 border border-tint/10 bg-tint/5 px-4 py-3.5"
     >
       <span aria-hidden="true" className="size-2.5 shrink-0 animate-pulse rounded-full bg-accent" />
       <span className="min-w-0 flex-1 text-14">
@@ -593,7 +593,7 @@ function OpenElsewhere({ job, retryAt }: { job: Job; retryAt: string }) {
   return (
     <div
       role="status"
-      className="flex animate-fade-up flex-col gap-3 rounded-18 border border-white/10 bg-raised px-4.5 py-4"
+      className="flex animate-fade-up flex-col gap-3 rounded-18 border border-tint/10 bg-raised px-4.5 py-4 shadow-panel"
     >
       <span className="flex gap-3 text-14">
         <Lock size={20} aria-hidden="true" className="shrink-0 text-convert-fg" />
@@ -710,7 +710,7 @@ function UpNext({ jobs }: { jobs: Job[] }) {
   return (
     <section
       aria-labelledby="next-title"
-      className="flex min-w-0 flex-[999_1_560px] animate-fade-up flex-col gap-1 rounded-24 border border-edge bg-glass p-5.5"
+      className="flex min-w-0 flex-[999_1_560px] animate-fade-up flex-col gap-1 rounded-24 border border-edge bg-glass p-5.5 shadow-panel"
     >
       <div className="mb-2 flex min-h-9 flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3 px-1.5">
@@ -803,7 +803,7 @@ function Group(props: {
   const state = ticked === 0 ? false : ticked === ids.length ? true : "mixed";
   const listed = all ? group.jobs : group.jobs.slice(0, LISTED);
   return (
-    <div className={cn("flex flex-col", !props.first && "mt-1 border-white/6 border-t pt-1")}>
+    <div className={cn("flex flex-col", !props.first && "mt-1 border-rule border-t pt-1")}>
       <div className="flex min-h-10 items-center gap-2.5 px-1.5">
         <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 font-extrabold text-12 text-fg-muted">
           <input
@@ -868,7 +868,7 @@ function JobRow(props: {
   const remove = useRemoveFromQueue();
   const [name] = split(job.path);
   return (
-    <li className="flex flex-col border-white/6 border-b px-1.5 text-13 last:border-b-0">
+    <li className="flex flex-col border-rule border-b px-1.5 text-13 last:border-b-0">
       <div className="flex min-h-13 items-center gap-3">
         <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
           <input
@@ -882,15 +882,15 @@ function JobRow(props: {
           <span className="min-w-0 flex-1 truncate text-fg-soft">{name}</span>
         </label>
         {job.driveMissing ? (
-          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+          <span className="rounded-full bg-tint/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Its drive isn't connected
           </span>
         ) : job.noRoom ? (
-          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+          <span className="rounded-full bg-tint/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Waiting for room
           </span>
         ) : job.retryAt !== null ? (
-          <span className="rounded-full bg-white/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+          <span className="rounded-full bg-tint/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Open in another app
           </span>
         ) : (
@@ -946,7 +946,7 @@ function MenuItem({ onSelect, children }: { onSelect: () => void; children: Reac
   return (
     <DropdownMenu.Item
       onSelect={onSelect}
-      className="cursor-pointer rounded-10 px-3 py-2 font-bold text-fg-soft outline-none data-highlighted:bg-white/6 data-highlighted:text-fg"
+      className="cursor-pointer rounded-10 px-3 py-2 font-bold text-fg-soft outline-none data-highlighted:bg-tint/6 data-highlighted:text-fg"
     >
       {children}
     </DropdownMenu.Item>
@@ -960,7 +960,7 @@ function Schedule({ status }: { status: QueueStatus }) {
   return (
     <section
       aria-labelledby="schedule-title"
-      className="flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5"
+      className="flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5 shadow-panel"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="schedule-title" className="font-extrabold text-16">
@@ -1008,7 +1008,7 @@ function Today({ jobs }: { jobs: Job[] }) {
   return (
     <section
       aria-labelledby="today-title"
-      className="flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5"
+      className="flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5 shadow-panel"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="today-title" className="font-extrabold text-16">
@@ -1032,9 +1032,15 @@ function Today({ jobs }: { jobs: Job[] }) {
           label="written"
         />
       </div>
-      {failed.map((job) => (
-        <Failed key={job.id} job={job} />
-      ))}
+      {failed.length > 0 && (
+        // A long run of failed files keeps to a height and scrolls in its place, so the panel
+        // doesn't run the page on (the owner, 2026-10-14: 42 cards were "a long scroll down").
+        <div className="-mr-2 flex max-h-100 flex-col gap-3.5 overflow-y-auto pr-2">
+          {failed.map((job) => (
+            <Failed key={job.id} job={job} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

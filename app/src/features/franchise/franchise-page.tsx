@@ -153,7 +153,7 @@ function MissingToggle(props: {
   onChange: (on: boolean) => void;
 }) {
   return (
-    <div className="inline-flex rounded-22 bg-white/5 p-1">
+    <div className="inline-flex rounded-22 bg-well p-1">
       <button
         type="button"
         aria-pressed={props.on}
@@ -193,7 +193,7 @@ function MissingCard({ title }: { title: MissingTitle }) {
             className="absolute inset-0 size-full object-cover opacity-40"
           />
         )}
-        <span className="absolute top-2 left-2 inline-flex h-6 items-center gap-1.5 rounded-full bg-window/60 px-2.25 font-bold text-11">
+        <span className="absolute top-2 left-2 inline-flex h-6 items-center gap-1.5 rounded-full bg-tag px-2.25 font-bold text-11">
           <StatusShape state={title.coming ? "upcoming" : "missing"} className="size-2" />
           {title.coming ? "Coming" : "Not in library"}
         </span>
@@ -229,7 +229,7 @@ function Header({ franchise }: { franchise: FranchiseSummary }) {
   return (
     <section
       aria-label={franchise.name}
-      className="flex animate-fade-up flex-wrap items-center gap-6 rounded-24 border border-edge bg-glass p-6"
+      className="flex animate-fade-up flex-wrap items-center gap-6 rounded-24 border border-edge bg-glass p-6 shadow-panel"
     >
       {lead && (
         <Poster title={{ ...lead, hasPoster: franchise.hasPoster }} className="w-30 shrink-0" />

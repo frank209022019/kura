@@ -1,9 +1,12 @@
 # Design
 
 How Kura looks and behaves. The look is **Cinema**, chosen by the owner from three directions
-(the [options record](design/options.html) keeps the other two). Every screen is drawn in the
-[Kura Workflows canvas](https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb); snapshots you can open
-locally are in [design/](design/README.md). Build to those boards, and never change the look unasked.
+(the [options record](design/options.html) keeps the other two), and its light mode is **Paper**,
+chosen from three lights in the
+[Kura Light Mode Options canvas](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y). Every screen is
+drawn in the [Kura Workflows canvas](https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb); snapshots
+you can open locally are in [design/](design/README.md). Build to those boards, and never change
+the look unasked.
 
 ## The bar
 
@@ -29,8 +32,11 @@ progress. And no struggling with small things: every error, empty state and reco
    reflow on their own: the nav rail folds into a row on top, panels stack, grids change columns.
    Only the page scrolls: the nav rail and the page's top (`page-top`: its title or breadcrumb)
    stay where they are.
-7. **Light and dark, designed together.** Surfaces lift with lighter greys rather than inverting.
-   Body text keeps 4.5:1 contrast. (Kura runs dark until light mode is designed.)
+7. **Light and dark, designed together.** Dark is Cinema; light is Paper: a warm paper ground,
+   cream panels that lift with a soft shadow, ink text, the same amber. Kura is light or dark as
+   Windows is, unless the owner picks one in Settings › General. Body text keeps 4.5:1 contrast in
+   both, and status keeps its shapes (on paper, a ready square gets a darker edge). The featured
+   panel stays blue, and a part that must stay dark, such as a video, says so (`scheme-dark`).
 8. **Keyboard first, mouse friendly.** Every action has a shortcut (Ctrl K search, arrows through
    posters, Space pauses the queue, Ctrl Z undoes), the focus ring is always visible, and click
    targets are at least 40 px.
@@ -38,19 +44,25 @@ progress. And no struggling with small things: every error, empty state and reco
 ## Cinema in code
 
 The tokens live in [app/src/styles/tokens.css](../app/src/styles/tokens.css); Tailwind turns them
-into classes, and Tailwind's own palette is switched off so nothing off-system creeps in.
+into classes, and Tailwind's own palette is switched off so nothing off-system creeps in. A colour
+that differs in light mode is written `light-dark(paper, cinema)`, so one class serves both.
 
-| For | Use | Value |
-| --- | --- | --- |
-| The window | `bg-window` | #0b0c0f |
-| A panel | `bg-glass border border-edge rounded-22` | white at 4%, border white at 8% |
-| A dialog | `bg-dialog rounded-28 shadow-dialog` | #121419 |
-| Main text, secondary, footnotes | `text-fg`, `text-fg-muted`, `text-fg-faint` | #f4f5f7, #a3a8b3, #7c818c |
-| Labels and inactive controls | `text-fg-soft` | #d7dae0 |
-| The primary action | `bg-accent text-on-accent` | #f2b33d on #1d1300 |
-| Amber text, selected state | `text-accent-fg`, `bg-accent/12` | #ffd27a, amber at 12% |
-| Status swatches | `status-ready`, `status-converting`, `status-convert`, `status-broken`, `status-missing` | solid, pulsing, blue, hatched, hollow |
-| The featured panel | `bg-featured` with `bg-featured-orb` | #13254f, #f08a24 |
+| For | Use | Dark (Cinema) | Light (Paper) |
+| --- | --- | --- | --- |
+| The window | `bg-window` | #0b0c0f | #f3efe6 |
+| A panel | `bg-glass border border-edge rounded-22 shadow-panel` | white at 4%, border white at 8% | #fffcf6, border #e6dfd1, soft shadow |
+| A dialog | `bg-dialog rounded-28 shadow-dialog` | #121419 | #fffcf6 |
+| Main text, secondary, footnotes | `text-fg`, `text-fg-muted`, `text-fg-faint` | #f4f5f7, #a3a8b3, #7c818c | #1d1912, #5d564a, #6e6759 |
+| Labels and inactive controls | `text-fg-soft` | #d7dae0 | #34302a |
+| The primary action | `bg-accent text-on-accent` | #f2b33d on #1d1300 | the same |
+| Amber text, selected state | `text-accent-fg`, `bg-accent/12` | #ffd27a, amber at 12% | #7f5200, amber at 12% |
+| A secondary button or a field | `bg-field border border-field-edge` | white at 5%, border white at 12% | #fffcf6, border #dcd3c2 |
+| Behind segmented choices and tabs | `bg-well` | white at 5% | #ebe4d6 |
+| Lines between rows | `border-rule` | white at 6% | #eee7da |
+| A chip, a tag, a hover, a box inside a panel | `bg-tint/6` (and /3 to /12) | white at that share | ink at that share |
+| A tag on artwork | `bg-tag` | the window at 60% | cream at 90% |
+| Status swatches | `status-ready`, `status-converting`, `status-convert`, `status-broken`, `status-missing` | solid, pulsing, blue, hatched, hollow | the same, ready with a darker edge |
+| The featured panel | `bg-featured` with `bg-featured-orb`, `scheme-dark` | #13254f, #f08a24 | the same |
 | Paths, sizes, times | `font-mono` | Geist Mono |
 | Headings | `type-title` (32), `type-heading` (20), `type-display` (50) | Manrope 800 |
 | Other text | `text-14` (body), `text-13`, `text-12`, `text-11` | px-named sizes |
@@ -59,11 +71,15 @@ into classes, and Tailwind's own palette is switched off so nothing off-system c
 
 Rules of thumb:
 
-- One `bg-accent` button per view; everything else is secondary (glass with a border) or ghost.
-- Text on amber is always `text-on-accent`; amber text on dark is `text-accent-fg`, never `text-accent`.
-- Artwork brings the colour. The interface stays near-black with one warm accent; colours from
-  posters and mock artwork are not UI tokens.
-- If a value you need isn't a token, it isn't Cinema yet. Ask before adding one.
+- One `bg-accent` button per view; everything else is secondary (a field with a border) or ghost.
+- Text on amber is always `text-on-accent`; amber text is `text-accent-fg`, never `text-accent`.
+- Artwork brings the colour. The interface stays near-black in dark and warm paper in light, with
+  one warm accent; colours from posters and mock artwork are not UI tokens.
+- No `white/…` or `black/…` on the interface: they don't turn with light mode. Use `tint`, `rule`,
+  `field` and `well`. White and black are for what sits on artwork, and for what stays dark: a
+  part that must (the featured panel, a video) carries `scheme-dark`, and its tokens resolve dark.
+- If a value you need isn't a token, it isn't Cinema yet. Ask before adding one, with its value in
+  both lights.
 
 ## Components
 

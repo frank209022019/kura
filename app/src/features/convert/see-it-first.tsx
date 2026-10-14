@@ -64,7 +64,7 @@ export function SeeItFirst(props: {
                   "press min-h-8.5 cursor-pointer rounded-full px-3 font-mono text-12",
                   point === index
                     ? "bg-accent/20 font-medium text-accent-fg"
-                    : "bg-white/6 text-fg-soft",
+                    : "bg-tint/6 text-fg-soft",
                 )}
               >
                 {clockTime(file.seconds * share)}
@@ -85,7 +85,7 @@ export function SeeItFirst(props: {
             onPointerMove={(event) => {
               if (event.currentTarget.hasPointerCapture(event.pointerId)) follow(event.clientX);
             }}
-            className="relative aspect-video w-full cursor-ew-resize touch-none select-none overflow-hidden rounded-18 bg-black"
+            className="relative aspect-video w-full cursor-ew-resize touch-none select-none overflow-hidden rounded-18 bg-black scheme-dark"
           >
             {after.address && (
               <img
@@ -136,7 +136,7 @@ export function SeeItFirst(props: {
             )}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <fieldset className="inline-flex gap-1 rounded-20 bg-white/5 p-1">
+            <fieldset className="inline-flex gap-1 rounded-20 bg-well p-1">
               <legend className="sr-only">Zoom</legend>
               {[false, true].map((close) => (
                 <button
@@ -147,7 +147,7 @@ export function SeeItFirst(props: {
                   className={cn(
                     "press min-h-8.5 cursor-pointer rounded-full px-3.5 text-13",
                     zoom === close
-                      ? "bg-white/12 font-extrabold text-white"
+                      ? "bg-tint/12 font-extrabold text-tint"
                       : "font-bold text-fg-soft",
                   )}
                 >

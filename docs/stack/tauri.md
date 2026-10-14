@@ -28,11 +28,17 @@ title bar (`app/src/components/shell/title-bar.tsx`) as the design shows. Elemen
 doesn't appear when hovering our maximise button; Win+Z and dragging to the screen's edges still
 work.
 
-The background colour is set in the config too, so the window is dark before the UI loads.
+Light or dark (`look.rs`): the shell makes the window itself at start (`"create": false` in the
+config, then `WebviewWindowBuilder::from_config`), giving it the look the owner chose in Settings >
+General: none of its own to follow Windows, or always light or always dark. WebView2 takes the
+window's theme as the page's `prefers-color-scheme`, so the page is light or dark from its first
+frame, and its colours change with it (`light-dark()` in `tokens.css`). The window's own colour
+under the page, seen before it draws, follows the theme too (`ThemeChanged`). The UI reads and
+sets the look with the `look` and `set_look` commands (`app/src/lib/look.ts`).
 
 ## Commands and events
 
-The UI calls the shell through four commands and listens to one event:
+The UI calls the shell through these commands and listens to two events:
 
 | Name | Kind | Does |
 | --- | --- | --- |
@@ -40,7 +46,14 @@ The UI calls the shell through four commands and listens to one event:
 | `restart_engine` | command | Start again after a failure |
 | `prepare_update` | command | Check for an update and download it; returns its version or nothing |
 | `install_update` | command | Stop the engine, run the installer, let it reopen Kura |
+| `open_downloads_page`, `open_tmdb_api_page` | command | Open the downloads page, or TMDB's page of API keys, in the browser |
+| `pick_folder`, `pick_export` | command | Windows' folder picker, or its file picker for an export; nothing when cancelled |
+| `open_folder`, `show_in_folder` | command | Open a folder in Explorer, or show a file there, selected |
+| `start_with_windows`, `set_start_with_windows` | command | Whether Kura starts with Windows, in the tray |
+| `keep_in_tray`, `set_keep_in_tray` | command | Whether closing the window keeps Kura running in the tray |
+| `look`, `set_look` | command | Light or dark: `windows` (as Windows is), `light` or `dark` |
 | `engine-status` | event | Sent whenever the engine's status changes |
+| `notice` | event | What the engine tells of, while the window is open |
 
 A new command is a `#[tauri::command]` function, listed in `generate_handler!` in `main.rs`, with
 its types mirrored in `app/src/lib/`. Commands return `Result<T, String>`; the string is shown to
@@ -78,10 +91,10 @@ the person, so write it as a sentence.
   Don't turn it on from a development build: Windows would start that build at sign-in.
 - **Closing the window** quits Kura, unless "Keep Kura running when you close the window" is on
   (Settings > General, `keep_in_tray` in `tray.rs`): then it hides the window and Kura carries on
-  in the tray. The shell keeps that choice in `window.json` in its own folder
-  (`%LOCALAPPDATA%\io.github.frankgrobbelaar.kura`, which uninstalling removes with "Delete the
-  application data"). Until the owner chooses, it's whatever "Start with Windows" is, as closing
-  was before it had a setting of its own.
+  in the tray. The shell keeps that choice, and light or dark, in `window.json` in its own folder
+  (`choices.rs`; `%LOCALAPPDATA%\io.github.frankgrobbelaar.kura`, which uninstalling removes with
+  "Delete the application data"). Until the owner chooses, it's whatever "Start with Windows" is,
+  as closing was before it had a setting of its own.
 - **notification**: Windows notifications for what the engine tells of on its stdout after the
   ready line (`{"event":"notify",...}`: a finished batch, a queue that paused itself), and for an
   engine that can't run (it's then tried again by itself), shown only while the window is away

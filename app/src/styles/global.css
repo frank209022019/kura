@@ -2,8 +2,10 @@
 @import "./tokens.css";
 
 @layer base {
+  /* Light or dark as the window is: Windows' own setting, or the owner's choice in Settings
+     (the shell gives the window its theme). Every light-dark() token follows. */
   html {
-    color-scheme: dark;
+    color-scheme: light dark;
   }
 
   body {
@@ -80,6 +82,13 @@
  */
 @utility status-ready {
   background: var(--color-ready);
+  /* On paper, amber alone is faint: a darker edge keeps the square in sight. */
+  box-shadow: inset 0 0 0 1px var(--color-ready-edge);
+}
+
+/* Shapes that run together, as a season's bar: no edges between them. */
+@utility status-joined {
+  --color-ready-edge: transparent;
 }
 
 @utility status-converting {

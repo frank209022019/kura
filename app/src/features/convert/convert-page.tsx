@@ -452,7 +452,7 @@ function How(props: {
               aria-describedby={`way-${way}`}
               className={cn(
                 "press flex cursor-pointer flex-col gap-2 rounded-18 border-2 p-4 text-left",
-                on ? "border-accent bg-accent/10" : "border-edge bg-white/3",
+                on ? "border-accent bg-accent/10" : "border-edge bg-tint/3",
               )}
             >
               <span className="flex w-full items-center justify-between gap-2">
@@ -621,7 +621,7 @@ function Estimate(props: {
           }
           warn={!enough}
         />
-        <div className="flex flex-col gap-1.5 rounded-16 bg-glass px-4 py-3.5">
+        <div className="flex flex-col gap-1.5 rounded-16 bg-tint/4 px-4 py-3.5">
           <span className="text-12 text-fg-muted">Originals</span>
           <span className="font-extrabold text-24 leading-[1.1]">
             {deleting ? "Deleted" : days === null ? "Kept for good" : `Kept ${days ?? 30} days`}
@@ -685,7 +685,7 @@ function spaceToShow(
 
 function Tile(props: { label: string; value: React.ReactNode; note: string; warn?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 rounded-16 bg-glass px-4 py-3.5">
+    <div className="flex flex-col gap-1 rounded-16 bg-tint/4 px-4 py-3.5">
       <span className="text-12 text-fg-muted">{props.label}</span>
       <span className="flex items-center gap-2 font-extrabold text-24 leading-[1.1]">
         {props.value}
@@ -783,7 +783,7 @@ function Dot({ on }: { on: boolean }) {
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex h-7 items-center rounded-full bg-white/6 px-3 font-bold text-12">
+    <span className="inline-flex h-7 items-center rounded-full bg-tint/6 px-3 font-bold text-12">
       {children}
     </span>
   );

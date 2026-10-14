@@ -5,15 +5,17 @@
 //! finished batch, a paused queue) comes as a Windows notification while the window is away, and
 //! as a note in the window (the `notice` event) while it's open.
 
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
+use serde_json::Value;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_notification::NotificationExt;
+
+use crate::choices;
 
 /// What Windows starts Kura with at sign-in: wait in the tray, the window hidden.
 pub const IN_TRAY: &str = "--in-tray";
@@ -154,47 +156,26 @@ pub fn set_keep_in_tray(app: AppHandle, on: bool) -> Result<bool, String> {
     Ok(on)
 }
 
-/// Where the shell keeps that choice: `window.json` in its own folder
-/// (%LOCALAPPDATA%\io.github.frankgrobbelaar.kura), which uninstalling removes when Kura's data
-/// goes too.
-fn choice_file(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_local_data_dir()
-        .map(|folder| folder.join("window.json"))
-        .map_err(|error| format!("Kura couldn't find its own folder ({error})."))
-}
+/// Where the shell keeps that choice, beside its others (choices.rs).
+const KEEP: &str = "keepInTray";
 
 fn saved_choice(app: &AppHandle) -> Option<bool> {
-    let text = std::fs::read_to_string(choice_file(app).ok()?).ok()?;
-    kept_choice(&text)
+    kept(choices::read(app, KEEP))
 }
 
 fn save_choice(app: &AppHandle, on: bool) -> Result<(), String> {
-    let file = choice_file(app)?;
-    let write = || -> std::io::Result<()> {
-        if let Some(folder) = file.parent() {
-            std::fs::create_dir_all(folder)?;
-        }
-        std::fs::write(&file, choice_text(on))
-    };
-    write().map_err(|error| format!("Kura couldn't keep that ({error})."))
+    choices::save(app, KEEP, Value::Bool(on))
 }
 
-/// The choice `window.json` holds, if it holds one.
-fn kept_choice(text: &str) -> Option<bool> {
-    serde_json::from_str::<serde_json::Value>(text)
-        .ok()?
-        .get("keepInTray")?
-        .as_bool()
-}
-
-fn choice_text(on: bool) -> String {
-    serde_json::json!({ "keepInTray": on }).to_string()
+/// The choice kept, if one was: a true or false.
+fn kept(choice: Option<Value>) -> Option<bool> {
+    choice?.as_bool()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn kura_waits_in_the_tray_only_when_windows_started_it() {
@@ -204,10 +185,10 @@ mod tests {
 
     #[test]
     fn closing_keeps_kura_in_the_tray_as_the_owner_chose() {
-        assert_eq!(kept_choice(&choice_text(true)), Some(true));
-        assert_eq!(kept_choice(&choice_text(false)), Some(false));
-        // Never chosen, or a file that isn't Kura's choice: start with Windows decides.
-        assert_eq!(kept_choice(""), None);
-        assert_eq!(kept_choice(r#"{"keepInTray": "yes"}"#), None);
+        assert_eq!(kept(Some(json!(true))), Some(true));
+        assert_eq!(kept(Some(json!(false))), Some(false));
+        // Never chosen, or a choice that isn't Kura's: start with Windows decides.
+        assert_eq!(kept(None), None);
+        assert_eq!(kept(Some(json!("yes"))), None);
     }
 }

@@ -15,7 +15,7 @@ export function Recovered() {
   return (
     <div
       role="status"
-      className="flex animate-fade-up gap-3 rounded-18 border border-white/10 bg-raised px-4.5 py-4 shadow-toast"
+      className="flex animate-fade-up gap-3 rounded-18 border border-tint/10 bg-raised px-4.5 py-4 shadow-toast"
     >
       <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/14 text-accent-fg">
         <RotateCw size={18} aria-hidden="true" />

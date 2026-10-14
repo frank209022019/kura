@@ -1,9 +1,10 @@
 // Turns the design canvases' boards (.dc.html) into plain HTML pages in docs/design/,
 // so every screen opens in a browser without the canvas.
 //
-//   node scripts/design-snapshot.mjs <workflows-canvas-folder> <options-canvas-folder>
+//   node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
 //
-// Each folder is a canvas as Claude's Artifact tool saves it (it holds project/canvas.json).
+// Any of the three canvases, each as Claude's Artifact tool saves it (a folder holding
+// project/canvas.json); only the pages of the canvases given are written again.
 // See docs/design/README.md.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -13,38 +14,70 @@ import vm from "node:vm";
 const CANVASES = {
   workflows: "https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb",
   options: "https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za",
+  light: "https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y",
 };
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "design");
 const today = new Date().toISOString().slice(0, 10);
 
-const [workflowsDir, optionsDir] = process.argv.slice(2);
-if (!workflowsDir || !optionsDir) {
-  console.error("Usage: node scripts/design-snapshot.mjs <workflows-canvas> <options-canvas>");
+const folders = foldersIn(process.argv.slice(2));
+if (!folders) {
+  console.error(
+    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>",
+  );
   process.exit(1);
 }
+let written = 0;
 
 // The workflows canvas: Main becomes index.html, every other board a page in screens/.
-const workflows = readCanvas(workflowsDir);
-mkdirSync(join(out, "screens"), { recursive: true });
-for (const file of workflows.order) {
-  const name = file.replace(".dc.html", "");
-  const isIndex = name === "Main";
-  const page = toPage(workflows, file, {
-    canvas: CANVASES.workflows,
-    link: (target) => (isIndex ? `screens/${target}.html` : `${target}.html`),
-  });
-  writeFileSync(join(out, isIndex ? "index.html" : `screens/${name}.html`), page);
+if (folders.workflows) {
+  const workflows = readCanvas(folders.workflows);
+  mkdirSync(join(out, "screens"), { recursive: true });
+  for (const file of workflows.order) {
+    const name = file.replace(".dc.html", "");
+    const isIndex = name === "Main";
+    const page = toPage(workflows, file, {
+      canvas: CANVASES.workflows,
+      link: (target) => (isIndex ? `screens/${target}.html` : `${target}.html`),
+    });
+    writeFileSync(join(out, isIndex ? "index.html" : `screens/${name}.html`), page);
+    written += 1;
+  }
 }
 
 // The options record: its Main board becomes options.html. It links to boards that
 // were folded into the workflows canvas, so those links go to the overview.
-const options = readCanvas(optionsDir);
-writeFileSync(
-  join(out, "options.html"),
-  toPage(options, "Main.dc.html", { canvas: CANVASES.options, link: () => "index.html" }),
-);
+if (folders.options) {
+  const options = readCanvas(folders.options);
+  writeFileSync(
+    join(out, "options.html"),
+    toPage(options, "Main.dc.html", { canvas: CANVASES.options, link: () => "index.html" }),
+  );
+  written += 1;
+}
 
-console.log(`Wrote ${workflows.order.length + 1} pages to ${out}`);
+// Light mode: Paper, the owner's pick, becomes light.html (Home and the queue in it), the same
+// two screens in Cinema's dark dark.html, and the three options side by side light-options.html.
+if (folders.light) {
+  const light = readCanvas(folders.light);
+  const page = (file) => toPage(light, file, { canvas: CANVASES.light, link: () => "light.html" });
+  writeFileSync(join(out, "light.html"), page("B-Paper.dc.html"));
+  writeFileSync(join(out, "dark.html"), page("Cinema-Dark.dc.html"));
+  writeFileSync(join(out, "light-options.html"), page("Main.dc.html"));
+  written += 3;
+}
+
+console.log(`Wrote ${written} pages to ${out}`);
+
+/** The canvases' folders by name (`--light <folder>`), or nothing when the arguments don't read. */
+function foldersIn(args) {
+  const found = {};
+  for (let index = 0; index < args.length; index += 2) {
+    const name = args[index].replace(/^--/, "");
+    if (!(name in CANVASES) || !args[index + 1]) return null;
+    found[name] = args[index + 1];
+  }
+  return Object.keys(found).length > 0 ? found : null;
+}
 
 function readCanvas(folder) {
   const index = JSON.parse(readFileSync(join(folder, "project", "canvas.json"), "utf8"));

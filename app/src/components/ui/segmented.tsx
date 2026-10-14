@@ -28,7 +28,7 @@ export function Segmented<T extends string>({
       onValueChange={(next) => {
         if (next) onChange(next as T); // clicking the chosen one again keeps it chosen
       }}
-      className={cn("inline-flex gap-1 rounded-22 bg-white/5 p-1", className)}
+      className={cn("inline-flex gap-1 rounded-22 bg-well p-1", className)}
     >
       {options.map((option) => (
         <ToggleGroup.Item

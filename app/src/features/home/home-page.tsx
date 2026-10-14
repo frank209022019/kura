@@ -181,7 +181,7 @@ function Pictures({ library }: { library: Library }) {
           return (
             <li
               key={size.label}
-              className="flex flex-col gap-1.5 rounded-16 border border-edge bg-glass px-4 py-3.5"
+              className="flex flex-col gap-1.5 rounded-16 border border-edge bg-glass px-4 py-3.5 shadow-panel"
             >
               <span className="flex items-baseline justify-between gap-2">
                 <span className="font-bold text-13">{size.label}</span>

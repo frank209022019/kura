@@ -34,7 +34,7 @@ export function Loading(props: {
  * it is there. */
 export function HeaderSkeleton() {
   return (
-    <div className="flex flex-wrap items-center gap-6 rounded-24 border border-edge bg-glass p-6">
+    <div className="flex flex-wrap items-center gap-6 rounded-24 border border-edge bg-glass p-6 shadow-panel">
       <Skeleton className="aspect-[2/3] w-30 shrink-0 rounded-14" />
       <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-3">
         <Skeleton className="h-6.5 w-24 rounded-full" />
@@ -86,7 +86,7 @@ export function PanelSkeleton({ rows = 4, className }: { rows?: number; classNam
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5",
+        "flex min-w-0 flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5 shadow-panel",
         className,
       )}
     >
@@ -95,7 +95,7 @@ export function PanelSkeleton({ rows = 4, className }: { rows?: number; classNam
         {places(rows).map((place) => (
           <div
             key={place}
-            className="flex min-h-11 items-center gap-3 border-white/6 border-b last:border-b-0"
+            className="flex min-h-11 items-center gap-3 border-rule border-b last:border-b-0"
           >
             <Skeleton className="h-3 w-16 shrink-0" />
             <Skeleton className="h-3 flex-1" />
@@ -114,7 +114,7 @@ export function TilesSkeleton({ count = 4 }: { count?: number }) {
       {places(count).map((place) => (
         <div
           key={place}
-          className="flex flex-col gap-2.5 rounded-16 border border-edge bg-glass px-4 py-3.5"
+          className="flex flex-col gap-2.5 rounded-16 border border-edge bg-glass px-4 py-3.5 shadow-panel"
         >
           <Skeleton className="h-3.5 w-12" />
           <Skeleton className="h-6 w-16" />

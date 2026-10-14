@@ -13,7 +13,7 @@ interface EmptyStateProps {
 /** A place with nothing in it yet: what it's for and the one next step. */
 export function EmptyState({ title, children, illustration, action, note }: EmptyStateProps) {
   return (
-    <section className="flex animate-fade-up flex-col items-center gap-3 rounded-20 border border-white/14 border-dashed bg-white/3 px-5 py-6.5 text-center">
+    <section className="flex animate-fade-up flex-col items-center gap-3 rounded-20 border border-tint/14 border-dashed bg-tint/3 px-5 py-6.5 text-center">
       {illustration}
       <h2 className="font-extrabold text-17">{title}</h2>
       <p className="max-w-md text-13 text-fg-muted">{children}</p>

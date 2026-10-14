@@ -226,7 +226,7 @@ function DataStep({ onContinue }: { onContinue: () => void }) {
         One database file, artwork, backups and logs, in one folder on this PC. Your anime files
         never go here.
       </p>
-      <p className="w-fit rounded-14 bg-white/6 px-3.5 py-2 font-mono text-13">
+      <p className="w-fit rounded-14 bg-tint/6 px-3.5 py-2 font-mono text-13">
         {health.data?.dataDir ?? "…"}
       </p>
       <Footer note="Uninstalling offers to export it first, and keeps it unless you choose otherwise.">

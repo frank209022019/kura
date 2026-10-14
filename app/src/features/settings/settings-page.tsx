@@ -24,6 +24,7 @@ import {
 } from "@/lib/engine";
 import { size } from "@/lib/format";
 import { openDownloadsPage } from "@/lib/links";
+import { LOOKS, useLook, useSetLook } from "@/lib/look";
 import {
   useKeepInTray,
   useSetKeepInTray,
@@ -116,9 +117,26 @@ function General() {
   const change = useSetStartWithWindows();
   const keep = useKeepInTray();
   const changeKeep = useSetKeepInTray();
-  const problem = change.error ?? start.error ?? changeKeep.error ?? keep.error;
+  const look = useLook();
+  const changeLook = useSetLook();
+  const problem =
+    change.error ?? start.error ?? changeKeep.error ?? keep.error ?? changeLook.error ?? look.error;
   return (
     <Panel title="General">
+      <div className="flex flex-wrap items-center justify-between gap-3.5 rounded-16 border border-edge bg-glass px-4 py-3.5">
+        <span className="flex flex-col gap-0.5">
+          <span className="font-extrabold">Light or dark</span>
+          <span className="text-13 text-fg-muted">
+            With Same as Windows, Kura changes when Windows does.
+          </span>
+        </span>
+        <Segmented
+          label="Light or dark"
+          value={look.data ?? "windows"}
+          options={LOOKS}
+          onChange={(chosen) => changeLook.mutate(chosen)}
+        />
+      </div>
       <Toggle
         label="Start Kura when Windows starts"
         text="It waits in the tray from when you sign in, so the queue, the nightly backup and the watching carry on, and it tells you when a batch is done."
@@ -177,7 +195,7 @@ function Libraries() {
         {folders.data?.map((folder) => (
           <li
             key={folder.id}
-            className="flex flex-wrap items-center gap-3 border-white/6 border-b py-3 last:border-b-0"
+            className="flex flex-wrap items-center gap-3 border-rule border-b py-3 last:border-b-0"
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="font-mono text-13 [overflow-wrap:anywhere]">{folder.path}</span>
@@ -317,7 +335,7 @@ function YourData() {
         <ExportPanel />
         {found && settings && <Quarantine sizes={found} settings={settings} />}
       </div>
-      <p className="flex items-start gap-2.5 rounded-20 border border-white/14 border-dashed px-5 py-4 text-13 text-fg-soft">
+      <p className="flex items-start gap-2.5 rounded-20 border border-tint/14 border-dashed px-5 py-4 text-13 text-fg-soft">
         <Info size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-muted" />
         Uninstalling asks you to export first, and keeps this folder unless you choose to delete it.
         Your anime files are never touched.

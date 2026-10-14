@@ -78,7 +78,7 @@ export function HistoryPage() {
             <section
               key={day}
               aria-label={day}
-              className="flex animate-fade-up flex-col gap-1 rounded-22 border border-edge bg-glass px-5 py-4"
+              className="flex animate-fade-up flex-col gap-1 rounded-22 border border-edge bg-glass px-5 py-4 shadow-panel"
             >
               <h2 className="pb-1 font-extrabold text-15">{day}</h2>
               <ul className="flex flex-col">
@@ -116,7 +116,7 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
         ? "Put back what was deleted"
         : "Undo";
   return (
-    <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-white/6 border-b py-3 text-13 last:border-b-0">
+    <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-rule border-b py-3 text-13 last:border-b-0">
       <span className="font-mono text-12 text-fg-muted">{clock(event.at)}</span>
       <span className="font-extrabold">{verb}</span>
       <span className="flex min-w-0 flex-col gap-0.5">

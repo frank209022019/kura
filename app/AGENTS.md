@@ -10,6 +10,11 @@ and [../CLAUDE.md](../CLAUDE.md).
   Its inline values map one to one to the tokens in `src/styles/tokens.css`.
 - Use only Cinema tokens. Tailwind's own palette and scales are switched off on purpose; if a
   value isn't a token, ask the owner before adding one.
+- Light and dark come from the same classes: every colour token holds both (`light-dark()`), and
+  the page follows the window's theme. So no `white/…` or `black/…` on the interface (`bg-tint/6`,
+  `border-rule`, `bg-field`, `bg-well` instead; see [design.md](../docs/design.md)); white and black
+  only on artwork, and in a part that stays dark, which carries `scheme-dark`. Check a new screen
+  in both: `color-scheme: light` on `<html>` shows it light.
 - One primary (amber) action per view; the rest are secondary or ghost buttons.
 - Every screen designs its loading, empty and error states, following the "small things" board:
   name the problem, say what Kura did, offer the next step.

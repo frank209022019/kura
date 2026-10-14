@@ -107,7 +107,7 @@ export function BackupsPanel({ className }: { className?: string }) {
 function Last({ backup, loading }: { backup: Backup | undefined; loading: boolean }) {
   if (loading) return null;
   return (
-    <div className="flex items-center gap-2.5 rounded-16 bg-glass px-3.5 py-3">
+    <div className="flex items-center gap-2.5 rounded-16 bg-tint/4 px-3.5 py-3">
       {backup ? (
         <Check size={18} strokeWidth={3} aria-hidden="true" className="shrink-0 text-accent-fg" />
       ) : (

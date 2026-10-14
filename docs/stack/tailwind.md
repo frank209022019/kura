@@ -53,11 +53,11 @@ It lands in `src/components/ui/` as our own code. Then make it Cinema: shadcn's 
 | --- | --- |
 | `bg-background`, `text-foreground` | `bg-window`, `text-fg` |
 | `bg-primary`, `text-primary-foreground` | `bg-accent`, `text-on-accent` |
-| `bg-secondary`, `bg-muted` | `bg-white/5` |
+| `bg-secondary`, `bg-muted` | `bg-field` (a field or button), `bg-well` (behind choices) |
 | `text-muted-foreground` | `text-fg-muted` |
-| `bg-accent` (hover rows) | `bg-white/8` |
+| `bg-accent` (hover rows) | `bg-tint/8` |
 | `bg-card`, `bg-popover` | `bg-glass`, `bg-dialog` |
-| `border`, `border-input` | `border-edge`, `border-white/12` |
+| `border`, `border-input` | `border-edge`, `border-field-edge` |
 | `ring-ring` | the global amber focus ring |
 | `bg-destructive` | `bg-danger text-on-danger` |
 | `rounded-md`, `rounded-lg` | `rounded-14`, `rounded-18` (buttons and chips: `rounded-full`) |

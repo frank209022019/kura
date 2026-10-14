@@ -92,7 +92,7 @@ export function ScanPage() {
         <p
           key={path}
           role="status"
-          className="animate-fade-up rounded-18 border border-edge bg-glass px-4.5 py-3.5 text-14"
+          className="animate-fade-up rounded-18 border border-edge bg-glass px-4.5 py-3.5 text-14 shadow-panel"
         >
           <strong>{path} isn't connected.</strong> Kura scans it when the drive is back, and its
           files stay as they were.
@@ -101,7 +101,7 @@ export function ScanPage() {
       {now.state === "done" && now.note && (
         <p
           role="status"
-          className="animate-fade-up rounded-18 border border-edge bg-glass px-4.5 py-3.5 text-14"
+          className="animate-fade-up rounded-18 border border-edge bg-glass px-4.5 py-3.5 text-14 shadow-panel"
         >
           {now.note}
         </p>
@@ -141,7 +141,7 @@ function Progress({ scan }: { scan: Scan }) {
   return (
     <section
       aria-label="Scan progress"
-      className="flex animate-fade-up flex-col gap-6 rounded-24 border border-edge bg-glass p-7 [animation-delay:120ms]"
+      className="flex animate-fade-up flex-col gap-6 rounded-24 border border-edge bg-glass p-7 shadow-panel [animation-delay:120ms]"
     >
       <div className="flex flex-wrap items-center gap-8">
         <Ring percent={percent} read={scan.read} toRead={scan.toRead} />
@@ -325,7 +325,7 @@ function StepLine(props: { state: "done" | "now" | "later"; title: string; text:
 
 function Tile({ value, label }: { value: number; label: string }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-16 bg-white/4 px-4 py-3.5">
+    <div className="flex flex-col gap-0.5 rounded-16 bg-tint/4 px-4 py-3.5">
       <span className="font-extrabold text-26 tracking-[-0.02em]">{count(Math.max(value, 0))}</span>
       <span className="text-12 text-fg-muted">{label}</span>
     </div>
@@ -353,7 +353,7 @@ function Failed({ problem, onTools }: { problem: string; onTools: () => void }) 
 
 function Note({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <section className="flex items-start gap-3.5 rounded-20 border border-edge bg-glass px-5 py-4.5">
+    <section className="flex items-start gap-3.5 rounded-20 border border-edge bg-glass px-5 py-4.5 shadow-panel">
       <span
         aria-hidden="true"
         className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent-fg"

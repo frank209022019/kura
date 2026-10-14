@@ -11,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: "bg-accent font-extrabold text-on-accent",
-        secondary: "border border-white/12 bg-white/5 text-fg",
+        secondary: "border border-field-edge bg-field text-fg",
         ghost: "bg-transparent text-fg-muted",
         danger: "bg-danger font-extrabold text-on-danger",
       },

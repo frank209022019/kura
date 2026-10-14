@@ -20,7 +20,7 @@ export function UpdateCard() {
   return (
     <section
       aria-labelledby="update-title"
-      className="fixed right-6 bottom-6 z-10 flex w-[min(26rem,calc(100vw-3rem))] animate-pop flex-col gap-4.5 rounded-28 border border-white/10 bg-dialog p-7 shadow-dialog"
+      className="fixed right-6 bottom-6 z-10 flex w-[min(26rem,calc(100vw-3rem))] animate-pop flex-col gap-4.5 rounded-28 border border-tint/10 bg-dialog p-7 shadow-dialog"
     >
       <div className="flex items-center gap-3.5">
         <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent">
@@ -38,10 +38,15 @@ export function UpdateCard() {
           <h3 className="font-bold text-12 text-fg-muted uppercase tracking-[0.06em]">
             What's new
           </h3>
-          <ul className="flex list-disc flex-col gap-1.5 pl-4.5 text-13 text-fg-soft marker:text-accent">
+          <ul className="flex flex-col gap-1.5 text-13 text-fg-soft">
             {changes.slice(0, SHOWN).map((change) => (
-              <li key={change} className="line-clamp-2">
-                {change}
+              <li key={change} className="flex gap-2.5">
+                {/* The board's amber dot: a list marker would vanish under line-clamp. */}
+                <span
+                  aria-hidden="true"
+                  className="mt-2 size-1.5 shrink-0 rounded-full bg-accent"
+                />
+                <span className="line-clamp-2">{change}</span>
               </li>
             ))}
           </ul>

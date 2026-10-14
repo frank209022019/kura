@@ -55,7 +55,7 @@ function Card(props: {
       <div className="relative">
         <Poster title={props.poster} />
         {tag && (
-          <span className="absolute top-2.5 left-2.5 inline-flex h-6 items-center gap-1.5 rounded-full bg-window/60 px-2.25 font-bold text-11">
+          <span className="absolute top-2.5 left-2.5 inline-flex h-6 items-center gap-1.5 rounded-full bg-tag px-2.25 font-bold text-11">
             {tag.state && <StatusShape state={tag.state} className="size-2" />}
             {tag.text}
           </span>

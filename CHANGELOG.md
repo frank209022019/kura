@@ -8,10 +8,20 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Light mode, in warm paper tones: cream panels on a paper ground, deep ink text and the same
+  amber. Kura is light or dark as Windows is, changing when Windows does, or keeps to the one you
+  choose in Settings › General.
+
+### Changed
+- The queue's Today keeps its failed files to a height and scrolls them in their place, instead
+  of running the page on with a card for each.
+
 ### Fixed
 - Converted files were thrown away as not playing ("non monotonically increasing dts") when they
   played well: Kura's check rounded two frames' times to one at some points, and took that for
   damage. Those conversions go back in the queue by themselves, with their originals untouched.
+- The update card's list of what's new has its amber dots again.
 
 ## 0.12.0 - 2026-10-14
 

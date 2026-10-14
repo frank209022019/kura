@@ -48,7 +48,7 @@ const PARTS: Components = {
   ),
   td: ({ children }) => <td className="border border-edge px-2.5 py-1.5 font-mono">{children}</td>,
   code: ({ children }) => (
-    <code className="rounded-4 bg-white/6 px-1 py-0.5 font-mono text-12">{children}</code>
+    <code className="rounded-4 bg-tint/6 px-1 py-0.5 font-mono text-12">{children}</code>
   ),
   a: ({ children }) => <span className="text-accent-fg">{children}</span>,
   hr: () => <hr className="border-edge" />,

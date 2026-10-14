@@ -79,15 +79,19 @@ const LAST_NIGHT = backup(stamp(1, "03:00"));
 
 function renderSettings(section = "libraries", shellAnswers = true) {
   if (shellAnswers) {
-    shell.invoke.mockImplementation(async (command: string, args?: { on?: boolean }) => {
-      if (command === "engine_status") return READY;
-      if (command === "pick_folder") return "D:\\Backups";
-      if (command === "start_with_windows") return false;
-      if (command === "set_start_with_windows") return args?.on;
-      if (command === "keep_in_tray") return false;
-      if (command === "set_keep_in_tray") return args?.on;
-      return undefined;
-    });
+    shell.invoke.mockImplementation(
+      async (command: string, args?: { on?: boolean; look?: string }) => {
+        if (command === "engine_status") return READY;
+        if (command === "pick_folder") return "D:\\Backups";
+        if (command === "start_with_windows") return false;
+        if (command === "set_start_with_windows") return args?.on;
+        if (command === "keep_in_tray") return false;
+        if (command === "set_keep_in_tray") return args?.on;
+        if (command === "look") return "windows";
+        if (command === "set_look") return args?.look;
+        return undefined;
+      },
+    );
   }
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -374,6 +378,20 @@ describe("SettingsPage", () => {
     );
     await waitFor(() => expect(keep).toHaveAttribute("aria-checked", "true"));
     expect(shell.invoke).not.toHaveBeenCalledWith("set_start_with_windows", expect.anything());
+  });
+
+  it("is light or dark as Windows is, or as the owner picks", async () => {
+    fakeEngine({ "/folders": FOLDERS });
+    renderSettings("general");
+
+    const looks = await screen.findByRole("radiogroup", { name: "Light or dark" });
+    const radio = (name: string) => within(looks).getByRole("radio", { name });
+    await waitFor(() => expect(radio("Same as Windows")).toHaveAttribute("aria-checked", "true"));
+    radio("Light").click();
+
+    await waitFor(() => expect(shell.invoke).toHaveBeenCalledWith("set_look", { look: "light" }));
+    await waitFor(() => expect(radio("Light")).toHaveAttribute("aria-checked", "true"));
+    expect(radio("Same as Windows")).toHaveAttribute("aria-checked", "false");
   });
 
   it("moves the data to another drive, as the engine starts again", async () => {

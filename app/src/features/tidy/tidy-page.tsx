@@ -168,7 +168,7 @@ export function TidyPage() {
               />
             ))}
           </section>
-          <footer className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-20 border border-edge bg-glass px-5 py-4">
+          <footer className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-20 border border-edge bg-glass px-5 py-4 shadow-panel">
             <span className="text-13 text-fg-muted">
               {scanning ? (
                 "Kura is scanning. Apply once it's done, so it knows every file."
@@ -281,7 +281,7 @@ function Tiles(props: {
             disabled={count === 0}
             onClick={() => props.onOnly(on ? null : category)}
             className={cn(
-              "press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border bg-glass px-4 py-3 text-left disabled:cursor-default disabled:opacity-50",
+              "press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border bg-glass px-4 py-3 text-left shadow-panel disabled:cursor-default disabled:opacity-50",
               on ? "border-accent" : "border-edge",
             )}
           >
@@ -294,7 +294,7 @@ function Tiles(props: {
         type="button"
         disabled={props.waiting === 0}
         onClick={props.onMatch}
-        className="press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3 text-left disabled:cursor-default disabled:opacity-50"
+        className="press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3 text-left shadow-panel disabled:cursor-default disabled:opacity-50"
       >
         <span className="font-extrabold text-22">{props.waiting}</span>{" "}
         <span className="inline-flex items-center gap-1 text-12 text-fg-muted">
@@ -305,7 +305,7 @@ function Tiles(props: {
         <button
           type="button"
           onClick={props.onMatch}
-          className="press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3 text-left"
+          className="press flex min-w-36 cursor-pointer flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3 text-left shadow-panel"
         >
           <span className="font-extrabold text-22">{props.ignored}</span>{" "}
           <span className="inline-flex items-center gap-1 text-12 text-fg-muted">
@@ -313,7 +313,7 @@ function Tiles(props: {
           </span>
         </button>
       )}
-      <div className="flex min-w-36 flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3">
+      <div className="flex min-w-36 flex-col items-start gap-0.5 rounded-16 border border-edge bg-glass px-4 py-3 shadow-panel">
         <span className="font-extrabold text-22">{props.broken}</span>{" "}
         <span className="text-12 text-fg-muted">Broken files</span>
       </div>
@@ -337,7 +337,7 @@ function TitleChanges(props: {
     <section
       aria-label={first.title}
       className={cn(
-        "flex flex-col gap-3 rounded-22 border border-edge bg-glass p-5 transition-opacity duration-200",
+        "flex flex-col gap-3 rounded-22 border border-edge bg-glass p-5 shadow-panel transition-opacity duration-200",
         !props.included && "opacity-55",
       )}
     >
@@ -394,7 +394,7 @@ function ChangeRow(props: {
   return (
     <li
       className={cn(
-        "flex flex-col gap-1 border-white/6 border-b py-2.5 text-13 transition-opacity duration-200 last:border-b-0",
+        "flex flex-col gap-1 border-rule border-b py-2.5 text-13 transition-opacity duration-200 last:border-b-0",
         props.skipped && !change.taken && "opacity-55",
       )}
     >
@@ -402,7 +402,7 @@ function ChangeRow(props: {
         <span
           className={cn(
             "inline-flex h-5.5 items-center rounded-full px-2 font-extrabold text-11",
-            quarantine ? "bg-broken/20 text-broken-fg" : "bg-white/8 text-fg-soft",
+            quarantine ? "bg-broken/20 text-broken-fg" : "bg-tint/8 text-fg-soft",
           )}
         >
           {quarantine ? "Quarantine" : "Move"}
@@ -433,7 +433,7 @@ function Taken(props: { change: ProposedChange; skipped: boolean; onSkip: (on: b
   return (
     <fieldset
       aria-label="Name already taken"
-      className="mt-1.5 flex flex-col gap-3 rounded-20 border border-white/10 bg-raised p-4.5"
+      className="mt-1.5 flex flex-col gap-3 rounded-20 border border-tint/10 bg-raised p-4.5"
     >
       <span className="font-extrabold text-14">
         {props.skipped
@@ -475,7 +475,7 @@ function Taken(props: { change: ProposedChange; skipped: boolean; onSkip: (on: b
               note={THERE_GOES[change.compared.thereGoes]}
             />
           ) : (
-            <p className="rounded-16 border border-edge bg-white/3 p-4 text-12 text-fg-muted">
+            <p className="rounded-16 border border-edge bg-tint/3 p-4 text-12 text-fg-muted">
               Kura doesn't know the file that's there: it isn't in your library.
             </p>
           )}
@@ -511,7 +511,7 @@ function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => voi
   return (
     <section
       aria-label={`Copies of ${duplicate.label}`}
-      className="flex flex-col gap-4 rounded-22 border border-edge bg-glass p-5"
+      className="flex flex-col gap-4 rounded-22 border border-edge bg-glass p-5 shadow-panel"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="font-extrabold text-16">
@@ -543,7 +543,7 @@ function CopyCard(props: { copy: CopyFacts; heading: string; note: string; kept?
     <div
       className={cn(
         "flex flex-col gap-2.5 rounded-16 border p-4",
-        props.kept ? "border-accent/50 bg-accent/6" : "border-edge bg-white/3",
+        props.kept ? "border-accent/50 bg-accent/6" : "border-edge bg-tint/3",
       )}
     >
       <span className="flex items-center justify-between gap-2">
@@ -575,7 +575,7 @@ function Staying({ skipped }: { skipped: { path: string; reason: string }[] }) {
   return (
     <section
       aria-labelledby="staying-title"
-      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-white/6 bg-white/3 px-5.5 py-5"
+      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-rule bg-tint/3 px-5.5 py-5"
     >
       <h2 id="staying-title" className="font-extrabold text-15">
         Staying where they are
@@ -584,7 +584,7 @@ function Staying({ skipped }: { skipped: { path: string; reason: string }[] }) {
         {skipped.map((file) => (
           <li
             key={file.path}
-            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-white/6 border-b py-2 text-12 last:border-b-0"
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-rule border-b py-2 text-12 last:border-b-0"
           >
             <span className="font-mono [overflow-wrap:anywhere]">{split(file.path)[0]}</span>
             <span className="text-fg-muted">{file.reason}</span>

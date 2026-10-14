@@ -14,7 +14,7 @@ export function Panel(props: {
     <section
       aria-labelledby={id}
       className={cn(
-        "flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5.5",
+        "flex animate-fade-up flex-col gap-3.5 rounded-24 border border-edge bg-glass p-5.5 shadow-panel",
         props.className,
       )}
     >

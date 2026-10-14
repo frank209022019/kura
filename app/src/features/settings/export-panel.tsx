@@ -84,7 +84,7 @@ export function ExportPanel() {
         ))}
       </ul>
       {done && (
-        <div className="flex flex-wrap items-center gap-2.5 rounded-14 bg-glass px-3.5 py-2.5 text-13">
+        <div className="flex flex-wrap items-center gap-2.5 rounded-14 bg-tint/4 px-3.5 py-2.5 text-13">
           <Check size={16} aria-hidden="true" className="text-accent-fg" />
           <span className="min-w-0 flex-1 font-mono text-12 [overflow-wrap:anywhere]">
             {done.path} · {size(done.size)}

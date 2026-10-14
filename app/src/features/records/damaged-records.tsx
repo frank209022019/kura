@@ -59,7 +59,7 @@ export function DamagedRecords({ damage }: { damage: Damage }) {
       </header>
       <section
         aria-label="The way back"
-        className="flex max-w-2xl animate-fade-up flex-col items-start gap-4 rounded-24 border border-edge bg-glass p-6"
+        className="flex max-w-2xl animate-fade-up flex-col items-start gap-4 rounded-24 border border-edge bg-glass p-6 shadow-panel"
       >
         {starting ? (
           <p role="status" className="text-15">

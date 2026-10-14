@@ -6,7 +6,7 @@ converts the whole library to one standard, with AI upscaling for SD sources. It
 own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
 licence: anyone may fork it, but the repo takes no contributions.
 
-**Where it stands (2026-10-13):** design language chosen; repo, CI, installer and updater
+**Where it stands (2026-10-14):** design language chosen; repo, CI, installer and updater
 pipeline set up, with semantic versions, a changelog and a downloads page. Built and tested end to
 end: first-run setup with ffmpeg fetched from the list the installer shows; the scan (find, read
 with ffprobe, identify on AniList and TMDB, check for gaps and write the reports); "Which anime is
@@ -18,9 +18,9 @@ unplugged drives handled); Settings; nightly backups and restoring one; the quar
 out daily; the tray with "Start with Windows" and notifications; and the small-things board (a
 file open in another app, a crash told on Home, a failed conversion's log and "Mark as broken",
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
-overnight note). Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has
-every release since. Everything in [What's next](#whats-next) is built but light mode, which
-waits for the owner's pick of its three drafted options.
+overnight note); and light mode, Paper, as Windows is or as chosen. Kura 0.1.0, the first
+release, went out on 2026-10-12; CHANGELOG.md has every release since. Everything in
+[What's next](#whats-next) is built.
 
 ## Ground rules
 
@@ -161,7 +161,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   tidy-up leaves empty are removed (and come back on undo), and subtitle files beside a video move
   and rename with it.
 - Only the page scrolls (the owner, 2026-10-11): the nav rail and the page's top (its title, or
-  its breadcrumb) stay where they are, and so does a page's own section list beside it.
+  its breadcrumb) stay where they are, and so does a page's own section list beside it. A list
+  that can run long inside a panel, as the queue's failed files, keeps to a height and scrolls in
+  its place (the owner, 2026-10-14).
 - The nav rail's tiles carry badges, as the boards show (the owner, 2026-10-13: "the little
   orange count badge is not showing over the convert side icon"): Convert, tinted, how far the
   file converting now has got, or how many files wait; Tidy up, solid amber, how many changes
@@ -219,10 +221,21 @@ Everything decided so far. Don't ask again; change only with the owner.
   broken hatched, missing hollow.
 - Motion: 120 ms hover and press, 200 ms toggles, 320 ms panels, 600 to 900 ms charts, one curve
   `cubic-bezier(.2,.8,.2,1)`, and none at all when Windows' animation effects are off.
-- Light mode has base tokens only; Kura runs dark until light mode is designed.
+- Light mode is Paper (the owner's pick of three, 2026-10-14): a warm paper ground #f3efe6,
+  cream panels #fffcf6 with #e6dfd1 borders and a soft warm shadow, text #1d1912 and #5d564a,
+  amber text #7f5200, to convert #5b7cc4, the same amber and the same blue featured panel with
+  its orb. On paper a ready square gets a darker edge, as solid amber is faint on cream. Each
+  colour token holds both values (`light-dark()`), and a part that stays dark (the featured
+  panel, a video) carries `scheme-dark`.
+- Light or dark (2026-10-14, proposed with the options and let stand): as Windows is, changing
+  when it does (the default), or always one: "Same as Windows", "Light" or "Dark" in Settings ›
+  General. The shell keeps the choice and makes the window in it, so the page is right from its
+  first frame.
 - Canvases: [Kura Workflows](https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb) (13 boards, the source
-  of truth for screens) and the [options record](https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za).
-  Snapshots in [docs/design/](docs/design/).
+  of truth for screens), the [options record](https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za),
+  and [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y) (Paper's Home
+  and queue, the same in Cinema's dark beside them, and the two lights not chosen). Snapshots in
+  [docs/design/](docs/design/).
 
 **Architecture**
 - Tauri 2 shell, React + Tailwind + shadcn/ui (restyled to Cinema) UI, Python engine sidecar built
@@ -373,12 +386,8 @@ Everything decided so far. Don't ask again; change only with the owner.
    fits; records damaged past use: the newest backup that opens, or new records; and the
    overnight note: keeping the PC awake till 07:00, "Stop at 03:00" starting no file after 03:00
    that night, the one converting finishing).
-9. Light mode, once it's designed: three options are drafted on the
-   [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y) canvas
-   (2026-10-14): A Daylight (cool grey ground, white panels, the blue feature kept), B Paper
-   (warm paper ground, cream panels) and C Ink (white, hairlines, ink-outlined buttons, a black
-   feature). The owner picks one, as Cinema was picked; the pick goes in Decisions and
-   `tokens.css`, and only then is any of it built.
+9. Light mode: done (Paper, the owner's pick of three drafted on 2026-10-14, over A Daylight's
+   cool grey and C Ink's white and black; as Windows is, or chosen in Settings › General).
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`

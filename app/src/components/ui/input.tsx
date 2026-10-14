@@ -9,7 +9,7 @@ export function Input({ className, type = "text", ...props }: ComponentProps<"in
       type={type}
       data-slot="input"
       className={cn(
-        "h-11 w-full min-w-0 rounded-full border border-white/12 bg-white/5 px-4.5 text-14 text-fg transition-[border-color] duration-200 ease-cinema placeholder:text-fg-faint hover:border-white/20 disabled:opacity-50",
+        "h-11 w-full min-w-0 rounded-full border border-field-edge bg-field px-4.5 text-14 text-fg transition-[border-color] duration-200 ease-cinema placeholder:text-fg-faint hover:border-tint/20 disabled:opacity-50",
         className,
       )}
       {...props}

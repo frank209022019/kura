@@ -1,0 +1,129 @@
+<!doctype html>
+<!-- Kura design snapshot of "Light mode: the three options" (https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y), taken 2026-10-14.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Light mode: the three options · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#8a5a00}a:hover{color:#5e3d00}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; background: #f7f7f8; color: #101217; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.5; padding: 56px 24px 72px">
+<div style="max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px">
+
+<header style="display: flex; flex-direction: column; gap: 14px; max-width: 820px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #545a66">
+<span style="display: inline-flex; align-items: center; height: 26px; padding: 0 11px; border-radius: 13px; background: #f2b33d; color: #1d1300; font-weight: 800">Kura</span>
+<span>Cinema, in daylight</span>
+</div>
+<h1 style="margin: 0; font-size: 50px; line-height: 1.04; letter-spacing: -0.03em; font-weight: 800">Light mode options</h1>
+<p style="margin: 0; font-size: 18px; color: #545a66; text-wrap: pretty">Three ways to light Cinema. Each keeps its type, its amber, its pill buttons, rounded panels and status shapes; they differ in the ground, the panels and the featured panel. Below, Home and the queue in each.</p>
+</header>
+
+<section aria-labelledby="kept-title" style="display: flex; flex-direction: column; gap: 14px">
+<h2 id="kept-title" style="margin: 0; font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #545a66">The same in every option</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 17px; background: #ffffff; border: 1px solid #e3e6ec; font-size: 13px; font-weight: 600">Manrope for words, Geist Mono for paths and numbers</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 17px; background: #ffffff; border: 1px solid #e3e6ec; font-size: 13px; font-weight: 600"><span style="width: 12px; height: 12px; border-radius: 6px; background: #f2b33d"></span>Amber #F2B33D, text on it #1D1300</span>
+<span style="display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 17px; background: #ffffff; border: 1px solid #e3e6ec; font-size: 13px; font-weight: 600">Pill buttons, panels 16 to 24 px round</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 17px; background: #ffffff; border: 1px solid #e3e6ec; font-size: 13px; font-weight: 600"><span style="display: inline-flex; gap: 3px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #f2b33d"></span><span style="width: 10px; height: 10px; border-radius: 3px; background: #4f73b3"></span><span style="width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, #e5484d 0 2px, #fbd5d5 2px 4px)"></span><span style="width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span></span>Status by shape: solid, solid blue, hatched, hollow</span>
+<span style="display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 17px; background: #ffffff; border: 1px solid #e3e6ec; font-size: 13px; font-weight: 600">One motion curve, none with animation effects off</span>
+<span style="display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 17px; background: #ffffff; border: 1px solid #e3e6ec; font-size: 13px; font-weight: 600">Text at 4.5:1 or more</span>
+</div>
+</section>
+
+<section aria-label="The three options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 24px">
+
+<article style="display: flex; flex-direction: column; gap: 18px; padding: 20px; border-radius: 24px; background: #ffffff; border: 1px solid #e3e6ec">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: #f2f3f6">
+<div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 800; color: #101217"><span>Library</span><span style="font-family: 'Geist Mono', monospace; font-weight: 500; color: #545a66">639 videos</span></div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #ffffff; border: 1px solid #e3e6ec; box-shadow: 0 1px 2px rgba(16,18,23,.05), 0 10px 24px -18px rgba(16,18,23,.22)">
+<div style="display: flex; align-items: center; gap: 4px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; animation: kpulse 1.6s ease-in-out infinite"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #6f8fd0"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #6f8fd0"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, #e5484d 0 2px, #fbd5d5 2px 4px)"></span><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #8b919c"></span></div>
+<div style="display: flex; gap: 8px"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: #f2b33d; color: #1d1300; font-size: 12px; font-weight: 800">Apply all 56</span><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: #ffffff; border: 1px solid #d6dae2; color: #101217; font-size: 12px; font-weight: 700">Scan again</span></div>
+<span style="font-size: 12px; font-weight: 700; color: #8a5a00">2 files need a match</span>
+</div>
+<div style="position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 16px; background: #13254f; color: #ffffff"><span style="position: absolute; right: -30px; bottom: -50px; width: 110px; height: 110px; border-radius: 55px; background: #f08a24"></span><span style="position: relative; font-size: 11px; font-weight: 800; color: #ffe1a6">Now converting</span><span style="position: relative; font-size: 15px; font-weight: 800">Dragon Ball Z · S01E05</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h3 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">A · Daylight</h3>
+<p style="margin: 0; font-size: 14px; color: #545a66">Cool grey ground, white panels, the deep blue feature kept</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; font-size: 13px">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #f2f3f6; box-shadow: inset 0 0 0 1px #d6dae2"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Ground</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#F2F3F6</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #d6dae2"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Panels</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#FFFFFF</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #101217"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#101217</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #545a66"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Secondary text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#545A66</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #8a5a00"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Amber text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#8A5A00</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #6f8fd0"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">To convert</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#6F8FD0</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #13254f"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Feature</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#13254F</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #e3e6ec"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Borders</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#E3E6EC</span></span></div>
+</div>
+</article>
+
+<article style="display: flex; flex-direction: column; gap: 18px; padding: 20px; border-radius: 24px; background: #ffffff; border: 1px solid #e3e6ec">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: #f3efe6">
+<div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 800; color: #1d1912"><span>Library</span><span style="font-family: 'Geist Mono', monospace; font-weight: 500; color: #5d564a">639 videos</span></div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #fffcf6; border: 1px solid #e6dfd1; box-shadow: 0 1px 2px rgba(60,40,10,.06), 0 12px 28px -20px rgba(60,40,10,.30)">
+<div style="display: flex; align-items: center; gap: 4px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; animation: kpulse 1.6s ease-in-out infinite"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #5b7cc4"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #5b7cc4"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, #d9483b 0 2px, #f7d8d2 2px 4px)"></span><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #9a9284"></span></div>
+<div style="display: flex; gap: 8px"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: #f2b33d; color: #1d1300; font-size: 12px; font-weight: 800">Apply all 56</span><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: #fffcf6; border: 1px solid #dcd3c2; color: #1d1912; font-size: 12px; font-weight: 700">Scan again</span></div>
+<span style="font-size: 12px; font-weight: 700; color: #7f5200">2 files need a match</span>
+</div>
+<div style="position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 16px; background: #13254f; color: #fffcf6"><span style="position: absolute; right: -30px; bottom: -50px; width: 110px; height: 110px; border-radius: 55px; background: #f08a24"></span><span style="position: relative; font-size: 11px; font-weight: 800; color: #ffe1a6">Now converting</span><span style="position: relative; font-size: 15px; font-weight: 800">Dragon Ball Z · S01E05</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h3 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">B · Paper</h3>
+<p style="margin: 0; font-size: 14px; color: #545a66">Warm paper ground, cream panels, softer shadows</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; font-size: 13px">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #f3efe6; box-shadow: inset 0 0 0 1px #dcd3c2"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Ground</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#F3EFE6</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #fffcf6; box-shadow: inset 0 0 0 1px #dcd3c2"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Panels</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#FFFCF6</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #1d1912"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#1D1912</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #5d564a"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Secondary text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#5D564A</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #7f5200"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Amber text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#7F5200</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #5b7cc4"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">To convert</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#5B7CC4</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #13254f"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Feature</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#13254F</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #e6dfd1"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Borders</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#E6DFD1</span></span></div>
+</div>
+</article>
+
+<article style="display: flex; flex-direction: column; gap: 18px; padding: 20px; border-radius: 24px; background: #ffffff; border: 1px solid #e3e6ec">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: #ffffff; box-shadow: inset 0 0 0 1px #e2e4e8">
+<div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 800; color: #0b0c0f"><span>Library</span><span style="font-family: 'Geist Mono', monospace; font-weight: 500; color: #4f5560">639 videos</span></div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #ffffff; border: 1px solid #e2e4e8">
+<div style="display: flex; align-items: center; gap: 4px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d; animation: kpulse 1.6s ease-in-out infinite"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: #4f73b3"></span><span style="width: 12px; height: 12px; border-radius: 3px; background: repeating-linear-gradient(135deg, #e5484d 0 2px, #fde0e0 2px 4px)"></span><span style="width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #7f8592"></span></div>
+<div style="display: flex; gap: 8px"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: #f2b33d; color: #1d1300; font-size: 12px; font-weight: 800">Apply all 56</span><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 15px; background: #ffffff; border: 1.5px solid #0b0c0f; color: #0b0c0f; font-size: 12px; font-weight: 700">Scan again</span></div>
+<span style="font-size: 12px; font-weight: 700; color: #8a5a00">2 files need a match</span>
+</div>
+<div style="position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 16px; background: #0b0c0f; color: #f4f5f7"><span style="position: absolute; right: -30px; bottom: -50px; width: 110px; height: 110px; border-radius: 55px; background: #f08a24"></span><span style="position: relative; font-size: 11px; font-weight: 800; color: #ffe1a6">Now converting</span><span style="position: relative; font-size: 15px; font-weight: 800">Dragon Ball Z · S01E05</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h3 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">C · Ink</h3>
+<p style="margin: 0; font-size: 14px; color: #545a66">White ground, hairlines, ink buttons, Cinema's dark window as the feature</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; font-size: 13px">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #d0d3d9"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Ground</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#FFFFFF</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #e2e4e8"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Panels, hairline</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#E2E4E8</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #0b0c0f"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#0B0C0F</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #4f5560"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Secondary text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#4F5560</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #8a5a00"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Amber text</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#8A5A00</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #4f73b3"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">To convert</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#4F73B3</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #0b0c0f"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Feature</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#0B0C0F</span></span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: #f2f3f5; box-shadow: inset 0 0 0 1px #e2e4e8"></span><span style="display: flex; flex-direction: column"><span style="font-weight: 700">Tracks and fills</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #545a66">#F2F3F5</span></span></div>
+</div>
+</article>
+
+</section>
+
+<p style="margin: 0; font-size: 13px; color: #545a66">Sample library data: the Dragon Ball franchise. Posters show Kura's own placeholder; real covers fill them in the app.</p>
+
+</div>
+</div>
+</body>
+</html>

@@ -15,7 +15,7 @@ export function Offline() {
   return (
     <div
       role="status"
-      className="flex animate-pop items-center gap-3 rounded-18 border border-white/10 bg-raised px-4 py-3.5 text-14 shadow-toast"
+      className="flex animate-pop items-center gap-3 rounded-18 border border-tint/10 bg-raised px-4 py-3.5 text-14 shadow-toast"
     >
       <WifiOff size={20} aria-hidden="true" className="shrink-0 text-fg-soft" />
       <span>

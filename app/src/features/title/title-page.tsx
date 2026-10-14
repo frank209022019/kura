@@ -122,7 +122,7 @@ function Unfit({ count }: { count: number }) {
   return (
     <section
       aria-label="Files that didn't fit"
-      className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-20 border border-edge bg-glass px-5 py-4"
+      className="flex animate-fade-up flex-wrap items-center justify-between gap-3 rounded-20 border border-edge bg-glass px-5 py-4 shadow-panel"
     >
       <span className="text-13">
         {count === 1 ? "1 file didn't" : `${count} files didn't`} fit this match.{" "}
@@ -155,7 +155,7 @@ function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) 
   return (
     <section
       aria-label={title.name}
-      className="flex animate-fade-up flex-wrap items-center gap-6 rounded-24 border border-edge bg-glass p-6"
+      className="flex animate-fade-up flex-wrap items-center gap-6 rounded-24 border border-edge bg-glass p-6 shadow-panel"
     >
       <Poster title={title} className="w-30 shrink-0" />
       <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-2">
@@ -238,7 +238,7 @@ function Seasons(props: {
           return (
             <li
               key={season.season}
-              className="grid min-h-10 grid-cols-[5.5rem_1fr_3.5rem_7rem_2rem] items-center gap-3 border-white/6 border-b text-13 last:border-b-0"
+              className="grid min-h-10 grid-cols-[5.5rem_1fr_3.5rem_7rem_2rem] items-center gap-3 border-rule border-b text-13 last:border-b-0"
             >
               <span className="font-bold">Season {season.season}</span>
               <span className="flex h-2 overflow-hidden rounded-3" aria-hidden="true">
@@ -246,7 +246,7 @@ function Seasons(props: {
                   <StatusShape
                     key={episode.number}
                     state={episode.state}
-                    className="h-full flex-1 rounded-none"
+                    className="status-joined h-full flex-1 rounded-none"
                   />
                 ))}
               </span>
@@ -352,7 +352,7 @@ function MissingAndBroken({ title, episodes }: { title: TitleDetail; episodes: E
           {rows.map(({ first, last, count }) => (
             <li
               key={key(first)}
-              className="col-span-3 grid min-h-10 grid-cols-subgrid items-center border-white/6 border-b text-13 last:border-b-0"
+              className="col-span-3 grid min-h-10 grid-cols-subgrid items-center border-rule border-b text-13 last:border-b-0"
             >
               <StatusShape state={first.state} className="size-3" />
               <span className="font-mono">
@@ -422,7 +422,7 @@ function Specials({ episodes }: { episodes: EpisodeState[] }) {
         {episodes.map((episode) => (
           <li
             key={key(episode)}
-            className="grid min-h-9 grid-cols-[1rem_4.5rem_1fr] items-center gap-3 border-white/6 border-b text-13 last:border-b-0"
+            className="grid min-h-9 grid-cols-[1rem_4.5rem_1fr] items-center gap-3 border-rule border-b text-13 last:border-b-0"
           >
             <StatusShape state={episode.state} className="size-3" />
             <span className="font-mono">S00E{pad(episode.number)}</span>
@@ -512,7 +512,7 @@ function Videos(props: {
         {title.videos.map((video) => (
           <li
             key={video.id}
-            className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 border-white/6 border-b py-1.5 text-12 last:border-b-0"
+            className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 border-rule border-b py-1.5 text-12 last:border-b-0"
           >
             {video.season !== null && video.episode !== null && (
               <span className="w-18 shrink-0 font-mono">
@@ -565,7 +565,7 @@ function Panel(props: {
   return (
     <section
       aria-labelledby={props.id}
-      className="flex animate-fade-up flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5"
+      className="flex animate-fade-up flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5 shadow-panel"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id={props.id} className="inline-flex items-center gap-2 font-extrabold text-16">

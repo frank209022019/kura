@@ -7,6 +7,10 @@ private; these snapshots are the shared copy):
 - [Kura Workflows](https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb): every screen in Cinema.
 - [Design Language Options](https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za): the three
   directions explored, Cinema chosen, and the eight rules they all share ([options.html](options.html)).
+- [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y): three lights for
+  Cinema, Paper chosen ([light-options.html](light-options.html)), and Home and the queue in
+  Paper ([light.html](light.html)) and in Cinema's dark beside it ([dark.html](dark.html)). Every
+  other screen in light follows from the tokens.
 
 | Board | Page |
 | --- | --- |
@@ -23,6 +27,9 @@ private; these snapshots are the shared copy):
 | 5.1 Settings: your data | [screens/10-settings.html](screens/10-settings.html) |
 | 5.2 Update and uninstall | [screens/11-uninstall.html](screens/11-uninstall.html) |
 | 5.3 The small things | [screens/12-states.html](screens/12-states.html) |
+| Light mode: Paper, Home and the queue | [light.html](light.html) |
+| The same in Cinema's dark, to set beside it | [dark.html](dark.html) |
+| Light mode: the three options | [light-options.html](light-options.html) |
 
 The sample library is illustrative: episode counts are real, while file states, timings and sizes
 are estimates for a GTX 1660 Super. Fonts load from Google Fonts, so pages need the internet to
@@ -36,11 +43,11 @@ reuse the components in `app/src/components/`, and keep each screen's states.
 
 ## Refreshing the snapshot
 
-The pages are generated; don't edit them. When a canvas changes, ask Claude to read both canvases
-(their `project/` files) into a folder each, then run:
+The pages are generated; don't edit them. When a canvas changes, ask Claude to read it (its
+`project/` files) into a folder, then run the script with the canvases read, one or more:
 
 ```powershell
-node scripts/design-snapshot.mjs <workflows-folder> <options-folder>
+node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
 ```
 
 The script expands each board's repeated parts with the board's own sample data and rewrites the

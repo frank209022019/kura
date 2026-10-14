@@ -110,7 +110,7 @@ export function Deleted(props: { result: TidyResult; onPutBack: () => void }) {
   return (
     <section
       aria-label="Deleted"
-      className="flex animate-fade-up flex-wrap items-center gap-3 rounded-20 border border-edge bg-glass px-5 py-3.5 text-13"
+      className="flex animate-fade-up flex-wrap items-center gap-3 rounded-20 border border-edge bg-glass px-5 py-3.5 text-13 shadow-panel"
     >
       {count > 0 ? (
         <Check size={16} aria-hidden="true" className="shrink-0 text-accent-fg" />

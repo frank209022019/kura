@@ -53,10 +53,10 @@ Nothing changes until you review it, and everything stays on your PC: no account
   export takes them to another PC.
 - **Looks after itself.** It can start with Windows and wait in the tray, tells you when a batch is
   done, says what happened after a crash or power cut, and updates itself, showing what's new
-  first.
+  first. It's dark or light as Windows is, or as you choose.
 
-Kura is built in the open and ready for everyday use. Everything planned is built except light
-mode, which waits for its design: [What's next](CLAUDE.md#whats-next) says where it stands.
+Kura is built in the open and ready for everyday use. Everything planned is built:
+[What's next](CLAUDE.md#whats-next) says where it stands.
 
 ## Download
 

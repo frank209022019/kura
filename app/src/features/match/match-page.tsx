@@ -80,7 +80,7 @@ export function MatchPage() {
         <h1 className="page-top type-title animate-fade-up">Which anime is this?</h1>
         <EngineProblem queries={[review]} />
         <Loading label="Loading the files to match" queries={[review]}>
-          <div className="flex flex-col gap-4 rounded-22 border border-edge bg-glass p-5">
+          <div className="flex flex-col gap-4 rounded-22 border border-edge bg-glass p-5 shadow-panel">
             <Skeleton className="h-5 w-72 max-w-full" />
             <div className="grid grid-cols-3 gap-2.5">
               <Skeleton className="aspect-video w-full rounded-12" />
@@ -255,7 +255,7 @@ function MatchFile(props: {
 
         <section
           aria-labelledby="guess-title"
-          className="flex min-w-0 flex-[1.3_1_420px] animate-fade-up flex-col gap-3.5 rounded-24 border border-accent/35 bg-raised p-5.5 [animation-delay:120ms]"
+          className="flex min-w-0 flex-[1.3_1_420px] animate-fade-up flex-col gap-3.5 rounded-24 border border-accent/35 bg-raised p-5.5 shadow-panel [animation-delay:120ms]"
         >
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="guess-title" className="font-extrabold text-17">
@@ -284,7 +284,7 @@ function MatchFile(props: {
               ))}
             </RadioGroup.Root>
           ) : (
-            <p className="rounded-16 bg-white/4 px-4 py-3.5 text-13 text-fg-muted">
+            <p className="rounded-16 bg-tint/4 px-4 py-3.5 text-13 text-fg-muted">
               {searching
                 ? found.isFetching
                   ? "Searching…"
@@ -292,7 +292,7 @@ function MatchFile(props: {
                 : "Kura has no guess for this one. Search for the anime by name."}
             </p>
           )}
-          <label className="flex h-11 items-center gap-2.5 rounded-full border border-white/12 bg-white/5 px-4 text-fg-muted">
+          <label className="flex h-11 items-center gap-2.5 rounded-full border border-field-edge bg-field px-4 text-fg-muted">
             <Search size={16} aria-hidden="true" />
             <input
               type="search"
@@ -388,7 +388,7 @@ function FilePanel({ file, deletes }: { file: WaitingFile; deletes: Deletes | nu
   return (
     <section
       aria-labelledby="file-title"
-      className="flex min-w-0 flex-[1_1_380px] animate-fade-up flex-col gap-4 rounded-24 border border-edge bg-glass p-5.5 [animation-delay:60ms]"
+      className="flex min-w-0 flex-[1_1_380px] animate-fade-up flex-col gap-4 rounded-24 border border-edge bg-glass p-5.5 shadow-panel [animation-delay:60ms]"
     >
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -555,7 +555,7 @@ function UpNext(props: { files: WaitingFile[]; following: number[]; deletes: Del
   return (
     <section
       aria-labelledby="next-title"
-      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-white/6 bg-white/3 px-5.5 py-5 [animation-delay:180ms]"
+      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-rule bg-tint/3 px-5.5 py-5 [animation-delay:180ms]"
     >
       <h2 id="next-title" className="font-extrabold text-15">
         Up next
@@ -568,7 +568,7 @@ function UpNext(props: { files: WaitingFile[]; following: number[]; deletes: Del
           return (
             <li
               key={file.id}
-              className="flex min-h-11 flex-wrap items-center gap-3 border-white/6 border-b last:border-b-0"
+              className="flex min-h-11 flex-wrap items-center gap-3 border-rule border-b last:border-b-0"
             >
               <span className="flex-[1_1_260px] font-mono text-12 [overflow-wrap:anywhere]">
                 {name}
@@ -605,7 +605,7 @@ function SetAside({ deletes }: { deletes: Deletes }) {
   return (
     <section
       aria-labelledby="set-aside-title"
-      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-white/6 bg-white/3 px-5.5 py-5 [animation-delay:240ms]"
+      className="flex animate-fade-up flex-col gap-2.5 rounded-22 border border-rule bg-tint/3 px-5.5 py-5 [animation-delay:240ms]"
     >
       <div className="flex flex-col gap-1">
         <h2 id="set-aside-title" className="font-extrabold text-15">
@@ -623,7 +623,7 @@ function SetAside({ deletes }: { deletes: Deletes }) {
           return (
             <li
               key={file.id}
-              className="flex min-h-11 flex-wrap items-center gap-3 border-white/6 border-b py-1.5 last:border-b-0"
+              className="flex min-h-11 flex-wrap items-center gap-3 border-rule border-b py-1.5 last:border-b-0"
             >
               <span className="flex min-w-0 flex-[1_1_260px] flex-col">
                 <span className="font-mono text-12 [overflow-wrap:anywhere]">{name}</span>

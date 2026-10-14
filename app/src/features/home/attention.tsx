@@ -109,7 +109,7 @@ function Card(props: {
     </>
   );
   const look =
-    "flex h-full flex-col gap-3 rounded-20 border border-edge bg-glass px-4.5 py-4 text-left";
+    "flex h-full flex-col gap-3 rounded-20 border border-edge bg-glass px-4.5 py-4 text-left shadow-panel";
   if (!props.onClick) return <div className={look}>{body}</div>;
   return (
     <button type="button" onClick={props.onClick} className={cn(look, "lift cursor-pointer")}>
