@@ -376,9 +376,13 @@ Everything decided so far. Don't ask again; change only with the owner.
 9. Light mode, once it's designed: the next step is a design for the owner to pick, as Cinema
    was picked, before any of it is built.
 
-Licences to settle as these arrive: ffmpeg (downloaded at setup, an LGPL build) and AniList's
-terms (free for non-commercial use, within its rate limit). TMDB's terms are met in the app: its
-credit line with its logo, in Settings (About, and Titles and artwork). Real-ESRGAN's model
+Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
+downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`
+names, with its licence, as the installer's first page lists it. AniList: its API is free for
+non-commercial use within its rate limit, and Kura keeps to it (one client the engine shares, which
+waits when AniList says the minute's requests are spent; the franchise look-ups ask about 12 a
+minute). TMDB's terms are met in the app: its credit line with its logo, in Settings (About, and
+Titles and artwork). Real-ESRGAN's model
 (BSD-3-Clause) and Anime4K's shaders (MIT) are in `engine/src/kura/assets` with their licences,
 which the notices carry.
 
