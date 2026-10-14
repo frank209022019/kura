@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.14.0 - 2026-10-14
+
 ### Added
 - A player inside Kura. Press Play beside any video on a title's page, or on "Which anime is
   this?" (Play it, or a still to play from there): it plays small over whichever page is open,
