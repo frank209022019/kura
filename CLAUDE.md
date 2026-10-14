@@ -18,9 +18,10 @@ unplugged drives handled); Settings; nightly backups and restoring one; the quar
 out daily; the tray with "Start with Windows" and notifications; and the small-things board (a
 file open in another app, a crash told on Home, a failed conversion's log and "Mark as broken",
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
-overnight note); and light mode, Paper, as Windows is or as chosen. Kura 0.1.0, the first
-release, went out on 2026-10-12; CHANGELOG.md has every release since. Everything in
-[What's next](#whats-next) is built but the small player, drawn for the owner to approve.
+overnight note); light mode, Paper, as Windows is or as chosen; History a week at a time and
+cleared on asking or daily; and the player inside Kura (small over the page and moved anywhere,
+full screen and back). Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has
+every release since. Everything in [What's next](#whats-next) is built.
 
 ## Ground rules
 
@@ -221,10 +222,14 @@ Everything decided so far. Don't ask again; change only with the owner.
   a video opens a small player that floats over the page, always in sight however far you
   scroll, and can be dragged anywhere in the window, like YouTube's ("we shouldn't have to
   scroll down to see it"); it stays while you move between pages, goes full screen and comes
-  back. It plays in Kura's own window: the engine hands the
-  file over in a form the window plays (the picture as it is where the window can decode it,
-  else made H.264 by the graphics card as it plays; surround sound as stereo AAC; styled
-  subtitles drawn), with nothing new to download. The design comes first (What's next, 10).
+  back. It plays in Kura's own window: the engine makes the file what the window plays as it
+  plays (H.264 by encoders that come with their licence: Windows' own first, which on the
+  owner's PC starts in about a second and keeps up even while the AI model has the graphics card,
+  then the cards'; never OpenH264, whose patent licence covers only Cisco's own builds; any sound
+  as stereo AAC; the subtitles drawn into the picture), with nothing new to download. Text
+  subtitles in the file join a moment after the picture: they're copied out of the file first,
+  which reads all of it. The sound and subtitles picked last start the next video too. Built to
+  the Kura Player canvas (What's next, 10).
 - Order of work: design language (done), repo and pipelines (done), then building.
 
 **Design: Cinema** (the owner's pick of three; tokens in `app/src/styles/tokens.css`)
@@ -406,11 +411,12 @@ Everything decided so far. Don't ask again; change only with the owner.
    that night, the one converting finishing).
 9. Light mode: done (Paper, the owner's pick of three drafted on 2026-10-14, over A Daylight's
    cool grey and C Ink's white and black; as Windows is, or chosen in Settings › General).
-10. A small player inside Kura's window: drawn on the
-    [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3) canvas (2026-10-14: the small
-    player over a title page, full screen with sound and subtitles, in light, a quick check on
-    "Which anime is this?", and its small things), for the owner to approve before any of it is
-    built.
+10. A small player inside Kura's window: done (2026-10-14, to the
+    [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3) canvas the owner approved:
+    Play beside each video on a title's page, "Play it" and the stills on "Which anime is this?",
+    the small player over the page and dragged anywhere, full screen and back, sound and
+    subtitles, chapters, the next episode, and its small things: getting it ready, a file that
+    won't play, a drive that isn't connected, a file gone).
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`

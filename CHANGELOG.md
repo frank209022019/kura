@@ -9,8 +9,17 @@ shows these notes when it offers the update.
 ## Unreleased
 
 ### Added
+- A player inside Kura. Press Play beside any video on a title's page, or on "Which anime is
+  this?" (Play it, or a still to play from there): it plays small over whichever page is open,
+  you can drag it anywhere in the window, and it goes full screen and back (the next episode
+  too). Choose the sound and subtitles the file has, find its chapters marked on the bar full
+  screen, and play the next episode with a click.
+  Subtitles in the file join a moment after the picture, as Kura reads them out of the file
+  first, and the sound and subtitles you picked start the next video too. A file that won't
+  play, a drive that isn't connected or a file that's gone says so, with what to do.
 - History comes a week at a time, with "Show older" for the days before, and a busy day shows its
-  first 20 entries till you ask for all of them. An undo shows on the day you made it.
+  first 20 entries till you ask for all of them. An undo shows on the day you made it, and a day
+  from another year says its year.
 - Clear History: keep its last 24 hours, 7 days or 30 days, or nothing, after Kura asks. Or have
   Kura clear what's older than 7, 30 or 90 days each day, in Settings › Your data (it keeps
   everything till you choose). Clearing never touches your files, and what still has a copy in

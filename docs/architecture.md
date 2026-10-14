@@ -100,6 +100,7 @@ kura/
   preview.py      See it first: one frame before converting and after
   gpu.py          how busy and how warm the graphics card is (nvidia-smi)
   history.py      what Kura did, newest first: tidy-ups, conversions and scans
+  player.py       playing a video inside the window: tickets, the stream, subtitles copied out
   web.py          asking web services for JSON: timeouts, rate limits, errors in words
   anilist.py      AniList: which anime a file is
   tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
@@ -285,6 +286,20 @@ everything set aside there goes for good, so the app asks once more), or convert
 while the others go, starting by themselves once there is, till none waits there (then a full
 drive pauses the queue again, to ask).
 
+A video plays inside Kura's window (`kura/player.py`, its commands in `kura/core/player.py`,
+`api/player.py`): `POST /player` gives a ticket for a library file with what it offers to play
+(sound, subtitles, chapters), and the window's `<video>` plays `/stream/<ticket>?at=…`. That one
+address takes no token, since a `<video>` can't send one: the ticket, a long random name the
+window alone is told, is its key, and only the latest four work. Each stream is ffmpeg making
+fragmented MP4 on the fly from `at` seconds (H.264, AAC stereo, the subtitles drawn into the
+picture), and a new stream of the same video (a seek, another sound track) stops the one before,
+as do closing the player and the window letting go. Text subtitles in the file are copied out to
+`cache/player/` first (that reads the whole file), with the file's fonts under names of Kura's,
+so the video plays at once and its subtitles join when they're ready; subtitles that are pictures
+are laid over straight from the file, and a subtitle file beside the video is used as it is. A
+stream that ends early says why (the drive went, the file went, the file is damaged there), and
+the copies of the last six videos' subtitles stay. See [stack/ffmpeg.md](stack/ffmpeg.md).
+
 ## Data
 
 - **The data folder**, `%LOCALAPPDATA%\Kura`: `kura.db` (everything Kura knows), `logs/`
@@ -339,9 +354,12 @@ drive pauses the queue again, to ask).
 ## Safety on a shared PC
 
 - The engine listens only on `127.0.0.1`, on a port chosen at random.
-- Every request needs the launch's token; anything else gets 401.
+- Every request needs the launch's token; anything else gets 401. The one exception is a
+  video's stream (`/stream/<ticket>`), which the window's `<video>` asks for without it: its
+  ticket, given only to the window and only for a library file it opened, is the key.
 - Only the app's own pages may call it (CORS), and only when addressed to this PC (Host check).
-- The window's content security policy allows the app itself, Tauri's IPC and the local engine.
+- The window's content security policy allows the app itself, Tauri's IPC and the local engine
+  (its pictures, and its video streams).
 - The window may call only the core APIs, its title bar buttons and Kura's own commands
   (`app/src-tauri/capabilities/default.json`).
 - An update runs only if its signature matches the public key built into Kura.

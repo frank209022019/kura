@@ -23,7 +23,7 @@ export type EngineStatus =
   | { state: "ready"; url: string; token: string }
   | { state: "failed"; message: string; details: string };
 
-type ReadyEngine = Extract<EngineStatus, { state: "ready" }>;
+export type ReadyEngine = Extract<EngineStatus, { state: "ready" }>;
 
 const EngineContext = createContext<EngineStatus>({ state: "starting" });
 
@@ -1208,3 +1208,120 @@ export const useRemoveFromQueue = () => useEngineAction<void>(QUEUED, "DELETE");
 export const useQueueSchedule = () => useEngineAction<QueueStatus>(QUEUED, "PUT");
 /** Tonight's run stops at 03:00, or goes on till 07:00: `{ path: "/queue/tonight", body: { early } }`. */
 export const useQueueTonight = () => useEngineAction<QueueStatus>(QUEUED, "PUT");
+
+/** A sound track of a video opened to play. */
+export interface SoundTrack {
+  /** Among the file's sound tracks. */
+  number: number;
+  /** "jpn", or null when the file doesn't say. */
+  language: string | null;
+  title: string | null;
+  channels: number;
+  /** The file's own pick. */
+  default: boolean;
+}
+
+/** A subtitle track of a video opened to play: in the file, or a file of its own beside it. */
+export interface SubtitleTrack {
+  number: number;
+  language: string | null;
+  title: string | null;
+  /** Styled: as the file styles them. */
+  kind: "text" | "styled" | "pictures";
+  default: boolean;
+  forced: boolean;
+  beside: boolean;
+}
+
+export interface ChapterMark {
+  /** Seconds in. */
+  start: number;
+  title: string | null;
+}
+
+/** A video opened to play: its ticket for the stream, and what it offers. */
+export interface OpenedVideo {
+  /** Null when the file isn't there to play: `missing` says why. */
+  ticket: string | null;
+  missing: "drive" | "file" | null;
+  /** "F:". */
+  drive: string;
+  duration: number | null;
+  sound: SoundTrack[];
+  subtitles: SubtitleTrack[];
+  chapters: ChapterMark[];
+  /** What the file starts with. */
+  chosenSound: number | null;
+  chosenSubtitles: number | null;
+  /** Subtitles ready to draw in now. */
+  ready: number[];
+}
+
+/** Why the latest stream of a video ended early. */
+export interface StreamStopped {
+  why: "drive" | "gone" | "damaged" | "failed";
+  /** What ffmpeg said last. */
+  detail: string | null;
+}
+
+/** How an open video's subtitles are getting on, and why its stream stopped if it did. */
+export interface PlayerState {
+  ready: number[];
+  /** Being copied out of the file, which reads all of it. */
+  preparing: number[];
+  failed: { number: number; problem: string }[];
+  stopped: StreamStopped | null;
+}
+
+/** Opens a video to play: `POST /player`. */
+export function openVideo(engine: ReadyEngine, file: number): Promise<OpenedVideo> {
+  return callEngine<OpenedVideo>(engine, "/player", {
+    method: "POST",
+    body: JSON.stringify({ file }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** Has subtitles got ready to draw in (copied out of the file first, for text in it). */
+export function prepareSubtitles(
+  engine: ReadyEngine,
+  ticket: string,
+  subtitles: number,
+): Promise<PlayerState> {
+  return callEngine<PlayerState>(engine, `/player/${ticket}/subtitles/${subtitles}`, {
+    method: "POST",
+  });
+}
+
+/** Closes a video: its stream stops. */
+export function closeVideo(engine: ReadyEngine, ticket: string): Promise<void> {
+  return callEngine<void>(engine, `/player/${ticket}`, { method: "DELETE" });
+}
+
+/** How the open video's subtitles are getting on: asked every second while some get ready, or
+ * while the `wanted` ones (asked for as the video opened) aren't ready nor failed yet. */
+export const usePlayerState = (ticket: string | null, wanted: number | null) =>
+  useEngineQuery<PlayerState>(
+    `/player/${ticket}`,
+    (now) =>
+      now?.preparing.length ||
+      (wanted !== null &&
+        !now?.ready.includes(wanted) &&
+        !now?.failed.some((each) => each.number === wanted))
+        ? 1000
+        : false,
+    ticket !== null,
+  );
+
+/** The address the window's <video> plays: the ticket is its key, as it can't send the token. */
+export function streamAddress(
+  engine: ReadyEngine,
+  ticket: string,
+  choice: { at: number; sound: number | null; subtitles: number | null },
+): string {
+  const address = new URL(`/stream/${ticket}`, engine.url);
+  address.searchParams.set("at", choice.at.toFixed(3));
+  if (choice.sound !== null) address.searchParams.set("sound", String(choice.sound));
+  if (choice.subtitles !== null) address.searchParams.set("subtitles", String(choice.subtitles));
+  return address.toString();
+}

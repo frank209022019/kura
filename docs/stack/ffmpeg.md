@@ -58,6 +58,40 @@ That threw 42 good results away on 2026-10-14. So the test play keeps the times 
 them (`-enc_time_base:v demux`, in `_play` in
 [kura/convert.py](../../engine/src/kura/convert.py)).
 
+## Playing inside Kura
+
+The player ([kura/core/player.py](../../engine/src/kura/core/player.py)) has ffmpeg make what
+the window's `<video>` plays as it comes: fragmented MP4 (`-movflags
+frag_keyframe+empty_moov+default_base_moof`) on ffmpeg's output, from `-ss <at>` with `-copyts`
+so subtitles line up wherever it starts, the times then started from nothing (`setpts`,
+`asetpts`). The picture is made at most 1080 high with square pixels, 8-bit 4:2:0
+(`scale=w='trunc(oh*dar/2)*2':h='trunc(min(1080,ih)/2)*2',setsar=1,format=yuv420p`), drawn
+whole first when it may be interlaced (`bwdif=mode=send_frame:deint=interlaced`, at the file's
+own rate); one sound track becomes AAC stereo.
+
+**Licensed encoders only, Windows' own first.** Kura makes H.264 with encoders that come with
+their licence: Windows' own (`h264_mf`, Media Foundation's, part of Windows), then the graphics
+cards' (`h264_nvenc`, `h264_amf`, `h264_qsv`, without B-frames), keeping to the first that works.
+OpenH264 isn't used: Cisco's patent licence for it covers only the builds Cisco publishes, not
+one built into ffmpeg. On the owner's PC (2026-10-14, the AI model
+converting in the background), Windows' encoder's first bytes came in about a second and 1080p
+HEVC 10-bit went at three times the speed of playing; NVENC went as fast or faster, but once took
+3.3 s to start while the card was busy. Every seek starts a new stream, so a steady start
+matters most. A stream that gives nothing at all tries the next encoder only when its own fails
+on a fifth of a second of black too; otherwise the file is the problem, and the player says so.
+A read that fails part way (a drive unplugged) ends ffmpeg as if the file had ended, so the player
+looks for the drive and the file whenever a stream ends early.
+
+**Subtitles.** Text subtitles in the file are copied out once (`-map 0:s:N -c:s copy -f ass`,
+or made ASS from SubRip and the like), which reads the whole file: about 7 s for a 480 MB
+episode and 97 s for a 5 GB film from the hard drive, under 2 s once Windows has the file in
+memory. The stream plays meanwhile. The file's fonts come out with the first copy, each by its
+stream's index to a name of Kura's (`-dump_attachment:5 …\fonts\0.ttf`): a file's own names
+for its attachments could point anywhere. They're drawn with `subtitles=filename=…:fontsdir=…`,
+paths written by [kura/core/filters.py](../../engine/src/kura/core/filters.py). Subtitles that
+are pictures (PGS, DVD) are laid over the picture from the file itself
+(`[0:v:0]…[base];[base][0:s:N]overlay=eof_action=pass`).
+
 ## Moving to a newer build
 
 1. Pick the last build of a month on [BtbN's releases](https://github.com/BtbN/FFmpeg-Builds/releases)

@@ -2,8 +2,9 @@
 // so every screen opens in a browser without the canvas.
 //
 //   node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
+//                                    --player <folder>
 //
-// Any of the three canvases, each as Claude's Artifact tool saves it (a folder holding
+// Any of the four canvases, each as Claude's Artifact tool saves it (a folder holding
 // project/canvas.json); only the pages of the canvases given are written again.
 // See docs/design/README.md.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -15,6 +16,7 @@ const CANVASES = {
   workflows: "https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb",
   options: "https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za",
   light: "https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y",
+  player: "https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3",
 };
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "design");
 const today = new Date().toISOString().slice(0, 10);
@@ -22,7 +24,7 @@ const today = new Date().toISOString().slice(0, 10);
 const folders = foldersIn(process.argv.slice(2));
 if (!folders) {
   console.error(
-    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>",
+    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder>",
   );
   process.exit(1);
 }
@@ -66,6 +68,27 @@ if (folders.light) {
   written += 3;
 }
 
+// The player: the small one over a title's page, full screen with its menu open, in light, on
+// "Which anime is this?", and its small things. A board's drag code doesn't come along: the
+// snapshot's small player sits where it starts.
+if (folders.player) {
+  const player = readCanvas(folders.player);
+  const pages = {
+    "Main.dc.html": "player.html",
+    "Full-screen.dc.html": "player-full.html",
+    "Light.dc.html": "player-light.html",
+    "Quick-check.dc.html": "player-check.html",
+    "Small-things.dc.html": "player-states.html",
+  };
+  for (const [file, name] of Object.entries(pages)) {
+    writeFileSync(
+      join(out, name),
+      toPage(player, file, { canvas: CANVASES.player, link: () => "player.html" }),
+    );
+    written += 1;
+  }
+}
+
 console.log(`Wrote ${written} pages to ${out}`);
 
 /** The canvases' folders by name (`--light <folder>`), or nothing when the arguments don't read. */
@@ -89,9 +112,11 @@ function toPage(canvas, file, { canvas: url, link }) {
   const source = canvas.source(file);
   const title = canvas.boards[file]?.title ?? file;
   const helmet = source.match(/<helmet>([\s\S]*?)<\/helmet>/)?.[1] ?? "";
+  // A board's own handlers (a drag, a ref) are the canvas's to run, not the page's.
   const board = source
     .match(/<x-dc>([\s\S]*?)<\/x-dc>/)[1]
-    .replace(/<helmet>[\s\S]*?<\/helmet>/, "");
+    .replace(/<helmet>[\s\S]*?<\/helmet>/, "")
+    .replace(/\s(?:ref|on[A-Z]\w*)="\{\{[^}]+\}\}"/g, "");
   const body = expand(board, renderValues(source)).replace(
     /href="([\w.-]+)\.dc\.html"/g,
     (_, target) => `href="${link(target)}"`,

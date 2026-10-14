@@ -27,6 +27,7 @@ from kura.api import (
     data,
     health,
     library,
+    player,
     records,
     recovery,
     review,
@@ -44,6 +45,7 @@ from kura.care import Care
 from kura.config import DataPaths
 from kura.events import Notify
 from kura.gpu import Gpu
+from kura.player import Player
 from kura.queue import Queue, programs_from
 from kura.recovery import Recovery, stopped_on_purpose
 from kura.recovery import note as note_recovery
@@ -135,6 +137,8 @@ def create_app(
             worker.start()  # converts what waits
             care.start()  # tonight's backup, and the quarantine cleared out daily
         yield
+        playing: Player = running.state.player
+        playing.stop()  # the video playing in the window, if one is
         if work:
             care.stop()
             worker.stop()  # the file converting now is first in line next time
@@ -145,7 +149,6 @@ def create_app(
         title="Kura engine",
         version=__version__,
         lifespan=lifespan,
-        dependencies=[Depends(require_token), Depends(require_records)],
     )
     app.state.paths = paths
     app.state.damage = None  # Kura's records damaged past use, found as the engine starts
@@ -164,6 +167,7 @@ def create_app(
         paths, app.state.scanner, lambda: app.state.programs(), now=_now, notify=notify
     )
     app.state.gpu = Gpu()
+    app.state.player = Player(paths, lambda: _ffmpeg(app.state.tools))
     app.state.care = Care(paths, app.state.scanner.hold, now=_now, transport=transport)
     # The middleware added last runs first: CORS answers the webview's preflight
     # checks, then only requests addressed to this PC get through.
@@ -174,26 +178,40 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["Authorization", "Content-Type"],
     )
-    app.include_router(health.router)
-    app.include_router(tools.router)
-    app.include_router(library.router)
-    app.include_router(scan.router)
-    app.include_router(settings.router)
-    app.include_router(system.router)
-    app.include_router(tmdb.router)
-    app.include_router(titles.router)
-    app.include_router(review.router)
-    app.include_router(tidy.router)
-    app.include_router(convert.router)
-    app.include_router(data.router)
-    app.include_router(backups.router)
-    app.include_router(recovery.router)
-    app.include_router(records.router)
+    guarded = [Depends(require_token), Depends(require_records)]
+    for part in (
+        health,
+        tools,
+        library,
+        scan,
+        settings,
+        system,
+        tmdb,
+        titles,
+        review,
+        tidy,
+        player,
+        convert,
+        data,
+        backups,
+        recovery,
+        records,
+    ):
+        app.include_router(part.router, dependencies=guarded)
+    # A video playing in the window: its <video> can't send the token, so the ticket that opening
+    # the video gave is the key to its stream (kura/api/player.py).
+    app.include_router(player.streams, dependencies=[Depends(require_records)])
     return app
 
 
 def _now() -> datetime:
     return datetime.now().astimezone()
+
+
+def _ffmpeg(toolbox: Tools) -> list[str] | None:
+    """Kura's ffmpeg as a command, once it's downloaded."""
+    found = toolbox.path("ffmpeg")
+    return [str(found)] if found else None
 
 
 def _way_back(found: Damage) -> str:

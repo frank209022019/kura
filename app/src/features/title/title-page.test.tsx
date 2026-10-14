@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PlayerLayer } from "@/features/player/player";
+import { PlayerProvider } from "@/features/player/player-context";
 import { EngineProvider, type EpisodeState, type TitleDetail } from "@/lib/engine";
 import { fakeEngine, READY, SETTINGS } from "@/test/engine";
 import { TitlePage } from "./title-page";
@@ -10,6 +12,9 @@ const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: shell.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ setFullscreen: async () => {} }),
+}));
 
 function episodes(season: number, size: number, state: (n: number) => EpisodeState["state"]) {
   return Array.from({ length: size }, (_, index) => ({
@@ -81,6 +86,7 @@ function renderTitle(
   report: unknown = undefined,
   state: unknown = null,
   more: Record<string, unknown> = {},
+  player = false,
 ) {
   const fetch = fakeEngine({
     [`/titles/${title.id}`]: title,
@@ -95,12 +101,15 @@ function renderTitle(
   render(
     <QueryClientProvider client={queries}>
       <EngineProvider>
-        <MemoryRouter initialEntries={[{ pathname: `/titles/${title.id}`, state }]}>
-          <Routes>
-            <Route path="/titles/:id" element={<TitlePage />} />
-            <Route path="/match" element={<MatchSearch />} />
-          </Routes>
-        </MemoryRouter>
+        <PlayerProvider>
+          <MemoryRouter initialEntries={[{ pathname: `/titles/${title.id}`, state }]}>
+            <Routes>
+              <Route path="/titles/:id" element={<TitlePage />} />
+              <Route path="/match" element={<MatchSearch />} />
+            </Routes>
+          </MemoryRouter>
+          {player && <PlayerLayer />}
+        </PlayerProvider>
       </EngineProvider>
     </QueryClientProvider>,
   );
@@ -435,5 +444,36 @@ describe("TitlePage", () => {
     expect(screen.getByText("2001 · 1 file")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Seasons" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Its file" })).toBeInTheDocument();
+  });
+
+  it("plays a video from its row, marking it playing, its episode's name with it", async () => {
+    const opened = {
+      ticket: "T1",
+      missing: null,
+      drive: "D:",
+      duration: 1440,
+      sound: [],
+      subtitles: [],
+      chapters: [],
+      chosenSound: null,
+      chosenSubtitles: null,
+      ready: [],
+    };
+    const fetch = renderTitle(DBZ, undefined, null, { "POST /player": opened }, true);
+
+    const button = await screen.findByRole("button", { name: "Play S01E01" });
+    button.focus();
+    button.click();
+
+    const player = await screen.findByRole("region", { name: "Player" });
+    expect(document.activeElement).toBe(button);
+    expect(player).toHaveTextContent("Dragon Ball Z · S01E01");
+    expect(player).toHaveTextContent("Episode 1");
+    const row = screen.getByText(DBZ.videos[0]?.path ?? "").closest("li");
+    expect(row).toHaveTextContent("Playing");
+    expect(screen.queryByRole("button", { name: "Play S01E01" })).not.toBeInTheDocument();
+    // The same button, so the keyboard keeps its place.
+    expect(screen.getByRole("button", { name: "Playing S01E01" })).toBeInTheDocument();
+    await waitFor(() => expect(sent(fetch, "POST", "/player")).toHaveLength(1));
   });
 });

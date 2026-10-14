@@ -1475,6 +1475,185 @@
         }
       }
     },
+    "/player": {
+      "post": {
+        "summary": "Open Video",
+        "description": "Opens a video to play: a ticket for its stream, with its sound, subtitles and chapters.\nA video whose drive isn't connected, or that went, has no ticket, and says which.",
+        "operationId": "open_video_player_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenVideo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Opened"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/player/{ticket}": {
+      "get": {
+        "summary": "Video State",
+        "description": "How the open video's subtitles are getting on, and why its stream stopped if it did.",
+        "operationId": "video_state_player__ticket__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Close Video",
+        "description": "Closes the video: its stream stops, and so does any copy of its subtitles.",
+        "operationId": "close_video_player__ticket__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/player/{ticket}/subtitles/{number}": {
+      "post": {
+        "summary": "Prepare Subtitles",
+        "description": "Gets subtitles ready to draw in: text in the file is copied out of it first, which reads\nthe whole file.",
+        "operationId": "prepare_subtitles_player__ticket__subtitles__number__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/convert": {
       "get": {
         "summary": "What To Convert",
@@ -2553,6 +2732,85 @@
           }
         ]
       }
+    },
+    "/stream/{ticket}": {
+      "get": {
+        "summary": "Stream",
+        "description": "The open video from `at` seconds, as fragmented MP4 the window plays as it comes: the\n`sound` track in stereo, and the `subtitles` drawn in once they're ready. The ticket is the\nkey: no token. A new stream of the same video stops this one.",
+        "operationId": "stream_stream__ticket__get",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket"
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0,
+              "title": "At"
+            }
+          },
+          {
+            "name": "sound",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sound"
+            }
+          },
+          {
+            "name": "subtitles",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subtitles"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "video/mp4": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2713,6 +2971,31 @@
           "changed"
         ],
         "title": "Changed"
+      },
+      "ChapterMark": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "title"
+        ],
+        "title": "ChapterMark"
       },
       "Choice": {
         "properties": {
@@ -4353,6 +4636,128 @@
         ],
         "title": "NewKey"
       },
+      "OpenVideo": {
+        "properties": {
+          "file": {
+            "type": "integer",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "OpenVideo"
+      },
+      "Opened": {
+        "properties": {
+          "ticket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticket"
+          },
+          "missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "drive",
+                  "file"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing"
+          },
+          "drive": {
+            "type": "string",
+            "title": "Drive"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "sound": {
+            "items": {
+              "$ref": "#/components/schemas/SoundTrack"
+            },
+            "type": "array",
+            "title": "Sound"
+          },
+          "subtitles": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleTrack"
+            },
+            "type": "array",
+            "title": "Subtitles"
+          },
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/ChapterMark"
+            },
+            "type": "array",
+            "title": "Chapters"
+          },
+          "chosenSound": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosensound"
+          },
+          "chosenSubtitles": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosensubtitles"
+          },
+          "ready": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ticket",
+          "missing",
+          "drive",
+          "duration",
+          "sound",
+          "subtitles",
+          "chapters",
+          "chosenSound",
+          "chosenSubtitles",
+          "ready"
+        ],
+        "title": "Opened"
+      },
       "Order": {
         "type": "string",
         "enum": [
@@ -4485,6 +4890,49 @@
           "conversion"
         ],
         "title": "PlanDone"
+      },
+      "PlayerState": {
+        "properties": {
+          "ready": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Ready"
+          },
+          "preparing": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Preparing"
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleProblem"
+            },
+            "type": "array",
+            "title": "Failed"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Stopped"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "preparing",
+          "failed",
+          "stopped"
+        ],
+        "title": "PlayerState"
       },
       "ProposedChange": {
         "properties": {
@@ -5312,6 +5760,53 @@
         ],
         "title": "SkippedFile"
       },
+      "SoundTrack": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "channels": {
+            "type": "integer",
+            "title": "Channels"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "language",
+          "title",
+          "channels",
+          "default"
+        ],
+        "title": "SoundTrack"
+      },
       "Stage": {
         "type": "string",
         "enum": [
@@ -5321,6 +5816,117 @@
           "checking",
           "done"
         ]
+      },
+      "Stopped": {
+        "properties": {
+          "why": {
+            "type": "string",
+            "enum": [
+              "drive",
+              "gone",
+              "damaged",
+              "failed"
+            ],
+            "title": "Why"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "why",
+          "detail"
+        ],
+        "title": "Stopped"
+      },
+      "SubtitleProblem": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "problem"
+        ],
+        "title": "SubtitleProblem"
+      },
+      "SubtitleTrack": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "styled",
+              "pictures"
+            ],
+            "title": "Kind"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          },
+          "forced": {
+            "type": "boolean",
+            "title": "Forced"
+          },
+          "beside": {
+            "type": "boolean",
+            "title": "Beside"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "language",
+          "title",
+          "kind",
+          "default",
+          "forced",
+          "beside"
+        ],
+        "title": "SubtitleTrack"
       },
       "System": {
         "properties": {

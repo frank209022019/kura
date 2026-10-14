@@ -66,9 +66,9 @@ def media_from_ffprobe(report: Json) -> MediaInfo:
         subtitles=tuple(
             _subtitle(s) for s in streams if fields.text(s, "codec_type") == "subtitle"
         ),
-        fonts=sum(1 for s in streams if _is_font(s)),
+        fonts=sum(1 for s in streams if is_font(s)),
         chapters=len(fields.mappings(report, "chapters")),
-        kura_tag=_tag(format_, KURA_TAG),
+        kura_tag=tag(format_, KURA_TAG),
     )
 
 
@@ -100,7 +100,7 @@ def _audio(stream: Json) -> Audio:
     return Audio(
         codec=codec,
         channels=fields.whole(stream, "channels") or 0,
-        language=_language(stream),
+        language=language_of(stream),
         lossless=lossless,
     )
 
@@ -109,7 +109,7 @@ def _subtitle(stream: Json) -> Subtitle:
     codec = fields.text(stream, "codec_name") or "unknown"
     return Subtitle(
         codec=codec,
-        language=_language(stream),
+        language=language_of(stream),
         text=codec in _TEXT_SUBTITLES,
         forced=fields.whole(fields.mapping(stream, "disposition"), "forced") == 1,
     )
@@ -147,8 +147,9 @@ def _interlaced(field_order: str | None) -> bool | None:
     return None
 
 
-def _language(stream: Json) -> str | None:
-    language = _tag(stream, "language")
+def language_of(stream: Json) -> str | None:
+    """A stream's language as its tag says ("jpn"), or None when it doesn't say."""
+    language = tag(stream, "language")
     return None if language in (None, "und") else language
 
 
@@ -156,16 +157,18 @@ def _is_cover(stream: Json) -> bool:
     return fields.whole(fields.mapping(stream, "disposition"), "attached_pic") == 1
 
 
-def _is_font(stream: Json) -> bool:
+def is_font(stream: Json) -> bool:
+    """A font attached to the file, for its styled subtitles."""
     if fields.text(stream, "codec_type") != "attachment":
         return False
-    mimetype = (_tag(stream, "mimetype") or "").casefold()
-    return "font" in mimetype or (_tag(stream, "filename") or "").casefold().endswith(
+    mimetype = (tag(stream, "mimetype") or "").casefold()
+    return "font" in mimetype or (tag(stream, "filename") or "").casefold().endswith(
         (".ttf", ".otf", ".ttc")
     )
 
 
-def _tag(data: Json, name: str) -> str | None:
+def tag(data: Json, name: str) -> str | None:
+    """One of a stream's or the file's tags, in any case ("language", "title")."""
     tags = fields.mapping(data, "tags")
     for key, value in tags.items():
         if key.casefold() == name.casefold() and isinstance(value, str):

@@ -11,6 +11,10 @@ private; these snapshots are the shared copy):
   Cinema, Paper chosen ([light-options.html](light-options.html)), and Home and the queue in
   Paper ([light.html](light.html)) and in Cinema's dark beside it ([dark.html](dark.html)). Every
   other screen in light follows from the tokens.
+- [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3): the small player inside Kura,
+  over the page and moved anywhere, full screen, in light, for a quick check, and its small
+  things ([player.html](player.html) and the pages after it). On the canvas the small player
+  drags; in the snapshot it sits where it starts.
 
 | Board | Page |
 | --- | --- |
@@ -30,6 +34,11 @@ private; these snapshots are the shared copy):
 | Light mode: Paper, Home and the queue | [light.html](light.html) |
 | The same in Cinema's dark, to set beside it | [dark.html](dark.html) |
 | Light mode: the three options | [light-options.html](light-options.html) |
+| The small player, over a title's page | [player.html](player.html) |
+| The player full screen, sound and subtitles open | [player-full.html](player-full.html) |
+| The small player in light | [player-light.html](player-light.html) |
+| A quick check on "Which anime is this?" | [player-check.html](player-check.html) |
+| The player's small things | [player-states.html](player-states.html) |
 
 The sample library is illustrative: episode counts are real, while file states, timings and sizes
 are estimates for a GTX 1660 Super. Fonts load from Google Fonts, so pages need the internet to
@@ -47,7 +56,7 @@ The pages are generated; don't edit them. When a canvas changes, ask Claude to r
 `project/` files) into a folder, then run the script with the canvases read, one or more:
 
 ```powershell
-node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
+node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder>
 ```
 
 The script expands each board's repeated parts with the board's own sample data and rewrites the

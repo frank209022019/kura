@@ -370,7 +370,8 @@ function localDay(at: string): string {
   return `${moment.getFullYear()}-${month}-${day}`;
 }
 
-/** The events by day, as the owner reads them: "Today", "Yesterday", "8 October". */
+/** The events by day, as the owner reads them: "Today", "Yesterday", "8 October", and
+ * "8 October 2025" a year back. */
 function days(events: Event[]): [string, Event[]][] {
   const groups = new Map<string, Event[]>();
   for (const event of events) {
@@ -386,7 +387,13 @@ function dayName(moment: Date): string {
   yesterday.setDate(today.getDate() - 1);
   if (moment.toDateString() === today.toDateString()) return "Today";
   if (moment.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return moment.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+  // A year ago, the same day has the year with it, so the two never run together.
+  return moment.toLocaleDateString(
+    "en-GB",
+    moment.getFullYear() === today.getFullYear()
+      ? { day: "numeric", month: "long" }
+      : { day: "numeric", month: "long", year: "numeric" },
+  );
 }
 
 function clock(at: string): string {

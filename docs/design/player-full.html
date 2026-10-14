@@ -1,0 +1,62 @@
+<!doctype html>
+<!-- Kura design snapshot of "Full screen, sound and subtitles open" (https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3), taken 2026-10-14.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full screen, sound and subtitles open · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+</style>
+</head>
+<body>
+<div style="position: relative; min-height: 100vh; box-sizing: border-box; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000000; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; color: #f4f5f7">
+<div aria-hidden="true" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 100vh; overflow: hidden; background: #13254f"><span style="position: absolute; right: -6%; top: -30%; width: 46%; aspect-ratio: 1; border-radius: 50%; background: #f08a24"></span></div>
+
+<div style="position: absolute; left: 0; right: 0; top: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 24px; background: rgba(11,12,15,.72)">
+<span style="display: flex; flex-direction: column"><strong style="font-size: 16px; font-weight: 800">Dragon Ball Z · S01E05</strong><span style="font-size: 13px; color: #a3a8b3">Gohan's Rage</span></span>
+<span style="display: flex; gap: 8px">
+<button type="button" style="display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #ffffff; font: inherit; font-size: 13px; font-weight: 700"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><rect x="11" y="11" width="7" height="6" rx="1.5" fill="currentColor"></rect></svg>Back to the small player</button>
+<button type="button" aria-label="Close the player" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #ffffff; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</span>
+</div>
+
+<section aria-label="Sound and subtitles" style="position: absolute; right: 108px; bottom: 112px; width: 300px; display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 18px; background: #121419; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 24px 48px -24px rgba(0,0,0,.9)">
+<span style="padding: 6px 10px 2px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #a3a8b3">Sound</span>
+<button type="button" aria-pressed="true" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 12px; background: rgba(242,179,61,.12); color: #ffd27a; font: inherit; font-size: 13px; font-weight: 700; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span style="flex: 1">Japanese</span><span style="font-size: 12px; font-weight: 500">stereo</span></button>
+<button type="button" aria-pressed="false" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px 0 34px; border: 0; border-radius: 12px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; text-align: left"><span style="flex: 1">English</span><span style="font-size: 12px; font-weight: 500; color: #a3a8b3">5.1, played as stereo</span></button>
+<span style="height: 1px; margin: 6px 10px; background: rgba(255,255,255,.06)"></span>
+<span style="padding: 2px 10px 2px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #a3a8b3">Subtitles</span>
+<button type="button" aria-pressed="true" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 12px; background: rgba(242,179,61,.12); color: #ffd27a; font: inherit; font-size: 13px; font-weight: 700; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span style="flex: 1">English</span><span style="font-size: 12px; font-weight: 500">as the file styles them</span></button>
+<button type="button" aria-pressed="false" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px 0 34px; border: 0; border-radius: 12px; background: transparent; color: #d7dae0; font: inherit; font-size: 13px; font-weight: 700; text-align: left"><span style="flex: 1">Off</span></button>
+</section>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 24px 18px; background: rgba(11,12,15,.72)">
+<span style="display: flex; align-items: center; gap: 12px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0">
+<span>03:12</span>
+<span style="position: relative; flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.22)">
+<span style="position: absolute; left: 0; top: 0; bottom: 0; width: 13%; border-radius: 3px; background: #f2b33d"></span>
+<span style="position: absolute; left: 6%; top: 0; bottom: 0; width: 2px; background: #000000"></span>
+<span style="position: absolute; left: 49%; top: 0; bottom: 0; width: 2px; background: #000000"></span>
+<span style="position: absolute; left: 90%; top: 0; bottom: 0; width: 2px; background: #000000"></span>
+<span style="position: absolute; left: 13%; top: -5px; width: 16px; height: 16px; margin-left: -8px; border-radius: 8px; background: #f2b33d"></span>
+</span>
+<span>24:13</span>
+</span>
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<button type="button" aria-label="Pause" style="width: 48px; height: 48px; border-radius: 24px; border: 0; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg></button>
+<button type="button" aria-label="Back 10 seconds" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: #ffffff; display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg></button>
+<button type="button" aria-label="On 10 seconds" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: #ffffff; display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
+<label style="display: inline-flex; align-items: center; gap: 8px; margin-left: 6px; color: #ffffff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Volume</span><input type="range" min="0" max="100" value="80" style="width: 96px; accent-color: #f2b33d"></label>
+<span style="flex: 1"></span>
+<button type="button" aria-label="Sound and subtitles" aria-expanded="true" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #ffffff; display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M10 10.2a2.2 2.2 0 1 0 0 3.6M16.5 10.2a2.2 2.2 0 1 0 0 3.6" stroke-linecap="round"></path></svg></button>
+<button type="button" aria-label="Next episode" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: #ffffff; display: inline-flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 5.6v12.8a1 1 0 0 0 1.55.83L15 13.6V18a1 1 0 0 0 2 0V6a1 1 0 0 0-2 0v4.4L6.55 4.77A1 1 0 0 0 5 5.6z"></path></svg></button>
+<button type="button" aria-label="Back to the small player" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: #ffffff; display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><rect x="11" y="11" width="7" height="6" rx="1.5" fill="currentColor"></rect></svg></button>
+</span>
+</div>
+</div>
+</body>
+</html>

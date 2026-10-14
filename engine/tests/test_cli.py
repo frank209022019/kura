@@ -10,8 +10,9 @@ import pytest
 from typer.testing import CliRunner
 
 from kura import __version__, db
-from kura.cli import app
+from kura.cli import app, stop_when_stdin_closes
 from kura.config import DataPaths
+from kura.player import Player
 from kura.relocate import ask_to_move
 from tests.conftest import TOKEN
 
@@ -62,6 +63,36 @@ def test_serve_announces_its_port_and_stops_when_the_app_goes_away(tmp_path: Pat
 
         engine.stdin.close()
         assert engine.wait(timeout=30) == 0
+
+
+def test_the_app_going_stops_a_video_playing_then_the_engine(
+    monkeypatch: pytest.MonkeyPatch, paths: DataPaths
+):
+    # A stream left open would hold the engine's stop up till the app ended it outright.
+    said: list[str] = []
+
+    class Stdin:
+        def fileno(self) -> int:
+            return 0
+
+    class Server:
+        should_exit = False
+
+    class Playing(Player):
+        def stop(self) -> None:
+            said.append("the video stopped")
+
+    def closed(_fd: int, _size: int) -> bytes:
+        return b""  # the app's end of the pipe closed
+
+    monkeypatch.setattr("kura.cli.sys.stdin", Stdin())
+    monkeypatch.setattr("kura.cli.os.read", closed)
+    server = Server()
+
+    stop_when_stdin_closes(server, paths, Playing(paths, lambda: None))  # type: ignore[arg-type]
+
+    assert said == ["the video stopped"]
+    assert server.should_exit
 
 
 def test_an_engine_with_damaged_records_stays_up_to_offer_the_way_back(tmp_path: Path):

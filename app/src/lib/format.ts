@@ -89,6 +89,19 @@ const LANGUAGES: Record<string, string> = {
   zho: "Chinese",
   kor: "Korean",
   ara: "Arabic",
+  // As subtitle files beside a video name them: "Episode 1.en.srt".
+  en: "English",
+  ja: "Japanese",
+  jp: "Japanese",
+  de: "German",
+  fr: "French",
+  es: "Spanish",
+  it: "Italian",
+  pt: "Portuguese",
+  ru: "Russian",
+  zh: "Chinese",
+  ko: "Korean",
+  ar: "Arabic",
   unknown: "unnamed",
 };
 

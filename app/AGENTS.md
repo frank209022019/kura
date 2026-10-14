@@ -36,6 +36,11 @@ and [../CLAUDE.md](../CLAUDE.md).
   delete converted files' originals (Convert, Settings) says the same where it's chosen.
 - While Kura's records are damaged, the way back (`features/records/`) stands in for every page
   (`components/shell/app-shell.tsx`): the engine answers nothing else.
+- A video plays in the player over whichever page is open (`features/player/`, its provider in
+  the shell): a page offers Play with `usePlayer().play(items, index, from)`, the videos after
+  `index` playing next. Its `<video>` plays the engine's stream address (`streamAddress` in
+  `lib/engine.tsx`), which carries the video's ticket instead of the token. The player stays
+  dark in light mode (`scheme-dark`), as a picture does.
 
 ## Where things go
 

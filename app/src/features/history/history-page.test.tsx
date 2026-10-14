@@ -292,6 +292,28 @@ describe("HistoryPage", () => {
     expect(asked).toContain(`?before=${localDay(new Date())}`);
   });
 
+  it("names the year of a day in another year, keeping the same day of two years apart", async () => {
+    const year = new Date().getFullYear();
+    const lastYear: PlanDone = {
+      ...RENAMED,
+      id: 30,
+      title: "Renamed 12 Trigun files",
+      appliedAt: new Date(year - 1, 9, 8, 18, 0).toISOString(),
+    };
+    const before: PlanDone = {
+      ...lastYear,
+      id: 31,
+      appliedAt: new Date(year - 2, 9, 8, 18, 0).toISOString(),
+    };
+    fakeEngine({ "/history": { plans: [lastYear, before], scans: [], older: null } });
+    renderHistory();
+
+    expect(
+      await screen.findByRole("region", { name: `8 October ${year - 1}` }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: `8 October ${year - 2}` })).toBeInTheDocument();
+  });
+
   it("shows a busy day's first 20, and all of them on asking", async () => {
     const night = Array.from(
       { length: 26 },

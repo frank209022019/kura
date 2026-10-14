@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PlayerLayer } from "@/features/player/player";
+import { PlayerProvider } from "@/features/player/player-context";
 import { EngineProvider, type Guess, type WaitingFile } from "@/lib/engine";
 import { fakeEngine, READY } from "@/test/engine";
 import { MatchPage } from "./match-page";
@@ -10,6 +12,9 @@ const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: shell.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ setFullscreen: async () => {} }),
+}));
 
 const TRIGUN: Guess = {
   anilistId: 6,
@@ -67,13 +72,16 @@ function renderMatch(at = "/match") {
   render(
     <QueryClientProvider client={queries}>
       <EngineProvider>
-        <MemoryRouter initialEntries={[at]}>
-          <Routes>
-            <Route path="/match" element={<MatchPage />} />
-            <Route path="/titles/:id" element={<ShownTitle />} />
-            <Route path="*" element={<p>Home</p>} />
-          </Routes>
-        </MemoryRouter>
+        <PlayerProvider>
+          <MemoryRouter initialEntries={[at]}>
+            <Routes>
+              <Route path="/match" element={<MatchPage />} />
+              <Route path="/titles/:id" element={<ShownTitle />} />
+              <Route path="*" element={<p>Home</p>} />
+            </Routes>
+          </MemoryRouter>
+          <PlayerLayer />
+        </PlayerProvider>
       </EngineProvider>
     </QueryClientProvider>,
   );
@@ -111,6 +119,40 @@ describe("MatchPage", () => {
     expect(screen.getByText("41%")).toBeInTheDocument();
     expect(screen.getByText("Use this for the 2 other [subs] files here")).toBeInTheDocument();
     expect(screen.getByText("Episodes 04 and 05, numbered from their names")).toBeInTheDocument();
+  });
+
+  it("plays the file to tell what it is, from the start or from a still", async () => {
+    const opened = {
+      ticket: "T1",
+      missing: null,
+      drive: "D:",
+      duration: 1450,
+      sound: [],
+      subtitles: [],
+      chapters: [],
+      chosenSound: null,
+      chosenSubtitles: null,
+      ready: [],
+    };
+    const fetch = fakeEngine({ "/review": QUEUE, "POST /player": opened });
+    renderMatch();
+
+    (await screen.findByRole("button", { name: "Play from 12:05" })).click();
+
+    const player = await screen.findByRole("region", { name: "Player" });
+    expect(player).toHaveTextContent("[subs] ep03 final.mkv");
+    expect(player).toHaveTextContent("From the still at 12:05");
+    await waitFor(() => {
+      const src = player.querySelector("video")?.getAttribute("src") ?? "";
+      expect(src).toContain("/stream/T1?at=725.100");
+    });
+    screen.getByRole("button", { name: "Play it" }).click();
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "Player" })).toHaveTextContent(
+        "D:\\Anime\\Downloads",
+      ),
+    );
+    expect(sent(fetch, "POST", "/player").length).toBeGreaterThanOrEqual(2);
   });
 
   it("confirms the choice for the file and the ones like it", async () => {

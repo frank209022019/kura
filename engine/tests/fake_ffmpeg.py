@@ -6,25 +6,51 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - the AI model's decoder: writes KURA_FAKE_FRAMES raw frames of KURA_FAKE_SIZE (4x2) to its
   output; its encoder: reads its input to the end and writes the file it's given;
 - one whole conversion: writes the file, telling its progress the way -progress does;
-- a test play: says nothing, as ffmpeg does when a file plays.
+- a test play: says nothing, as ffmpeg does when a file plays;
+- the player's stream (kura/core/player.py): writes KURA_FAKE_CHUNKS lines naming its
+  arguments to its output ("endless": one every 20 ms till it's stopped); an encoder showing it
+  works: says nothing; subtitles copied out: writes the ASS file, and each font to its path.
 
 KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", "decode" (once its
-frames are out, as a decoder meeting damage), or "convert" (one command, 1,200 frames in).
+frames are out, as a decoder meeting damage), "convert" (one command, 1,200 frames in), "stream"
+(before its first bytes), "midstream" (after them) or "subtitles". KURA_FAKE_NO_ENCODERS names
+the encoders this PC hasn't, separated by commas.
 KURA_FAKE_SLOW is the seconds the decoder takes over each frame (none), so a test can stop a
-conversion mid-way. KURA_FAKE_ROUNDS makes a test play do what real ffmpeg does at some points of
-a file that plays well: rounding the frames' times to the frame rate, it gives two the same one
-and complains of it, unless the times are kept as the file has them (-enc_time_base demux).
+conversion mid-way, and the seconds a copy of subtitles takes. KURA_FAKE_ROUNDS makes a test
+play do what real ffmpeg does at some points of a file that plays well: rounding the frames'
+times to the frame rate, it gives two the same one and complains of it, unless the times are
+kept as the file has them (-enc_time_base demux).
 """
 
 import os
 import sys
 import time
+from itertools import count, pairwise
 from pathlib import Path
 
 
 def main() -> None:
     args = sys.argv[1:]
     fail = os.environ.get("KURA_FAKE_FAIL", "")
+    missing = os.environ.get("KURA_FAKE_NO_ENCODERS", "").split(",")
+    if "lavfi" in args:  # an encoder showing it works
+        if args[args.index("-c:v") + 1] in missing:
+            print("Error while opening encoder: no device", file=sys.stderr)
+            sys.exit(1)
+        return
+    if args[-1] == "pipe:1":  # the player's stream
+        stream(args, fail, missing)
+        return
+    if args[-3:-1] == ["-f", "ass"]:  # subtitles copied out
+        if fail == "subtitles":
+            print("Subtitle encoding is only possible from text to text", file=sys.stderr)
+            sys.exit(1)
+        for flag, path in pairwise(args):
+            if flag.startswith("-dump_attachment:"):
+                Path(path).write_bytes(f"font {flag}".encode())
+        time.sleep(float(os.environ.get("KURA_FAKE_SLOW", "0")))
+        Path(args[-1]).write_text(f"[Script Info]\n; {' '.join(args)}\n", encoding="utf-8")
+        return
     if "idet" in args:
         source = Path(args[args.index("-i") + 1])
         tff = 420 if "interlaced" in source.name else 3
@@ -94,6 +120,25 @@ def main() -> None:
         return
     print(f"fake_ffmpeg doesn't know {args}", file=sys.stderr)
     sys.exit(2)
+
+
+def stream(args: list[str], fail: str, missing: list[str]) -> None:
+    if args[args.index("-c:v") + 1] in missing:
+        print("Error while opening encoder: no device", file=sys.stderr)
+        sys.exit(1)
+    if fail == "stream":
+        print("[matroska @ 0] Invalid data found when processing input", file=sys.stderr)
+        sys.exit(1)
+    chunks = os.environ.get("KURA_FAKE_CHUNKS", "3")
+    numbers = count() if chunks == "endless" else range(int(chunks))
+    for n in numbers:
+        sys.stdout.buffer.write(f"fmp4 {n}: {' '.join(args)}\n".encode())
+        sys.stdout.buffer.flush()
+        if chunks == "endless":
+            time.sleep(0.02)
+    if fail == "midstream":
+        print("[hevc @ 0] Error while decoding stream #0:0: Invalid data found", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

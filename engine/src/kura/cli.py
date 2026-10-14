@@ -18,6 +18,7 @@ from kura import __version__, events
 from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
 from kura.export import export_data
+from kura.player import Player
 from kura.recovery import asked_to_stop
 from kura.relocate import move_asked
 from kura.system import end_programs_with_engine
@@ -63,10 +64,14 @@ def serve(
     sock.listen()  # early requests wait in the queue until the server is up
     # While it runs, the engine keeps the library current and converts the queue.
     app = create_app(token, paths, watch=True, work=True, notify=events.notify)
-    config = uvicorn.Config(app, log_config=None, access_log=False)
+    # A stop waits this long for open answers to end (a video playing), then ends them, so
+    # Kura's care and queue stop cleanly before the app's patience runs out.
+    config = uvicorn.Config(app, log_config=None, access_log=False, timeout_graceful_shutdown=2)
     server = uvicorn.Server(config)
     if watch_stdin:
-        stop = threading.Thread(target=_stop_when_stdin_closes, args=(server, paths), daemon=True)
+        stop = threading.Thread(
+            target=stop_when_stdin_closes, args=(server, paths, app.state.player), daemon=True
+        )
         stop.start()
     typer.echo(json.dumps({"event": "ready", "port": sock.getsockname()[1]}))
     server.run(sockets=[sock])  # one that can't start (its records damaged) ends with 3
@@ -92,14 +97,16 @@ def openapi(path: Annotated[Path, typer.Argument(help="Where to write the schema
     path.write_text(json.dumps(openapi_schema(), indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
-def _stop_when_stdin_closes(server: uvicorn.Server, paths: DataPaths) -> None:
+def stop_when_stdin_closes(server: uvicorn.Server, paths: DataPaths, player: Player) -> None:
     """Stops the engine once the app exits and its end of the pipe closes, noting the stop was
-    asked for: the app may end the engine before it's done. Read straight from the pipe, with no
-    buffer between: Python can't end cleanly while a thread holds one."""
+    asked for: the app may end the engine before it's done. A video playing stops first: its
+    stream would otherwise hold the stop up. Read straight from the pipe, with no buffer
+    between: Python can't end cleanly while a thread holds one."""
     stdin = sys.stdin.fileno()
     while os.read(stdin, 4096):
         pass
     asked_to_stop(paths)
+    player.stop()
     server.should_exit = True
 
 

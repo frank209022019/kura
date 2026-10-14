@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { AudioLines, FileText, Play } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
@@ -9,6 +9,7 @@ import { Poster } from "@/components/poster";
 import { HeaderSkeleton, Loading, PanelSkeleton } from "@/components/skeleton";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
 import { Button } from "@/components/ui/button";
+import { type PlayItem, usePlayer, usePlayingFile } from "@/features/player/player-context";
 import {
   type EpisodeState,
   type SeasonCount,
@@ -22,6 +23,7 @@ import {
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
+import { cn } from "@/lib/utils";
 
 /** One anime or film: how much of it is there, its seasons and episode map, what's missing, its
  * specials and OVAs apart, its videos, and the gap analysis next to it. */
@@ -501,7 +503,11 @@ function Videos(props: {
   confirm: (where: string) => ReactNode;
 }) {
   const { title } = props;
+  const { play } = usePlayer();
+  const playing = usePlayingFile();
   if (title.videos.length === 0) return null;
+  // Each plays with the ones after it next, in the page's order.
+  const items = title.videos.map((video) => playItem(title, video));
   return (
     <Panel
       id="videos-title"
@@ -509,13 +515,18 @@ function Videos(props: {
       note={files(title.videos.length)}
     >
       <ul className="flex flex-col">
-        {title.videos.map((video) => (
+        {title.videos.map((video, index) => (
           <li
             key={video.id}
             className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 border-rule border-b py-1.5 text-12 last:border-b-0"
           >
             {video.season !== null && video.episode !== null && (
-              <span className="w-18 shrink-0 font-mono">
+              <span
+                className={cn(
+                  "w-18 shrink-0 font-mono",
+                  playing === video.id && "font-bold text-accent-fg",
+                )}
+              >
                 S{pad(video.season)}E{pad(video.episode)}
                 {video.episodeEnd ? `-E${pad(video.episodeEnd)}` : ""}
               </span>
@@ -523,13 +534,39 @@ function Videos(props: {
             <span className="min-w-0 flex-[1_1_260px] font-mono text-fg-soft [overflow-wrap:anywhere]">
               {video.path}
             </span>
-            <span className="text-fg-muted">
-              {video.problem
-                ? "won't play"
-                : video.height
-                  ? `${video.height}p · ${video.codec ?? ""}`
-                  : ""}
-            </span>
+            {playing === video.id ? (
+              <span className="font-bold text-accent-fg">Playing</span>
+            ) : (
+              <span className="text-fg-muted">
+                {video.problem
+                  ? "won't play"
+                  : video.height
+                    ? `${video.height}p · ${video.codec ?? ""}`
+                    : ""}
+              </span>
+            )}
+            {/* The same button while it plays, so a keyboard keeps its place. */}
+            {!video.problem && (
+              <button
+                type="button"
+                aria-label={`${playing === video.id ? "Playing" : "Play"} ${videoName(video)}`}
+                onClick={() => {
+                  if (playing !== video.id) play(items, index);
+                }}
+                className={cn(
+                  "press inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border",
+                  playing === video.id
+                    ? "border-transparent text-accent-fg"
+                    : "border-field-edge bg-field text-fg",
+                )}
+              >
+                {playing === video.id ? (
+                  <AudioLines size={16} strokeWidth={2.2} aria-hidden="true" />
+                ) : (
+                  <Play size={14} fill="currentColor" aria-hidden="true" />
+                )}
+              </button>
+            )}
             <DeleteIcon
               label={`Delete ${videoName(video)}`}
               onClick={() =>
@@ -544,6 +581,22 @@ function Videos(props: {
       </ul>
     </Panel>
   );
+}
+
+/** A video as the player names it: "Dragon Ball Z · S01E05" and its episode's title, or the
+ * film's name, or its file's name. */
+function playItem(title: TitleDetail, video: TitleFile): PlayItem {
+  const numbered = video.season !== null && video.episode !== null;
+  const episode = title.episodes.find(
+    (each) => each.season === video.season && each.number === video.episode,
+  );
+  const name = video.path.split("\\").at(-1) ?? video.path;
+  return {
+    fileId: video.id,
+    label: numbered ? `${title.name} · ${videoName(video)}` : title.name,
+    name: numbered ? (episode?.name ?? null) : name,
+    path: video.path,
+  };
 }
 
 /** "S01E03", "S01E03-E04", or the file's name when it has no episode number. */

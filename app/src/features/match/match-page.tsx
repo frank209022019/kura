@@ -1,4 +1,4 @@
-import { Check, Search } from "lucide-react";
+import { Check, Play, Search } from "lucide-react";
 import { RadioGroup } from "radix-ui";
 import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -10,6 +10,7 @@ import { Loading, PanelSkeleton, Skeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
+import { type PlayItem, usePlayer } from "@/features/player/player-context";
 import {
   type Guess,
   type TidyResult,
@@ -385,6 +386,15 @@ function useSettled(value: string, delay: number): string {
 function FilePanel({ file, deletes }: { file: WaitingFile; deletes: Deletes | null }) {
   const [name, folder] = split(file.path);
   const where = `file-${file.id}`;
+  const { play } = usePlayer();
+  // A quick look at it, to tell what it is: named by the file, from its folder.
+  const item: PlayItem = {
+    fileId: file.id,
+    label: name,
+    name: folder,
+    path: file.path,
+    fileName: true,
+  };
   return (
     <section
       aria-labelledby="file-title"
@@ -413,10 +423,18 @@ function FilePanel({ file, deletes }: { file: WaitingFile; deletes: Deletes | nu
               fileId={file.id}
               index={index}
               at={clockTime((file.minutes ?? 0) * 60 * point)}
+              onPlay={() => {
+                const from = (file.minutes ?? 0) * 60 * point;
+                play([{ ...item, name: `From the still at ${clockTime(from)}` }], 0, from);
+              }}
             />
           ))}
         </div>
       )}
+      <Button size="sm" className="self-start" onClick={() => play([item])}>
+        <Play size={13} fill="currentColor" aria-hidden="true" />
+        Play it
+      </Button>
       <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-13">
         <Fact label="Length">
           {file.minutes !== null ? clockTime(file.minutes * 60) : "unknown"}
@@ -434,15 +452,21 @@ function FilePanel({ file, deletes }: { file: WaitingFile; deletes: Deletes | nu
   );
 }
 
-function Still({ fileId, index, at }: { fileId: number; index: number; at: string }) {
-  const picture = useStill(fileId, index);
+/** A still from the file, and when it's from: it plays from there. */
+function Still(props: { fileId: number; index: number; at: string; onPlay: () => void }) {
+  const picture = useStill(props.fileId, props.index);
   return (
-    <div className="flex flex-col gap-1">
-      <div aria-hidden="true" className="aspect-[4/3] overflow-hidden rounded-10 bg-surface">
+    <button
+      type="button"
+      aria-label={`Play from ${props.at}`}
+      onClick={props.onPlay}
+      className="press flex cursor-pointer flex-col gap-1 text-left"
+    >
+      <span className="aspect-[4/3] w-full overflow-hidden rounded-10 bg-surface">
         {picture && <img src={picture} alt="" className="size-full object-cover" />}
-      </div>
-      <span className="font-mono text-11 text-fg-muted">{at}</span>
-    </div>
+      </span>
+      <span className="font-mono text-11 text-fg-muted">{props.at}</span>
+    </button>
   );
 }
 
