@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.13.0 - 2026-10-14
+
 ### Added
 - Light mode, in warm paper tones: cream panels on a paper ground, deep ink text and the same
   amber. Kura is light or dark as Windows is, changing when Windows does, or keeps to the one you
