@@ -20,7 +20,7 @@ file open in another app, a crash told on Home, a failed conversion's log and "M
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
 overnight note). Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has
 every release since. Everything in [What's next](#whats-next) is built but light mode, which
-waits for its design.
+waits for the owner's pick of its three drafted options.
 
 ## Ground rules
 
@@ -373,8 +373,12 @@ Everything decided so far. Don't ask again; change only with the owner.
    fits; records damaged past use: the newest backup that opens, or new records; and the
    overnight note: keeping the PC awake till 07:00, "Stop at 03:00" starting no file after 03:00
    that night, the one converting finishing).
-9. Light mode, once it's designed: the next step is a design for the owner to pick, as Cinema
-   was picked, before any of it is built.
+9. Light mode, once it's designed: three options are drafted on the
+   [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y) canvas
+   (2026-10-14): A Daylight (cool grey ground, white panels, the blue feature kept), B Paper
+   (warm paper ground, cream panels) and C Ink (white, hairlines, ink-outlined buttons, a black
+   feature). The owner picks one, as Cinema was picked; the pick goes in Decisions and
+   `tokens.css`, and only then is any of it built.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`
@@ -382,9 +386,8 @@ names, with its licence, as the installer's first page lists it. AniList: its AP
 non-commercial use within its rate limit, and Kura keeps to it (one client the engine shares, which
 waits when AniList says the minute's requests are spent; the franchise look-ups ask about 12 a
 minute). TMDB's terms are met in the app: its credit line with its logo, in Settings (About, and
-Titles and artwork). Real-ESRGAN's model
-(BSD-3-Clause) and Anime4K's shaders (MIT) are in `engine/src/kura/assets` with their licences,
-which the notices carry.
+Titles and artwork). Real-ESRGAN's model (BSD-3-Clause) and Anime4K's shaders (MIT) are in
+`engine/src/kura/assets` with their licences, which the notices carry.
 
 Build each screen to its board in [docs/design/](docs/design/), with its empty, error and recovery
 states.
