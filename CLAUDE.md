@@ -221,6 +221,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   broken hatched, missing hollow.
 - Motion: 120 ms hover and press, 200 ms toggles, 320 ms panels, 600 to 900 ms charts, one curve
   `cubic-bezier(.2,.8,.2,1)`, and none at all when Windows' animation effects are off.
+- Shortcuts: Space pauses the queue and 1 to 3 picks a guess on "Which anime is this?"; no others
+  (no Ctrl K search, arrows through posters or Ctrl Z undo: the owner, 2026-10-14, "Dont worry
+  about the shortcuts"). Everything still works from the keyboard.
 - Light mode is Paper (the owner's pick of three, 2026-10-14): a warm paper ground #f3efe6,
   cream panels #fffcf6 with #e6dfd1 borders and a soft warm shadow, text #1d1912 and #5d564a,
   amber text #7f5200, to convert #5b7cc4, the same amber and the same blue featured panel with

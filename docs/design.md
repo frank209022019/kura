@@ -37,9 +37,10 @@ progress. And no struggling with small things: every error, empty state and reco
    Windows is, unless the owner picks one in Settings › General. Body text keeps 4.5:1 contrast in
    both, and status keeps its shapes (on paper, a ready square gets a darker edge). The featured
    panel stays blue, and a part that must stay dark, such as a video, says so (`scheme-dark`).
-8. **Keyboard first, mouse friendly.** Every action has a shortcut (Ctrl K search, arrows through
-   posters, Space pauses the queue, Ctrl Z undoes), the focus ring is always visible, and click
-   targets are at least 40 px.
+8. **Keyboard first, mouse friendly.** Everything can be reached and done from the keyboard, the
+   focus ring is always visible, and click targets are at least 40 px. Two shortcuts where they
+   pay off: Space pauses the queue, and 1 to 3 picks a guess on "Which anime is this?". No others
+   are planned (the owner, 2026-10-14).
 
 ## Cinema in code
 
