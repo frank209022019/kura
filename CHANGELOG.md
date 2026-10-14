@@ -16,6 +16,13 @@ shows these notes when it offers the update.
   everything till you choose). Clearing never touches your files, and what still has a copy in
   quarantine stays listed, so you can put it back.
 
+### Fixed
+- Kura's engine could crash after a library folder went away and came back while Kura watched
+  it (its drive unplugged and plugged in again, say): Windows was told twice to let go of the
+  folder, the second time letting go of another file of Kura's.
+- Converting a 720p file failed when the folder Kura is installed in had an apostrophe in its
+  path (a Windows user name like O'Brien): ffmpeg read Anime4K's file without it.
+
 ## 0.13.0 - 2026-10-14
 
 ### Added

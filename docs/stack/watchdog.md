@@ -38,5 +38,9 @@ look carries on.
 - A folder moved out of a watched folder, or deleted, comes as a "deleted" event that says it's a
   file (the folder is gone, so Windows can't tell); Kura asks its database whether it held videos
   there.
+- watchdog 6.0 closes a folder's handle itself when the folder goes, and again when the observer
+  is stopped. Windows may have given that number to another of Kura's files by then (the
+  database's), and closing it crashed the engine, so Kura's observer uses its own emitter
+  (`_Emitter` in kura/watch.py) that closes the handle once only.
 - PyInstaller bundles watchdog without help; `tests/test_cli.py` (with `KURA_ENGINE_EXE`) starts
   the bundled engine, which imports it.

@@ -102,7 +102,7 @@ def test_a_720p_episode_is_upscaled_with_anime4k_in_one_command():
     filters = command[command.index("-vf") + 1]
     assert filters == (
         "hwupload,libplacebo=w=1920:h=1080:format=p010le:"
-        "custom_shader_path='C\\:/Kura/modeA_hq.glsl',hwdownload,format=p010le,setsar=1"
+        "custom_shader_path=C\\\\:/Kura/modeA_hq.glsl,hwdownload,format=p010le,setsar=1"
     )
     assert command[command.index("-c:v") + 1] == "hevc_nvenc"
     assert [part for part in command if part in ("-map", "0:V:0", "0:a?", "0:s?", "0:t?")] == [
@@ -274,7 +274,7 @@ def test_the_comparison_shows_one_frame_before_and_after():
         str(PNG),
     ]
     assert after[after.index("-vf") + 1] == (
-        "hwupload,libplacebo=w=1920:h=1080:format=yuv420p:custom_shader_path='C\\:/a.glsl',"
+        "hwupload,libplacebo=w=1920:h=1080:format=yuv420p:custom_shader_path=C\\\\:/a.glsl,"
         "hwdownload,format=yuv420p,setsar=1"
     )
     assert after[-3:] == ["-frames:v", "1", str(PNG)]

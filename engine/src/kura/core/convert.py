@@ -16,6 +16,7 @@ from itertools import pairwise
 from pathlib import PurePath
 
 from kura.core.estimate import FILM
+from kura.core.filters import filter_path
 from kura.core.media import MediaInfo
 from kura.core.standard import Decision, Method
 
@@ -139,7 +140,7 @@ def _picture(made: Recipe, shader: PurePath | None, *, depth: str) -> tuple[list
             filters += [
                 "hwupload",
                 f"libplacebo=w={made.width}:h={made.height}:format={depth}:"
-                f"custom_shader_path={_filter_path(shader)}",
+                f"custom_shader_path={filter_path(shader)}",
                 "hwdownload",
                 f"format={depth}",
                 "setsar=1",
@@ -416,13 +417,6 @@ def _streams(made: Recipe) -> list[str]:
 
 def _scale(made: Recipe) -> str:
     return f"scale={made.width}:{made.height}:flags=lanczos"
-
-
-def _filter_path(path: PurePath) -> str:
-    r"""A Windows path as a filter's option: forward slashes, the drive's colon escaped, quoted
-    ('C\:/Kura/modeA_hq.glsl')."""
-    text = str(path).replace("\\", "/").replace(":", "\\:").replace("'", "'\\''")
-    return f"'{text}'"
 
 
 def _counts(line: str) -> dict[str, int]:

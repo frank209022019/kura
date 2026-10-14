@@ -20,11 +20,11 @@ from collections.abc import Callable
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
-from watchdog.observers.api import BaseObserver
+from watchdog.observers.api import DEFAULT_OBSERVER_TIMEOUT, BaseObserver
+from watchdog.observers.read_directory_changes import WindowsApiEmitter
 
 from kura import credentials, db, franchises
 from kura.anilist import AniList
@@ -272,10 +272,8 @@ class Watcher:
         for path in wanted - set(self._watched):
             if not Path(path).is_dir():
                 continue  # its drive is unplugged: watched once it's back
-            observer = Observer()
-            observer.schedule(Changes(self.notice, self._holds), path, recursive=True)
             try:
-                observer.start()
+                observer = observe(path, Changes(self.notice, self._holds))
             except OSError as error:
                 log.warning("Kura can't watch %s: %s", path, error)
                 continue
@@ -293,6 +291,34 @@ class Watcher:
                 (path, len(folder), folder),
             ).fetchone()
         return row is not None
+
+
+def observe(path: str, changes: FileSystemEventHandler) -> BaseObserver:
+    """Starts watching a folder and everything in it."""
+    observer = BaseObserver(_Emitter, timeout=DEFAULT_OBSERVER_TIMEOUT)
+    observer.schedule(changes, path, recursive=True)
+    observer.start()
+    return observer
+
+
+class _Emitter(WindowsApiEmitter):
+    """watchdog's watcher of a folder on Windows, closing the folder's handle once only. watchdog
+    closes it when the folder goes (its drive unplugged, say) and again when it's stopped; by
+    then Windows may have given the number to another file (the database's), and closing that
+    crashed the engine."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._closing = threading.Lock()
+        self._closed = False
+
+    def on_thread_stop(self) -> None:
+        with self._closing:
+            if self._closed:
+                return
+            self._closed = True
+        super().on_thread_stop()
+        self._whandle = None  # nothing reads it again
 
 
 class Changes(FileSystemEventHandler):

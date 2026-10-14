@@ -41,9 +41,12 @@ The model file and how it was made: [engine/src/kura/assets/README.md](../../eng
 
 ffmpeg's `libplacebo` filter (in the LGPL build Kura downloads) runs Anime4K's GLSL shaders on
 the card through Vulkan: `-init_hw_device vulkan=vk -filter_hw_device vk` and
-`hwupload,libplacebo=w=1920:h=1080:format=p010le:custom_shader_path='…',hwdownload`. The shader
+`hwupload,libplacebo=w=1920:h=1080:format=p010le:custom_shader_path=…,hwdownload`. The shader
 is Anime4K v4.0's "Mode A (HQ)", six shaders in one file
-(`engine/src/kura/assets/anime4k-mode-a-hq.glsl`, MIT).
+(`engine/src/kura/assets/anime4k-mode-a-hq.glsl`, MIT). Its path is written by
+`kura/core/filters.py`, escaped for the filter's option and again for the graph
+(`C\\:/Users/…`), so a folder with an apostrophe, a comma or brackets in its name reads back
+as it is.
 
 ## NVENC
 

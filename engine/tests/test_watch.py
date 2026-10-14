@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable, Iterator
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from watchdog.events import (
@@ -18,13 +19,14 @@ from watchdog.events import (
     FileMovedEvent,
     FileSystemEvent,
 )
+from watchdog.observers import winapi
 
 from kura import credentials
 from kura.config import DataPaths
 from kura.library import add_folder
 from kura.scan import ScanBusyError, ScanStatus, State
 from kura.tmdb import API as TMDB
-from kura.watch import QUIET, TICK, Changes, Watcher
+from kura.watch import QUIET, TICK, Changes, Watcher, observe
 from tests.fake_web import FakeWeb, reply
 from tests.services import internet
 from tests.shelf import NOW, identify, library
@@ -272,6 +274,32 @@ def test_a_folder_that_comes_back_is_watched_again(
     (folder / "Trigun - 01.mkv").write_bytes(b"new")
 
     assert wait_for(lambda: watcher.pending)
+
+
+def test_a_folder_that_goes_has_its_handle_closed_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # watchdog closes a folder's handle itself when the folder goes, and again when it's
+    # stopped: by then the number may be another file's (the database's), and closing that
+    # crashed the engine.
+    closed: list[object] = []
+
+    def closing(handle: Any) -> None:
+        closed.append(handle)
+        winapi.close_directory_handle(handle)
+
+    monkeypatch.setattr("watchdog.observers.read_directory_changes.close_directory_handle", closing)
+    folder = tmp_path / "Anime"
+    folder.mkdir()
+    observer = observe(str(folder), Changes(lambda: None, holds=lambda _path: True))
+    time.sleep(0.3)
+
+    shutil.rmtree(folder)  # its drive unplugged, say
+    assert wait_for(lambda: bool(closed))
+    observer.stop()
+    observer.join(timeout=5)
+
+    assert len(closed) == 1
 
 
 def test_what_counts_as_a_change_to_the_library():
