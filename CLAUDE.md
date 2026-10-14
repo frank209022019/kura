@@ -212,8 +212,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   states are designed, not afterthoughts (see the "small things" screen).
 - A player inside Kura (the owner, 2026-10-14: "mostly just for quick checks, but could be
   watching"; "inside Kura's window, with the ability to go full screen or back to pip"): Play on
-  a video opens a small player in a corner of the window, which stays while you move between
-  pages, goes full screen and comes back. It plays in Kura's own window: the engine hands the
+  a video opens a small player that floats over the page, always in sight however far you
+  scroll, and can be dragged anywhere in the window, like YouTube's ("we shouldn't have to
+  scroll down to see it"); it stays while you move between pages, goes full screen and comes
+  back. It plays in Kura's own window: the engine hands the
   file over in a form the window plays (the picture as it is where the window can decode it,
   else made H.264 by the graphics card as it plays; surround sound as stereo AAC; styled
   subtitles drawn), with nothing new to download. The design comes first (What's next, 10).
