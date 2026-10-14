@@ -116,6 +116,55 @@ def test_scans_from_before_kura_counted_changes_say_nothing_of_them(tmp_path: Pa
         assert (row["added"], row["gone"]) == (None, None)
 
 
+def test_conversions_the_test_play_failed_by_mistake_go_back_in_the_queue(tmp_path: Path):
+    # The test play took two frames' times, rounded to one, for damage (2026-10-14): those
+    # results played well, so their files are converted again, and none is counted as broken.
+    rounded = (
+        "The result didn't check out: it didn't play at 21:46 ([null @ 000001fc044723c0] "
+        "Application provided invalid, non monotonically increasing dts to muxer in stream 0: "
+        "6 >= 6). The original is as it was."
+    )
+    damaged = "The result didn't check out: it didn't play at 02:22 (Invalid data found)."
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:17]))
+        conn.execute("PRAGMA user_version = 17")
+        conn.execute("INSERT INTO folders (path, added_at) VALUES ('D:/Anime', 'then')")
+        for file_id, (state, problem, marked) in enumerate(
+            [
+                ("failed", rounded, False),  # waiting for the owner
+                ("skipped", rounded, True),  # the owner marked it broken
+                ("failed", damaged, False),  # really damaged: stays as it is
+                ("done", None, False),
+            ],
+            start=1,
+        ):
+            conn.execute(
+                """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at, problem,
+                                      marked_at)
+                   VALUES (1, ?, 1, 1, 'then', 'then', ?, ?)""",
+                (f"S01E0{file_id}.mkv", problem if marked else None, "then" if marked else None),
+            )
+            conn.execute(
+                """INSERT INTO jobs (file_id, method, position, state, added_at, started_at,
+                                     finished_at, problem, log)
+                   VALUES (?, 'reencode', ?, ?, 'then', 'then', 'then', ?, 'what ffmpeg said')""",
+                (file_id, file_id, state, problem),
+            )
+        conn.commit()
+
+        db.migrate(conn)
+
+        jobs = conn.execute("SELECT state, problem, log, started_at FROM jobs ORDER BY id")
+        assert [tuple(row) for row in jobs] == [
+            ("queued", None, None, None),
+            ("queued", None, None, None),
+            ("failed", damaged, "what ffmpeg said", "then"),
+            ("done", None, "what ffmpeg said", "then"),
+        ]
+        files = conn.execute("SELECT problem, marked_at FROM files ORDER BY id")
+        assert [tuple(row) for row in files] == [(None, None)] * 4
+
+
 def test_earlier_tidy_ups_stop_naming_a_media_server(tmp_path: Path):
     with closing(db.connect(tmp_path / "kura.db")) as conn:
         conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:8]))

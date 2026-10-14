@@ -250,4 +250,15 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         checked_at TEXT NOT NULL  -- when AniList was last asked about it
     ) STRICT;
     """,
+    # 18. The test play took two frames' times, rounded to one, for damage (2026-10-14), though
+    #     those results played well: their files go back in the queue where they were, and one
+    #     the owner marked broken for it isn't counted as broken.
+    """
+    UPDATE files SET problem = NULL, marked_at = NULL
+        WHERE problem LIKE '%non monotonically increasing dts%';
+    UPDATE jobs SET state = 'queued', problem = NULL, log = NULL, started_at = NULL,
+                    finished_at = NULL
+        WHERE state IN ('failed', 'skipped')
+          AND problem LIKE '%non monotonically increasing dts%';
+    """,
 )

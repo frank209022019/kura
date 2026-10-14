@@ -11,7 +11,9 @@ It answers the commands kura/core/convert.py builds, without converting anything
 KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", "decode" (once its
 frames are out, as a decoder meeting damage), or "convert" (one command, 1,200 frames in).
 KURA_FAKE_SLOW is the seconds the decoder takes over each frame (none), so a test can stop a
-conversion mid-way.
+conversion mid-way. KURA_FAKE_ROUNDS makes a test play do what real ffmpeg does at some points of
+a file that plays well: rounding the frames' times to the frame rate, it gives two the same one
+and complains of it, unless the times are kept as the file has them (-enc_time_base demux).
 """
 
 import os
@@ -83,6 +85,12 @@ def main() -> None:
         if fail == "play":
             print("Invalid data found when processing input", file=sys.stderr)
             sys.exit(1)
+        if os.environ.get("KURA_FAKE_ROUNDS") and "demux" not in args:
+            print(
+                "[null @ 0000] Application provided invalid, non monotonically increasing dts to "
+                "muxer in stream 0: 6 >= 6",
+                file=sys.stderr,
+            )
         return
     print(f"fake_ffmpeg doesn't know {args}", file=sys.stderr)
     sys.exit(2)

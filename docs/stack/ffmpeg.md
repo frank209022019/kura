@@ -49,6 +49,15 @@ So every ffmpeg command starts with `-nostdin` (`QUIET_INPUT` in
 [kura/core/convert.py](../../engine/src/kura/core/convert.py)), and every program the engine
 starts gets an empty standard input unless it's given frames there.
 
+**A test play keeps the file's own times.** Every result is played (decoded to `-f null`) for
+five seconds at three points before it replaces its original, and anything ffmpeg says at
+`-v error` fails it. By default ffmpeg rounds the frames' times to the frame rate for that
+output, and an MKV's millisecond times can round two frames to one: then it complains
+("non monotonically increasing dts to muxer") at points of files that play well, originals too.
+That threw 42 good results away on 2026-10-14. So the test play keeps the times as the file has
+them (`-enc_time_base:v demux`, in `_play` in
+[kura/convert.py](../../engine/src/kura/convert.py)).
+
 ## Moving to a newer build
 
 1. Pick the last build of a month on [BtbN's releases](https://github.com/BtbN/FFmpeg-Builds/releases)

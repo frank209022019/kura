@@ -8,6 +8,11 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Fixed
+- Converted files were thrown away as not playing ("non monotonically increasing dts") when they
+  played well: Kura's check rounded two frames' times to one at some points, and took that for
+  damage. Those conversions go back in the queue by themselves, with their originals untouched.
+
 ## 0.12.0 - 2026-10-14
 
 ### Added

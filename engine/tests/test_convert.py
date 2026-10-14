@@ -231,6 +231,19 @@ def test_a_result_that_doesnt_play_never_replaces_the_original(
     assert episode.read_bytes() == original
 
 
+def test_a_test_play_keeps_the_frames_own_times(
+    conn: sqlite3.Connection, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # Rounded to the frame rate, two frames' times can come out the same at some points of a file
+    # that plays well, its original too: 42 of the owner's results were thrown away for it
+    # (2026-10-14, "it didn't play at 21:46 ... non monotonically increasing dts").
+    monkeypatch.setenv("KURA_FAKE_ROUNDS", "1")
+
+    run(conn, programs(report(1440, 1080, tag=BEST_TAG)))
+
+    assert episode.read_text().startswith("converted")  # the result is in place
+
+
 def test_a_result_that_isnt_right_never_replaces_the_original(
     conn: sqlite3.Connection, episode: Path
 ):

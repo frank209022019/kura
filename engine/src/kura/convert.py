@@ -622,6 +622,11 @@ def _play(programs: Programs, work: Path, duration: float) -> list[str]:
             "0:V:0",
             "-map",
             "0:a?",
+            # The frames keep the times the file gives them: rounded to the frame rate, two can
+            # come out the same at some points of a file that plays well (its original too), and
+            # ffmpeg complains of that as if it were damage.
+            "-enc_time_base:v",
+            "demux",
             "-f",
             "null",
             "-",
