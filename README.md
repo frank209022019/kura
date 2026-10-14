@@ -1,116 +1,89 @@
 # Kura
 
-Kura (蔵, "storehouse") is a personal Windows app for one anime library. It maps folders in any
-layout, identifies every file, reports what is missing or broken, gives it all clean names and
-folders, and converts the whole library to one standard, with AI upscaling for SD sources.
-Nothing changes until you review it, and everything stays on your PC: no accounts, no cloud.
+**蔵, "storehouse". A home for your anime library, on your PC.**
 
-![Kura's library home, from the design](docs/design/preview.png)
+Kura reads folders in any layout, recognises every episode, film and OVA, tells you what's
+missing, files it all under clean names and converts it to one standard, AI upscaling included.
+Then you can watch it, right in the app. Every change waits for your yes, and can be undone.
+It's for the videos you already have: Kura never finds, downloads or shares anime.
 
-## What it does
+[**Download for Windows**](https://frankgrobbelaar.github.io/kura/) · free and open source · no account
 
-### Knows your library
+![Kura's home: your videos by picture, and what needs your attention](docs/readme/home.png)
 
-- **Reads it as it is.** Point Kura at your folders, in any layout: one anime per folder, a
-  franchise in sub-folders, or many anime mixed together. It reads every video (length, picture,
-  sound and subtitles) and keeps watching the folders: a video added or removed shows within
-  seconds, and every scan says what it found new and what's gone.
-- **Identifies every file.** Each series, movie, OVA and special is found on AniList, and with
-  your own free TMDB key also its seasons, episode titles, air dates and posters. Names AniList
-  can't find are searched on TMDB too, in other languages and spellings, and a special is found
-  by its own name. What Kura isn't sure of waits for you on "Which anime is this?", with stills
-  from the file; your answer, or "not anime", stays through every rescan.
+## A tour in five steps
 
-### Shows what's there, and what isn't
+### 1. Point it at your folders
 
-- **Home is your shelf.** A summary of your videos by picture (SD, 720p, 1080p) on top, what
-  needs you, and every franchise and series by type, oldest first, or by name, newest added or
-  most missing.
-- **A page for every franchise and title.** Seasons and an episode map with each episode's state,
-  the episodes that aired that you don't have, specials and OVAs listed apart, the files that won't
-  play, and a gap analysis you can read in the app or beside the files.
-- **Missing titles.** A franchise's page can also show the series, films, OVAs and specials you
-  have none of, as dotted placeholders among your own (for Dragon Ball: Kai, DAIMA, the first
-  four films). Kura keeps the list current in the background, so a new one appears by itself,
-  marked "Coming" until it's out. Any title's page leads there.
+One anime per folder, a franchise in sub-folders, or everything mixed together: Kura reads every
+video (length, picture, sound, subtitles) and finds each one on AniList and TMDB. What it isn't
+sure of waits on "Which anime is this?", with stills and a quick look at the file itself.
 
-### Tidies and converts, when you say
+![Which anime is this? Stills, what reading the file showed, and Kura's best guesses](docs/readme/match.png)
 
-- **Tidies up.** Clean names and folders (`TV\Show (Year)\Season 01\…`, `Movies\Title (Year)\…`),
-  subtitles moving with their video, or your own names kept. Every change is proposed title by
-  title and made only when you apply it, and History undoes any of it.
-- **Converts to one standard.** Choose 1080p or 720p and see the time and space it takes at once.
-  Kura encodes HEVC 10-bit on the graphics card, upscaling SD with an AI model and 720p with
-  Anime4K, and "See it first" shows a frame before and after. The queue runs at night if you like,
-  says how far along it is, and waits when a drive is full or unplugged. Every result is checked
-  before it takes its original's place, and you can convert again later to a new standard.
+### 2. See what's missing
 
-### Keeps it safe
+Every title gets a page: its seasons, an episode map, the episodes that aired that you don't
+have, and a gap analysis beside the files. A franchise's page shows even the films and OVAs you
+have none of, in their places, and keeps watching for new ones.
 
-- **Loses nothing.** Replaced originals, duplicates and whatever you delete wait 30 days in a
-  quarantine on their own drive, and History puts them back; converted originals can go at once
-  instead, if you choose. Kura's records are backed up every night and can be restored, and an
-  export takes them to another PC.
-- **Looks after itself.** It can start with Windows and wait in the tray, tells you when a batch is
-  done, says what happened after a crash or power cut, and updates itself, showing what's new
-  first. It's dark or light as Windows is, or as you choose.
+![A franchise's page with the titles you're missing as dotted placeholders](docs/readme/franchise.png)
 
-Kura is built in the open and ready for everyday use. Everything planned is built:
-[What's next](CLAUDE.md#whats-next) says where it stands.
+### 3. Tidy up
+
+Clean names and folders, `TV\Show (Year)\Season 01\…` and `Movies\Title (Year)\…`, with
+subtitles moving alongside. Kura proposes, title by title; nothing moves until you apply it, and
+History undoes anything.
+
+![Tidy up: what Kura proposes, a title at a time](docs/readme/tidy.png)
+
+### 4. Convert to one standard
+
+1080p or 720p, HEVC 10-bit on your graphics card. SD gets an AI upscale, 720p Anime4K, and "See
+it first" shows a frame before and after. The queue can run only at night, waits when a drive
+is full, and checks every result before it replaces the original.
+
+![The queue: the file converting now and what's next](docs/readme/queue.png)
+
+### 5. Watch it
+
+Press Play on any episode. A small player floats over the page wherever you drag it, and goes
+full screen and back, with the sound and subtitles the file has and the next episode a click
+away.
+
+![The player full screen, sound and subtitles open](docs/readme/player-full.png)
+
+## Safe by design
+
+| | |
+| --- | --- |
+| **Asks first** | Renames, moves, deletions and conversions are proposed, then applied on your word. |
+| **Undoes** | History puts back any tidy-up, and any converted file's original. |
+| **Keeps copies** | What's replaced or deleted waits 30 days in quarantine on its own drive. |
+| **Stays local** | No account and no cloud; nightly backups and a one-zip export. |
+
+## Your own videos only
+
+Kura looks after video files that are already on your PC, and plays them only in its own window.
+It never searches for, downloads or shares anime or any other video, never streams it over the
+internet, and doesn't get around copy protection. Use it only with videos you have the right to
+keep and watch: Kura is not for piracy, in any form.
+
+Kura contains no anime, artwork or other media. The titles in these pictures are made up, the
+posters are Kura's own placeholders and the video playing is a stand-in; where Kura's code and
+notes name a real series, it's only as example data. AniList and TMDB, where Kura looks titles
+up, are their owners' trademarks, and Kura isn't affiliated with or endorsed by either. This
+product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## Download
 
-Get Kura from the [downloads page](https://frankgrobbelaar.github.io/kura/): the latest version and
-every earlier one, with what changed (the same installers are on the
-[releases page](https://github.com/frankgrobbelaar/kura/releases)). It runs on Windows 10 or 11,
-64-bit, and an installed Kura updates itself, showing what's new first. Kura isn't code-signed, so
-Windows SmartScreen warns on the first install: choose More info › Run anyway.
+From the [downloads page](https://frankgrobbelaar.github.io/kura/): Windows 10 or 11, 64-bit,
+every version with what changed. Kura updates itself. It isn't code-signed, so SmartScreen warns
+the first time: More info › Run anyway. The installer's first page lists everything Kura
+downloads, such as ffmpeg on the first run.
 
 ## Licence
 
-Kura is free software under the [MIT licence](LICENSE): you may use, copy, change and share it,
-in your own projects too, as long as the licence and copyright notice go with it. It comes with no
-warranty.
-
-Kura is built on other open-source software, each part under its own licence. The installer puts
-`THIRD-PARTY-NOTICES.txt` next to Kura and every release carries it: it lists everything that
-ships inside Kura, with its licence. The build stops if a part's licence isn't one Kura can meet.
-Components adapted from shadcn/ui keep their notice in
-[LICENSE-shadcn.txt](app/src/components/ui/LICENSE-shadcn.txt).
-
-## Fork it; contributions aren't taken
-
-Kura is one person's tool, shared as it is. You're welcome to download it, fork it and make your
-fork your own. This repository doesn't take contributions: only the owner can open pull requests,
-issues are turned off, and there's no support.
-
-## No media, no affiliation
-
-Kura contains no anime, artwork or other media, and it never downloads or shares video: it
-organises files you already have. Titles such as Dragon Ball and Death Note appear in the docs,
-designs and tests only as example data. They, and names such as Plex, TMDB and AniList, are
-trademarks of their owners, and Kura isn't affiliated with or endorsed by any of them.
-
-## Working on Kura
-
-- [CLAUDE.md](CLAUDE.md): the decisions so far and the ground rules.
-- [CHANGELOG.md](CHANGELOG.md): every change you'd notice, by version.
-- [AGENTS.md](AGENTS.md): how coding agents work here, with a guide in each area.
-- [docs/](docs/README.md): architecture, development, conventions, design, releasing, and a page
-  for every tool in the stack.
-- [docs/design/](docs/design/README.md): every screen, as pages you can open.
-
-Set up the tools in [docs/development.md](docs/development.md) (Rust, Node LTS, pnpm, uv), then:
-
-```powershell
-cd engine; uv sync
-cd ../app; pnpm install; pnpm tauri dev
-```
-
-| Folder | Holds |
-| --- | --- |
-| `app/` | The desktop app: React UI in `src/`, Tauri shell in `src-tauri/` |
-| `engine/` | The Python engine: local API, command line, database; build tools in `tools/` |
-| `docs/` | How it works, how to work on it, and the designs |
-| `scripts/` | Releasing (versions, notes, the downloads page), the installer's first page, the design snapshot |
-| `.github/` | CI and the release workflow |
+Free software under the [MIT licence](LICENSE), with no warranty; what it's built on is listed,
+each part with its licence, in `THIRD-PARTY-NOTICES.txt` with every release. Fork it freely; this
+repository doesn't take contributions.

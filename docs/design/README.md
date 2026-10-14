@@ -15,6 +15,9 @@ private; these snapshots are the shared copy):
   over the page and moved anywhere, full screen, in light, for a quick check, and its small
   things ([player.html](player.html) and the pages after it). On the canvas the small player
   drags; in the snapshot it sits where it starts.
+- [Kura README Options](https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk): three drafts of the
+  repo's README, B (a tour) chosen ([readme.html](readme.html)). Its pictures are the README's
+  own, in [../readme/](../readme/).
 
 | Board | Page |
 | --- | --- |
@@ -39,10 +42,11 @@ private; these snapshots are the shared copy):
 | The small player in light | [player-light.html](player-light.html) |
 | A quick check on "Which anime is this?" | [player-check.html](player-check.html) |
 | The player's small things | [player-states.html](player-states.html) |
+| The README: three drafts, the tour chosen | [readme.html](readme.html) |
 
 The sample library is illustrative: episode counts are real, while file states, timings and sizes
-are estimates for a GTX 1660 Super. Fonts load from Google Fonts, so pages need the internet to
-look exactly right.
+are estimates for a GTX 1660 Super. Fonts load from Google Fonts (and the README options' Markdown
+reader from cdnjs), so pages need the internet to look exactly right.
 
 ## Building from these
 
@@ -53,11 +57,19 @@ reuse the components in `app/src/components/`, and keep each screen's states.
 ## Refreshing the snapshot
 
 The pages are generated; don't edit them. When a canvas changes, ask Claude to read it (its
-`project/` files) into a folder, then run the script with the canvases read, one or more:
+`project/` files) into a folder, then run the script with the canvases read, one or more (the
+README options are a plain page: give the file a read of it saves):
 
 ```powershell
-node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder>
+node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --readme <page>
 ```
 
 The script expands each board's repeated parts with the board's own sample data and rewrites the
 links between boards.
+
+## The README's pictures
+
+[../readme/](../readme/) holds them, at 1280 × 800: Kura's own screens rendered from its tests,
+with the tests' titles swapped for made-up ones. No real series, artwork or video is in any of
+them: posters are Kura's placeholders and the player's picture is a stand-in. Every picture of
+Kura that goes public keeps to that. To refresh them, ask Claude.

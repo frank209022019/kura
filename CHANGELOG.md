@@ -25,6 +25,13 @@ shows these notes when it offers the update.
   everything till you choose). Clearing never touches your files, and what still has a copy in
   quarantine stays listed, so you can put it back.
 
+### Changed
+- Kura says plainly that it's for videos you have the right to keep and watch: it looks after
+  the files on your PC, plays them only in its own window, and never searches for, downloads or
+  shares video. Settings › About, the downloads page and the new README say so.
+- The naming example in Setup and Settings uses a made-up title, as the README's pictures of
+  Kura do.
+
 ### Fixed
 - Kura's engine could crash after a library folder went away and came back while Kura watched
   it (its drive unplugged and plugged in again, say): Windows was told twice to let go of the

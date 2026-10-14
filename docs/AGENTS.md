@@ -14,9 +14,11 @@ Kura's docs are short pages, one subject each, written for the owner and for age
 - **Decisions live in [CLAUDE.md](../CLAUDE.md)**, the owner's preferences included. Docs explain
   how things work; CLAUDE.md records what was decided.
 - **Links are relative** and must resolve; anchors too.
-- **`design/` is generated.** `scripts/design-snapshot.mjs` writes it from the design canvases;
-  never edit those pages by hand. When the canvas changes, refresh them (see
-  [design/README.md](design/README.md)) and keep `design/preview.png` in step.
+- **`design/` is generated.** `scripts/design-snapshot.mjs` writes it from the design canvases
+  and the README options; never edit those pages by hand. When one changes, refresh them (see
+  [design/README.md](design/README.md)).
+- **Public pictures use made-up titles.** The README's pictures (`readme/`) are Kura's own
+  screens with made-up titles: no real series, artwork or video. Any new one keeps to that.
 
 ## Where things go
 

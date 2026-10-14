@@ -1,0 +1,320 @@
+<!doctype html>
+<!-- Kura design snapshot of "Kura README Options" (https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk), taken 2026-10-14.
+     Change the artifact, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kura README Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap">
+<style>
+/* Kura's own Cinema look around three README drafts, each shown the way GitHub draws a README.
+   Layout: one column, a header, the three options as tabs, the chosen draft in a repo frame. */
+:root {
+  /* Paper, Kura's light */
+  --window: #f3efe6;
+  --panel: #fffcf6;
+  --edge: #e6dfd1;
+  --fg: #1d1912;
+  --muted: #5d564a;
+  --accent: #f2b33d;
+  --on-accent: #1d1300;
+  --accent-fg: #7f5200;
+  --well: #ebe4d6;
+  /* GitHub's README, light */
+  --gh-bg: #ffffff;
+  --gh-fg: #1f2328;
+  --gh-muted: #59636e;
+  --gh-border: #d1d9e0;
+  --gh-link: #0969da;
+  --gh-code: rgba(129, 139, 152, 0.12);
+  --gh-bar: #f6f8fa;
+  --sans: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", monospace;
+  --github: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --window: #0b0c0f; --panel: #13161c; --edge: rgba(255,255,255,0.08); --fg: #f4f5f7;
+    --muted: #a3a8b3; --accent-fg: #ffd27a; --well: rgba(255,255,255,0.05);
+    --gh-bg: #0d1117; --gh-fg: #f0f6fc; --gh-muted: #9198a1; --gh-border: #3d444d;
+    --gh-link: #4493f8; --gh-code: rgba(101, 108, 118, 0.2); --gh-bar: #151b23;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --window: #0b0c0f; --panel: #13161c; --edge: rgba(255,255,255,0.08); --fg: #f4f5f7;
+  --muted: #a3a8b3; --accent-fg: #ffd27a; --well: rgba(255,255,255,0.05);
+  --gh-bg: #0d1117; --gh-fg: #f0f6fc; --gh-muted: #9198a1; --gh-border: #3d444d;
+  --gh-link: #4493f8; --gh-code: rgba(101, 108, 118, 0.2); --gh-bar: #151b23;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--window);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 40px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+header { display: flex; flex-direction: column; gap: 10px; max-width: 68ch; }
+.eyebrow {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent-fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.eyebrow svg { flex: none; }
+h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 36px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  text-wrap: balance;
+}
+header p { margin: 0; color: var(--muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.fact {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--well);
+  color: var(--fg);
+}
+.fact-chosen { background: var(--accent); color: var(--on-accent); }
+.tab-chosen {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--accent-fg);
+}
+[role="tab"][aria-selected="true"] .tab-chosen { background: rgba(29, 19, 0, 0.12); color: var(--on-accent); }
+[role="tablist"] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--well);
+  align-self: flex-start;
+  max-width: 100%;
+}
+[role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px 0 6px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 200ms cubic-bezier(.2,.8,.2,1), color 200ms cubic-bezier(.2,.8,.2,1);
+}
+[role="tab"]:hover { color: var(--fg); }
+[role="tab"][aria-selected="true"] { background: var(--accent); color: var(--on-accent); font-weight: 800; }
+[role="tab"]:focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+.tab-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--fg);
+}
+[role="tab"][aria-selected="true"] .tab-letter { background: rgba(29, 19, 0, 0.12); color: var(--on-accent); }
+[role="tabpanel"] { display: flex; flex-direction: column; gap: 14px; }
+[role="tabpanel"][hidden] { display: none; }
+.pitch { margin: 0; max-width: 72ch; color: var(--muted); }
+.pitch strong { color: var(--fg); }
+.repo {
+  border: 1px solid var(--gh-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--gh-bg);
+}
+.repo-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--gh-border);
+  background: var(--gh-bar);
+  font-family: var(--github);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gh-fg);
+}
+.repo-file::before { content: "\2630\00a0\00a0"; color: var(--gh-muted); font-weight: 400; }
+.note {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px dashed var(--edge);
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 80ch;
+}
+.note strong { color: var(--fg); }
+
+/* GitHub's way with a README */
+.markdown-body {
+  padding: 32px clamp(16px, 4vw, 48px) 40px;
+  font-family: var(--github);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--gh-fg);
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+.markdown-body > *:first-child { margin-top: 0 !important; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  margin: 24px 0 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.markdown-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--gh-border); }
+.markdown-body h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--gh-border); }
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h1[align="center"] { border-bottom: 0; }
+.markdown-body p, .markdown-body ul, .markdown-body table { margin: 0 0 16px; }
+.markdown-body ul { padding-left: 2em; }
+.markdown-body li + li { margin-top: 0.25em; }
+.markdown-body a { color: var(--gh-link); text-decoration: none; }
+.markdown-body a:hover { text-decoration: underline; }
+.markdown-body img { max-width: 100%; border-radius: 6px; vertical-align: middle; }
+.markdown-body p[align="center"] img + img { margin-left: 1%; }
+.markdown-body code {
+  padding: 0.2em 0.4em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 85%;
+  background: var(--gh-code);
+  border-radius: 6px;
+}
+.table-scroll { overflow-x: auto; margin: 0 0 16px; }
+.markdown-body table { border-collapse: collapse; width: max-content; max-width: 100%; margin: 0; }
+.markdown-body th, .markdown-body td { padding: 6px 13px; border: 1px solid var(--gh-border); vertical-align: top; }
+.markdown-body td img { border-radius: 4px; }
+
+@media (max-width: 640px) {
+  .markdown-body p[align="center"] img[width] { width: 100% !important; margin: 6px 0 0 !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [role="tab"] { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#f2b33d"></rect><rect x="6.4" y="6.5" width="2.8" height="11" rx="1.4" fill="#1d1300"></rect><rect x="10.6" y="8.5" width="2.8" height="9" rx="1.4" fill="#1d1300"></rect><rect x="14.6" y="6.2" width="2.8" height="11.2" rx="1.4" fill="#1d1300" transform="rotate(14 16 11.8)"></rect></svg>
+      Kura · the README on GitHub
+    </span>
+    <h1>Three ways to show Kura on GitHub</h1>
+    <p>
+      Each draft says what Kura does in the words you'd use to tell a friend, shows it with
+      pictures of the app itself, and includes the new player. "Working on Kura" is gone from all
+      three: the docs stay one click away in the repo. The owner chose B, the tour, on 2026-10-14,
+      with made-up titles in every picture and a plain word that Kura is for your own videos
+      only, never for piracy: B is the README as it went out.
+    </p>
+    <div class="facts" aria-label="Every option">
+      <span class="fact fact-chosen">B, a tour, chosen</span>
+      <span class="fact">Pictures of the app itself</span>
+      <span class="fact">Made-up titles</span>
+      <span class="fact">The player included</span>
+      <span class="fact">No "Working on Kura"</span>
+    </div>
+  </header>
+
+  <div role="tablist" aria-label="README options">
+<button type="button" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="false" data-option="a"><span class="tab-letter">A</span><span class="tab-name">Product page</span></button>
+<button type="button" role="tab" id="tab-b" aria-controls="panel-b" aria-selected="true" data-option="b"><span class="tab-letter">B</span><span class="tab-name">A tour</span><span class="tab-chosen">Chosen</span></button>
+<button type="button" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false" data-option="c"><span class="tab-letter">C</span><span class="tab-name">Gallery first</span></button>
+  </div>
+
+<section role="tabpanel" id="panel-a" aria-labelledby="tab-a" hidden><p class="pitch"><strong>Option A, product page.</strong> A centred hero with one download link, then a section per thing Kura does, each shown, and the safety promises at the end.</p><div class="repo"><div class="repo-bar"><span class="repo-file">README.md</span></div><article class="markdown-body" data-option="a"></article></div></section>
+<section role="tabpanel" id="panel-b" aria-labelledby="tab-b"><p class="pitch"><strong>Option B, a tour: chosen.</strong> The story of using it, in five numbered steps from pointing it at your folders to watching, each with one picture, then a table of what keeps you safe.</p><div class="repo"><div class="repo-bar"><span class="repo-file">README.md</span></div><article class="markdown-body" data-option="b"></article></div></section>
+<section role="tabpanel" id="panel-c" aria-labelledby="tab-c" hidden><p class="pitch"><strong>Option C, gallery first.</strong> Six pictures in a grid with a line under each, then a short list of everything it does. The quickest to scan.</p><div class="repo"><div class="repo-bar"><span class="repo-file">README.md</span></div><article class="markdown-body" data-option="c"></article></div></section>
+
+  <p class="note">
+    <strong>About the pictures.</strong> They're Kura's real screens, drawn from its own tests with
+    made-up titles: posters are Kura's placeholders and the player's picture is a stand-in, so no
+    anime, artwork or real series is in any of them. They're the README's own, in
+    <code>docs/readme/</code>.
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script>
+const DRAFTS = {"a": "<p align=\"center\">\n  <img src=\"../readme/kura-icon.png\" width=\"88\" alt=\"\">\n<\/p>\n\n<h1 align=\"center\">Kura<\/h1>\n\n<p align=\"center\">\n  <strong>Your anime library, known, tidy and ready to watch.<\/strong><br>\n  A Windows app that maps your folders, finds what's missing, files everything neatly<br>\n  and converts it all to one standard. Nothing changes until you say so.\n<\/p>\n\n<p align=\"center\">\n  <a href=\"https://frankgrobbelaar.github.io/kura/\"><strong>Download for Windows<\/strong><\/a>\n  \u00b7\n  <a href=\"CHANGELOG.md\">What's new<\/a>\n  \u00b7\n  <a href=\"docs/design/README.md\">Every screen<\/a>\n<\/p>\n\n<p align=\"center\">\n  <img src=\"../readme/home.png\" alt=\"Kura's home: a shelf of franchises and series, oldest first\">\n<\/p>\n\n## See what you have, and what you don't\n\nPoint Kura at your folders, in any layout. It reads every video and recognises each series, film,\nOVA and special on AniList and TMDB, then shows your shelf: seasons, an episode map, the episodes\nthat aired that you don't have, and whole films and OVAs a franchise has that you're missing.\n\n<p align=\"center\">\n  <img src=\"../readme/title.png\" width=\"49%\" alt=\"A title's page: seasons, the episode map, missing and broken episodes\">\n  <img src=\"../readme/franchise.png\" width=\"49%\" alt=\"A franchise's page with the titles you're missing as dotted placeholders\">\n<\/p>\n\n## Tidy up, then undo anything\n\nClean names and folders for every file (`TV\\Show (Year)\\Season 01\\\u2026`, `Movies\\Title (Year)\\\u2026`),\nproposed title by title and made only when you apply them. History undoes any of it, and\nduplicates wait 30 days in quarantine before they go.\n\n<p align=\"center\">\n  <img src=\"../readme/tidy.png\" alt=\"Tidy up: what Kura proposes, a title at a time\">\n<\/p>\n\n## One standard for the whole library\n\nChoose 1080p or 720p and see the time and space it takes at once. Kura encodes HEVC 10-bit on\nyour graphics card, upscales SD with an AI model and 720p with Anime4K, checks every result\nbefore it replaces the original, and can run the queue only at night.\n\n<p align=\"center\">\n  <img src=\"../readme/convert.png\" width=\"49%\" alt=\"Convert: the standard, the estimates and the choice\">\n  <img src=\"../readme/queue.png\" width=\"49%\" alt=\"The queue: the file converting now and what's next\">\n<\/p>\n\n## Watch it right there\n\nPress Play on any episode: a small player floats over the page, goes wherever you drag it, and\ngoes full screen and back. Pick the sound and subtitles the file has, and the next episode is a\nclick away.\n\n<p align=\"center\">\n  <img src=\"../readme/player.png\" alt=\"The small player over a title's page\">\n<\/p>\n\n## Yours, on your PC\n\n- **Nothing changes until you review it.** Renames, moves and conversions are proposed first.\n- **Nothing is lost.** Replaced originals and deletions wait in quarantine; History puts them back.\n- **Nothing leaves your PC.** No account, no cloud. Nightly backups, and an export to take it all\n  with you.\n- **It looks after itself.** Starts with Windows if you like, tells you when a batch is done,\n  updates itself, and is dark or light as Windows is.\n\n## Download\n\nGet Kura from the [downloads page](https://frankgrobbelaar.github.io/kura/), for Windows 10 or 11,\n64-bit. It updates itself. Kura isn't code-signed, so Windows SmartScreen warns on the first\ninstall: choose More info \u203a Run anyway.\n\n## Licence, and no media\n\nKura is free software under the [MIT licence](LICENSE), built on open-source software listed in\n`THIRD-PARTY-NOTICES.txt` with every release. You're welcome to fork it; this repository doesn't\ntake contributions.\n\nKura contains no anime, artwork or other media, and never downloads or shares video: it organises\nfiles you already have. Titles appear in its docs and tests only as example data; they, and names\nsuch as TMDB and AniList, belong to their owners, and Kura isn't affiliated with any of them.\n", "b": "# Kura\n\n**\u8535, \"storehouse\". A home for your anime library, on your PC.**\n\nKura reads folders in any layout, recognises every episode, film and OVA, tells you what's\nmissing, files it all under clean names and converts it to one standard, AI upscaling included.\nThen you can watch it, right in the app. Every change waits for your yes, and can be undone.\nIt's for the videos you already have: Kura never finds, downloads or shares anime.\n\n[**Download for Windows**](https://frankgrobbelaar.github.io/kura/) \u00b7 free and open source \u00b7 no account\n\n![Kura's home: your videos by picture, and what needs your attention](../readme/home.png)\n\n## A tour in five steps\n\n### 1. Point it at your folders\n\nOne anime per folder, a franchise in sub-folders, or everything mixed together: Kura reads every\nvideo (length, picture, sound, subtitles) and finds each one on AniList and TMDB. What it isn't\nsure of waits on \"Which anime is this?\", with stills and a quick look at the file itself.\n\n![Which anime is this? Stills, what reading the file showed, and Kura's best guesses](../readme/match.png)\n\n### 2. See what's missing\n\nEvery title gets a page: its seasons, an episode map, the episodes that aired that you don't\nhave, and a gap analysis beside the files. A franchise's page shows even the films and OVAs you\nhave none of, in their places, and keeps watching for new ones.\n\n![A franchise's page with the titles you're missing as dotted placeholders](../readme/franchise.png)\n\n### 3. Tidy up\n\nClean names and folders, `TV\\Show (Year)\\Season 01\\\u2026` and `Movies\\Title (Year)\\\u2026`, with\nsubtitles moving alongside. Kura proposes, title by title; nothing moves until you apply it, and\nHistory undoes anything.\n\n![Tidy up: what Kura proposes, a title at a time](../readme/tidy.png)\n\n### 4. Convert to one standard\n\n1080p or 720p, HEVC 10-bit on your graphics card. SD gets an AI upscale, 720p Anime4K, and \"See\nit first\" shows a frame before and after. The queue can run only at night, waits when a drive\nis full, and checks every result before it replaces the original.\n\n![The queue: the file converting now and what's next](../readme/queue.png)\n\n### 5. Watch it\n\nPress Play on any episode. A small player floats over the page wherever you drag it, and goes\nfull screen and back, with the sound and subtitles the file has and the next episode a click\naway.\n\n![The player full screen, sound and subtitles open](../readme/player-full.png)\n\n## Safe by design\n\n| | |\n| --- | --- |\n| **Asks first** | Renames, moves, deletions and conversions are proposed, then applied on your word. |\n| **Undoes** | History puts back any tidy-up, and any converted file's original. |\n| **Keeps copies** | What's replaced or deleted waits 30 days in quarantine on its own drive. |\n| **Stays local** | No account and no cloud; nightly backups and a one-zip export. |\n\n## Your own videos only\n\nKura looks after video files that are already on your PC, and plays them only in its own window.\nIt never searches for, downloads or shares anime or any other video, never streams it over the\ninternet, and doesn't get around copy protection. Use it only with videos you have the right to\nkeep and watch: Kura is not for piracy, in any form.\n\nKura contains no anime, artwork or other media. The titles in these pictures are made up, the\nposters are Kura's own placeholders and the video playing is a stand-in; where Kura's code and\nnotes name a real series, it's only as example data. AniList and TMDB, where Kura looks titles\nup, are their owners' trademarks, and Kura isn't affiliated with or endorsed by either. This\nproduct uses the TMDB API but is not endorsed or certified by TMDB.\n\n## Download\n\nFrom the [downloads page](https://frankgrobbelaar.github.io/kura/): Windows 10 or 11, 64-bit,\nevery version with what changed. Kura updates itself. It isn't code-signed, so SmartScreen warns\nthe first time: More info \u203a Run anyway. The installer's first page lists everything Kura\ndownloads, such as ffmpeg on the first run.\n\n## Licence\n\nFree software under the [MIT licence](LICENSE), with no warranty; what it's built on is listed,\neach part with its licence, in `THIRD-PARTY-NOTICES.txt` with every release. Fork it freely; this\nrepository doesn't take contributions.\n", "c": "# Kura\n\nYour anime library, sorted. Kura maps your folders, finds every episode and what's missing,\nfiles it all neatly, converts it to one standard with AI upscaling, and plays it, all on your\nPC and only when you say so.\n\n**[Download for Windows](https://frankgrobbelaar.github.io/kura/)** \u00b7 [What's new](CHANGELOG.md) \u00b7 MIT licence\n\n| | |\n| :---: | :---: |\n| ![Home](../readme/home.png) | ![A title's page](../readme/title.png) |\n| **Your shelf.** Every franchise and series, by type, oldest first. | **Every title.** Seasons, an episode map, what's missing and what won't play. |\n| ![Missing titles](../readme/franchise.png) | ![Tidy up](../readme/tidy.png) |\n| **Missing titles.** The films and OVAs you have none of, in their places. | **Tidy up.** Clean names and folders, applied on your word, undone any time. |\n| ![The queue](../readme/queue.png) | ![The player](../readme/player.png) |\n| **Convert.** HEVC 10-bit, AI upscaling for SD, checked before it replaces anything. | **Watch.** A small player over the page, full screen and back. |\n\n## What it does\n\n- **Reads any layout** of folders, and watches them: added and removed videos show in seconds.\n- **Identifies everything** on AniList and TMDB, and asks you about what it isn't sure of.\n- **Reports gaps:** missing episodes, broken files and absent titles, in the app and beside the files.\n- **Tidies up** into `TV\\Show (Year)\\Season 01\\\u2026` and `Movies\\Title (Year)\\\u2026`, subtitles included.\n- **Converts** to 1080p or 720p HEVC 10-bit on your graphics card, at night if you like.\n- **Plays** any episode in a player you can drag anywhere, with its sound and subtitles.\n- **Keeps you safe:** 30 days of quarantine, History's undo, nightly backups, a one-zip export.\n- **Stays private:** no account and no cloud; it's dark or light as Windows is.\n\n## Download\n\nThe [downloads page](https://frankgrobbelaar.github.io/kura/) has every version for Windows 10\nand 11, 64-bit. Kura updates itself. It isn't code-signed: SmartScreen warns once, More info \u203a\nRun anyway.\n\n## Licence, and no media\n\nMIT licensed ([LICENSE](LICENSE)), its open-source parts listed in `THIRD-PARTY-NOTICES.txt`.\nFork it freely; contributions aren't taken. Kura holds no anime or artwork and never downloads\nor shares video. Titles shown are example data, and Kura isn't affiliated with the services it\nuses.\n"};
+
+function render(key) {
+  const body = document.querySelector(`.markdown-body[data-option="${key}"]`);
+  if (!body || body.dataset.done) return;
+  body.innerHTML = window.marked ? marked.parse(DRAFTS[key]) : `<pre>${DRAFTS[key].replace(/</g, "&lt;")}</pre>`;
+  body.querySelectorAll("table").forEach((table) => {
+    const scroll = document.createElement("div");
+    scroll.className = "table-scroll";
+    table.replaceWith(scroll);
+    scroll.append(table);
+  });
+  body.dataset.done = "1";
+}
+
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+function choose(key, focus) {
+  for (const tab of tabs) {
+    const on = tab.dataset.option === key;
+    tab.setAttribute("aria-selected", String(on));
+    tab.tabIndex = on ? 0 : -1;
+    document.getElementById(`panel-${tab.dataset.option}`).hidden = !on;
+    if (on && focus) tab.focus();
+  }
+  render(key);
+}
+tabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => choose(tab.dataset.option));
+  tab.addEventListener("keydown", (event) => {
+    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const next = tabs[(index + step + tabs.length) % tabs.length];
+    choose(next.dataset.option, true);
+  });
+});
+let start = "b"; // the one chosen
+const hash = location.hash.replace("#", "");
+if (DRAFTS[hash]) start = hash;
+choose(start);
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ Coding agents start at [AGENTS.md](../AGENTS.md); each area (`engine/`, `app/`, 
 | [design.md](design.md) | UI and UX rules, the Cinema language and its tokens, patterns |
 | [releasing.md](releasing.md) | Versions, the installer, updates, third-party notices, the signing key |
 | [design/](design/) | Every screen from the design canvas, as pages you can open |
+| [readme/](readme/) | The README's pictures: Kura's own screens, with made-up titles |
 
 ## The stack
 

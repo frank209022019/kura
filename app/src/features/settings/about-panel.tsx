@@ -63,6 +63,10 @@ export function AboutPanel() {
         <dd>MIT. Anyone may fork it; the repo takes no contributions.</dd>
       </dl>
       <p className="text-13 text-fg-muted">
+        Kura is for videos you have the right to keep and watch. It looks after the files on this PC
+        and plays them in its own window; it never searches for, downloads or shares video.
+      </p>
+      <p className="text-13 text-fg-muted">
         Kura stands on others' work: ffmpeg reads and converts the videos, Real-ESRGAN's anime model
         and Anime4K's shaders upscale them, AniList and TMDB say what each one is.
         THIRD-PARTY-NOTICES.txt, next to Kura, lists every part with its licence.

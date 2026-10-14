@@ -497,6 +497,19 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("img", { name: "TMDB" })).toBeInTheDocument(); // its logo, as it asks
   });
 
+  it("says Kura is for your own videos, and never fetches or shares any", async () => {
+    fakeEngine({
+      "/folders": FOLDERS,
+      "/health": HEALTH,
+      "/tmdb": { connected: true, keyEnd: "ab12" },
+    });
+    renderSettings("about");
+
+    expect(
+      await screen.findByText(/for videos you have the right to keep and watch/),
+    ).toHaveTextContent("it never searches for, downloads or shares video");
+  });
+
   it("says when the engine isn't running", async () => {
     shell.invoke.mockImplementation(async (command: string) =>
       command === "engine_status"

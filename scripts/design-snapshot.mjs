@@ -2,11 +2,11 @@
 // so every screen opens in a browser without the canvas.
 //
 //   node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
-//                                    --player <folder>
+//                                    --player <folder> --readme <page>
 //
 // Any of the four canvases, each as Claude's Artifact tool saves it (a folder holding
-// project/canvas.json); only the pages of the canvases given are written again.
-// See docs/design/README.md.
+// project/canvas.json), and the README options, a plain page (its HTML file, as a read of it
+// saves it); only the pages of the ones given are written again. See docs/design/README.md.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,7 @@ const CANVASES = {
   options: "https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za",
   light: "https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y",
   player: "https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3",
+  readme: "https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk",
 };
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "design");
 const today = new Date().toISOString().slice(0, 10);
@@ -24,7 +25,7 @@ const today = new Date().toISOString().slice(0, 10);
 const folders = foldersIn(process.argv.slice(2));
 if (!folders) {
   console.error(
-    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder>",
+    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --readme <page>",
   );
   process.exit(1);
 }
@@ -89,6 +90,17 @@ if (folders.player) {
   }
 }
 
+// The README options: three drafts of the repo's README, the tour chosen. Not a canvas but a
+// page, kept as it is; its pictures are the README's own, in docs/readme/.
+if (folders.readme) {
+  const page = readFileSync(folders.readme, "utf8").replace(
+    /(["(])img\/([\w-]+\.png)/g,
+    "$1../readme/$2",
+  );
+  writeFileSync(join(out, "readme.html"), toPlainPage(page, CANVASES.readme));
+  written += 1;
+}
+
 console.log(`Wrote ${written} pages to ${out}`);
 
 /** The canvases' folders by name (`--light <folder>`), or nothing when the arguments don't read. */
@@ -130,6 +142,35 @@ function toPage(canvas, file, { canvas: url, link }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} · Kura design</title>
 ${helmet.trim()}
+</head>
+<body>
+${body.trim()}
+</body>
+</html>
+`;
+}
+
+/** A plain page as a snapshot: its head and body, whether it came whole or as a fragment (what
+ * goes in the head first, then the page). */
+function toPlainPage(html, url) {
+  const whole = {
+    head: html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1],
+    body: html.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1],
+  };
+  const lead =
+    html.match(/^(?:\s*(?:<title>[\s\S]*?<\/title>|<link\b[^>]*>|<meta\b[^>]*>|<style>[\s\S]*?<\/style>))*/)?.[0] ??
+    "";
+  const head = (whole.head ?? lead).replace(/<meta\s+(?:charset|name="viewport")[^>]*>\s*/gi, "");
+  const body = whole.body ?? html.slice(lead.length);
+  const title = head.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "Kura";
+  return `<!doctype html>
+<!-- Kura design snapshot of "${title}" (${url}), taken ${today}.
+     Change the artifact, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+${head.trim()}
 </head>
 <body>
 ${body.trim()}

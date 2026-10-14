@@ -45,7 +45,9 @@ every release since. Everything in [What's next](#whats-next) is built.
   list in [engine/tools/third_party_notices.py](engine/tools/third_party_notices.py) (the
   installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:
   `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
-  installer, and titles appear only as example data. The one exception is TMDB's logo, which its
+  installer, and titles appear only as example data. Pictures of Kura that go public (the
+  README's, in `docs/readme/`) and examples in the app show made-up titles only, never a real
+  series (the owner, 2026-10-14). The one exception is TMDB's logo, which its
   terms ask for beside its credit line (the owner, 2026-10-12; `app/src/assets/README.md`).
   Microsoft's redistributable files the AI model needs (its C++ runtime, and DirectML inside ONNX
   Runtime) aren't open source but are Microsoft's to let programs carry: the notices list them
@@ -141,6 +143,14 @@ Everything decided so far. Don't ask again; change only with the owner.
   choice is "Clean names" or "Keep my names". The release notes and the downloads page don't
   name it either (the owner, 2026-10-12), and they list every commit's title, so commit titles
   don't.
+- No piracy, in any form, and no copyright or content law broken (the owner, 2026-10-14: "We
+  must enforce that we do not support any form of piracy"). Kura looks after video already on
+  the PC and plays it only in its own window: it never searches for, downloads or shares video,
+  never streams it over the internet, and never gets around copy protection. The README ("Your
+  own videos only"), the downloads page and Settings › About say so: it's for videos you have
+  the right to keep and watch. The README is the tour in five steps, option B of three (the
+  owner, 2026-10-14; [docs/design/readme.html](docs/design/readme.html)), its pictures
+  Kura's own screens with made-up titles.
 - Home shows the library (the owner, 2026-10-12): what this copy of Kura is up to (the engine,
   the data folder, the database, TMDB, updates) is in Settings › About. Its videos by picture
   are a summary at the top, and Scan again and Add a folder sit by the page's title with when

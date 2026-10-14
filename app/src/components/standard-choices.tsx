@@ -30,16 +30,17 @@ export const NAMING = [
   { value: "keep", label: "Keep my names" },
 ] as const;
 
+// Made-up titles, as in every picture of Kura that goes public.
 const EXAMPLES = [
   {
-    from: "[Group] DBZ - 001 [480p].mkv",
-    folder: "TV\\Dragon Ball Z (1989)\\Season 01\\",
-    name: "Dragon Ball Z (1989) - S01E01 - The New Threat.mkv",
+    from: "starfall_academy_01.mkv",
+    folder: "TV\\Starfall Academy (1989)\\Season 01\\",
+    name: "Starfall Academy (1989) - S01E01 - The First Bell.mkv",
   },
   {
-    from: "Broly the Legendary Super Saiyan.avi",
-    folder: "Movies\\Dragon Ball Z - Broly - The Legendary Super Saiyan (1993)\\",
-    name: "Dragon Ball Z - Broly - The Legendary Super Saiyan (1993).avi",
+    from: "Last Light.avi",
+    folder: "Movies\\Starfall Academy - Last Light (2018)\\",
+    name: "Starfall Academy - Last Light (2018).avi",
   },
 ];
 

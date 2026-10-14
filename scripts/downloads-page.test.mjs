@@ -43,6 +43,13 @@ describe("downloads page", () => {
     assert.doesNotMatch(page, /0\.11\.0/);
   });
 
+  it("says before installing that Kura is for your own videos, never for piracy", () => {
+    const page = renderPage([release("0.10.0")]);
+
+    assert.match(page, /Before you install<\/h2>\s*<ul class="facts">\s*<li><strong>For your own videos\.<\/strong>/);
+    assert.match(page, /never searches for, downloads or shares video\. It isn't for piracy in any form/);
+  });
+
   it("leaves out drafts and tags that aren't versions", () => {
     const list = versions([release("0.1.0"), release("0.2.0", { draft: true }), { ...release("0.3.0"), tag_name: "nightly" }]);
 
