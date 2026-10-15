@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Kura design snapshot of "The small things" (https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA), taken 2026-10-15.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The small things · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes kpop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; padding: 48px 24px 64px">
+<div style="max-width: 1232px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 760px">
+<h1 style="margin: 0; font-size: 36px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em">The small things</h1>
+<p style="margin: 0; font-size: 16px; color: #a3a8b3">What Kura says when making English subtitles meets something in the way: the problem, what Kura did about it, and the next step.</p>
+</header>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px">
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">The first time</span>
+<div role="alertdialog" aria-label="Kura needs its speech model" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: #13161c; border: 1px solid rgba(255,255,255,.1)">
+<span style="font-weight: 800">Kura needs its speech model first</span>
+<span style="font-size: 13px; color: #d7dae0">1.5 GB, downloaded once from the source the installer's first page lists, and checked before it's used. It stays on this PC.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">Whisper medium · MIT licence</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: #f2b33d; color: #1d1300; font: inherit; font-size: 13px; font-weight: 800">Download it and start</button><button type="button" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: transparent; color: #a3a8b3; font: inherit; font-size: 13px; font-weight: 700">Not now</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 50ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">While a conversion has the graphics card</span>
+<div role="status" style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 18px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1)">
+<span style="width: 10px; height: 10px; flex: none; border-radius: 5px; background: #4f73b3"></span>
+<span style="flex: 1"><strong>English subtitles wait their turn.</strong> S02E01 is converting; the subtitles start when it's done, in the queue's order.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 100ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">Nothing to hear</span>
+<div role="status" style="display: flex; gap: 12px; padding: 16px 18px; border-radius: 18px; background: #13161c; border: 1px solid rgba(255,255,255,.1)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#bdd0f4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="m22 9-6 6M16 9l6 6"></path></svg>
+<span><strong>No speech in Starfall Academy · S00E03.</strong> It's music all through, so there was nothing to write. Kura made no subtitles for it.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 150ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">It didn't work</span>
+<div role="alert" style="display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border-radius: 18px; background: rgba(255,107,107,.07); border: 1px solid rgba(255,107,107,.26)">
+<span><strong>No English subtitles for S01E09.</strong> Its sound is damaged at 04:12, so Kura stopped there. The video is as it was.</span>
+<div style="padding: 10px 12px; border-radius: 12px; background: #08090c; font-family: 'Geist Mono', monospace; font-size: 11px; line-height: 1.7; color: #a3a8b3; overflow-x: auto"><div style="white-space: pre">04:12.384  audio decode error: invalid data</div></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: rgba(255,255,255,.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Try again</button><button type="button" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: transparent; color: #a3a8b3; font: inherit; font-size: 13px; font-weight: 700">Copy full log</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 200ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">The sound is English already</span>
+<div role="status" style="display: flex; gap: 12px; padding: 16px 18px; border-radius: 18px; background: #13161c; border: 1px solid rgba(255,255,255,.1)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
+<span>For an English dub with no subtitles, Kura writes down what's said rather than translating: subtitles to read along with.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 250ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">In History, to take them away</span>
+<div style="display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: #13161c; border: 1px solid rgba(255,255,255,.1)">
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">06:42</span>
+<span style="display: flex; flex-direction: column"><strong>Made English subtitles for 37 episodes</strong><span style="font-size: 12px; color: #a3a8b3">Starfall Academy · Season 1 · from the Japanese sound · Best</span></span>
+<button type="button" style="min-height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,.1); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Take them away</button>
+</div>
+<span style="font-size: 12px; color: #7c818c">They go to quarantine like any file set aside, and can be put back until the clear-out.</span>
+</div>
+
+</div>
+</div>
+</div>
+</body>
+</html>

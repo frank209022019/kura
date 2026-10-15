@@ -2,9 +2,9 @@
 // so every screen opens in a browser without the canvas.
 //
 //   node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
-//                                    --player <folder> --readme <page>
+//                                    --player <folder> --english <folder> --readme <page>
 //
-// Any of the four canvases, each as Claude's Artifact tool saves it (a folder holding
+// Any of the five canvases, each as Claude's Artifact tool saves it (a folder holding
 // project/canvas.json), and the README options, a plain page (its HTML file, as a read of it
 // saves it); only the pages of the ones given are written again. See docs/design/README.md.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -18,6 +18,7 @@ const CANVASES = {
   light: "https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y",
   player: "https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3",
   readme: "https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk",
+  english: "https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA",
 };
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "design");
 const today = new Date().toISOString().slice(0, 10);
@@ -25,7 +26,7 @@ const today = new Date().toISOString().slice(0, 10);
 const folders = foldersIn(process.argv.slice(2));
 if (!folders) {
   console.error(
-    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --readme <page>",
+    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --english <folder> --readme <page>",
   );
   process.exit(1);
 }
@@ -85,6 +86,32 @@ if (folders.player) {
     writeFileSync(
       join(out, name),
       toPage(player, file, { canvas: CANVASES.player, link: () => "player.html" }),
+    );
+    written += 1;
+  }
+}
+
+// English for every episode: a title's languages and English made for it, the Make dialog, the
+// queue and the player with them, English from another copy, Home by language, and the small
+// things, each a page that links to the others.
+if (folders.english) {
+  const english = readCanvas(folders.english);
+  const pages = {
+    "Main.dc.html": "english.html",
+    "Make.dc.html": "english-make.html",
+    "Queue.dc.html": "english-queue.html",
+    "Player.dc.html": "english-player.html",
+    "Copy-sound.dc.html": "english-copy.html",
+    "Home.dc.html": "english-home.html",
+    "Small-things.dc.html": "english-states.html",
+  };
+  for (const [file, name] of Object.entries(pages)) {
+    writeFileSync(
+      join(out, name),
+      toPage(english, file, {
+        canvas: CANVASES.english,
+        link: (target) => pages[`${target}.dc.html`] ?? "english.html",
+      }),
     );
     written += 1;
   }

@@ -15,6 +15,11 @@ private; these snapshots are the shared copy):
   over the page and moved anywhere, full screen, in light, for a quick check, and its small
   things ([player.html](player.html) and the pages after it). On the canvas the small player
   drags; in the snapshot it sits where it starts.
+- [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA): English for
+  every episode from the owner's own files: a title's languages and English subtitles made from
+  its sound, the Make dialog, the queue and the player with them, English sound from another
+  copy, Home by language, and the small things ([english.html](english.html) and the pages after
+  it).
 - [Kura README Options](https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk): three drafts of the
   repo's README, B (a tour) chosen ([readme.html](readme.html)). Its pictures are the README's
   own, in [../readme/](../readme/).
@@ -42,6 +47,13 @@ private; these snapshots are the shared copy):
 | The small player in light | [player-light.html](player-light.html) |
 | A quick check on "Which anime is this?" | [player-check.html](player-check.html) |
 | The player's small things | [player-states.html](player-states.html) |
+| A title's languages, and English made for it | [english.html](english.html) |
+| Make English subtitles | [english-make.html](english-make.html) |
+| English subtitles in the queue with the conversions | [english-queue.html](english-queue.html) |
+| Watching with English subtitles Kura made | [english-player.html](english-player.html) |
+| English sound from another copy | [english-copy.html](english-copy.html) |
+| Home: what has no English | [english-home.html](english-home.html) |
+| English subtitles' small things | [english-states.html](english-states.html) |
 | The README: three drafts, the tour chosen | [readme.html](readme.html) |
 
 The sample library is made up: its titles, episodes and files are invented (Starfall Academy and
@@ -62,7 +74,7 @@ The pages are generated; don't edit them. When a canvas changes, ask Claude to r
 README options are a plain page: give the file a read of it saves):
 
 ```powershell
-node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --readme <page>
+node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --english <folder> --readme <page>
 ```
 
 The script expands each board's repeated parts with the board's own sample data and rewrites the
@@ -70,7 +82,8 @@ links between boards.
 
 ## The README's pictures
 
-[../readme/](../readme/) holds them, at 1280 × 800: Kura's own screens rendered from its tests,
+[../readme/](../readme/) holds them, at 1280 × 800 (the Make English subtitles page taller, to
+show it whole): Kura's own screens rendered from its tests,
 with the tests' titles swapped for made-up ones. No real series, artwork or video is in any of
 them: posters are Kura's placeholders and the player's picture is a stand-in. Every picture of
 Kura that goes public keeps to that. To refresh them, ask Claude. `download.svg` is the README's

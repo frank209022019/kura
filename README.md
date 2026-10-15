@@ -4,10 +4,10 @@
 
 A media server streams your library to every screen. Kura gets the library right first. It
 recognises every episode, film and OVA in your folders, shows you what's missing, files everything
-the way popular media server apps expect, and brings every video up to one standard, with AI
-upscaling for old SD episodes. Kura (蔵, "storehouse") runs on your Windows PC beside the server
-you already use, and changes nothing until you say yes. It's for the videos you already have:
-Kura never finds, downloads or shares anime.
+the way popular media server apps expect, brings every video up to one standard, with AI
+upscaling for old SD episodes, and makes English subtitles for the ones with none. Kura (蔵,
+"storehouse") runs on your Windows PC beside the server you already use, and changes nothing until
+you say yes. It's for the videos you already have: Kura never finds, downloads or shares anime.
 
 <p>
   <a href="https://frankgrobbelaar.github.io/kura/"><img src="docs/readme/download.svg" alt="Download for Windows" height="52"></a>
@@ -60,7 +60,17 @@ it replaces the original.
 
 ![The queue: the file converting now and what's next](docs/readme/queue.png)
 
-### 5. Check it, right there
+### 5. English for every episode
+
+An episode with no English, neither a dub nor subtitles, gets English subtitles made on your own
+PC: Kura listens to its sound and translates it, a season or the whole library at a time,
+overnight if you like. They go beside each video under the name media server apps read, so your
+server shows them too, and the video itself never changes. Kura marks them as its own, since names
+and jokes can come out wrong, and History takes them away again.
+
+![Make English subtitles: which videos, from which sound, how good, and what it takes](docs/readme/subtitles.png)
+
+### 6. Check it, right there
 
 A small player is built in, for a quick look or a whole episode: it floats over the page wherever
 you drag it, and goes full screen with the sound and subtitles the file has. Your media server
@@ -88,19 +98,23 @@ does the rest, on the TV, the phone or wherever you watch.
 
 ## The AI inside
 
-Both models run on your own graphics card and ship inside Kura: nothing is downloaded for them,
-and no video leaves your PC.
+Every model runs on your own PC, and no video or sound leaves it. The upscalers and the voice
+detector ship inside Kura; Whisper is downloaded the first time you make subtitles, from the
+source the installer's first page lists.
 
 | | |
 | --- | --- |
 | **[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)** | Its anime video model, `realesr-animevideov3`, upscales SD episodes (480p and 576p). BSD-3-Clause licence. |
 | **[Anime4K](https://github.com/bloc97/Anime4K)** | Version 4.0's mode A (HQ), small neural networks written as graphics shaders, upscales 720p to 1080p. MIT licence. |
+| **[Whisper](https://github.com/openai/whisper)** | OpenAI's speech model hears an episode's sound and writes it in English: medium for Best, small for Fast, on your graphics card. MIT licence. |
+| **[pyannote](https://huggingface.co/pyannote/segmentation-3.0)** | Its speaker segmentation model 3.0 finds where someone speaks, even over music, so Whisper hears just that. MIT licence. |
 
 ## Your own videos only
 
 Kura looks after video files that are already on your PC, and plays them only in its own window.
-It never searches for, downloads or shares anime or any other video, never streams it over the
-internet, and doesn't get around copy protection. Use it only with videos you have the right to
+It never searches for, downloads or shares anime or any other video, nor subtitles or sound
+tracks (the English subtitles it makes come from your own video's sound), never streams video over
+the internet, and doesn't get around copy protection. Use it only with videos you have the right to
 keep and watch: Kura is not for piracy, in any form.
 
 Kura contains no anime, artwork or other media. The titles in these pictures are made up, the
