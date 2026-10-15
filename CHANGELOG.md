@@ -8,6 +8,14 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Search the lists that grow long: Home's shelf (a franchise by its name or any of its titles'),
+  a franchise's titles (the ones it's missing too), a title's videos through every season (by
+  episode code, episode title or file name), Convert's What, the queue's Up next and Tidy up's
+  changes. The list narrows as you type, however a name is written ("pokemon" finds "Pokémon"),
+  and going back to the page finds the search as you left it. In the queue, ticking every file
+  ticks the ones found; in Tidy up, applying applies the changes found.
+
 ## 0.17.2 - 2026-10-15
 
 ### Fixed

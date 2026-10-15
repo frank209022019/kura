@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type EngineStatus, type Hearable, type TitleSummary } from "@/lib/engine";
@@ -448,6 +448,36 @@ describe("HomePage", () => {
       "Series 1",
       "Movies 1",
     ]);
+  });
+
+  it("finds a franchise by its name or any of its titles', and says when nothing is", async () => {
+    const gt = { ...DBZ, id: 4, name: "Dragon Ball GT" };
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 314, size: 9e10 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done" },
+      "/franchises": [franchiseOf([DBZ, gt]), franchiseOf([BEBOP, MOVIE])],
+    });
+    renderHome(READY);
+
+    const search = await screen.findByRole("searchbox", { name: "Search the shelf" });
+    expect(search).toHaveAttribute("placeholder", "Search 2 anime");
+    fireEvent.change(search, { target: { value: "gt" } });
+
+    expect(
+      await screen.findByText("1 of 2 anime · by type, oldest release first"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Dragon Ball Z/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Cowboy Bebop/ })).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "Trigun " } });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "No anime on the shelf goes by “Trigun”.",
+    );
+
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(await screen.findByText("2 anime · by type, oldest release first")).toBeInTheDocument();
+    expect(search).toHaveValue("");
   });
 
   it("leads a title on its own to its page", async () => {

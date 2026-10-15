@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { EngineProblem } from "@/components/engine-problem";
 import { Poster } from "@/components/poster";
+import { NoMatches, SearchField, useAddressSearch } from "@/components/search-field";
 import { CardsSkeleton, HeaderSkeleton, ListHeadSkeleton, Loading } from "@/components/skeleton";
 import { SortControl } from "@/components/sort-control";
 import { StatusShape } from "@/components/status";
@@ -19,6 +20,7 @@ import {
   useFranchiseMissing,
 } from "@/lib/engine";
 import { kindCount, kindWord } from "@/lib/kinds";
+import { matches } from "@/lib/search";
 import { share } from "@/lib/share";
 import { cn } from "@/lib/utils";
 
@@ -30,14 +32,24 @@ type Shelved =
 /** A franchise: its series, films, OVAs and specials, by type and oldest release first unless the
  * owner picks another order, each leading to its own page. "Missing titles" puts in among them
  * the ones AniList ties to the franchise that the library has no part of. The address keeps
- * whether they're in (`?missing`, as a title's own "Missing titles" leads here), so going back
- * to the page finds it as it was left. */
+ * whether they're in (`?missing`, as a title's own "Missing titles" leads here) and the search,
+ * so going back to the page finds it as it was left. */
 export function FranchisePage() {
   const { id } = useParams();
   const [address, setAddress] = useSearchParams();
   const [sort, setSort] = useState<TitleSort>("released");
+  const [query, setQuery] = useAddressSearch();
   const whole = address.has("missing");
-  const setWhole = (on: boolean) => setAddress(on ? { missing: "" } : {}, { replace: true });
+  const setWhole = (on: boolean) =>
+    setAddress(
+      (before) => {
+        const after = new URLSearchParams(before);
+        if (on) after.set("missing", "");
+        else after.delete("missing");
+        return after;
+      },
+      { replace: true },
+    );
   const franchise = useFranchise(Number(id), sort);
   const missing = useFranchiseMissing(Number(id));
 
@@ -62,13 +74,18 @@ export function FranchisePage() {
   const offered = rest && (rest.titles.length > 0 || rest.looking) ? rest : null;
   const on = whole && offered !== null;
   const lacking = on ? offered.titles : [];
-  const items = shelved(found.titles, lacking, sort);
-  const count = on
-    ? [
-        `${found.titles.length} of ${found.titles.length + lacking.length} titles`,
-        offered.looking && "still looking up the rest",
-      ]
-    : [found.titles.length === 1 ? "1 title" : `${found.titles.length} titles`];
+  const all = shelved(found.titles, lacking, sort);
+  const items = all.filter((item) => matches(query, item.name));
+  const count = [
+    query
+      ? `${items.length} of ${all.length} titles`
+      : on
+        ? `${found.titles.length} of ${all.length} titles`
+        : found.titles.length === 1
+          ? "1 title"
+          : `${found.titles.length} titles`,
+    on && offered.looking && "still looking up the rest",
+  ];
   return (
     <>
       <Breadcrumb trail={[LIBRARY]} current={found.name} />
@@ -88,6 +105,15 @@ export function FranchisePage() {
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {(all.length > 1 || query) && (
+              <SearchField
+                value={query}
+                onChange={setQuery}
+                label={`Search ${found.name}`}
+                placeholder={`Search ${all.length} titles`}
+                className="w-56"
+              />
+            )}
             <SortControl value={sort} onChange={setSort} />
             {offered && (
               <>
@@ -102,17 +128,25 @@ export function FranchisePage() {
             )}
           </div>
         </div>
-        <CardGrid
-          groups={groupsByType(sort) ? byKind(items) : together(items)}
-          keyOf={(item) => ("title" in item ? item.title.id : `missing ${item.missing.anilistId}`)}
-          card={(item) =>
-            "title" in item ? (
-              <TitleCard title={item.title} />
-            ) : (
-              <MissingCard title={item.missing} />
-            )
-          }
-        />
+        {items.length === 0 ? (
+          <NoMatches>
+            No title in {found.name} goes by “{query.trim()}”.
+          </NoMatches>
+        ) : (
+          <CardGrid
+            groups={groupsByType(sort) ? byKind(items) : together(items)}
+            keyOf={(item) =>
+              "title" in item ? item.title.id : `missing ${item.missing.anilistId}`
+            }
+            card={(item) =>
+              "title" in item ? (
+                <TitleCard title={item.title} />
+              ) : (
+                <MissingCard title={item.missing} />
+              )
+            }
+          />
+        )}
       </section>
     </>
   );

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ShelfCard } from "@/components/title-card";
@@ -254,6 +254,37 @@ describe("FranchisePage", () => {
     toggle.click();
     expect(await screen.findByText("3 titles · by type, oldest release first")).toBeVisible();
     expect(screen.queryByText("Not in library")).not.toBeInTheDocument();
+  });
+
+  it("finds titles by name, the ones it lacks too, and keeps the search with them", async () => {
+    fakeEngine({
+      "/franchises/7": DRAGON_BALL_FRANCHISE,
+      "/franchises/7/missing": { titles: [CURSE_OF_THE_BLOOD_RUBIES, KAI], looking: false },
+    });
+    renderWithEngine(<FranchisePage />, "/franchises/7?missing");
+
+    const search = await screen.findByRole("searchbox", { name: "Search Dragon Ball" });
+    expect(search).toHaveAttribute("placeholder", "Search 5 titles");
+    fireEvent.change(search, { target: { value: "z" } });
+
+    expect(await screen.findByText("3 of 5 titles · by type, oldest release first")).toBeVisible();
+    expect(
+      within(screen.getByRole("region", { name: "Series 2" }))
+        .getAllByRole("listitem")
+        .map((card) => card.textContent),
+    ).toEqual([
+      expect.stringContaining("Dragon Ball Z"),
+      expect.stringMatching(/Not in library.*Dragon Ball Z Kai/),
+    ]);
+    // Taking the titles it lacks away keeps the search.
+    screen.getByRole("button", { name: "Missing titles 2" }).click();
+    expect(await screen.findByText("2 of 3 titles · by type, oldest release first")).toBeVisible();
+    expect(search).toHaveValue("z");
+
+    fireEvent.change(search, { target: { value: "Cell" } });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "No title in Dragon Ball goes by “Cell”.",
+    );
   });
 
   it("opens with the titles it lacks put in, when a title's page leads here", async () => {

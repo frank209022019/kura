@@ -414,6 +414,55 @@ describe("QueuePage", () => {
     expect(await screen.findByText("Tick files to move or take out several at once")).toBeVisible();
   });
 
+  it("finds files waiting by title, episode or file name, and ticks only those found", async () => {
+    const fetch = fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        queued: [
+          job(6),
+          job(7),
+          job(8, {
+            season: 2,
+            episode: 1,
+            label: "Dragon Ball Z · S02E01",
+            path: "D:AnimeTVDragon Ball Z (1989)Season 02Dragon Ball Z (1989) - S02E01.mkv",
+          }),
+          job(10, {
+            titleId: 2,
+            title: "Trigun",
+            label: "Trigun · S01E03",
+            path: "D:AnimeTrigunTrigun - 03.mkv",
+            episode: 3,
+          }),
+        ],
+      },
+      "POST /queue/move": { changed: 2 },
+    });
+    renderQueue();
+
+    const search = await screen.findByRole("searchbox", { name: "Search the queue" });
+    expect(search).toHaveAttribute("placeholder", "Search 4 files waiting");
+    fireEvent.change(search, { target: { value: "dragon s01" } });
+
+    const next = screen.getByRole("region", { name: "Up next" });
+    await waitFor(() => expect(next).not.toHaveTextContent("Season 2"));
+    expect(next).toHaveTextContent("Dragon Ball Z · Season 1 · 2 left");
+    expect(next).not.toHaveTextContent("Trigun");
+    screen.getByRole("checkbox", { name: "Tick every file shown" }).click();
+    expect(await screen.findByText("2 ticked")).toBeVisible();
+    screen.getByRole("button", { name: "Move to the end" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/move")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/queue/move") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ ids: [6, 7], before: null });
+
+    fireEvent.change(search, { target: { value: "Trigun - 03" } });
+    expect(await within(next).findByText("Trigun · Season 1 · 1 left")).toBeVisible();
+    fireEvent.change(search, { target: { value: "Vash" } });
+    expect(await within(next).findByRole("status")).toHaveTextContent(
+      "No file waiting goes by “Vash”.",
+    );
+  });
+
   it("shows the page's shape while the queue loads", async () => {
     vi.stubGlobal(
       "fetch",

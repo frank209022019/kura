@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router";
 import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { NoMatches, SearchField, useAddressSearch } from "@/components/search-field";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { fastSubtitles } from "@/components/this-pc";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ import {
   useSystem,
 } from "@/lib/engine";
 import { clockTime, keptFor, languageName, split } from "@/lib/format";
+import { matches } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { ConvertTabs } from "./convert-tabs";
 import { NoRoom } from "./no-room";
@@ -942,13 +944,18 @@ function CancelAll(props: { files: number; converting: boolean; onClose: () => v
 /** What waits, by title and season, each group with a tick for all its files. Ticked files can be
  * moved or taken out all at once; each file's own menu does the same for it alone. */
 function UpNext({ jobs }: { jobs: Job[] }) {
-  const groups = jobGroups(jobs);
+  const [query, setQuery] = useAddressSearch();
+  const shown = jobs.filter((job) =>
+    matches(query, job.label, job.title, episodeCode(job), split(job.path)[0]),
+  );
+  const groups = jobGroups(shown);
   const batch = useQueueAction();
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
-  // The ticked files in the order they wait in: one that started converting meanwhile drops out.
-  const chosen = jobs.filter((job) => picked.has(job.id)).map((job) => job.id);
-  const next = jobs.find((job) => !picked.has(job.id));
-  const all = chosen.length === 0 ? false : chosen.length === jobs.length ? true : "mixed";
+  // The ticked files shown, in the order they wait in: one that started converting meanwhile
+  // drops out, and one the search hides waits ticked till it shows again.
+  const chosen = shown.filter((job) => picked.has(job.id)).map((job) => job.id);
+  const next = jobs.find((job) => !chosen.includes(job.id));
+  const all = chosen.length === 0 ? false : chosen.length === shown.length ? true : "mixed";
   const pick = (ids: number[], on: boolean) =>
     setPicked((before) => {
       const after = new Set(before);
@@ -960,7 +967,7 @@ function UpNext({ jobs }: { jobs: Job[] }) {
     });
   const act = (path: string, body: object) =>
     batch.mutate({ path, body }, { onSuccess: () => setPicked(new Set()) });
-  if (groups.length === 0) return null;
+  if (jobs.length === 0) return null;
   return (
     <section
       aria-labelledby="next-title"
@@ -971,13 +978,17 @@ function UpNext({ jobs }: { jobs: Job[] }) {
           <label className="flex cursor-pointer">
             <input
               type="checkbox"
-              aria-label="Tick every file waiting"
+              aria-label={query ? "Tick every file shown" : "Tick every file waiting"}
               checked={all === true}
               ref={(box) => {
                 if (box) box.indeterminate = all === "mixed";
               }}
+              disabled={shown.length === 0}
               onChange={() =>
-                setPicked(all === true ? new Set() : new Set(jobs.map((job) => job.id)))
+                pick(
+                  shown.map((job) => job.id),
+                  all !== true,
+                )
               }
               className="peer sr-only"
             />
@@ -1023,7 +1034,17 @@ function UpNext({ jobs }: { jobs: Job[] }) {
           </span>
         )}
       </div>
+      {(jobs.length > 1 || query) && (
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          label="Search the queue"
+          placeholder={`Search ${jobs.length} files waiting`}
+          className="mb-2"
+        />
+      )}
       <Problem error={batch.error} />
+      {groups.length === 0 && <NoMatches>No file waiting goes by “{query.trim()}”.</NoMatches>}
       {groups.map((group, at) => (
         <Group
           key={group.key}

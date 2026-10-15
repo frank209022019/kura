@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { useAddressSearch } from "@/components/search-field";
 import { Loading, TilesSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { pickFolder } from "@/lib/dialogs";
@@ -36,6 +37,7 @@ export function HomePage() {
   const heard = useSubtitleOptions();
   const navigate = useNavigate();
   const [sort, setSort] = useState<TitleSort>("released");
+  const [query, setQuery] = useAddressSearch();
 
   const empty = folders.data?.length === 0;
   if (empty && settings.data && !settings.data.setUp) return <Navigate to="/setup" replace />;
@@ -95,11 +97,12 @@ export function HomePage() {
           onMatch={() => void navigate("/match")}
           onMissing={() => {
             setSort("missing");
+            setQuery("");
             document.getElementById("shelf")?.scrollIntoView({ behavior: "smooth" });
           }}
         />
       )}
-      {working && !empty && <Shelf sort={sort} onSort={setSort} />}
+      {working && !empty && <Shelf sort={sort} onSort={setSort} query={query} onQuery={setQuery} />}
     </>
   );
 }

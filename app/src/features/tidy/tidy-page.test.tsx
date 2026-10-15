@@ -284,6 +284,36 @@ describe("TidyPage", () => {
     });
   });
 
+  it("finds changes by anime or file, and applies only those found", async () => {
+    const fetch = fakeEngine({
+      "/tidy": PROPOSAL,
+      "POST /tidy": { planId: 14, moved: 2, quarantined: 1, problems: [], english: 0 },
+    });
+    renderTidy();
+
+    const search = await screen.findByRole("searchbox", { name: "Search the changes" });
+    fireEvent.change(search, { target: { value: "death note" } });
+
+    // The copies of Death Note's episode, and its changes; no other title's.
+    expect(await screen.findByRole("region", { name: "Duplicates" })).toBeVisible();
+    const changes = screen.getByRole("region", { name: "Changes" });
+    await waitFor(() => expect(changes).not.toHaveTextContent("Cowboy Bebop"));
+    expect(changes).not.toHaveTextContent("Trigun");
+    (await screen.findAllByRole("button", { name: "Apply 2 changes" }))[0]?.click();
+    await waitFor(() => expect(sent(fetch, "POST", "/tidy")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body)).changes).toEqual([
+      reviewed(DUPLICATE),
+      reviewed(DEATH_NOTE_7),
+    ]);
+
+    fireEvent.change(search, { target: { value: "trigun_03" } });
+    expect(await screen.findByText("Trigun · S01E03")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Duplicates" })).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "Naruto" } });
+    expect(await screen.findByRole("status")).toHaveTextContent("No change goes by “Naruto”.");
+  });
+
   it("waits for a scan to finish before applying", async () => {
     fakeEngine({ "/tidy": PROPOSAL, "/scan": { ...NO_SCAN, state: "running" } });
     renderTidy();

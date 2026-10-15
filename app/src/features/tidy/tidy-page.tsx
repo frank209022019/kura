@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { NoMatches, SearchField, useAddressSearch } from "@/components/search-field";
 import { Loading, PanelSkeleton, TilesSkeleton } from "@/components/skeleton";
 import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   useUndoPlan,
 } from "@/lib/engine";
 import { codecName, isEnglish, languageName, size, split, within } from "@/lib/format";
+import { matches } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
 const SHOWN = 5; // changes listed per title before "Show more"
@@ -37,6 +39,7 @@ export function TidyPage() {
   const undo = useUndoPlan();
   const scanning = useScan().data?.state === "running";
   const [only, setOnly] = useState<TidyCategory | null>(null);
+  const [query, setQuery] = useAddressSearch();
   const [leftOut, setLeftOut] = useState<number[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]); // videos left where they are, this time
   // Copies kept with the other copy's English, or as they are, by the copy kept's path; till the
@@ -59,7 +62,19 @@ export function TidyPage() {
     );
   }
   const found = proposal.data;
-  const shown = only ? found.changes.filter((change) => change.category === only) : found.changes;
+  // What's on screen: the kind of change picked, and what the search finds.
+  const shown = found.changes.filter(
+    (change) =>
+      (!only || change.category === only) &&
+      matches(query, change.title, change.label, split(change.source)[0], split(change.target)[0]),
+  );
+  const copies = found.duplicates.filter((duplicate) =>
+    matches(
+      query,
+      duplicate.label,
+      ...[duplicate.keep, ...duplicate.drop].map((copy) => split(copy.path)[0]),
+    ),
+  );
   const shownChosen = shown.filter(
     (change) => !leftOut.includes(change.titleId) && !skipped.includes(change.video),
   ); // what's on screen, and not skipped
@@ -149,13 +164,29 @@ export function TidyPage() {
         </EmptyState>
       ) : (
         <>
-          <p className="animate-fade-up text-13 text-fg-muted">
-            Duplicates go to a quarantine folder on the same drive (Kura quarantine). Nothing is
-            deleted.
-          </p>
-          {found.duplicates.length > 0 && (!only || only === "duplicate") && (
+          <div className="flex animate-fade-up flex-wrap items-center justify-between gap-3">
+            <p className="text-13 text-fg-muted">
+              Duplicates go to a quarantine folder on the same drive (Kura quarantine). Nothing is
+              deleted.
+            </p>
+            {(found.changes.length > 1 || query) && (
+              <SearchField
+                value={query}
+                onChange={setQuery}
+                label="Search the changes"
+                placeholder="Search by anime or file"
+                className="w-64"
+              />
+            )}
+          </div>
+          {shown.length === 0 && query && (
+            <NoMatches>
+              No change{only ? " of this kind" : ""} goes by “{query.trim()}”.
+            </NoMatches>
+          )}
+          {copies.length > 0 && (!only || only === "duplicate") && (
             <section aria-label="Duplicates" className="flex animate-fade-up flex-col gap-4">
-              {found.duplicates.map((duplicate) => (
+              {copies.map((duplicate) => (
                 <Copies
                   key={duplicate.label}
                   duplicate={duplicate}

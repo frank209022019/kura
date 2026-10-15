@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { NoMatches, SearchField, useAddressSearch } from "@/components/search-field";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { STANDARDS } from "@/components/standard-choices";
 import { abilityOf, GuessNote, NoEncoder } from "@/components/this-pc";
@@ -40,6 +41,7 @@ import {
   type Way,
 } from "@/lib/engine";
 import { size } from "@/lib/format";
+import { matches } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { ConvertTabs, Step } from "./convert-tabs";
 import { NoRoom } from "./no-room";
@@ -298,8 +300,11 @@ function What(props: {
   chosen: Convertible[];
   onToggle: (files: Convertible[]) => void;
 }) {
+  const [query, setQuery] = useAddressSearch();
   const sum = totals(props.chosen, "best");
-  const rows = props.groups.flatMap((group) =>
+  const titles = props.groups.reduce((total, group) => total + group.titles.length, 0);
+  const found = searched(props.groups, query);
+  const rows = found.flatMap((group) =>
     group.titles.length > 1
       ? [
           <TreeRow
@@ -316,7 +321,19 @@ function What(props: {
   );
   return (
     <Step n={1} id="what-title" title="What" className="flex-[1_1_380px]">
-      <div className="flex max-h-[28rem] flex-col overflow-y-auto text-14">{rows}</div>
+      {(titles > 1 || query) && (
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          label="Search what to convert"
+          placeholder={`Search ${titles} titles`}
+        />
+      )}
+      {found.length === 0 ? (
+        <NoMatches>No title goes by “{query.trim()}”.</NoMatches>
+      ) : (
+        <div className="flex max-h-[28rem] flex-col overflow-y-auto text-14">{rows}</div>
+      )}
       <div className="mt-auto flex flex-wrap gap-2">
         {props.chosen.length === 0 ? (
           <Chip>Nothing chosen yet</Chip>
@@ -335,6 +352,17 @@ function What(props: {
       </div>
     </Step>
   );
+}
+
+/** What a search finds: a franchise by its name, whole, or else the titles in it found by
+ * theirs, each on its own. */
+function searched(groups: GroupNode[], query: string): GroupNode[] {
+  return groups.flatMap((group) => {
+    if (matches(query, group.name)) return [group];
+    return group.titles
+      .filter((title) => matches(query, title.name))
+      .map((title) => ({ key: title.key, name: title.name, titles: [title], files: title.files }));
+  });
 }
 
 function titleRows(

@@ -154,6 +154,31 @@ describe("ConvertPage", () => {
     expect(screen.getByRole("button", { name: "Choose what to convert" })).toBeDisabled();
   });
 
+  it("finds a title to convert by its name, or its franchise's whole", async () => {
+    fakeEngine({ "/convert": OPTIONS, "/franchises": FRANCHISES, "/queue": QUEUE });
+    renderConvert();
+
+    const search = await screen.findByRole("searchbox", { name: "Search what to convert" });
+    expect(search).toHaveAttribute("placeholder", "Search 2 titles");
+    fireEvent.change(search, { target: { value: "gt" } });
+
+    // The title found stands on its own: ticking it ticks only its files.
+    const gt = await screen.findByRole("checkbox", { name: /Dragon Ball GT\s*1 left/ });
+    expect(screen.queryByRole("checkbox", { name: /franchise/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Dragon Ball Z/ })).not.toBeInTheDocument();
+    fireEvent.click(gt);
+    expect(await screen.findByText("1 episode")).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "dragon ball" } });
+    expect(
+      await screen.findByRole("checkbox", { name: /Dragon Ball\s*franchise/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Dragon Ball Z\s*3 left/ })).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "Trigun" } });
+    expect(await screen.findByRole("status")).toHaveTextContent("No title goes by “Trigun”.");
+  });
+
   it("adds up what's chosen, and what each way takes", async () => {
     fakeEngine({ "/convert": OPTIONS, "/franchises": FRANCHISES, "/queue": QUEUE });
     renderConvert();

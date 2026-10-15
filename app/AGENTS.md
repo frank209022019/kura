@@ -29,6 +29,11 @@ and [../CLAUDE.md](../CLAUDE.md).
 - Lists of titles group them by type, series, movies, OVAs then specials (`KIND_ORDER` in
   `lib/kinds.ts`), through `components/title-groups.tsx`, except in the orders that look across
   types ("Recently added", "Most missing").
+- A list that grows long has a search (`components/search-field.tsx`), shown once there's more
+  than one thing in it: it narrows the list as you type, wanting every word however it's written
+  (`lib/search.ts`), keeps to the page's address (`?q=`) so going back finds it, and says when
+  nothing goes by it. What it hides isn't acted on: Tidy up applies, and the queue's ticks move,
+  only what's found.
 - Deleting asks first, beside what goes (`components/delete.tsx`, on a title's page and on "Which
   anime is this?"), says where it goes and for how long, and offers it back right after. Nothing
   is ever deleted outright; emptying a drive's quarantine early to make room

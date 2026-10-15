@@ -6,6 +6,7 @@ import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/
 import { EngineProblem } from "@/components/engine-problem";
 import { Markdown } from "@/components/markdown";
 import { Poster } from "@/components/poster";
+import { NoMatches, SearchField, useAddressSearch } from "@/components/search-field";
 import { HeaderSkeleton, Loading, PanelSkeleton } from "@/components/skeleton";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
 import { clockLength, codecName, isEnglish, languageName, listed, size, split } from "@/lib/format";
 import { files, kindWord } from "@/lib/kinds";
+import { matches } from "@/lib/search";
 import { share } from "@/lib/share";
 import { cn } from "@/lib/utils";
 
@@ -39,11 +41,14 @@ export function TitlePage() {
   // Deleting asks first, beside what goes; right after, the page says so and offers it back.
   const [asking, setAsking] = useState<Asking | null>(null);
   const [deleted, setDeleted] = useState<TidyResult | null>(null);
-  // The season whose videos show; a season's name in Seasons leads there too.
+  // The season whose videos show; a season's name in Seasons leads there too. A search looks
+  // through every season's.
   const [shelf, setShelf] = useState<string | null>(null);
+  const [query, setQuery] = useAddressSearch();
   const videosAt = useRef<HTMLElement>(null);
   const showSeason = (season: number) => {
     setShelf(String(season));
+    setQuery("");
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     videosAt.current?.scrollIntoView?.({ block: "start", behavior: still ? "auto" : "smooth" });
   };
@@ -140,6 +145,8 @@ export function TitlePage() {
         title={found}
         shelf={shelf}
         onShelf={setShelf}
+        query={query}
+        onQuery={setQuery}
         at={videosAt}
         onAsk={ask}
         confirm={confirm}
@@ -579,13 +586,16 @@ function Videos(props: {
   /** The shelf picked, or none yet: then the one playing, or the first. */
   shelf: string | null;
   onShelf: (shelf: string) => void;
+  /** What's searched for, through every shelf: its episode's code or title, or its file's name. */
+  query: string;
+  onQuery: (query: string) => void;
   at: RefObject<HTMLElement | null>;
   onAsk: (asking: Asking) => void;
   confirm: (where: string) => ReactNode;
   /** The video having its subtitles made now, and how far it's got. */
   making: { fileId: number; share: number } | null;
 }) {
-  const { title } = props;
+  const { title, query } = props;
   const { play } = usePlayer();
   const playing = usePlayingFile();
   const all = shelves(title.videos);
@@ -594,26 +604,44 @@ function Videos(props: {
     all.find((shelf) => shelf.videos.some((video) => video.id === playing)) ??
     all[0];
   if (!shown) return null;
+  const found = query
+    ? all
+        .flatMap((shelf) => shelf.videos)
+        .filter((video) =>
+          matches(query, videoName(video), shownName(title, video), split(video.path)[0]),
+        )
+    : shown.videos;
   // What plays next: the rest of the season and the seasons after it; the specials, and files
   // without a season, among themselves.
   const season = (shelf: Shelf) => shelf.key !== "0" && shelf.key !== "other";
-  const following = season(shown)
-    ? all.filter(season).flatMap((shelf) => shelf.videos)
-    : shown.videos;
-  const items = following.map((video) => playItem(title, video));
-  const numbered = shown.videos.some((video) => video.episode !== null);
+  const playFrom = (video: TitleFile) => {
+    const own = all.find((shelf) => shelf.videos.includes(video)) ?? shown;
+    const following = season(own)
+      ? all.filter(season).flatMap((shelf) => shelf.videos)
+      : own.videos;
+    play(
+      following.map((each) => playItem(title, each)),
+      following.indexOf(video),
+    );
+  };
+  const numbered = found.some((video) => video.episode !== null);
   const heading =
     title.kind === "movie" ? (title.videos.length === 1 ? "Its file" : "Its files") : "Videos";
   const without = title.videos.filter((video) => !video.problem && !english(video)).length;
   const note = [files(title.videos.length), without > 0 && `${without} without English`]
     .filter(Boolean)
     .join(" · ");
-  const seasonal = season(shown) || shown.key === "0";
+  const seasonal = !query && (season(shown) || shown.key === "0");
   const make = `/subtitles?title=${title.id}${seasonal ? `&season=${shown.key}` : ""}`;
+  const count = title.videos.length;
   return (
     <Panel id="videos-title" at={props.at} title={heading} note={note}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {all.length > 1 ? (
+        {query ? (
+          <span className="text-13 text-fg-muted">
+            {found.length} of {count} videos
+          </span>
+        ) : all.length > 1 ? (
           <Segmented
             label="Season"
             value={shown.key}
@@ -624,32 +652,49 @@ function Videos(props: {
         ) : (
           <span />
         )}
-        <Link
-          to={make}
-          className="press inline-flex min-h-10 items-center gap-2 rounded-full border border-field-edge bg-field px-4 font-bold text-13 text-fg"
-        >
-          <Captions size={16} strokeWidth={1.9} aria-hidden="true" />
-          Make English subtitles
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {(count > 1 || query) && (
+            <SearchField
+              value={query}
+              onChange={props.onQuery}
+              label={`Search the videos of ${title.name}`}
+              placeholder={`Search ${count} videos`}
+              className="w-56"
+            />
+          )}
+          <Link
+            to={make}
+            className="press inline-flex min-h-10 items-center gap-2 rounded-full border border-field-edge bg-field px-4 font-bold text-13 text-fg"
+          >
+            <Captions size={16} strokeWidth={1.9} aria-hidden="true" />
+            Make English subtitles
+          </Link>
+        </div>
       </div>
-      <ul
-        aria-label={all.length > 1 ? shown.label : heading}
-        className="-mr-2 flex max-h-120 flex-col overflow-y-auto pr-2"
-      >
-        {shown.videos.map((video) => (
-          <VideoRow
-            key={video.id}
-            title={title}
-            video={video}
-            numbered={numbered}
-            playing={playing === video.id}
-            making={props.making?.fileId === video.id ? props.making.share : null}
-            onPlay={() => play(items, following.indexOf(video))}
-            onAsk={props.onAsk}
-            confirm={props.confirm(`video-${video.id}`)}
-          />
-        ))}
-      </ul>
+      {found.length === 0 ? (
+        <NoMatches>
+          No video of {title.name} goes by “{query.trim()}”.
+        </NoMatches>
+      ) : (
+        <ul
+          aria-label={query ? "Videos found" : all.length > 1 ? shown.label : heading}
+          className="-mr-2 flex max-h-120 flex-col overflow-y-auto pr-2"
+        >
+          {found.map((video) => (
+            <VideoRow
+              key={video.id}
+              title={title}
+              video={video}
+              numbered={numbered}
+              playing={playing === video.id}
+              making={props.making?.fileId === video.id ? props.making.share : null}
+              onPlay={() => playFrom(video)}
+              onAsk={props.onAsk}
+              confirm={props.confirm(`video-${video.id}`)}
+            />
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }

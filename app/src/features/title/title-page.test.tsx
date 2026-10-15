@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayerLayer } from "@/features/player/player";
@@ -614,6 +614,51 @@ describe("TitlePage", () => {
       "href",
       "/subtitles?title=1&season=1",
     );
+  });
+
+  it("finds videos through every season by episode code or title, or file name", async () => {
+    renderTitle({
+      ...DBZ,
+      videos: [
+        video(1, 1, 1, "S01E01"),
+        video(2, 4, 11, "S04E11"),
+        video(3, 0, 1, "S00E01"),
+        video(4, null, null, "Opening"),
+      ],
+    });
+
+    const search = await screen.findByRole("searchbox", {
+      name: "Search the videos of Dragon Ball Z",
+    });
+    expect(search).toHaveAttribute("placeholder", "Search 4 videos");
+    fireEvent.change(search, { target: { value: "ginyu" } });
+
+    const found = await screen.findByRole("list", { name: "Videos found" });
+    expect(within(found).getAllByRole("listitem")).toHaveLength(1);
+    expect(found).toHaveTextContent("S04E11The Ginyu Force");
+    expect(screen.getByText("1 of 4 videos")).toBeVisible();
+    expect(screen.queryByRole("radio", { name: "Season 1" })).not.toBeInTheDocument();
+    // Its English subtitles are made for the whole title while searching.
+    expect(screen.getByRole("link", { name: "Make English subtitles" })).toHaveAttribute(
+      "href",
+      "/subtitles?title=1",
+    );
+
+    fireEvent.change(search, { target: { value: "s00e01" } });
+    expect(await screen.findByText("Bardock")).toBeVisible();
+    fireEvent.change(search, { target: { value: "opening.mkv" } });
+    expect(await within(found).findByText("Opening.mkv")).toBeVisible();
+    fireEvent.change(search, { target: { value: "Frieza" } });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "No video of Dragon Ball Z goes by “Frieza”.",
+    );
+
+    // A season's name in Seasons shows its videos, the search put away.
+    within(screen.getByRole("region", { name: "Seasons" }))
+      .getByRole("button", { name: "Season 4" })
+      .click();
+    expect(await screen.findByRole("list", { name: "Season 4" })).toHaveTextContent("S04E11");
+    expect(search).toHaveValue("");
   });
 
   it("shows a season's videos from its name in Seasons", async () => {
