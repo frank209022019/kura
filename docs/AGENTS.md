@@ -17,8 +17,9 @@ Kura's docs are short pages, one subject each, written for the owner and for age
 - **`design/` is generated.** `scripts/design-snapshot.mjs` writes it from the design canvases
   and the README options; never edit those pages by hand. When one changes, refresh them (see
   [design/README.md](design/README.md)).
-- **Public pictures use made-up titles.** The README's pictures (`readme/`) are Kura's own
-  screens with made-up titles: no real series, artwork or video. Any new one keeps to that.
+- **Public pictures use made-up titles.** The README's pictures (`readme/`) and the design
+  boards (`design/`) show made-up titles: no real series, artwork or video, and no media server
+  app named. Any new one keeps to that.
 
 ## Where things go
 

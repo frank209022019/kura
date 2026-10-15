@@ -46,8 +46,9 @@ every release since. Everything in [What's next](#whats-next) is built.
   installer build stops otherwise); code adapted from elsewhere keeps its notice (shadcn/ui:
   `app/src/components/ui/LICENSE-shadcn.txt`); no anime, artwork or other media in the repo or the
   installer, and titles appear only as example data. Pictures of Kura that go public (the
-  README's, in `docs/readme/`) and examples in the app show made-up titles only, never a real
-  series (the owner, 2026-10-14). The one exception is TMDB's logo, which its
+  README's, in `docs/readme/`), examples in the app and the design boards (with their snapshots
+  in `docs/design/`) show made-up titles only, never a real series (the owner, 2026-10-14 and
+  2026-10-15). The one exception is TMDB's logo, which its
   terms ask for beside its credit line (the owner, 2026-10-12; `app/src/assets/README.md`).
   Microsoft's redistributable files the AI model needs (its C++ runtime, and DirectML inside ONNX
   Runtime) aren't open source but are Microsoft's to let programs carry: the notices list them

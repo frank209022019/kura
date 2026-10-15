@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Kura design snapshot of "3.1 Tidy up: review changes" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-10.
+<!-- Kura design snapshot of "3.1 Tidy up: review changes" (https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb), taken 2026-10-15.
      Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
 <html lang="en">
 <head>
@@ -72,7 +72,7 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 
 <nav aria-label="Tidy up categories" style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 6px; animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 60ms">
 <a href="05-tidy.html" aria-current="page" class="press" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; background: rgba(242,179,61,0.12); color: #ffd27a; text-decoration: none; font-weight: 800"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h3l2 2h5a2 2 0 0 1 2 2v1"></path><path d="M7 11a2 2 0 0 1 2-2h3l2 2h5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z"></path></svg><span style="flex: 1">Mixed folders</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px">30</span></a>
-<a href="05-tidy.html" class="press" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; color: #d7dae0; text-decoration: none; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M4 12h10"></path><path d="M4 17h7"></path><polyline points="15 15 18 18 22 13"></polyline></svg><span style="flex: 1">Renames for Plex</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">24</span></a>
+<a href="05-tidy.html" class="press" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; color: #d7dae0; text-decoration: none; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M4 12h10"></path><path d="M4 17h7"></path><polyline points="15 15 18 18 22 13"></polyline></svg><span style="flex: 1">Clean names</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">24</span></a>
 <a href="05-tidy.html" class="press" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; color: #d7dae0; text-decoration: none; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg><span style="flex: 1">Duplicates</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">2</span></a>
 <a href="06-match.html" class="press" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; color: #d7dae0; text-decoration: none; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><line x1="16" y1="16" x2="20.5" y2="20.5"></line></svg><span style="flex: 1">Need a match</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">12</span></a>
 <a href="05-tidy.html" class="press" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-radius: 16px; color: #d7dae0; text-decoration: none; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><span style="flex: 1">Broken files</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">9</span></a>
@@ -86,7 +86,7 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
 <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
 <h2 id="folder-title" style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em">4 anime in one folder</h2>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">D:\Anime\Downloads · 34 files</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">D:\Anime\Unsorted · 34 files</span>
 </div>
 <span style="display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 15px; background: rgba(79,115,179,0.22); color: #bdd0f4; font-size: 12px; font-weight: 700">Each file is identified on its own</span>
 </div>
@@ -95,52 +95,52 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 <div style="display: flex; gap: 12px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 140ms">
 <div aria-hidden="true" style="position: relative; flex: 0 0 48px; height: 72px; border-radius: 10px; overflow: hidden; background: #1e3a5f; box-shadow: none">
 <span style="position: absolute; right: -14px; top: -12px; width: 40px; height: 40px; border-radius: 50%; background: #f2b33d"></span>
-<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">CB</span>
+<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">PL</span>
 </div>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Cowboy Bebop (1998)</span>
+<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Paper Lanterns (1998)</span>
 <span style="font-size: 12px; color: #a3a8b3">TV · 9 files, episodes 1–9</span>
 <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="flex: 1; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 97%; height: 100%; border-radius: 3px; background: #f2b33d; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="color: #d7dae0; font-weight: 700">97% sure</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">TV\Cowboy Bebop (1998)\Season 01</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">TV\Paper Lanterns (1998)\Season 01</span>
 </div>
 </div>
 
 <div style="display: flex; gap: 12px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 200ms">
 <div aria-hidden="true" style="position: relative; flex: 0 0 48px; height: 72px; border-radius: 10px; overflow: hidden; background: #2a2a33; box-shadow: none">
 <span style="position: absolute; right: -14px; top: -12px; width: 40px; height: 40px; border-radius: 50%; background: #c0392b"></span>
-<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">DN</span>
+<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">MC</span>
 </div>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Death Note (2006)</span>
+<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Moonlit Courier (2006)</span>
 <span style="font-size: 12px; color: #a3a8b3">TV · 14 files, 1 duplicate</span>
 <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="flex: 1; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 95%; height: 100%; border-radius: 3px; background: #f2b33d; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="color: #d7dae0; font-weight: 700">95% sure</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">TV\Death Note (2006)\Season 01</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">TV\Moonlit Courier (2006)\Season 01</span>
 </div>
 </div>
 
 <div style="display: flex; gap: 12px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 260ms">
 <div aria-hidden="true" style="position: relative; flex: 0 0 48px; height: 72px; border-radius: 10px; overflow: hidden; background: #a8481c; box-shadow: none">
 <span style="position: absolute; right: -14px; top: -12px; width: 40px; height: 40px; border-radius: 50%; background: #2b2d42"></span>
-<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">TG</span>
+<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">CG</span>
 </div>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Trigun (1998)</span>
+<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Clockwork Garden (1998)</span>
 <span style="font-size: 12px; color: #a3a8b3">TV · 6 files, episodes 1–6</span>
 <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="flex: 1; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 91%; height: 100%; border-radius: 3px; background: #f2b33d; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="color: #d7dae0; font-weight: 700">91% sure</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">TV\Trigun (1998)\Season 01</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">TV\Clockwork Garden (1998)\Season 01</span>
 </div>
 </div>
 
 <div style="display: flex; gap: 12px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 320ms">
 <div aria-hidden="true" style="position: relative; flex: 0 0 48px; height: 72px; border-radius: 10px; overflow: hidden; background: #12304f; box-shadow: none">
 <span style="position: absolute; right: -14px; top: -12px; width: 40px; height: 40px; border-radius: 50%; background: #e85d3a"></span>
-<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">CB</span>
+<span style="position: absolute; left: 7px; bottom: 6px; color: #ffffff; font-size: 15px; font-weight: 800">PL</span>
 </div>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Cowboy Bebop: The Movie (2001)</span>
+<span style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Paper Lanterns: The Movie (2001)</span>
 <span style="font-size: 12px; color: #a3a8b3">Movie · 1 file</span>
 <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="flex: 1; height: 5px; border-radius: 3px; background: #262a33; overflow: hidden"><span style="display: block; width: 88%; height: 100%; border-radius: 3px; background: #ffe1a6; transform-origin: left; animation: kgrow .8s cubic-bezier(.2,.8,.2,1) both"></span></span><span style="color: #d7dae0; font-weight: 700">88% sure</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">Movies\Cowboy Bebop - The Movie (2001)</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 11px; color: #7c818c; overflow-wrap: anywhere">Movies\Paper Lanterns - The Movie (2001)</span>
 </div>
 </div>
 
@@ -159,8 +159,8 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 
 </div>
 <div style="display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.03); font-size: 12px; color: #a3a8b3">
-<span style="font-weight: 800; color: #d7dae0">Why Cowboy Bebop, 97%</span>
-<span style="display: inline-flex; align-items: center; gap: 6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg>Names say Cowboy_Bebop</span>
+<span style="font-weight: 800; color: #d7dae0">Why Paper Lanterns, 97%</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg>Names say Paper_Lanterns</span>
 <span style="display: inline-flex; align-items: center; gap: 6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg>Runtimes fit 24 min episodes</span>
 <span style="display: inline-flex; align-items: center; gap: 6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffd27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg>Numbers 01–09 line up with TMDB</span>
 </div>
@@ -179,63 +179,63 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Cowboy Bebop · S01E01</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Cowboy Bebop (1998)\Season 01\Cowboy Bebop (1998) - S01E01 - Asteroid Blues.mkv</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Paper Lanterns · S01E01</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Paper_Lanterns_-_01.mkv</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Paper Lanterns (1998)\Season 01\Paper Lanterns (1998) - S01E01 - The Lantern Road.mkv</span>
 </div>
 </div>
 
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Cowboy Bebop · S01E02</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">[Hi10] Cowboy_Bebop_-_02_(BD_720p).mkv</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Cowboy Bebop (1998)\Season 01\Cowboy Bebop (1998) - S01E02 - Stray Dog Strut.mkv</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Paper Lanterns · S01E02</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Paper_Lanterns_-_02.mkv</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Paper Lanterns (1998)\Season 01\Paper Lanterns (1998) - S01E02 - Rain on the Harbour.mkv</span>
 </div>
 </div>
 
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Death Note · S01E01</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Death Note 01.avi</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Death Note (2006)\Season 01\Death Note (2006) - S01E01 - Rebirth.avi</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Moonlit Courier · S01E01</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Moonlit Courier 01.avi</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Moonlit Courier (2006)\Season 01\Moonlit Courier (2006) - S01E01 - The First Letter.avi</span>
 </div>
 </div>
 
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Death Note · S01E07</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">[DB] Death_Note_07 (720p).mkv</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Death Note (2006)\Season 01\Death Note (2006) - S01E07 - Overcast.mkv</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Moonlit Courier · S01E07</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Moonlit_Courier_07 (720p).mkv</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Moonlit Courier (2006)\Season 01\Moonlit Courier (2006) - S01E07 - The Last Delivery.mkv</span>
 </div>
 </div>
 
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(255,107,107,0.16); color: #ffb4b4">Quarantine</span><span style="font-size: 12px; color: #a3a8b3">Death Note · S01E07 · duplicate</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Death Note 07.avi</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>D:\Kura quarantine\2026-10-10\Death Note 07.avi</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(255,107,107,0.16); color: #ffb4b4">Quarantine</span><span style="font-size: 12px; color: #a3a8b3">Moonlit Courier · S01E07 · duplicate</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Moonlit Courier 07.avi</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>D:\Kura quarantine\2026-10-10\Moonlit Courier 07.avi</span>
 </div>
 </div>
 
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Trigun · S01E03</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">trigun_03.mp4</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Trigun (1998)\Season 01\Trigun (1998) - S01E03 - Peace Maker.mp4</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Clockwork Garden · S01E03</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">clockwork_garden_03.mp4</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>TV\Clockwork Garden (1998)\Season 01\Clockwork Garden (1998) - S01E03 - Brass Hours.mp4</span>
 </div>
 </div>
 
 <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06)">
 <button type="button" role="checkbox" aria-checked="true" aria-label="Include this change" class="press" style="flex: 0 0 40px; height: 40px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><span style="width: 22px; height: 22px; border-radius: 7px; background: #f2b33d; display: inline-flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1300" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17 19 7.5"></polyline></svg></span></button>
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 6px">
-<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Cowboy Bebop: The Movie</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Cowboy Bebop Movie.mkv</span>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>Movies\Cowboy Bebop - The Movie (2001)\Cowboy Bebop - The Movie (2001).mkv</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: 800; background: rgba(79,115,179,0.24); color: #bdd0f4">Move</span><span style="font-size: 12px; color: #a3a8b3">Paper Lanterns: The Movie</span></div>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #7c818c; overflow-wrap: anywhere">Paper Lanterns Movie.mkv</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #f4f5f7; overflow-wrap: anywhere"><span style="color: #ffd27a">→ </span>Movies\Paper Lanterns - The Movie (2001)\Paper Lanterns - The Movie (2001).mkv</span>
 </div>
 </div>
 
@@ -243,16 +243,16 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 </section>
 
 <section aria-labelledby="dup-title" style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 24px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 220ms">
-<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px"><h2 id="dup-title" style="margin: 0; font-size: 18px; font-weight: 800">Two copies of Death Note S01E07</h2><span style="font-size: 12px; color: #a3a8b3">Kura keeps the better one</span></div>
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px"><h2 id="dup-title" style="margin: 0; font-size: 18px; font-weight: 800">Two copies of Moonlit Courier S01E07</h2><span style="font-size: 12px; color: #a3a8b3">Kura keeps the better one</span></div>
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px">
 <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; background: rgba(242,179,61,0.08); border: 2px solid #f2b33d">
 <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-weight: 800">Keep</span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: #f2b33d; color: #1d1300; font-size: 11px; font-weight: 800">Better</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; overflow-wrap: anywhere">[DB] Death_Note_07 (720p).mkv</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; overflow-wrap: anywhere">Moonlit_Courier_07 (720p).mkv</span>
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 12px; color: #a3a8b3"><span>Picture</span><span style="color: #f4f5f7; font-weight: 700">720p · H.264</span><span>Audio</span><span style="color: #f4f5f7; font-weight: 700">Japanese, English</span><span>Subtitles</span><span style="color: #f4f5f7; font-weight: 700">English, soft</span><span>Size</span><span style="color: #f4f5f7; font-weight: 700">352 MB</span></div>
 </div>
 <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.08)">
 <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-weight: 800; color: #d7dae0">Quarantine</span><span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: rgba(255,107,107,0.16); color: #ffb4b4; font-size: 11px; font-weight: 800">30 days</span></div>
-<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3; overflow-wrap: anywhere">Death Note 07.avi</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3; overflow-wrap: anywhere">Moonlit Courier 07.avi</span>
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 12px; color: #a3a8b3"><span>Picture</span><span style="color: #d7dae0; font-weight: 700">480p · XviD</span><span>Audio</span><span style="color: #d7dae0; font-weight: 700">Japanese</span><span>Subtitles</span><span style="color: #d7dae0; font-weight: 700">Burned in</span><span>Size</span><span style="color: #d7dae0; font-weight: 700">175 MB</span></div>
 </div>
 </div>
@@ -263,7 +263,7 @@ a{color:#ffd27a}a:hover{color:#ffe1a6}
 </section>
 
 <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-radius: 22px; background: #16181d; border: 1px solid rgba(255,255,255,0.1); animation: kfade .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: 280ms">
-<span style="font-size: 13px; color: #d7dae0"><strong style="color: #ffffff">30 changes selected.</strong> The 4 unknown files stay in Downloads until you match them.</span>
+<span style="font-size: 13px; color: #d7dae0"><strong style="color: #ffffff">30 changes selected.</strong> The 4 unknown files stay in Unsorted until you match them.</span>
 <div style="display: flex; flex-wrap: wrap; gap: 10px">
 <a href="06-match.html" class="press" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; background: rgba(255,255,255,0.06); color: #f4f5f7; text-decoration: none; font-weight: 700">Match the 4 first</a>
 <button type="button" class="press" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 22px; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800; cursor: pointer">Apply 30 changes</button>

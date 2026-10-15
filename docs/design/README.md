@@ -44,9 +44,10 @@ private; these snapshots are the shared copy):
 | The player's small things | [player-states.html](player-states.html) |
 | The README: three drafts, the tour chosen | [readme.html](readme.html) |
 
-The sample library is illustrative: episode counts are real, while file states, timings and sizes
-are estimates for a GTX 1660 Super. Fonts load from Google Fonts (and the README options' Markdown
-reader from cdnjs), so pages need the internet to look exactly right.
+The sample library is made up: its titles, episodes and files are invented (Starfall Academy and
+the like, as in the README's pictures), and file states, timings and sizes are estimates for a
+GTX 1660 Super. The boards name no media server app either. Fonts load from Google Fonts (and the
+README options' Markdown reader from cdnjs), so pages need the internet to look exactly right.
 
 ## Building from these
 
