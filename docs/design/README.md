@@ -73,4 +73,6 @@ links between boards.
 [../readme/](../readme/) holds them, at 1280 × 800: Kura's own screens rendered from its tests,
 with the tests' titles swapped for made-up ones. No real series, artwork or video is in any of
 them: posters are Kura's placeholders and the player's picture is a stand-in. Every picture of
-Kura that goes public keeps to that. To refresh them, ask Claude.
+Kura that goes public keeps to that. To refresh them, ask Claude. `download.svg` is the README's
+download button, Cinema's amber pill with its words in Manrope ExtraBold drawn as outlines, so it
+looks the same wherever the README is read.

@@ -9,7 +9,11 @@ upscaling for old SD episodes. Kura (蔵, "storehouse") runs on your Windows PC 
 you already use, and changes nothing until you say yes. It's for the videos you already have:
 Kura never finds, downloads or shares anime.
 
-[**Download for Windows**](https://frankgrobbelaar.github.io/kura/) · free and open source · no account
+<p>
+  <a href="https://frankgrobbelaar.github.io/kura/"><img src="docs/readme/download.svg" alt="Download for Windows" height="52"></a>
+  <br>
+  <sub>Free and open source · No account · Windows 10 and 11</sub>
+</p>
 
 ![Kura's home: what's in your library, and what needs you](docs/readme/home.png)
 
