@@ -21,7 +21,8 @@ offline, notes in the window, a name that's taken, not enough space, damaged rec
 overnight note); light mode, Paper, as Windows is or as chosen; History a week at a time and
 cleared on asking or daily; and the player inside Kura (small over the page and moved anywhere,
 full screen and back). Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has
-every release since. Everything in [What's next](#whats-next) is built.
+every release since. Everything in [What's next](#whats-next) is built but English for every
+episode (11), drawn for the owner to approve.
 
 ## Ground rules
 
@@ -147,7 +148,10 @@ Everything decided so far. Don't ask again; change only with the owner.
 - No piracy, in any form, and no copyright or content law broken (the owner, 2026-10-14: "We
   must enforce that we do not support any form of piracy"). Kura looks after video already on
   the PC and plays it only in its own window: it never searches for, downloads or shares video,
-  never streams it over the internet, and never gets around copy protection. The README ("Your
+  never streams it over the internet, and never gets around copy protection. Nor does it
+  download sound tracks or subtitle files (the owner asked for English ones, 2026-10-15: dubs
+  have no lawful source apart from their releases, and subtitle sites are mostly unlicensed):
+  English comes from the owner's own files instead (What's next, 11). The README ("Your
   own videos only"), the downloads page and Settings › About say so: it's for videos you have
   the right to keep and watch. The README is the tour in five steps, option B of three (the
   owner, 2026-10-14; [docs/design/readme.html](docs/design/readme.html)), its pictures
@@ -437,6 +441,14 @@ Everything decided so far. Don't ask again; change only with the owner.
     the small player over the page and dragged anywhere, full screen and back, sound and
     subtitles, chapters, the next episode, and its small things: getting it ready, a file that
     won't play, a drive that isn't connected, a file gone).
+11. English for every episode, from the owner's own files: drawn on the
+    [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA) canvas
+    (2026-10-15) for the owner to approve before any of it is built: each video's sound and
+    subtitle languages on its title's page and Home, English subtitles made on the PC from the
+    file's own sound by a local speech model (Whisper's family, MIT; its speed on the GTX 1660
+    Super still to be measured), run in the queue with the conversions, nights only if wanted;
+    English sound and subtitles taken from another copy the owner keeps, in Tidy up's
+    duplicates; and the small things.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`
