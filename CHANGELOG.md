@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.16.0 - 2026-10-15
+
 ### Added
 - English subtitles for the videos that have none, made on your PC from each video's own sound:
   "Make English subtitles" on a title's videos (or on Home) takes a season, the whole title or
