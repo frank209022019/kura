@@ -9,10 +9,13 @@ upscaling for old SD episodes, and makes English subtitles for the ones with non
 "storehouse") runs on your Windows PC beside the server you already use, and changes nothing until
 you say yes. It's for the videos you already have: Kura never finds, downloads or shares anime.
 
-<p>
+<p align="center">
+  <br>
   <a href="https://frankgrobbelaar.github.io/kura/"><img src="docs/readme/download.svg" alt="Download for Windows" height="52"></a>
   <br>
   <sub>Free and open source · No account · Windows 10 and 11</sub>
+  <br>
+  <br>
 </p>
 
 ![Kura's home: what's in your library, and what needs you](docs/readme/home.png)
