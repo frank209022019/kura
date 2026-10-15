@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type History, type PlanDone, type SubtitlesDone } from "@/lib/engine";
@@ -101,7 +101,7 @@ const HISTORY: History = {
   older: null,
 };
 
-function renderHistory() {
+function renderHistory(at = "/history") {
   shell.invoke.mockImplementation(async (command: string) =>
     command === "engine_status" ? READY : undefined,
   );
@@ -109,7 +109,7 @@ function renderHistory() {
   render(
     <QueryClientProvider client={queries}>
       <EngineProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[at]}>
           <HistoryPage />
         </MemoryRouter>
       </EngineProvider>
@@ -373,6 +373,63 @@ describe("HistoryPage", () => {
 
     await waitFor(() => expect(screen.queryByText(/Tidied 30 files/)).not.toBeInTheDocument());
     expect(screen.getByText("Your library folders")).toBeInTheDocument();
+  });
+
+  it("finds what names an anime or file, and says when nothing does", async () => {
+    const fetch = fakeEngine({
+      "/history": (_: unknown, url: URL) => {
+        const asked = url.searchParams.get("q");
+        if (asked === null) return HISTORY;
+        const plans = asked === "trigun" ? [RENAMED_EARLIER] : [];
+        return { plans, scans: [], subtitles: [], older: null };
+      },
+    });
+    renderHistory();
+    await screen.findByRole("region", { name: "Today" });
+
+    const filter = screen.getByRole("searchbox", { name: "Filter History" });
+    expect(filter).toHaveAttribute("placeholder", "Filter by anime or file");
+    fireEvent.change(filter, { target: { value: "trigun" } });
+
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "8 October" })).toHaveTextContent(
+        "Renamed 12 Trigun files",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Today" })).not.toBeInTheDocument(),
+    );
+    expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/history?q=trigun"))).toBe(
+      true,
+    );
+
+    fireEvent.change(filter, { target: { value: "Kestrel" } });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Nothing in History goes by “Kestrel”.",
+    );
+    expect(screen.queryByText("Nothing yet")).not.toBeInTheDocument();
+  });
+
+  it("says nothing of an empty search while the next one's days come", async () => {
+    const fetch = fakeEngine({
+      "/history": (_: unknown, url: URL) =>
+        url.searchParams.has("q") ? { plans: [], scans: [], subtitles: [], older: null } : HISTORY,
+    });
+    const answer = fetch.getMockImplementation();
+    // History unfiltered takes a moment to come.
+    fetch.mockImplementation(async (input, init) => {
+      if (new URL(String(input)).search === "") await new Promise((done) => setTimeout(done, 400));
+      return answer ? answer(input, init) : Response.error();
+    });
+    renderHistory("/history?q=Kestrel");
+    expect(await screen.findByText("Nothing in History goes by “Kestrel”.")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("searchbox", { name: "Filter History" }), { key: "Escape" });
+
+    await new Promise((done) => setTimeout(done, 350)); // the filter settled, History on its way
+    expect(screen.queryByText("Nothing yet")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing in History goes by/)).not.toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Today" })).toBeInTheDocument();
   });
 
   it("says when there's nothing yet", async () => {

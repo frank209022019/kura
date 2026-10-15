@@ -24,7 +24,8 @@ full screen and back); English subtitles made on the PC from a video's own sound
 the graphics card, in the queue with the conversions), with each video's languages on its title's
 page and Home; another copy's English sound and subtitles added to the copy Tidy up keeps; and
 Kura on any PC (what each PC can do, tested in Setup and Settings › About, AMD's and Intel's
-encoders, this PC's own times, the lighter way where a card is small or slow). Kura 0.1.0, the
+encoders, this PC's own times, the lighter way where a card is small or slow); and search, the
+title bar's and each long list's. Kura 0.1.0, the
 first release, went out on 2026-10-12; CHANGELOG.md has every release since. Everything in
 [What's next](#whats-next) is built.
 
@@ -302,6 +303,14 @@ Everything decided so far. Don't ask again; change only with the owner.
   season; the season's list keeps to a height and scrolls in its place. Each video shows its
   episode's code and title, picture, length and size, its path on hover; a season's name under
   Seasons leads to its videos. A film, or any title that's one video, has Play at the top.
+- Search (the owner, 2026-10-15: "We need some search capability below", "Anywhere else a
+  search will be useful"): the title bar's search, as the boards draw it (without Ctrl K), finds
+  the library's anime by any name they go by, their episodes by code or name and its videos by
+  their files' names, and opens one on its page; an episode or video opens its title's videos
+  searched for it. Every list that grows long has its own: Home's shelf, a franchise's titles, a
+  title's videos through every season, Convert's What, the queue's Up next, Tidy up's changes,
+  and History's filter by anime or file (the board's). Each narrows as you type, every word
+  wanted however a name is written, and what it hides isn't acted on.
 - Order of work: design language (done), repo and pipelines (done), then building.
 
 **Design: Cinema** (the owner's pick of three; tokens in `app/src/styles/tokens.css`)

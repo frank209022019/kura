@@ -8,6 +8,15 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Search the whole library from the title bar: anime by any name they go by ("DBZ" too, where
+  AniList knows it), episodes by code or name ("S04E11", "Ginyu"), the ones you're missing
+  included, and videos by their files' names. What it finds is listed as you type, the closest
+  first; the arrow keys and Enter, or a click, open it. An episode or video opens on its title's
+  page, its videos searched for it.
+- Filter History by anime or file, through all of it, a week of the days it finds anything on at
+  a time.
+
 ## 0.18.0 - 2026-10-15
 
 ### Added

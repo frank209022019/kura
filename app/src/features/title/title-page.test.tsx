@@ -661,6 +661,39 @@ describe("TitlePage", () => {
     expect(search).toHaveValue("");
   });
 
+  it("finds a video of two episodes by either", async () => {
+    renderTitle({
+      ...DBZ,
+      videos: [video(1, 4, 10, "S04E10-E11"), video(2, 4, 12, "S04E12")].map((each) =>
+        each.id === 1 ? { ...each, episodeEnd: 11 } : each,
+      ),
+    });
+    const search = await screen.findByRole("searchbox", {
+      name: "Search the videos of Dragon Ball Z",
+    });
+
+    for (const asked of ["S04E11", "ginyu"]) {
+      fireEvent.change(search, { target: { value: asked } });
+      const found = await screen.findByRole("list", { name: "Videos found" });
+      await waitFor(() => expect(within(found).getAllByRole("listitem")).toHaveLength(1));
+      expect(found).toHaveTextContent("S04E10-E11");
+    }
+  });
+
+  it("goes to its videos when the title bar's search leads here", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    try {
+      renderTitle({ ...DBZ, videos: [video(1, 1, 1, "S01E01")] }, undefined, { videos: true });
+
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      expect(scrolled.mock.contexts[0]).toBe(screen.getByRole("region", { name: "Videos" }));
+    } finally {
+      // @ts-expect-error: jsdom has none of its own
+      delete Element.prototype.scrollIntoView;
+    }
+  });
+
   it("shows a season's videos from its name in Seasons", async () => {
     renderTitle({ ...DBZ, videos: [video(1, 1, 1, "S01E01"), video(2, 4, 1, "S04E01")] });
 

@@ -112,6 +112,7 @@ kura/
   preview.py      See it first: one frame before converting and after
   gpu.py          how busy and how warm the graphics card is (nvidia-smi)
   history.py      what Kura did, newest first: tidy-ups, conversions, subtitles made and scans
+  search.py       the library searched from the title bar: anime, episodes and videos
   player.py       playing a video inside the window: tickets, the stream, subtitles copied out
   web.py          asking web services for JSON: timeouts, rate limits, errors in words
   anilist.py      AniList: which anime a file is
@@ -335,6 +336,16 @@ so the video plays at once and its subtitles join when they're ready; subtitles 
 are laid over straight from the file, and a subtitle file beside the video is used as it is. A
 stream that ends early says why (the drive went, the file went, the file is damaged there), and
 the copies of the last six videos' subtitles stay. See [stack/ffmpeg.md](stack/ffmpeg.md).
+
+The title bar's search (`kura/search.py`, `GET /search?q=`) finds the library's anime by any
+name AniList says they go by, their episodes by code or name (the ones the library lacks too),
+and its videos by their files' names. Every word typed must be there, however a name is written:
+`kura/core/search.py` lowers the case, takes accents off and makes full-width letters plain, and
+ranks the name itself first, then one that starts with what was typed. An episode or a video is
+found only by something of its own, so a search for a show finds the show, not all its episodes.
+It reads the whole library each time, a few tens of milliseconds on a big one; the app asks once
+the owner stops typing. History searches the same way (`GET /history?q=`): the tidy-ups,
+conversions and batches of subtitles whose title, or one change's label or file, has every word.
 
 ## Data
 

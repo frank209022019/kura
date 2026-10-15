@@ -147,6 +147,11 @@ def test_applying_lists_the_plan_in_history_and_undo_puts_it_back(
     assert plan["title"] == "Tidied 3 files: Cowboy Bebop and Dragon Ball Z"
     assert (plan["moved"], plan["quarantined"], plan["undoneAt"]) == (2, 1, None)
 
+    # A search finds it by any of its files, and nothing else.
+    [found] = client.get("/history", params={"q": "bebop 01"}).json()["plans"]
+    assert found["id"] == done["planId"]
+    assert client.get("/history", params={"q": "Trigun"}).json()["plans"] == []
+
     back = client.post(f"/plans/{done['planId']}/undo").json()
 
     assert (back["moved"], back["quarantined"]) == (2, 1)

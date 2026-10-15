@@ -899,6 +899,53 @@
         }
       }
     },
+    "/search": {
+      "get": {
+        "summary": "Find",
+        "description": "The library's anime by any name they go by, their episodes by code or name, and its videos\nby their files' names: what every word of `q` finds, however it's written.",
+        "operationId": "find_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Found"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/review": {
       "get": {
         "summary": "Files To Review",
@@ -1360,7 +1407,7 @@
     "/history": {
       "get": {
         "summary": "What Kura Did",
-        "description": "What Kura did on its latest days with anything on them (a week's worth), newest first:\neach tidy-up applied, each conversion, each batch of subtitles made and each scan.\n`before` (\"2026-10-07\", the page's `older`) asks for the days before that one.",
+        "description": "What Kura did on its latest days with anything on them (a week's worth), newest first:\neach tidy-up applied, each conversion, each batch of subtitles made and each scan.\n`before` (\"2026-10-07\", the page's `older`) asks for the days before that one, and `q` for\nwhat names an anime or file (\"Starfall 03\"), on the days it finds anything on.",
         "operationId": "what_kura_did_history_get",
         "security": [
           {
@@ -1383,6 +1430,17 @@
                 }
               ],
               "title": "Before"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
             }
           }
         ],
@@ -3968,6 +4026,63 @@
         "title": "English",
         "description": "English the copy set aside has in it that the one kept hasn't, which Kura can add."
       },
+      "EpisodeFound": {
+        "properties": {
+          "titleId": {
+            "type": "integer",
+            "title": "Titleid"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "season": {
+            "type": "integer",
+            "title": "Season"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "fileId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fileid"
+          },
+          "coming": {
+            "type": "boolean",
+            "title": "Coming"
+          }
+        },
+        "type": "object",
+        "required": [
+          "titleId",
+          "title",
+          "season",
+          "number",
+          "name",
+          "fileId",
+          "coming"
+        ],
+        "title": "EpisodeFound"
+      },
       "EpisodeRef": {
         "properties": {
           "season": {
@@ -4123,6 +4238,145 @@
           "size"
         ],
         "title": "Exported"
+      },
+      "FileFound": {
+        "properties": {
+          "fileId": {
+            "type": "integer",
+            "title": "Fileid"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "titleId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titleid"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "episodeEnd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episodeend"
+          },
+          "place": {
+            "type": "string",
+            "enum": [
+              "title",
+              "match",
+              "aside",
+              "extra",
+              "other",
+              "reading"
+            ],
+            "title": "Place"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fileId",
+          "path",
+          "titleId",
+          "title",
+          "season",
+          "episode",
+          "episodeEnd",
+          "place"
+        ],
+        "title": "FileFound"
+      },
+      "Found": {
+        "properties": {
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/TitleFound"
+            },
+            "type": "array",
+            "title": "Titles"
+          },
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeFound"
+            },
+            "type": "array",
+            "title": "Episodes"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/FileFound"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "totalTitles": {
+            "type": "integer",
+            "title": "Totaltitles"
+          },
+          "totalEpisodes": {
+            "type": "integer",
+            "title": "Totalepisodes"
+          },
+          "totalFiles": {
+            "type": "integer",
+            "title": "Totalfiles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "titles",
+          "episodes",
+          "files",
+          "totalTitles",
+          "totalEpisodes",
+          "totalFiles"
+        ],
+        "title": "Found",
+        "description": "What a search found, each kind's closest few first, and how many it found in all."
       },
       "FranchiseMissing": {
         "properties": {
@@ -7318,6 +7572,57 @@
           "subtitlesJob"
         ],
         "title": "TitleFile"
+      },
+      "TitleFound": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TitleKind"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "hasPoster": {
+            "type": "boolean",
+            "title": "Hasposter"
+          },
+          "also": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Also"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "year",
+          "hasPoster",
+          "also"
+        ],
+        "title": "TitleFound"
       },
       "TitleKind": {
         "type": "string",

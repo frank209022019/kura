@@ -2,19 +2,22 @@
 undone), each file converted (and whether its original is back), each batch of English subtitles
 made (and whether they're still there), and each scan. History comes a few days at a time, and
 the owner can clear it, all or what's older than a day, a week or a month, by hand or every day
-(Settings > Your data)."""
+(Settings > Your data). A search finds the tidy-ups, conversions and batches of subtitles that
+name an anime or file, a few days at a time the same way."""
 
 import json
 import logging
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import PureWindowsPath
 from typing import Literal
 
 from kura.changes import ChangeState, changes_of, tally
 from kura.convert import replaced_since
 from kura.core.media import media_from_ffprobe
 from kura.core.plan import DELETED
+from kura.core.search import found, words
 from kura.subtitles import NOTHING_SAID, TAKEN_AWAY, present
 
 log = logging.getLogger(__name__)
@@ -100,12 +103,22 @@ class Page:
     subtitles: list[SubtitlesDone] = field(default_factory=list["SubtitlesDone"])
 
 
-def page(conn: sqlite3.Connection, *, before: str | None = None, days: int = DAYS_A_PAGE) -> Page:
+def page(
+    conn: sqlite3.Connection,
+    *,
+    before: str | None = None,
+    days: int = DAYS_A_PAGE,
+    query: str = "",
+) -> Page:
     """Everything on the `days` latest days that have anything on them, before the day `before`
     ("2026-10-14"; None: from today). A day is the local one a thing happened on (scans keep UTC
     times, tidy-ups local ones). A tidy-up undone on a later day is on that day's page too, so
-    the undo shows where it happened, whichever page its tidy-up is on."""
-    found = [
+    the undo shows where it happened, whichever page its tidy-up is on. With a `query`, only
+    what it finds (`_found_page`)."""
+    wanted = words(query)
+    if wanted:
+        return _found_page(conn, wanted, before, days)
+    on = [
         row[0]
         for row in conn.execute(
             f"""SELECT day FROM (
@@ -118,7 +131,7 @@ def page(conn: sqlite3.Connection, *, before: str | None = None, days: int = DAY
             (before, days + 1),
         )
     ]
-    shown = found[:days]
+    shown = on[:days]
     if not shown:
         return Page(plans=[], scans=[], older=None, subtitles=[])
     first, last = shown[-1], shown[0]
@@ -144,9 +157,96 @@ def page(conn: sqlite3.Connection, *, before: str | None = None, days: int = DAY
     return Page(
         plans=_done(conn, rows),
         scans=[ScanDone(**dict(row)) for row in scanned],
-        older=first if len(found) > days else None,
+        older=first if len(on) > days else None,
         subtitles=[_made(conn, row) for row in made],
     )
+
+
+def _found_page(conn: sqlite3.Connection, wanted: list[str], before: str | None, days: int) -> Page:
+    """What a search finds, on the `days` latest days it finds anything on: the tidy-ups and
+    conversions whose title or a change has every word (its label, or its file's name before or
+    after), and the batches of subtitles whose title or a video has. Scans name nothing."""
+    plan_ids = _plans_with(conn, wanted)
+    batch_ids = _batches_with(conn, wanted)
+    plan_days = [
+        (row["id"], row["applied"], row["undone"])
+        for row in conn.execute(
+            """SELECT id, date(applied_at, 'localtime') AS applied,
+                      date(undone_at, 'localtime') AS undone
+               FROM plans WHERE applied_at IS NOT NULL"""
+        )
+        if row["id"] in plan_ids
+    ]
+    batches = [
+        row
+        for row in conn.execute(
+            f"""SELECT *, date(made_at, 'localtime') AS day FROM ({_BATCHES})
+                ORDER BY made_at DESC, id DESC"""  # noqa: S608 - a constant query goes in
+        )
+        if row["id"] in batch_ids
+    ]
+    on = sorted(
+        {day for _, *both in plan_days for day in both if day}
+        | {row["day"] for row in batches if row["day"]},
+        reverse=True,
+    )
+    on = [day for day in on if before is None or day < before]
+    shown = on[:days]
+    if not shown:
+        return Page(plans=[], scans=[], older=None, subtitles=[])
+    first, last = shown[-1], shown[0]
+
+    def within(day: str | None) -> bool:
+        return day is not None and first <= day <= last
+
+    ids = [plan for plan, applied, undone in plan_days if within(applied) or within(undone)]
+    rows = conn.execute(
+        f"""SELECT id, kind, title, applied_at, undone_at FROM plans
+            WHERE id IN ({", ".join("?" * len(ids))})
+            ORDER BY applied_at DESC, id DESC""",  # noqa: S608 - placeholders only
+        ids,
+    ).fetchall()
+    return Page(
+        plans=_done(conn, rows),
+        scans=[],
+        older=first if len(on) > days else None,
+        subtitles=[_made(conn, row) for row in batches if within(row["day"])],
+    )
+
+
+def _plans_with(conn: sqlite3.Connection, wanted: list[str]) -> set[int]:
+    """The tidy-ups and conversions whose title, or one change, has every word."""
+    ids = {
+        row["id"]
+        for row in conn.execute("SELECT id, title FROM plans")
+        if found(wanted, row["title"])
+    }
+    for row in conn.execute("SELECT plan_id, label, source, target FROM changes"):
+        if row["plan_id"] not in ids and found(
+            wanted, row["label"], _name(row["source"]), _name(row["target"])
+        ):
+            ids.add(row["plan_id"])
+    return ids
+
+
+def _batches_with(conn: sqlite3.Connection, wanted: list[str]) -> set[int]:
+    """The batches of subtitles whose title, or one video's file, has every word."""
+    ids = {
+        row["id"]
+        for row in conn.execute("SELECT id, title FROM subtitle_batches")
+        if found(wanted, row["title"])
+    }
+    for row in conn.execute(
+        """SELECT j.batch_id, f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+           WHERE j.batch_id IS NOT NULL"""
+    ):
+        if found(wanted, _name(row["path"])):
+            ids.add(row["batch_id"])
+    return ids
+
+
+def _name(path: str) -> str:
+    return PureWindowsPath(path).name
 
 
 def clear(conn: sqlite3.Connection, *, keep: timedelta, now: datetime) -> int:

@@ -79,6 +79,70 @@ def test_an_undo_is_on_the_page_of_the_day_it_happened(conn: sqlite3.Connection,
     assert rest.older is None
 
 
+def test_a_search_finds_what_names_an_anime_or_file_a_week_of_days_at_a_time(
+    conn: sqlite3.Connection, tmp_path: Path
+):
+    filed(conn, tmp_path, "Moonlit Harbour 01", days_ago=0)
+    scanned(conn, 0.1)
+    # Starfall's on nine days: by the tidy-up's own words, and once by a file's name alone.
+    named = {days: filed(conn, tmp_path, f"Starfall Academy {days:02d}", days) for days in (1, 3)}
+    video = tmp_path / "[Group] starfall_extra.mkv"
+    video.write_bytes(b"video")
+    plan = Plan(
+        (Change(ChangeKind.MOVE, video, tmp_path / "Extras" / "Extra 1.mkv", "Extra 1", "Filed"),)
+    )
+    by_file = save_plan(conn, plan, "Tidied 1 file", now=NOW)
+    apply_plan(conn, by_file, now=NOW - timedelta(days=2))
+    named |= {
+        days: filed(conn, tmp_path, f"Starfall Academy {days:02d}", days)
+        for days in (5, 7, 9, 11, 13)
+    }
+    # And a batch of English subtitles for one of its videos.
+    with conn:
+        folder_id = conn.execute(
+            "INSERT INTO folders (path, added_at) VALUES (?, 'then') RETURNING id", (str(tmp_path),)
+        ).fetchone()[0]
+        file_id = conn.execute(
+            """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at)
+               VALUES (?, ?, 1, 1, 'then', 'then') RETURNING id""",
+            (folder_id, str(tmp_path / "Starfall Academy - S01E04.mkv")),
+        ).fetchone()[0]
+        batch_id = conn.execute(
+            """INSERT INTO subtitle_batches (title, quality, language, added_at)
+               VALUES ('Season 1', 'fast', 'jpn', 'then') RETURNING id"""
+        ).fetchone()[0]
+        conn.execute(
+            """INSERT INTO jobs (file_id, kind, method, batch_id, position, state, added_at,
+                                 finished_at)
+               VALUES (?, 'subtitles', 'fast', ?, 1, 'done', 'then', ?)""",
+            (file_id, batch_id, (NOW - timedelta(days=4)).isoformat()),
+        )
+
+    first = history.page(conn, query="STARFALL")
+
+    assert [plan.id for plan in first.plans] == [
+        named[1],
+        by_file,
+        named[3],
+        named[5],
+        named[7],
+        named[9],
+    ]
+    assert [made.id for made in first.subtitles] == [batch_id]
+    assert first.scans == []  # a scan names nothing
+    assert first.older == (NOW - timedelta(days=9)).date().isoformat()
+
+    rest = history.page(conn, before=first.older, query="starfall")
+
+    assert [plan.id for plan in rest.plans] == [named[11], named[13]]
+    assert rest.older is None
+    assert (
+        history.page(conn, query="starfall 05").plans
+        == history.page(conn, query="05 starfall").plans
+    )
+    assert history.page(conn, query="Lantern") == history.Page(plans=[], scans=[], older=None)
+
+
 def test_clearing_keeps_what_was_undone_lately(conn: sqlite3.Connection, tmp_path: Path):
     undone = filed(conn, tmp_path, "Undone", days_ago=10)
     undo_plan(conn, undone, now=NOW - timedelta(days=1))

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
+import { NoMatches, SearchField, useAddressSearch } from "@/components/search-field";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { Stayed } from "@/components/stayed";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import {
   useUndoPlan,
 } from "@/lib/engine";
 import { clockLength, codecName, languageName, scanChanges, size } from "@/lib/format";
+import { useSettled } from "@/lib/settled";
 
 type Shown = "all" | "conversions" | "subtitles" | "moves" | "scans";
 
@@ -51,9 +53,13 @@ const KEEP = [
 ] as const;
 
 /** Everything Kura changed, newest first, a week's worth of days at a time; a tidy-up can be
- * undone from here, and History cleared, all of it or what's older than a day, week or month. */
+ * undone from here, and History cleared, all of it or what's older than a day, week or month.
+ * The filter finds what names an anime or file, a week of the days it finds anything on at a
+ * time. */
 export function HistoryPage() {
-  const history = useHistory();
+  const [query, setQuery] = useAddressSearch();
+  const asked = useSettled(query.trim(), 250);
+  const history = useHistory(asked);
   const undo = useUndoPlan();
   const takeAway = useTakeAway();
   const settings = useSettings().data;
@@ -63,6 +69,7 @@ export function HistoryPage() {
   const [clearing, setClearing] = useState(false);
   const [cleared, setCleared] = useState<number | null>(null);
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const answered = history.data !== undefined && !history.isPlaceholderData;
 
   const pages = history.data?.pages;
   const events = pages ? eventsOf(together(pages), shown) : [];
@@ -83,6 +90,13 @@ export function HistoryPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            label="Filter History"
+            placeholder="Filter by anime or file"
+            className="w-60"
+          />
           <Segmented label="Show" value={shown} options={FILTERS} onChange={setShown} />
           {anything && !clearing && (
             <Button variant="ghost" onClick={() => setClearing(true)}>
@@ -120,12 +134,18 @@ export function HistoryPage() {
         </p>
       )}
       {result && result.problems.length > 0 && <Stayed problems={result.problems} />}
-      {history.data && events.length === 0 && !history.hasNextPage && (
+      {/* The last search's days stand in while the next one's come: they say nothing of it. */}
+      {answered && events.length === 0 && !history.hasNextPage && asked && (
+        <NoMatches>
+          Nothing in History goes by “{asked}”{shown === "all" ? "" : " among what's shown"}.
+        </NoMatches>
+      )}
+      {answered && events.length === 0 && !history.hasNextPage && !asked && (
         <EmptyState title="Nothing yet">
           Kura lists here everything it changes in your folders, newest first.
         </EmptyState>
       )}
-      {history.data && events.length === 0 && history.hasNextPage && (
+      {answered && events.length === 0 && history.hasNextPage && (
         <p className="text-13 text-fg-muted">Nothing of that kind on the days shown.</p>
       )}
       {days(events).map(([day, onDay]) => {

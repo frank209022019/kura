@@ -27,6 +27,7 @@ import {
 } from "@/lib/engine";
 import { clockLength, clockTime, codecName, languages, listed, size, split } from "@/lib/format";
 import { kindWord } from "@/lib/kinds";
+import { useSettled } from "@/lib/settled";
 import { cn } from "@/lib/utils";
 
 type Kind = "episode" | "movie" | "special";
@@ -369,16 +370,6 @@ function MatchFile(props: {
       )}
     </>
   );
-}
-
-/** `value` once it has stayed the same for `delay` milliseconds. */
-function useSettled(value: string, delay: number): string {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return settled;
 }
 
 /** The file itself: its name, folder, three stills and what reading it showed, and a bin to

@@ -713,6 +713,65 @@ export const useTitle = (id: number, enabled = true) =>
   useEngineQuery<TitleDetail>(`/titles/${id}`, undefined, enabled);
 export const useReport = (id: number) => useEngineQuery<Report>(`/titles/${id}/report`);
 
+/** An anime a search found, by its own name or another it goes by (`also`). */
+export interface TitleFound {
+  id: number;
+  name: string;
+  kind: TitleKind;
+  year: number | null;
+  hasPoster: boolean;
+  /** The other name it was found by ("Hoshifuri Gakuen"), when not its own. */
+  also: string | null;
+}
+
+/** An episode a search found by its code or name. */
+export interface EpisodeFound {
+  titleId: number;
+  title: string;
+  /** 0 for a special. */
+  season: number;
+  number: number;
+  name: string | null;
+  /** Its video, or null when the library hasn't it. */
+  fileId: number | null;
+  /** Not out yet. */
+  coming: boolean;
+}
+
+/** A video a search found by its file's name. */
+export interface FileFound {
+  fileId: number;
+  path: string;
+  titleId: number | null;
+  title: string | null;
+  season: number | null;
+  episode: number | null;
+  episodeEnd: number | null;
+  /** In a title, waiting for a match, set aside as not anime, an extra (an opening, an ending,
+   * a preview), under no title for another reason, or still being read. */
+  place: "title" | "match" | "aside" | "extra" | "other" | "reading";
+}
+
+/** What a search of the library found, each kind's closest few, and how many in all. */
+export interface Found {
+  titles: TitleFound[];
+  episodes: EpisodeFound[];
+  files: FileFound[];
+  totalTitles: number;
+  totalEpisodes: number;
+  totalFiles: number;
+}
+
+/** The library searched from the title bar: its anime, their episodes and its videos. Nothing
+ * is asked till there's `query` to ask, and a new search shows the last one's till it comes. */
+export const useSearch = (query: string) =>
+  useEngineQuery<Found>(
+    `/search?q=${encodeURIComponent(query)}`,
+    undefined,
+    query.trim().length > 0,
+    true,
+  );
+
 export interface FranchiseRef {
   /** Its lead title's. */
   id: number;
@@ -1164,19 +1223,23 @@ export interface History {
 
 /**
  * History, a page of days at a time: `fetchNextPage()` adds the days before. Every page loaded is
- * asked again when History changes.
+ * asked again when History changes. With a `query`, only what names that anime or file, on the
+ * days it finds anything on.
  */
-export function useHistory() {
+export function useHistory(query = "") {
   const engine = useEngine();
+  const search = query.trim() ? `q=${encodeURIComponent(query.trim())}` : "";
   return useInfiniteQuery({
-    queryKey: engineKey(engine, "/history"),
+    queryKey: engineKey(engine, search ? `/history?${search}` : "/history"),
     queryFn: ({ pageParam }) => {
       if (engine.state !== "ready") throw new EngineError("The engine isn't ready yet.");
-      return callEngine<History>(engine, pageParam ? `/history?before=${pageParam}` : "/history");
+      const asked = [search, pageParam ? `before=${pageParam}` : ""].filter(Boolean).join("&");
+      return callEngine<History>(engine, asked ? `/history?${asked}` : "/history");
     },
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.older ?? null,
     enabled: engine.state === "ready",
+    placeholderData: keepPreviousData, // a new search shows the last one's till it comes
   });
 }
 

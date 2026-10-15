@@ -22,7 +22,8 @@ export function AppShell() {
   return (
     <PlayerProvider>
       <div className="flex h-screen flex-col overflow-hidden">
-        <TitleBar />
+        {/* The engine answers nothing but the way back while the records are damaged. */}
+        <TitleBar search={!damage} />
         <div className="flex min-h-0 flex-1 flex-col standard:flex-row">
           {/* While the records are damaged the engine answers nothing else: no badges then. */}
           {damage ? <NavRail /> : <BusyNavRail />}

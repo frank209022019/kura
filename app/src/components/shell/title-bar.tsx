@@ -2,21 +2,27 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { KuraLogo } from "@/components/kura-logo";
+import { LibrarySearch } from "./library-search";
 
 /**
  * Kura draws its own title bar (the window has no Windows frame). Drag it to
- * move the window; double-click it to maximise.
+ * move the window; double-click it to maximise. In the middle, with `search`,
+ * the library's search.
  */
-export function TitleBar({ title = "Kura" }: { title?: string }) {
+export function TitleBar({ title = "Kura", search = false }: { title?: string; search?: boolean }) {
   return (
-    <header data-tauri-drag-region className="flex min-h-13 shrink-0 items-center pl-5 select-none">
-      <div data-tauri-drag-region className="flex flex-1 items-center gap-2.5">
+    <header
+      data-tauri-drag-region
+      className="flex min-h-13 shrink-0 items-center gap-3 pl-5 select-none"
+    >
+      <div data-tauri-drag-region className="flex min-w-0 flex-[1_1_160px] items-center gap-2.5">
         <span className="pointer-events-none flex items-center gap-2.5">
           <KuraLogo />
           <span className="font-extrabold text-14">{title}</span>
         </span>
       </div>
-      <div className="flex">
+      {search && <LibrarySearch />}
+      <div data-tauri-drag-region className="flex flex-[1_1_160px] justify-end">
         <WindowButton label="Minimize" onClick={() => getCurrentWindow().minimize()}>
           <Minus size={14} strokeWidth={1.6} />
         </WindowButton>

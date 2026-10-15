@@ -36,8 +36,10 @@ export function TitlePage() {
   const { id } = useParams();
   const titleId = Number(id);
   const title = useTitle(titleId);
+  const location = useLocation();
+  const came = location.state as { waiting?: number; videos?: boolean } | null;
   // Files that didn't fit the match the owner just gave it.
-  const unfit = (useLocation().state as { waiting?: number } | null)?.waiting ?? 0;
+  const unfit = came?.waiting ?? 0;
   // Deleting asks first, beside what goes; right after, the page says so and offers it back.
   const [asking, setAsking] = useState<Asking | null>(null);
   const [deleted, setDeleted] = useState<TidyResult | null>(null);
@@ -46,12 +48,22 @@ export function TitlePage() {
   const [shelf, setShelf] = useState<string | null>(null);
   const [query, setQuery] = useAddressSearch();
   const videosAt = useRef<HTMLElement>(null);
-  const showSeason = (season: number) => {
-    setShelf(String(season));
-    setQuery("");
+  const toVideos = () => {
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     videosAt.current?.scrollIntoView?.({ block: "start", behavior: still ? "auto" : "smooth" });
   };
+  const showSeason = (season: number) => {
+    setShelf(String(season));
+    setQuery("");
+    toVideos();
+  };
+  // Opened from the title bar's search, the page goes to its videos, searched for the one found.
+  const loaded = title.data !== undefined;
+  const fromSearch = came?.videos === true;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each time the search leads here
+  useEffect(() => {
+    if (fromSearch && loaded) toVideos();
+  }, [fromSearch, loaded, location.key]);
   const deleting = useDeleting((result) => {
     setAsking(null);
     setDeleted(result);
@@ -607,9 +619,7 @@ function Videos(props: {
   const found = query
     ? all
         .flatMap((shelf) => shelf.videos)
-        .filter((video) =>
-          matches(query, videoName(video), shownName(title, video), split(video.path)[0]),
-        )
+        .filter((video) => matches(query, ...foundBy(title, video), split(video.path)[0]))
     : shown.videos;
   // What plays next: the rest of the season and the seasons after it; the specials, and files
   // without a season, among themselves.
@@ -913,6 +923,24 @@ function shownName(title: TitleDetail, video: TitleFile): string {
   return episode?.name ?? split(video.path)[0];
 }
 
+/** What a video is found by on its title's page, besides its file's name: the code and title of
+ * each episode it holds ("S01E01", "S01E02" for a file of two), or its own name. */
+function foundBy(title: TitleDetail, video: TitleFile): string[] {
+  const { season, episode } = video;
+  if (season === null || episode === null) return [videoName(video), shownName(title, video)];
+  const numbers = Array.from(
+    { length: (video.episodeEnd ?? episode) - episode + 1 },
+    (_, step) => episode + step,
+  );
+  return [
+    videoName(video),
+    ...numbers.flatMap((number) => [
+      code(season, number),
+      title.episodes.find((each) => each.season === season && each.number === number)?.name ?? "",
+    ]),
+  ];
+}
+
 /** "1080p · HEVC · 24 min · 412 MB". */
 function facts(video: TitleFile): string {
   return [
@@ -997,6 +1025,11 @@ function key(episode: EpisodeState): string {
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
+}
+
+/** "S01E05". */
+function code(season: number, number: number): string {
+  return `S${pad(season)}E${pad(number)}`;
 }
 
 function day(iso: string): string {

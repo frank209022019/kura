@@ -33,7 +33,14 @@ and [../CLAUDE.md](../CLAUDE.md).
   than one thing in it: it narrows the list as you type, wanting every word however it's written
   (`lib/search.ts`), keeps to the page's address (`?q=`) so going back finds it, and says when
   nothing goes by it. What it hides isn't acted on: Tidy up applies, and the queue's ticks move,
-  only what's found.
+  only what's found. History's filter asks the engine (`useHistory(query)`), as History comes a
+  few days at a time.
+- The title bar's search (`components/shell/library-search.tsx`, as the boards draw it, without
+  their Ctrl K) asks the engine (`useSearch`) once the owner stops typing and lists the anime,
+  episodes and videos it finds under the field: arrow keys and Enter, or a click, open one, once
+  the list answers what's typed. An episode or a video opens its title's page searched for it
+  (`?q=`, with `state.videos`, which takes the page down to its videos); a video Kura files under
+  no title, an extra, shows in its folder.
 - Deleting asks first, beside what goes (`components/delete.tsx`, on a title's page and on "Which
   anime is this?"), says where it goes and for how long, and offers it back right after. Nothing
   is ever deleted outright; emptying a drive's quarantine early to make room

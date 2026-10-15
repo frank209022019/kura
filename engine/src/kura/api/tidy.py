@@ -305,11 +305,14 @@ Day = Annotated[str | None, Query(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 
 
 @router.get("/history")
-def what_kura_did(conn: Database, before: Day = None) -> History:
+def what_kura_did(
+    conn: Database, before: Day = None, q: Annotated[str, Query(max_length=200)] = ""
+) -> History:
     """What Kura did on its latest days with anything on them (a week's worth), newest first:
     each tidy-up applied, each conversion, each batch of subtitles made and each scan.
-    `before` ("2026-10-07", the page's `older`) asks for the days before that one."""
-    found = history.page(conn, before=before)
+    `before` ("2026-10-07", the page's `older`) asks for the days before that one, and `q` for
+    what names an anime or file ("Starfall 03"), on the days it finds anything on."""
+    found = history.page(conn, before=before, query=q)
     return History(
         plans=[PlanDone.model_validate(asdict(plan)) for plan in found.plans],
         scans=[ScanDone.model_validate(scan.__dict__) for scan in found.scans],
