@@ -302,6 +302,9 @@ function Playback(props: {
   }
 
   function onPointerDown(event: PointerEvent<HTMLElement>) {
+    // Only a press on the player itself: one in its sound and subtitles menu, which sits outside
+    // it on the page, reaches here too, and capturing that pointer would take the menu's click.
+    if (!event.currentTarget.contains(event.target as Node)) return;
     if (event.button !== 0 || (event.target as Element).closest("button, input, a")) return;
     const size = event.currentTarget.getBoundingClientRect();
     grab.current = {

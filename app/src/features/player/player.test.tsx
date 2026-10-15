@@ -265,6 +265,38 @@ describe("PlayerLayer", () => {
     expect(asked(next.querySelector("video")?.getAttribute("src") ?? "").subtitles).toBeNull();
   });
 
+  it("takes a mouse's pick from its menu, the press starting no drag", async () => {
+    renderPlayer({});
+    await started();
+    const video = await playing();
+    // As a browser does: once an element captures the pointer, the press's up and click go to it.
+    let captured: Element | null = null;
+    const had = Object.getOwnPropertyDescriptor(Element.prototype, "setPointerCapture");
+    Object.defineProperty(Element.prototype, "setPointerCapture", {
+      configurable: true,
+      writable: true,
+      value(this: Element) {
+        captured = this;
+      },
+    });
+    try {
+      fireEvent.keyDown(screen.getByRole("button", { name: "Sound and subtitles" }), {
+        key: "Enter",
+      });
+      const english = await screen.findByRole("menuitemradio", { name: /^English5\.1/ });
+      fireEvent.pointerDown(english, { button: 0, pointerId: 1, pointerType: "mouse" });
+      const target = captured ?? english;
+      fireEvent.pointerUp(target, { button: 0, pointerId: 1, pointerType: "mouse" });
+      fireEvent.click(target);
+
+      await waitFor(() => expect(asked_(video).sound).toBe("1"));
+      expect(captured).toBeNull();
+    } finally {
+      if (had) Object.defineProperty(Element.prototype, "setPointerCapture", had);
+      else Reflect.deleteProperty(Element.prototype, "setPointerCapture");
+    }
+  });
+
   it("goes full screen and back, Esc leaving it too", async () => {
     renderPlayer({});
     await started();
