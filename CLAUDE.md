@@ -143,7 +143,7 @@ Everything decided so far. Don't ask again; change only with the owner.
   read, but the app calls it "clean names" and says what it does, not who reads it. The naming
   choice is "Clean names" or "Keep my names". The release notes and the downloads page don't
   name it either (the owner, 2026-10-12), and they list every commit's title, so commit titles
-  don't.
+  don't. Nor do the README and the design boards (2026-10-15): they say "media server apps".
 - No piracy, in any form, and no copyright or content law broken (the owner, 2026-10-14: "We
   must enforce that we do not support any form of piracy"). Kura looks after video already on
   the PC and plays it only in its own window: it never searches for, downloads or shares video,
@@ -151,7 +151,10 @@ Everything decided so far. Don't ask again; change only with the owner.
   own videos only"), the downloads page and Settings › About say so: it's for videos you have
   the right to keep and watch. The README is the tour in five steps, option B of three (the
   owner, 2026-10-14; [docs/design/readme.html](docs/design/readme.html)), its pictures
-  Kura's own screens with made-up titles.
+  Kura's own screens with made-up titles. It markets Kura as the anime companion to a media
+  server (the owner, 2026-10-15: "an additional tool to be used alongside tools like Plex,
+  Jellyfin, etc", named only as "popular media server applications or something"): Kura gets
+  the library right, the media server plays it.
 - Home shows the library (the owner, 2026-10-12): what this copy of Kura is up to (the engine,
   the data folder, the database, TMDB, updates) is in Settings › About. Its videos by picture
   are a summary at the top, and Scan again and Add a folder sit by the page's title with when
