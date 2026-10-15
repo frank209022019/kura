@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.18.0 - 2026-10-15
+
 ### Added
 - Search the lists that grow long: Home's shelf (a franchise by its name or any of its titles'),
   a franchise's titles (the ones it's missing too), a title's videos through every season (by
