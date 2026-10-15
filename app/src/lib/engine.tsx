@@ -662,6 +662,9 @@ export interface TitleFile {
    * beside it ("jpn", "en"; "" for one that doesn't say), each once. */
   sound: string[];
   subtitles: string[];
+  /** What Whisper heard ("ja") in a sound track that doesn't say its language, when Kura made
+   * English subtitles from it: that track's language in `sound`. */
+  heard: string | null;
   /** English subtitles Kura made from its sound are beside it. */
   made: boolean;
   /** In the queue for English subtitles, or having them made. */

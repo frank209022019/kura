@@ -28,6 +28,15 @@ def beside_language(subtitle: PurePath, video: PurePath) -> str:
     return next((part.casefold() for part in parts if part and part.casefold() not in _FLAGS), "")
 
 
+def heard_in(sound: Sequence[str], track: int | None, heard: str | None) -> list[str]:
+    """Each sound track's language, with the one Whisper heard (`heard`, "ja") in the track Kura
+    made English subtitles from (`track`, from 0) when that track doesn't say its own."""
+    languages = list(sound)
+    if heard and track is not None and 0 <= track < len(languages) and not languages[track]:
+        languages[track] = heard
+    return languages
+
+
 def listed(languages: Sequence[str]) -> list[str]:
     """Each language once, in the order first met."""
     return list(dict.fromkeys(languages))

@@ -54,7 +54,9 @@ and on the installer's first page (the downloads).
    in order and within the video's length, then in place. `made_subtitles` records it as Kura's
    before it takes its name (a crash in between leaves nothing Kura wrote unknown), and it stays
    Kura's while it's there as written, its size and the time it was written unchanged; one the
-   owner changed is theirs.
+   owner changed is theirs. The record keeps the sound track it's from and the language Whisper
+   heard there, which a title's page shows for a track whose file doesn't name its language
+   (`heard_in` in `kura/core/languages.py`); one Kura hasn't heard says "Language not labelled".
 
 ## On the graphics card
 

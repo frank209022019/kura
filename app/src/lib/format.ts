@@ -102,8 +102,17 @@ const LANGUAGES: Record<string, string> = {
   zh: "Chinese",
   ko: "Korean",
   ar: "Arabic",
-  unknown: "unnamed",
 };
+
+/** Every other language's name, from the list the web view carries (Unicode's CLDR): "Dutch"
+ * for "nl" or "nld". */
+const NAMES = (() => {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
+  } catch {
+    return null;
+  }
+})();
 
 export function languages(codes: string[]): string {
   if (codes.length === 0) return "none";
@@ -111,11 +120,17 @@ export function languages(codes: string[]): string {
 }
 
 /** A language as people say it: "Japanese" for "jpn", "English" for "en" or a file's "english",
- * "unnamed" for a track that doesn't say. */
+ * "not labelled" for a track whose file doesn't say. */
 export function languageName(code: string): string {
   const known = LANGUAGES[code];
   if (known) return known;
-  if (code === "") return LANGUAGES.unknown ?? "unnamed";
+  if (code === "") return "not labelled";
+  try {
+    const name = NAMES?.of(code);
+    if (name) return name;
+  } catch {
+    // not a code at all: a word a file's name carries, as "english"
+  }
   return code.length > 3 ? code.charAt(0).toUpperCase() + code.slice(1) : code.toUpperCase();
 }
 

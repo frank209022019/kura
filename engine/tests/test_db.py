@@ -195,6 +195,41 @@ def test_the_languages_of_videos_read_before_come_from_what_ffprobe_said(tmp_pat
         assert tuple(rows[1]) == (None, None)
 
 
+def test_subtitles_made_before_know_the_sound_track_they_were_made_from(tmp_path: Path):
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:21]))
+        conn.execute("PRAGMA user_version = 21")
+        conn.execute("INSERT INTO folders (path, added_at) VALUES ('D:/Anime', 'then')")
+        for file_id in (1, 2, 3):
+            conn.execute(
+                """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at)
+                   VALUES (1, ?, 1, 1, 'then', 'then')""",
+                (f"S01E0{file_id}.mkv",),
+            )
+            conn.execute(
+                """INSERT INTO made_subtitles (file_id, name, language, size, modified, made_at)
+                   VALUES (?, '.en.srt', 'ja', 1, 1, 'then')""",
+                (file_id,),
+            )
+        for file_id, sound, state, problem, finished in (
+            (1, 1, "done", None, "2026-10-15T10:00"),  # made them from its second track
+            (1, 0, "failed", "It stopped.", "2026-10-15T11:00"),  # asked again, and failed
+            (2, None, "done", None, "2026-10-15T10:00"),  # from its first
+        ):
+            conn.execute(
+                """INSERT INTO jobs (file_id, kind, method, sound, position, state, added_at,
+                                     finished_at, problem)
+                   VALUES (?, 'subtitles', 'best', ?, 1, ?, 'then', ?, ?)""",
+                (file_id, sound, state, finished, problem),
+            )
+        conn.commit()
+
+        db.migrate(conn)
+
+        made = conn.execute("SELECT file_id, sound FROM made_subtitles ORDER BY file_id")
+        assert [tuple(row) for row in made] == [(1, 1), (2, 0), (3, None)]
+
+
 def test_earlier_tidy_ups_stop_naming_a_media_server(tmp_path: Path):
     with closing(db.connect(tmp_path / "kura.db")) as conn:
         conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:8]))

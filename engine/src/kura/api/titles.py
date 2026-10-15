@@ -3,6 +3,7 @@ title in full with its seasons, the episodes it's missing, and its videos, and t
 make (a franchise's series, films, OVAs and specials together, and the ones it lacks)."""
 
 import json
+import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Literal
@@ -14,7 +15,7 @@ from kura import artwork, franchises, titles
 from kura.api.common import ApiModel, Database, Paths, Web
 from kura.core.catalog import Episode, TitleKind
 from kura.core.franchise import Entry
-from kura.core.languages import listed
+from kura.core.languages import heard_in, listed
 from kura.core.report import GAP_ANALYSIS_FILE
 from kura.languages import beside
 from kura.preferences import library_standard
@@ -71,6 +72,9 @@ class TitleFile(ApiModel):
     # beside it ("jpn", "en"; "" for one that doesn't say), each once.
     sound: list[str]
     subtitles: list[str]
+    # What Whisper heard ("ja") in a sound track that doesn't say its language, when Kura made
+    # English subtitles from it: that track's language in `sound`.
+    heard: str | None
     made: bool  # English subtitles Kura made are beside it
     # In the queue for English subtitles ("queued"), or having them made ("running").
     subtitles_job: Literal["queued", "running"] | None
@@ -199,7 +203,7 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
     videos = conn.execute(
         """SELECT f.id, f.path, f.size, f.season, f.episode, f.episode_end, f.problem, f.height,
                   f.codec, f.duration, f.sound, f.subtitles, m.name AS made, m.size AS made_size,
-                  m.modified AS made_modified,
+                  m.modified AS made_modified, m.sound AS heard_track, m.language AS heard,
                   (SELECT j.state FROM jobs AS j
                    WHERE j.file_id = f.id AND j.kind = 'subtitles'
                      AND j.state IN ('queued', 'running')
@@ -243,21 +247,22 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
         missing_episodes=[_episode(e) for e in (gaps.missing if gaps else ())],
         missing_specials=[_episode(e) for e in (gaps.specials_missing if gaps else ())],
         upcoming_episodes=[_episode(e) for e in (gaps.upcoming if gaps else ())],
-        videos=[
-            TitleFile.model_validate(
-                {
-                    **dict(row),
-                    "sound": listed(json.loads(row["sound"] or "[]")),
-                    "subtitles": listed(
-                        [*json.loads(row["subtitles"] or "[]"), *subtitled[Path(row["path"])]]
-                    ),
-                    "made": is_made(
-                        Path(row["path"]), row["made"], row["made_size"], row["made_modified"]
-                    ),
-                }
-            )
-            for row in videos
-        ],
+        videos=[_video(row, subtitled[Path(row["path"])]) for row in videos],
+    )
+
+
+def _video(row: sqlite3.Row, beside_it: list[str]) -> TitleFile:
+    """A title's video, with the languages of the subtitle files beside it (`beside_it`)."""
+    sound: list[str] = json.loads(row["sound"] or "[]")
+    filled = heard_in(sound, row["heard_track"], row["heard"])
+    return TitleFile.model_validate(
+        {
+            **dict(row),
+            "sound": listed(filled),
+            "subtitles": listed([*json.loads(row["subtitles"] or "[]"), *beside_it]),
+            "made": is_made(Path(row["path"]), row["made"], row["made_size"], row["made_modified"]),
+            "heard": row["heard"] if filled != sound else None,
+        }
     )
 
 

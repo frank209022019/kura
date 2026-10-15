@@ -211,7 +211,7 @@ def make(
         written = partial.stat()  # as Kura wrote them, the same once they have their name
         # Known as Kura's before they take their name: a crash in between leaves nothing Kura
         # wrote that isn't known as its own.
-        _record(conn, row["file_id"], name, row["batch_id"], made.language, written, now())
+        _record(conn, row["file_id"], name, row["batch_id"], track, made.language, written, now())
         partial.replace(target)
     except OSError as error:
         _put_back(conn, row["file_id"], before)
@@ -231,24 +231,27 @@ def _record(
     file_id: int,
     name: str,
     batch_id: int | None,
+    track: int,
     language: str,
     written: os.stat_result,
     moment: datetime,
 ) -> None:
-    """A video's subtitles as Kura wrote them: its own while they're there that way."""
+    """A video's subtitles as Kura wrote them, its own while they're there that way, from sound
+    track `track`, in which Whisper heard `language` ("ja")."""
     with conn:
         conn.execute(
             """INSERT INTO made_subtitles
-                   (file_id, name, batch_id, language, size, modified, made_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+                   (file_id, name, batch_id, sound, language, size, modified, made_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT (file_id) DO UPDATE SET name = excluded.name,
-                   batch_id = excluded.batch_id, language = excluded.language,
-                   size = excluded.size, modified = excluded.modified,
-                   made_at = excluded.made_at""",
+                   batch_id = excluded.batch_id, sound = excluded.sound,
+                   language = excluded.language, size = excluded.size,
+                   modified = excluded.modified, made_at = excluded.made_at""",
             (
                 file_id,
                 name,
                 batch_id,
+                track,
                 language,
                 written.st_size,
                 written.st_mtime_ns,
@@ -264,13 +267,13 @@ def _put_back(conn: sqlite3.Connection, file_id: int, before: sqlite3.Row | None
         if before is not None:
             conn.execute(
                 """INSERT INTO made_subtitles
-                       (file_id, name, batch_id, language, size, modified, made_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                       (file_id, name, batch_id, sound, language, size, modified, made_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 tuple(before[key] for key in _RECORDED),
             )
 
 
-_RECORDED = ("file_id", "name", "batch_id", "language", "size", "modified", "made_at")
+_RECORDED = ("file_id", "name", "batch_id", "sound", "language", "size", "modified", "made_at")
 
 
 def unfinished(video: Path) -> list[Path]:

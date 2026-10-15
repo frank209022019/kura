@@ -319,4 +319,15 @@ MIGRATIONS: Final[tuple[str, ...]] = (
     """
     ALTER TABLE jobs ADD COLUMN other_id INTEGER REFERENCES files (id) ON DELETE SET NULL;
     """,
+    # 22. The sound track Kura made a video's English subtitles from (from 0), so a track that
+    #     doesn't say its language shows the one Whisper heard in it. Filled from the job that
+    #     made them, which the queue keeps.
+    """
+    ALTER TABLE made_subtitles ADD COLUMN sound INTEGER;
+    UPDATE made_subtitles SET sound = (
+        SELECT COALESCE(j.sound, 0) FROM jobs AS j
+        WHERE j.file_id = made_subtitles.file_id AND j.kind = 'subtitles'
+          AND j.state = 'done' AND j.problem IS NULL
+        ORDER BY j.finished_at DESC, j.id DESC LIMIT 1);
+    """,
 )

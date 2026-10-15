@@ -1,6 +1,12 @@
 from pathlib import PurePath
 
-from kura.core.languages import beside_language, is_english, listed, track_languages
+from kura.core.languages import (
+    beside_language,
+    heard_in,
+    is_english,
+    listed,
+    track_languages,
+)
 
 
 def test_english_is_known_however_a_file_names_it():
@@ -25,3 +31,12 @@ def test_each_track_keeps_its_language_or_none():
 
 def test_each_language_is_listed_once_in_the_order_first_met():
     assert listed(["jpn", "eng", "jpn", "", ""]) == ["jpn", "eng", ""]
+
+
+def test_a_track_that_doesnt_say_its_language_has_the_one_whisper_heard_in_it():
+    assert heard_in(["jpn", ""], 1, "ja") == ["jpn", "ja"]
+    assert heard_in([""], None, "ja") == [""]  # Kura doesn't know which track it heard
+    # A track that says its language keeps it, and one Kura heard nothing in stays as it is.
+    assert heard_in(["jpn", ""], 0, "ja") == ["jpn", ""]
+    assert heard_in(["", ""], 0, None) == ["", ""]
+    assert heard_in([""], 3, "ja") == [""]  # a track the video doesn't have now

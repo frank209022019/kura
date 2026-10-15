@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { size } from "./format";
+import { languageName, size } from "./format";
 
 describe("size", () => {
   it("writes sizes the way the boards do", () => {
@@ -11,5 +11,22 @@ describe("size", () => {
     expect(size(8_200_000_000)).toBe("8.2 GB");
     expect(size(16_400_000_000)).toBe("16 GB");
     expect(size(931_000_000_000)).toBe("931 GB");
+  });
+});
+
+describe("languageName", () => {
+  it("names a language however a file or Whisper writes it", () => {
+    expect(languageName("jpn")).toBe("Japanese");
+    expect(languageName("ja")).toBe("Japanese");
+    expect(languageName("ger")).toBe("German");
+    expect(languageName("english")).toBe("English");
+    // Whisper hears languages beyond those Kura names itself.
+    expect(languageName("nl")).toBe("Dutch");
+    expect(languageName("nld")).toBe("Dutch");
+    expect(languageName("sv")).toBe("Swedish");
+  });
+
+  it("says when a file doesn't name a track's language", () => {
+    expect(languageName("")).toBe("not labelled");
   });
 });

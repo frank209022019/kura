@@ -113,5 +113,25 @@ def test_a_batch_joins_the_queue_is_made_and_shows_everywhere(
     assert plan["takenAway"] == 2
 
 
+def test_a_sound_track_that_doesnt_say_its_language_shows_the_one_whisper_heard(
+    client: TestClient, conn: sqlite3.Connection, hearing: Queue
+):
+    with conn:
+        conn.execute("""UPDATE files SET sound = '["", "eng"]' WHERE id = 1""")
+    asked = {"fileIds": [1, 2], "quality": "best", "language": "", "title": "Starfall"}
+    client.post("/subtitles", json=asked)
+
+    while hearing.work_once():
+        pass
+
+    videos = client.get("/titles/1").json()["videos"]
+    # Whisper heard Japanese in the first's first track; the second's says it is Japanese.
+    assert [(video["sound"], video["heard"]) for video in videos] == [
+        (["ja", "eng"], "ja"),
+        (["jpn"], None),
+        (["jpn"], None),
+    ]
+
+
 def test_a_batch_kura_doesnt_have_cant_be_taken_away(client: TestClient):
     assert client.post("/subtitles/batches/9/take-away").status_code == 404

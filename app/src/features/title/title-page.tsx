@@ -726,16 +726,15 @@ function VideoRow(props: {
 function Spoken({ video, making }: { video: TitleFile; making: number | null }) {
   if (video.problem) return <span />;
   const job = making !== null ? "running" : video.subtitlesJob;
+  const subtitles = named(video.subtitles.filter((code) => !(video.made && isEnglish(code))));
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-12 text-fg-muted">
-      <span>{video.sound.length > 0 ? video.sound.map(languageName).join(", ") : "No sound"}</span>
-      {video.subtitles
-        .filter((code) => !(video.made && isEnglish(code)))
-        .map((code) => (
-          <span key={code} className="rounded-full bg-tint/6 px-2 text-fg-soft">
-            {languageName(code)} subs
-          </span>
-        ))}
+      <span title={soundHint(video)}>{soundWords(video)}</span>
+      {subtitles.map((name) => (
+        <span key={name} className="rounded-full bg-tint/6 px-2 text-fg-soft">
+          {name} subs
+        </span>
+      ))}
       {video.made && (
         <span className="rounded-full bg-accent/14 px-2 font-bold text-accent-fg">
           English subs · made by Kura
@@ -753,6 +752,27 @@ function Spoken({ video, making }: { video: TitleFile; making: number | null }) 
   );
 }
 
+/** A video's sound in words: "Japanese, English", or "Language not labelled" when its file
+ * doesn't say (Kura names the language it heard there, when it made English subtitles). */
+function soundWords(video: TitleFile): string {
+  if (video.sound.length === 0) return "No sound";
+  const words = named(video.sound).join(", ");
+  return words === languageName("") ? "Language not labelled" : words;
+}
+
+function soundHint(video: TitleFile): string | undefined {
+  if (video.heard) {
+    return `The file doesn't say which language its sound is in: Kura heard ${languageName(video.heard)} when it made English subtitles.`;
+  }
+  if (video.sound.includes("")) return "The file doesn't say which language its sound is in.";
+  return undefined;
+}
+
+/** Each language's name once ("jpn" and "ja" are both "Japanese"), in the order first met. */
+function named(codes: string[]): string[] {
+  return [...new Set(codes.map(languageName))];
+}
+
 function NoEnglish({ count }: { count?: number }) {
   return (
     <span className="whitespace-nowrap rounded-full px-2 font-bold text-accent-fg ring-[1.5px] ring-accent-fg/55 ring-inset">
@@ -766,15 +786,15 @@ function NoEnglish({ count }: { count?: number }) {
 function TitleLanguages({ videos }: { videos: TitleFile[] }) {
   const readable = videos.filter((video) => !video.problem);
   if (readable.length === 0) return null;
-  const sound = byUse(readable.flatMap((video) => video.sound.filter(Boolean)));
+  const sound = byUse(readable.flatMap((video) => named(video.sound.filter(Boolean))));
   const others = byUse(
-    readable.flatMap((video) => video.subtitles.filter((code) => code && !isEnglish(code))),
+    readable.flatMap((video) => named(video.subtitles.filter((code) => code && !isEnglish(code)))),
   );
   const subtitled = readable.filter((video) => video.subtitles.some(isEnglish)).length;
   const without = readable.filter((video) => !english(video)).length;
   const words = [
-    sound.length > 0 ? `${listed(sound.slice(0, 3).map(languageName))} sound` : null,
-    subtitleWords(others.slice(0, 3).map(languageName), subtitled, readable.length),
+    sound.length > 0 ? `${listed(sound.slice(0, 3))} sound` : null,
+    subtitleWords(others.slice(0, 3), subtitled, readable.length),
   ].filter(Boolean);
   return (
     <span className="flex flex-wrap items-center gap-2 text-13 text-fg-soft">

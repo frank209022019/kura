@@ -81,6 +81,7 @@ const DBZ: TitleDetail = {
       subtitlesJob: null,
       sound: ["jpn"],
       subtitles: ["eng"],
+      heard: null,
     },
   ],
 };
@@ -100,6 +101,7 @@ function video(id: number, season: number | null, episode: number | null, name: 
     duration: 1453,
     sound: ["jpn"],
     subtitles: ["ger"],
+    heard: null as string | null,
     made: false,
     subtitlesJob: null as "queued" | "running" | null,
   };
@@ -544,6 +546,35 @@ describe("TitlePage", () => {
     expect(rows[1]).toHaveTextContent("Japanese, English");
     expect(rows[1]).not.toHaveTextContent("No English");
     expect(rows[2]).toHaveTextContent("JapaneseGerman subsNo English");
+  });
+
+  it("says when a file doesn't name its sound's language, and the one Kura heard there", async () => {
+    renderTitle({
+      ...DBZ,
+      videos: [
+        { ...video(1, 1, 1, "S01E01"), sound: [""], subtitles: [] },
+        { ...video(2, 1, 2, "S01E02"), sound: ["ja"], heard: "ja", made: true, subtitles: ["en"] },
+        { ...video(3, 1, 3, "S01E03"), sound: ["jpn", ""], subtitles: ["eng", "en"] },
+      ],
+    });
+
+    const list = await screen.findByRole("list", { name: "Videos" });
+    const rows = within(list).getAllByRole("listitem");
+    expect(within(rows[0] as HTMLElement).getByText("Language not labelled")).toHaveAttribute(
+      "title",
+      "The file doesn't say which language its sound is in.",
+    );
+    expect(rows[0]).not.toHaveTextContent("unnamed");
+    expect(within(rows[1] as HTMLElement).getByText("Japanese")).toHaveAttribute(
+      "title",
+      "The file doesn't say which language its sound is in: Kura heard Japanese when it made English subtitles.",
+    );
+    expect(rows[2]).toHaveTextContent("Japanese, not labelledEnglish subs");
+    // Each language once, however its files write it.
+    expect(within(rows[2] as HTMLElement).getAllByText("English subs")).toHaveLength(1);
+    expect(screen.getByRole("region", { name: "Dragon Ball Z" })).toHaveTextContent(
+      "Japanese sound · English subtitles on 2 of 3",
+    );
   });
 
   it("marks the English subtitles Kura made, is making and has waiting, and makes more", async () => {

@@ -7268,6 +7268,17 @@
             "type": "array",
             "title": "Subtitles"
           },
+          "heard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heard"
+          },
           "made": {
             "type": "boolean",
             "title": "Made"
@@ -7302,6 +7313,7 @@
           "duration",
           "sound",
           "subtitles",
+          "heard",
           "made",
           "subtitlesJob"
         ],

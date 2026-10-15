@@ -8,6 +8,12 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Fixed
+- A title's videos no longer say "unnamed" for sound whose file doesn't name its language. They
+  name the language Kura heard there when it made English subtitles from it, or else say
+  "Language not labelled". A language a video's files write two ways ("jpn" and "ja") shows once,
+  and every language Whisper knows has its name.
+
 ## 0.17.1 - 2026-10-15
 
 ### Fixed
