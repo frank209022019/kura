@@ -81,6 +81,35 @@ const DBZ: TitleDetail = {
   ],
 };
 
+/** A video of DBZ's at S`season`E`episode` (none for a file without one), named `name`. */
+function video(id: number, season: number | null, episode: number | null, name: string) {
+  return {
+    id,
+    path: `D:\\Anime\\TV\\Dragon Ball Z (1989)\\${name}.mkv`,
+    size: 412_000_000,
+    season,
+    episode,
+    episodeEnd: null,
+    problem: null,
+    height: 1080,
+    codec: "hevc",
+    duration: 1453,
+  };
+}
+
+const OPENED = {
+  ticket: "T1",
+  missing: null,
+  drive: "D:",
+  duration: 1440,
+  sound: [],
+  subtitles: [],
+  chapters: [],
+  chosenSound: null,
+  chosenSubtitles: null,
+  ready: [],
+};
+
 function renderTitle(
   title: TitleDetail,
   report: unknown = undefined,
@@ -446,20 +475,96 @@ describe("TitlePage", () => {
     expect(screen.getByRole("heading", { name: "Its file" })).toBeInTheDocument();
   });
 
-  it("plays a video from its row, marking it playing, its episode's name with it", async () => {
-    const opened = {
-      ticket: "T1",
-      missing: null,
-      drive: "D:",
-      duration: 1440,
-      sound: [],
-      subtitles: [],
-      chapters: [],
-      chosenSound: null,
-      chosenSubtitles: null,
-      ready: [],
+  it("lists its videos a season at a time, each by its episode's title", async () => {
+    renderTitle({
+      ...DBZ,
+      videos: [
+        video(9, 0, 1, "Bardock"),
+        video(4, 4, 1, "S04E01"),
+        video(2, 1, 2, "S01E02"),
+        { ...video(3, 1, 1, "S01E01"), problem: "It stops at 12:41." },
+        video(5, null, null, "Opening"),
+      ],
+    });
+
+    const seasons = await screen.findByRole("radiogroup", { name: "Season" });
+    expect(
+      within(seasons)
+        .getAllByRole("radio")
+        .map((each) => each.textContent),
+    ).toEqual(["Season 1", "Season 4", "Specials", "Other files"]);
+    const first = screen.getByRole("list", { name: "Season 1" });
+    const rows = within(first).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("S01E01Episode 1won't play");
+    expect(rows[1]).toHaveTextContent("S01E02Episode 21080p · HEVC · 24 min · 412 MB");
+    expect(within(first).getByText("Episode 2")).toHaveAttribute(
+      "title",
+      video(2, 1, 2, "S01E02").path,
+    );
+    expect(within(first).queryByRole("button", { name: "Play S01E01" })).not.toBeInTheDocument();
+
+    within(seasons).getByRole("radio", { name: "Specials" }).click();
+    expect(await screen.findByRole("list", { name: "Specials" })).toHaveTextContent(
+      "S00E01Bardock",
+    );
+    within(seasons).getByRole("radio", { name: "Other files" }).click();
+    expect(await screen.findByRole("list", { name: "Other files" })).toHaveTextContent(
+      "Opening.mkv1080p · HEVC · 24 min · 412 MB",
+    );
+  });
+
+  it("shows a season's videos from its name in Seasons", async () => {
+    renderTitle({ ...DBZ, videos: [video(1, 1, 1, "S01E01"), video(2, 4, 1, "S04E01")] });
+
+    const panel = await screen.findByRole("region", { name: "Seasons" });
+    within(panel).getByRole("button", { name: "Season 4" }).click();
+
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Season 4" })).toHaveAttribute("data-state", "on"),
+    );
+    expect(screen.getByRole("list", { name: "Season 4" })).toHaveTextContent("S04E01");
+    // A season without videos has nothing to show.
+    expect(within(panel).queryByRole("button", { name: "Season 2" })).not.toBeInTheDocument();
+  });
+
+  it("a film plays from the top of its page", async () => {
+    const film: TitleDetail = {
+      ...DBZ,
+      id: 3,
+      kind: "movie",
+      name: "Cowboy Bebop: The Movie",
+      year: 2001,
+      files: 1,
+      aired: 0,
+      present: 0,
+      missing: 0,
+      seasons: [],
+      episodes: [],
+      videos: [
+        {
+          ...video(5, null, null, "Cowboy Bebop - The Movie (2001)"),
+          size: 2_100_000_000,
+          duration: 6900,
+        },
+      ],
     };
-    const fetch = renderTitle(DBZ, undefined, null, { "POST /player": opened }, true);
+    renderTitle(film, undefined, null, { "POST /player": OPENED }, true);
+
+    const file = await screen.findByRole("list", { name: "Its file" });
+    expect(file).toHaveTextContent(
+      "Cowboy Bebop - The Movie (2001).mkv1080p · HEVC · 1 h 55 min · 2.1 GB",
+    );
+    const header = screen.getByRole("region", { name: "Cowboy Bebop: The Movie" });
+    within(header).getByRole("button", { name: "Play" }).click();
+
+    const player = await screen.findByRole("region", { name: "Player" });
+    expect(player).toHaveTextContent("Cowboy Bebop: The Movie");
+    expect(await within(header).findByRole("button", { name: "Playing" })).toBeInTheDocument();
+  });
+
+  it("plays a video from its row, marking it playing, its episode's name with it", async () => {
+    const fetch = renderTitle(DBZ, undefined, null, { "POST /player": OPENED }, true);
 
     const button = await screen.findByRole("button", { name: "Play S01E01" });
     button.focus();
@@ -469,7 +574,7 @@ describe("TitlePage", () => {
     expect(document.activeElement).toBe(button);
     expect(player).toHaveTextContent("Dragon Ball Z · S01E01");
     expect(player).toHaveTextContent("Episode 1");
-    const row = screen.getByText(DBZ.videos[0]?.path ?? "").closest("li");
+    const row = screen.getByTitle(DBZ.videos[0]?.path ?? "").closest("li");
     expect(row).toHaveTextContent("Playing");
     expect(screen.queryByRole("button", { name: "Play S01E01" })).not.toBeInTheDocument();
     // The same button, so the keyboard keeps its place.

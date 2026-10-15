@@ -8,6 +8,15 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- A film's page has Play at the top, as does any title that's a single video.
+
+### Changed
+- A title's videos come a season at a time: pick the season above them (the specials have their
+  own), and a long season scrolls in its place instead of running the page on. Each video shows
+  its episode's title, picture, length and size rather than its whole path, which shows when you
+  point at it, and a season's name under Seasons takes you to its videos.
+
 ## 0.14.0 - 2026-10-14
 
 ### Added

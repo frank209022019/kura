@@ -241,6 +241,12 @@ Everything decided so far. Don't ask again; change only with the owner.
   subtitles in the file join a moment after the picture: they're copied out of the file first,
   which reads all of it. The sound and subtitles picked last start the next video too. Built to
   the Kura Player canvas (What's next, 10).
+- A title's videos come a season at a time (the owner, 2026-10-15: "The list of episodes for a
+  series is too long again, not by season and a lengthy scroll. Do something nice for movies,
+  series, etc"): a pill per season above the list, then Specials, then any files without a
+  season; the season's list keeps to a height and scrolls in its place. Each video shows its
+  episode's code and title, picture, length and size, its path on hover; a season's name under
+  Seasons leads to its videos. A film, or any title that's one video, has Play at the top.
 - Order of work: design language (done), repo and pipelines (done), then building.
 
 **Design: Cinema** (the owner's pick of three; tokens in `app/src/styles/tokens.css`)

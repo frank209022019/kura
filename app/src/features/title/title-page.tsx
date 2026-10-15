@@ -1,5 +1,5 @@
 import { AudioLines, FileText, Play } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/components/delete";
@@ -9,6 +9,7 @@ import { Poster } from "@/components/poster";
 import { HeaderSkeleton, Loading, PanelSkeleton } from "@/components/skeleton";
 import { StatusLegend, StatusShape, statusWord } from "@/components/status";
 import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/ui/segmented";
 import { type PlayItem, usePlayer, usePlayingFile } from "@/features/player/player-context";
 import {
   type EpisodeState,
@@ -21,6 +22,7 @@ import {
   useTitle,
 } from "@/lib/engine";
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
+import { clockLength, codecName, size, split } from "@/lib/format";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,14 @@ export function TitlePage() {
   // Deleting asks first, beside what goes; right after, the page says so and offers it back.
   const [asking, setAsking] = useState<Asking | null>(null);
   const [deleted, setDeleted] = useState<TidyResult | null>(null);
+  // The season whose videos show; a season's name in Seasons leads there too.
+  const [shelf, setShelf] = useState<string | null>(null);
+  const videosAt = useRef<HTMLElement>(null);
+  const showSeason = (season: number) => {
+    setShelf(String(season));
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    videosAt.current?.scrollIntoView?.({ block: "start", behavior: still ? "auto" : "smooth" });
+  };
   const deleting = useDeleting((result) => {
     setAsking(null);
     setDeleted(result);
@@ -102,6 +112,7 @@ export function TitlePage() {
               seasons={found.seasons}
               episodes={numbered}
               videos={found.videos}
+              onShow={showSeason}
               onAsk={ask}
               confirm={asking?.where.startsWith("season-") ? confirm(asking.where) : null}
             />
@@ -114,7 +125,14 @@ export function TitlePage() {
           </div>
         </div>
       )}
-      <Videos title={found} onAsk={ask} confirm={confirm} />
+      <Videos
+        title={found}
+        shelf={shelf}
+        onShelf={setShelf}
+        at={videosAt}
+        onAsk={ask}
+        confirm={confirm}
+      />
     </>
   );
 }
@@ -140,6 +158,12 @@ function Unfit({ count }: { count: number }) {
 function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) => void }) {
   const navigate = useNavigate();
   const explorer = useExplorer();
+  const { play } = usePlayer();
+  const playing = usePlayingFile();
+  // A film, or anything that's one video, plays from the top: its files in order.
+  const playable = title.videos.filter((video) => !video.problem);
+  const film = title.kind === "movie" || title.videos.length === 1;
+  const first = film ? playable[0] : undefined;
   // What its franchise lacks, on the franchise's page: a title alone in the library has one too.
   // A title whose videos are all gone has no franchise left to show.
   const franchiseId = title.franchise?.id ?? title.id;
@@ -178,6 +202,24 @@ function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) 
           </span>
         )}
         <div className="flex flex-wrap gap-2.5 pt-1.5">
+          {first && (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                if (playing !== first.id) {
+                  play(playable.map((video) => playItem(title, video)));
+                }
+              }}
+            >
+              {playing === first.id ? (
+                <AudioLines size={16} strokeWidth={2.2} aria-hidden="true" />
+              ) : (
+                <Play size={14} fill="currentColor" aria-hidden="true" />
+              )}
+              {playing === first.id ? "Playing" : "Play"}
+            </Button>
+          )}
           {title.folder && (
             <Button size="sm" onClick={() => explorer.run(() => openFolder(title.folder ?? ""))}>
               Open folder
@@ -227,6 +269,8 @@ function Seasons(props: {
   seasons: SeasonCount[];
   episodes: EpisodeState[];
   videos: TitleFile[];
+  /** Shows the season's videos. */
+  onShow: (season: number) => void;
   onAsk: (asking: Asking) => void;
   confirm: ReactNode;
 }) {
@@ -242,7 +286,18 @@ function Seasons(props: {
               key={season.season}
               className="grid min-h-10 grid-cols-[5.5rem_1fr_3.5rem_7rem_2rem] items-center gap-3 border-rule border-b text-13 last:border-b-0"
             >
-              <span className="font-bold">Season {season.season}</span>
+              {files.length > 0 ? (
+                <button
+                  type="button"
+                  title={`Show season ${season.season}'s videos`}
+                  onClick={() => props.onShow(season.season)}
+                  className="cursor-pointer text-left font-bold underline-offset-3 hover:text-accent-fg hover:underline"
+                >
+                  Season {season.season}
+                </button>
+              ) : (
+                <span className="font-bold">Season {season.season}</span>
+              )}
               <span className="flex h-2 overflow-hidden rounded-3" aria-hidden="true">
                 {mine.map((episode) => (
                   <StatusShape
@@ -497,90 +552,183 @@ function ReportActions({ path, text }: { path: string; text: string }) {
   );
 }
 
+/** Its videos. A series' come a season at a time, the season picked above them, and a long season
+ * keeps to a height and scrolls in its place; a film's file stands alone. */
 function Videos(props: {
   title: TitleDetail;
+  /** The shelf picked, or none yet: then the one playing, or the first. */
+  shelf: string | null;
+  onShelf: (shelf: string) => void;
+  at: RefObject<HTMLElement | null>;
   onAsk: (asking: Asking) => void;
   confirm: (where: string) => ReactNode;
 }) {
   const { title } = props;
   const { play } = usePlayer();
   const playing = usePlayingFile();
-  if (title.videos.length === 0) return null;
-  // Each plays with the ones after it next, in the page's order.
-  const items = title.videos.map((video) => playItem(title, video));
+  const all = shelves(title.videos);
+  const shown =
+    all.find((shelf) => shelf.key === props.shelf) ??
+    all.find((shelf) => shelf.videos.some((video) => video.id === playing)) ??
+    all[0];
+  if (!shown) return null;
+  // What plays next: the rest of the season and the seasons after it; the specials, and files
+  // without a season, among themselves.
+  const season = (shelf: Shelf) => shelf.key !== "0" && shelf.key !== "other";
+  const following = season(shown)
+    ? all.filter(season).flatMap((shelf) => shelf.videos)
+    : shown.videos;
+  const items = following.map((video) => playItem(title, video));
+  const numbered = shown.videos.some((video) => video.episode !== null);
+  const heading =
+    title.kind === "movie" ? (title.videos.length === 1 ? "Its file" : "Its files") : "Videos";
   return (
-    <Panel
-      id="videos-title"
-      title={title.kind === "movie" ? "Its file" : "Videos"}
-      note={files(title.videos.length)}
-    >
-      <ul className="flex flex-col">
-        {title.videos.map((video, index) => (
-          <li
+    <Panel id="videos-title" at={props.at} title={heading} note={files(title.videos.length)}>
+      {all.length > 1 && (
+        <Segmented
+          label="Season"
+          value={shown.key}
+          options={all.map((shelf) => ({ value: shelf.key, label: shelf.label }))}
+          onChange={props.onShelf}
+          className="flex-wrap self-start"
+        />
+      )}
+      <ul
+        aria-label={all.length > 1 ? shown.label : heading}
+        className="-mr-2 flex max-h-120 flex-col overflow-y-auto pr-2"
+      >
+        {shown.videos.map((video) => (
+          <VideoRow
             key={video.id}
-            className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 border-rule border-b py-1.5 text-12 last:border-b-0"
-          >
-            {video.season !== null && video.episode !== null && (
-              <span
-                className={cn(
-                  "w-18 shrink-0 font-mono",
-                  playing === video.id && "font-bold text-accent-fg",
-                )}
-              >
-                S{pad(video.season)}E{pad(video.episode)}
-                {video.episodeEnd ? `-E${pad(video.episodeEnd)}` : ""}
-              </span>
-            )}
-            <span className="min-w-0 flex-[1_1_260px] font-mono text-fg-soft [overflow-wrap:anywhere]">
-              {video.path}
-            </span>
-            {playing === video.id ? (
-              <span className="font-bold text-accent-fg">Playing</span>
-            ) : (
-              <span className="text-fg-muted">
-                {video.problem
-                  ? "won't play"
-                  : video.height
-                    ? `${video.height}p · ${video.codec ?? ""}`
-                    : ""}
-              </span>
-            )}
-            {/* The same button while it plays, so a keyboard keeps its place. */}
-            {!video.problem && (
-              <button
-                type="button"
-                aria-label={`${playing === video.id ? "Playing" : "Play"} ${videoName(video)}`}
-                onClick={() => {
-                  if (playing !== video.id) play(items, index);
-                }}
-                className={cn(
-                  "press inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border",
-                  playing === video.id
-                    ? "border-transparent text-accent-fg"
-                    : "border-field-edge bg-field text-fg",
-                )}
-              >
-                {playing === video.id ? (
-                  <AudioLines size={16} strokeWidth={2.2} aria-hidden="true" />
-                ) : (
-                  <Play size={14} fill="currentColor" aria-hidden="true" />
-                )}
-              </button>
-            )}
-            <DeleteIcon
-              label={`Delete ${videoName(video)}`}
-              onClick={() =>
-                props.onAsk({ what: videoName(video), where: `video-${video.id}`, files: [video] })
-              }
-            />
-            {props.confirm(`video-${video.id}`) && (
-              <div className="basis-full pb-2">{props.confirm(`video-${video.id}`)}</div>
-            )}
-          </li>
+            title={title}
+            video={video}
+            numbered={numbered}
+            playing={playing === video.id}
+            onPlay={() => play(items, following.indexOf(video))}
+            onAsk={props.onAsk}
+            confirm={props.confirm(`video-${video.id}`)}
+          />
         ))}
       </ul>
     </Panel>
   );
+}
+
+function VideoRow(props: {
+  title: TitleDetail;
+  video: TitleFile;
+  /** Its shelf numbers its episodes: the row starts with the episode's. */
+  numbered: boolean;
+  playing: boolean;
+  onPlay: () => void;
+  onAsk: (asking: Asking) => void;
+  confirm: ReactNode;
+}) {
+  const { video, playing } = props;
+  const name = videoName(video);
+  return (
+    <li
+      className={cn(
+        "grid min-h-11 items-center gap-x-3 border-rule border-b py-1 text-13 last:border-b-0",
+        props.numbered
+          ? "grid-cols-[4.5rem_minmax(0,1fr)_auto_2.25rem_2rem]"
+          : "grid-cols-[minmax(0,1fr)_auto_2.25rem_2rem]",
+      )}
+    >
+      {props.numbered && (
+        <span className={cn("font-mono text-12", playing && "font-bold text-accent-fg")}>
+          {video.episode !== null ? name : ""}
+        </span>
+      )}
+      <span className={cn("truncate", playing && "font-bold text-accent-fg")} title={video.path}>
+        {shownName(props.title, video)}
+      </span>
+      <span className={cn("text-12", playing ? "font-bold text-accent-fg" : "text-fg-muted")}>
+        {playing ? "Playing" : video.problem ? "won't play" : facts(video)}
+      </span>
+      {/* The same button while it plays, so a keyboard keeps its place. */}
+      {video.problem ? (
+        <span />
+      ) : (
+        <button
+          type="button"
+          aria-label={`${playing ? "Playing" : "Play"} ${name}`}
+          onClick={() => {
+            if (!playing) props.onPlay();
+          }}
+          className={cn(
+            "press inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border",
+            playing ? "border-transparent text-accent-fg" : "border-field-edge bg-field text-fg",
+          )}
+        >
+          {playing ? (
+            <AudioLines size={16} strokeWidth={2.2} aria-hidden="true" />
+          ) : (
+            <Play size={14} fill="currentColor" aria-hidden="true" />
+          )}
+        </button>
+      )}
+      <DeleteIcon
+        label={`Delete ${name}`}
+        onClick={() => props.onAsk({ what: name, where: `video-${video.id}`, files: [video] })}
+      />
+      {props.confirm && <div className="col-span-full pb-2">{props.confirm}</div>}
+    </li>
+  );
+}
+
+/** One season's videos, the specials', or those of files without a season. */
+interface Shelf {
+  /** The season's number, or "other". */
+  key: string;
+  label: string;
+  videos: TitleFile[];
+}
+
+/** A title's videos by season, in episode order: "Season 1" onwards, then "Specials", then
+ * "Other files" for any without a season. */
+function shelves(videos: TitleFile[]): Shelf[] {
+  const bySeason = new Map<number | null, TitleFile[]>();
+  for (const video of videos) {
+    bySeason.set(video.season, [...(bySeason.get(video.season) ?? []), video]);
+  }
+  // Seasons in order, the specials after them, files without a season last.
+  const rank = (season: number | null) =>
+    season === null ? Number.MAX_SAFE_INTEGER : season === 0 ? Number.MAX_SAFE_INTEGER - 1 : season;
+  return [...bySeason]
+    .sort(([a], [b]) => rank(a) - rank(b))
+    .map(([season, mine]) => ({
+      key: season === null ? "other" : String(season),
+      label: season === null ? "Other files" : season === 0 ? "Specials" : `Season ${season}`,
+      videos: mine.toSorted(
+        (a, b) =>
+          (a.episode ?? Number.MAX_SAFE_INTEGER) - (b.episode ?? Number.MAX_SAFE_INTEGER) ||
+          a.path.localeCompare(b.path),
+      ),
+    }));
+}
+
+/** The episode's title when the episode list has it, else the file's name. */
+function shownName(title: TitleDetail, video: TitleFile): string {
+  const episode =
+    video.episode === null
+      ? undefined
+      : title.episodes.find(
+          (each) => each.season === video.season && each.number === video.episode,
+        );
+  return episode?.name ?? split(video.path)[0];
+}
+
+/** "1080p · HEVC · 24 min · 412 MB". */
+function facts(video: TitleFile): string {
+  return [
+    video.height ? `${video.height}p` : null,
+    video.codec ? codecName(video.codec) : null,
+    video.duration ? clockLength(video.duration / 60) : null,
+    size(video.size),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** A video as the player names it: "Dragon Ball Z · S01E05" and its episode's title, or the
@@ -613,12 +761,15 @@ function Panel(props: {
   title: string;
   note?: string;
   icon?: ReactNode;
+  /** To scroll to it: it stops clear of the page's top, which stays put. */
+  at?: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
   return (
     <section
+      ref={props.at}
       aria-labelledby={props.id}
-      className="flex animate-fade-up flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5 shadow-panel"
+      className="flex scroll-mt-14 animate-fade-up flex-col gap-3.5 rounded-22 border border-edge bg-glass p-5 shadow-panel"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id={props.id} className="inline-flex items-center gap-2 font-extrabold text-16">
