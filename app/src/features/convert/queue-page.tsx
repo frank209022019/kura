@@ -147,6 +147,8 @@ export function QueuePage() {
       {status.running && status.endsAt && <Tonight endsAt={status.endsAt} early={status.early} />}
       {status.running?.job.kind === "subtitles" ? (
         <NowHearing running={status.running} gpu={status.gpu} paused={status.paused} />
+      ) : status.running?.job.kind === "merge" ? (
+        <NowAdding running={status.running} paused={status.paused} />
       ) : status.running ? (
         <NowConverting running={status.running} gpu={status.gpu} paused={status.paused} />
       ) : (
@@ -359,6 +361,105 @@ function hearingStep(running: RunningJob): number {
   if (running.stage === "writing") return 2;
   if (running.stage === "checking") return 3;
   return 0;
+}
+
+const ADDING = ["Line them up", "Add the English", "Check", "Put it in place"] as const;
+
+/** Where English from another copy is: lining the copies up, copying the one kept with the
+ * English, checking it, putting it in place. */
+function addingStep(running: RunningJob): number {
+  return { looking: 0, converting: 1, checking: 2, replacing: 3 }[running.stage as string] ?? 0;
+}
+
+/** English from another copy being added now: the copy kept, the steps, how far. Nothing runs
+ * on the graphics card. */
+function NowAdding(props: { running: RunningJob; paused: boolean }) {
+  const { running } = props;
+  const { job } = running;
+  const action = useQueueAction();
+  const still = useStill(job.fileId, 1);
+  const at = addingStep(running);
+  const share = progress(running);
+  return (
+    <section
+      aria-label="Now adding English from another copy"
+      className="relative flex animate-fade-up flex-wrap items-center gap-6 overflow-hidden rounded-26 bg-featured p-6.5 text-white scheme-dark"
+    >
+      <span
+        aria-hidden="true"
+        className="-right-30 -bottom-40 absolute size-90 rounded-full bg-featured-orb/90"
+      />
+      <div
+        aria-hidden="true"
+        className="relative h-37.5 flex-[0_0_200px] overflow-hidden rounded-14 bg-[#6fa8dc] shadow-[0_20px_40px_-20px_rgb(0_0_0/0.6)]"
+      >
+        {still && <img src={still} alt="" className="size-full object-cover" />}
+      </div>
+      <div className="relative flex min-w-0 flex-[1_1_340px] flex-col gap-3">
+        <span className="font-extrabold text-12 text-converting">English from another copy</span>
+        <h2 className="font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em]">{job.label}</h2>
+        <span className="text-13 text-white/85">
+          Lined up with this picture by the sound both copies have
+        </span>
+        <ol aria-label="Steps" className="flex flex-wrap items-center gap-1.5 font-bold text-12">
+          {ADDING.map((step, index) => (
+            <li
+              key={step}
+              aria-current={index === at ? "step" : undefined}
+              className={cn(
+                "inline-flex items-center gap-1.5",
+                index === at ? "text-converting" : index > at && "text-white/75",
+              )}
+            >
+              {index > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={cn("mr-0.5 h-0.5 w-3.5", index <= at ? "bg-accent" : "bg-white/30")}
+                />
+              )}
+              <StepMark done={index < at} now={index === at} />
+              {step}
+            </li>
+          ))}
+        </ol>
+        <div className="relative h-2 overflow-hidden rounded-4 bg-white/16">
+          <div
+            className="relative h-full overflow-hidden rounded-4 bg-accent transition-[width] duration-600 ease-cinema"
+            style={{ width: `${share}%` }}
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 animate-shimmer bg-linear-to-r from-white/0 via-white/60 to-white/0"
+            />
+          </div>
+        </div>
+        <span className="text-13 text-white/85">
+          {share}%
+          {running.secondsLeft !== null && running.secondsLeft > 0
+            ? ` · ${gpuTime(running.secondsLeft)} left`
+            : running.stage === "checking"
+              ? " · checking it plays"
+              : ""}
+        </span>
+        <div className="flex flex-wrap gap-2.5">
+          <FeaturedButton
+            disabled={action.isPending || props.paused}
+            onClick={() => action.mutate({ path: "/queue/pause" })}
+          >
+            <Pause size={14} fill="currentColor" aria-hidden="true" />
+            Pause
+          </FeaturedButton>
+          <FeaturedButton
+            disabled={action.isPending}
+            onClick={() => action.mutate({ path: `/queue/${job.id}/skip` })}
+          >
+            Skip this file
+          </FeaturedButton>
+        </div>
+        <Problem error={action.error} />
+      </div>
+    </section>
+  );
 }
 
 /** English subtitles being made now: the video, from which sound and at what quality, how far
@@ -1052,7 +1153,9 @@ function JobRow(props: {
           <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
             {job.kind === "subtitles"
               ? `English subs · ${METHOD_NAMES[job.method]}`
-              : METHOD_NAMES[job.method]}
+              : job.kind === "merge"
+                ? "English from another copy"
+                : METHOD_NAMES[job.method]}
           </span>
         )}
         <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
@@ -1077,7 +1180,7 @@ function JobRow(props: {
                     action.mutate({ path: `/queue/${job.id}/move`, body: { before: first } })
                   }
                 >
-                  {job.kind === "subtitles" ? "Make next" : "Convert next"}
+                  {job.kind === "convert" ? "Convert next" : "Make next"}
                 </MenuItem>
               )}
               <MenuItem
@@ -1182,7 +1285,7 @@ function Today({ jobs }: { jobs: Job[] }) {
       <div className="grid grid-cols-3 gap-2">
         <Figure
           value={String(done.length)}
-          label={done.some((job) => job.kind === "subtitles") ? "done" : "converted"}
+          label={done.some((job) => job.kind !== "convert") ? "done" : "converted"}
         />
         <Figure value={String(failed.length)} label="failed" />
         <Figure
@@ -1224,7 +1327,9 @@ function Failed({ job }: { job: Job }) {
           <strong className="font-extrabold">
             {job.kind === "subtitles"
               ? `No English subtitles for ${job.label}.`
-              : `${job.label} failed.`}
+              : job.kind === "merge"
+                ? `No English added to ${job.label}.`
+                : `${job.label} failed.`}
           </strong>{" "}
           <span className="text-fg-soft">
             {job.problem}
@@ -1243,7 +1348,7 @@ function Failed({ job }: { job: Job }) {
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        {job.kind !== "subtitles" && (
+        {job.kind === "convert" && (
           <Button
             size="sm"
             variant="primary"
@@ -1255,7 +1360,7 @@ function Failed({ job }: { job: Job }) {
         )}
         <Button
           size="sm"
-          variant={job.kind === "subtitles" ? "primary" : undefined}
+          variant={job.kind === "convert" ? undefined : "primary"}
           disabled={action.isPending}
           onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
         >

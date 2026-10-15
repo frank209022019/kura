@@ -66,7 +66,9 @@ An episode with no English, neither a dub nor subtitles, gets English subtitles 
 PC: Kura listens to its sound and translates it, a season or the whole library at a time,
 overnight if you like. They go beside each video under the name media server apps read, so your
 server shows them too, and the video itself never changes. Kura marks them as its own, since names
-and jokes can come out wrong, and History takes them away again.
+and jokes can come out wrong, and History takes them away again. And when you have two copies of
+an episode, the better picture can keep the other's English: Kura lines the two up by their sound
+and adds it.
 
 ![Make English subtitles: which videos, from which sound, how good, and what it takes](docs/readme/subtitles.png)
 

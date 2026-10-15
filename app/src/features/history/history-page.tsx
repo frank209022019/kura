@@ -234,21 +234,24 @@ function EventRow(props: {
   const { event } = props;
   const [verb, title, detail] = words(event);
   const plan = event.kind === "plan" ? event.plan : null;
-  // A conversion goes back only while its original is still in quarantine.
+  // A conversion goes back only while its original is still in quarantine, and only once what
+  // replaced the file since is put back.
   const undoable =
     plan !== null &&
     plan.undoneAt === null &&
     (plan.kind === "convert"
-      ? plan.quarantined > 0
+      ? plan.quarantined > 0 && !plan.conversion?.replaced
       : plan.moved + plan.quarantined + plan.takenAway > 0);
   const action =
-    plan?.kind === "convert"
-      ? "Put back the original"
-      : plan?.deleted
-        ? "Put back what was deleted"
-        : plan && plan.takenAway > 0
-          ? "Put back the subtitles"
-          : "Undo";
+    plan?.conversion?.kind === "merge"
+      ? "Put back both copies"
+      : plan?.kind === "convert"
+        ? "Put back the original"
+        : plan?.deleted
+          ? "Put back what was deleted"
+          : plan && plan.takenAway > 0
+            ? "Put back the subtitles"
+            : "Undo";
   if (event.kind === "subtitles") {
     return (
       <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-rule border-b py-3 text-13 last:border-b-0">
@@ -313,11 +316,27 @@ function words(event: Event): [string, string, string | null] {
   if (event.kind === "subtitles") return subtitleWords(event.made);
   const { plan } = event;
   const made = plan.conversion;
+  if (made?.kind === "merge") {
+    const label = plan.title.replace(/^Added English from another copy to /, "");
+    if (event.kind === "undo") {
+      return ["Put back", label, "It and its other copy are as they were again"];
+    }
+    const since = made.replaced ? " · changed again since" : "";
+    return [
+      "Added",
+      `English to ${label}`,
+      `From its other copy, set aside with it · checked${since}`,
+    ];
+  }
   if (plan.kind === "convert") {
     const label = plan.title.replace(/^Converted /, "");
     if (event.kind === "undo") return ["Put back", label, "The original is in its place again"];
     const gone = plan.undoneAt === null && plan.quarantined === 0 && plan.moved > 0;
-    const words = [made && conversionWords(made), gone && "original deleted"].filter(Boolean);
+    const words = [
+      made && conversionWords(made),
+      gone && "original deleted",
+      made?.replaced && "changed again since",
+    ].filter(Boolean);
     return ["Converted", label, words.length > 0 ? words.join(" · ") : null];
   }
   if (plan.deleted) {

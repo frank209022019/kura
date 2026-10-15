@@ -2,7 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type ProposedChange, type TidyProposal } from "@/lib/engine";
+import {
+  type CopyFacts,
+  EngineProvider,
+  type ProposedChange,
+  type TidyProposal,
+} from "@/lib/engine";
 import { fakeEngine, NO_SCAN, READY } from "@/test/engine";
 import { TidyPage } from "./tidy-page";
 
@@ -78,6 +83,7 @@ const PROPOSAL: TidyProposal = {
         subtitles: 1,
         size: 352_000_000,
         plays: true,
+        subtitleLanguages: ["eng"],
       },
       drop: [
         {
@@ -88,9 +94,11 @@ const PROPOSAL: TidyProposal = {
           subtitles: 0,
           size: 175_000_000,
           plays: true,
+          subtitleLanguages: [],
         },
       ],
       reason: "Kept [DB] Death_Note_07 (720p).mkv instead: higher resolution",
+      english: null,
     },
   ],
   waiting: 4,
@@ -165,6 +173,7 @@ describe("TidyPage", () => {
       subtitles: 2,
       size: 1_200_000_000,
       plays: true,
+      subtitleLanguages: ["eng", "ger"],
     };
     const coming = { ...there, path: BEBOP_1.source, height: 720, codec: "h264" };
     const taken = {
@@ -233,8 +242,8 @@ describe("TidyPage", () => {
   it("applies the titles left in, then offers to undo", async () => {
     const fetch = fakeEngine({
       "/tidy": PROPOSAL,
-      "POST /tidy": { planId: 13, moved: 2, quarantined: 1, problems: [] },
-      "POST /plans/13/undo": { planId: 13, moved: 2, quarantined: 1, problems: [] },
+      "POST /tidy": { planId: 13, moved: 2, quarantined: 1, problems: [], english: 0 },
+      "POST /plans/13/undo": { planId: 13, moved: 2, quarantined: 1, problems: [], english: 0 },
     });
     renderTidy();
 
@@ -249,6 +258,7 @@ describe("TidyPage", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       changes: [DUPLICATE, BEBOP_1, DEATH_NOTE_7].map(reviewed),
       keep: [],
+      english: [],
     });
 
     screen.getByRole("button", { name: "Undo" }).click();
@@ -258,7 +268,7 @@ describe("TidyPage", () => {
   it("applies only the changes a filter shows", async () => {
     const fetch = fakeEngine({
       "/tidy": PROPOSAL,
-      "POST /tidy": { planId: 14, moved: 1, quarantined: 0, problems: [] },
+      "POST /tidy": { planId: 14, moved: 1, quarantined: 0, problems: [], english: 0 },
     });
     renderTidy();
 
@@ -267,7 +277,11 @@ describe("TidyPage", () => {
 
     await waitFor(() => expect(sent(fetch, "POST", "/tidy")).toHaveLength(1));
     const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
-    expect(JSON.parse(String(init.body))).toEqual({ changes: [reviewed(TRIGUN_3)], keep: [] });
+    expect(JSON.parse(String(init.body))).toEqual({
+      changes: [reviewed(TRIGUN_3)],
+      keep: [],
+      english: [],
+    });
   });
 
   it("waits for a scan to finish before applying", async () => {
@@ -293,6 +307,81 @@ describe("TidyPage", () => {
     (await screen.findAllByRole("button", { name: "Apply 4 changes" }))[0]?.click();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(changed);
+  });
+
+  it("offers the other copy's English, and leaves that copy where it is till it's added", async () => {
+    const [copies] = PROPOSAL.duplicates as [TidyProposal["duplicates"][number]];
+    const withEnglish: TidyProposal = {
+      ...PROPOSAL,
+      duplicates: [
+        {
+          ...copies,
+          keep: { ...copies.keep, audio: ["jpn"], subtitleLanguages: ["ger"] },
+          drop: [
+            { ...(copies.drop[0] as CopyFacts), audio: ["jpn", "eng"], subtitleLanguages: ["eng"] },
+          ],
+          english: { other: DUPLICATE.source, sound: true, subtitles: true, tried: null },
+        },
+      ],
+    };
+    const fetch = fakeEngine({
+      "/tidy": withEnglish,
+      "POST /tidy": { planId: 13, moved: 3, quarantined: 0, problems: [], english: 1 },
+    });
+    renderTidy();
+
+    const panel = await screen.findByRole("region", { name: "Copies of Death Note · S01E07" });
+    expect(panel).toHaveTextContent("The other copy has English this one hasn't");
+    expect(
+      screen.getByRole("radio", { name: "Keep the better picture, with the other's English" }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(panel).toHaveTextContent("Kura adds its English sound and subtitles to the copy kept");
+    expect(panel).toHaveTextContent("If the two aren't the same cut, the English won't line up");
+    expect(screen.getAllByText("English", { selector: "strong" })).toHaveLength(2);
+    // The copy whose English goes in isn't set aside now: its English counts instead.
+    const [applying] = screen.getAllByRole("button", { name: "Apply 4 changes" });
+    fireEvent.click(applying as HTMLElement);
+
+    expect(
+      await screen.findByText("Done: 3 files filed, English from 1 other copy joins the queue."),
+    ).toBeInTheDocument();
+    const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({
+      changes: [BEBOP_1, DEATH_NOTE_7, TRIGUN_3].map(reviewed),
+      keep: [],
+      english: [DEATH_NOTE_7.source],
+    });
+  });
+
+  it("sets the other copy aside with its English when asked to keep the better one as it is", async () => {
+    const [copies] = PROPOSAL.duplicates as [TidyProposal["duplicates"][number]];
+    const tried = "The two copies aren't the same cut, so the English wouldn't line up.";
+    const fetch = fakeEngine({
+      "/tidy": {
+        ...PROPOSAL,
+        duplicates: [
+          { ...copies, english: { other: DUPLICATE.source, sound: true, subtitles: false, tried } },
+        ],
+      },
+      "POST /tidy": { planId: 13, moved: 3, quarantined: 1, problems: [], english: 0 },
+    });
+    renderTidy();
+
+    // Kura tried before and couldn't: it says why, and keeps the better one as it is.
+    expect(await screen.findByText(`Kura tried before: ${tried}`)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Keep the better one as it is" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const [applying] = screen.getAllByRole("button", { name: "Apply 4 changes" });
+    fireEvent.click(applying as HTMLElement);
+
+    await waitFor(() => expect(sent(fetch, "POST", "/tidy")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/tidy") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      changes: [DUPLICATE, BEBOP_1, DEATH_NOTE_7, TRIGUN_3].map(reviewed),
+      english: [],
+    });
   });
 
   it("names the files an undo couldn't put back", async () => {

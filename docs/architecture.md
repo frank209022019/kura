@@ -96,10 +96,12 @@ kura/
   changes.py      applying and undoing plans (tidy-ups, a converted file's replacement), journaled
   convert.py      converting one file, checked, then in its original's place
   upscale.py      the AI model on the graphics card, between two ffmpegs
-  queue.py        the queue: files in the owner's order, converted, or given English subtitles,
-                  one at a time on the graphics card
+  queue.py        the queue: files in the owner's order, converted, given English subtitles or
+                  another copy's English, one at a time
   speech.py       English subtitles' hearing: the sound read, where someone speaks, Whisper
   subtitles.py    a video's English subtitles made beside it, checked, kept as Kura's, taken away
+  merge.py        English from another copy: the two lined up by their sound, the English added
+                  to the copy kept, checked, then in its place with both copies set aside
   languages.py    the subtitle files beside videos, and the languages their names say
   preview.py      See it first: one frame before converting and after
   gpu.py          how busy and how warm the graphics card is (nvidia-smi)
@@ -275,9 +277,33 @@ was settled, and Home says so in a sentence, until the owner looks (History has 
 day. A stop the app asked for isn't told of, even one the app cut short (the engine notes
 `stopping.txt` as it starts stopping), and nor is a start that restored a backup. A file being
 converted (its result waiting beside it too), and any copy of it, stays out of tidy-ups and deletes.
-History lists each conversion with what it made, and puts the original back on asking. Before
-queueing, the Convert screen shows one frame of a file before and after (`kura/preview.py`), made
-the way the conversion would make it, and kept as PNG in the cache.
+History lists each conversion with what it made, and puts the original back on asking, a file's
+latest change first: a file converted again since, or given another copy's English, has that put
+back before (`convert.replaced_since`), and only the file a job made is ever taken out of the way.
+Before queueing, the Convert screen shows one frame of a file before and after (`kura/preview.py`),
+made the way the conversion would make it, and kept as PNG in the cache.
+
+English from another copy (`kura/merge.py`, its rules in `kura/core/merge.py` and
+`kura/core/align.py`): when Tidy up keeps one of two copies of an episode and the other has English
+sound or subtitles in it that the kept one hasn't (in it or beside it), the owner can have that
+English added to the kept copy instead of it going to quarantine with the other. The other copy then
+stays where it is, out of tidy-ups, conversions and subtitles, and a job of kind 'merge' goes next
+in the queue (it's quick, and a conversion of the file after it keeps the English). Kura reads a
+sound track both copies have (Japanese first) and finds how far one runs ahead of the other from how
+their loudness rises and falls, which two mixes of the same cut share, checking the same offset
+holds at the start, the middle and the end; copies that aren't the same cut (a scene cut, another
+speed) stay as they are, and Tidy up says why the next time it offers them. Both copies must be as
+Kura read them. ffmpeg copies the kept copy whole with the other's English beside it, shifted onto
+its picture and ending with it (see [stack/ffmpeg.md](stack/ffmpeg.md)); English that can't come as
+Tidy up offered it (subtitles drawn as pictures, from a copy that runs later) leaves both copies as
+they are. The result is checked (never shorter than the kept copy, its tracks, a test play) and
+takes the kept copy's place as a conversion's does, waiting beside it while another app has either
+copy open, and no other job makes a result beside a file whose result waits there (they'd share its
+name). The kept copy as it was and the other, with the subtitles named after it, go to quarantine in
+the same journaled plan, the other first (the result may take its name), which History puts back
+together; what of the other copy couldn't come back is said, and asked again, put back then, or on
+its own once the kept copy as it was is gone from quarantine. That kept copy stays in quarantine
+whatever the owner chose for converted files' originals: it wasn't converted.
 
 A drive without room for a result (its estimated size with a margin, `convert.room_for`, free
 space measured at the file's own folder, which may be another volume mounted there) pauses the

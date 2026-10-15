@@ -1248,7 +1248,7 @@
       },
       "post": {
         "summary": "Apply Tidy",
-        "description": "Makes the changes the owner reviewed, journaled so History can undo them. None is made\nwhen Kura proposes any of them differently now.",
+        "description": "Makes the changes the owner reviewed, journaled so History can undo them, and puts the\nEnglish asked for from other copies in the queue. None is made when Kura proposes any of\nthem differently now.",
         "operationId": "apply_tidy_tidy_post",
         "security": [
           {
@@ -3270,6 +3270,14 @@
             "type": "integer",
             "title": "Jobid"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "convert",
+              "merge"
+            ],
+            "title": "Kind"
+          },
           "method": {
             "type": "string",
             "enum": [
@@ -3300,16 +3308,22 @@
           "restored": {
             "type": "boolean",
             "title": "Restored"
+          },
+          "replaced": {
+            "type": "boolean",
+            "title": "Replaced"
           }
         },
         "type": "object",
         "required": [
           "jobId",
+          "kind",
           "method",
           "before",
           "after",
           "seconds",
-          "restored"
+          "restored",
+          "replaced"
         ],
         "title": "Conversion"
       },
@@ -3511,6 +3525,13 @@
           "plays": {
             "type": "boolean",
             "title": "Plays"
+          },
+          "subtitleLanguages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subtitlelanguages"
           }
         },
         "type": "object",
@@ -3521,7 +3542,8 @@
           "audio",
           "subtitles",
           "size",
-          "plays"
+          "plays",
+          "subtitleLanguages"
         ],
         "title": "CopyFacts"
       },
@@ -3678,6 +3700,16 @@
           "reason": {
             "type": "string",
             "title": "Reason"
+          },
+          "english": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/English"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3685,7 +3717,8 @@
           "label",
           "keep",
           "drop",
-          "reason"
+          "reason",
+          "english"
         ],
         "title": "Duplicate"
       },
@@ -3701,6 +3734,42 @@
           "files"
         ],
         "title": "Emptied"
+      },
+      "English": {
+        "properties": {
+          "other": {
+            "type": "string",
+            "title": "Other"
+          },
+          "sound": {
+            "type": "boolean",
+            "title": "Sound"
+          },
+          "subtitles": {
+            "type": "boolean",
+            "title": "Subtitles"
+          },
+          "tried": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tried"
+          }
+        },
+        "type": "object",
+        "required": [
+          "other",
+          "sound",
+          "subtitles",
+          "tried"
+        ],
+        "title": "English",
+        "description": "English the copy set aside has in it that the one kept hasn't, which Kura can add."
       },
       "EpisodeRef": {
         "properties": {
@@ -4507,7 +4576,8 @@
             "type": "string",
             "enum": [
               "convert",
-              "subtitles"
+              "subtitles",
+              "merge"
             ],
             "title": "Kind"
           },
@@ -6404,6 +6474,13 @@
             },
             "type": "array",
             "title": "Keep"
+          },
+          "english": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "English"
           }
         },
         "type": "object",
@@ -6439,6 +6516,11 @@
             },
             "type": "array",
             "title": "Problems"
+          },
+          "english": {
+            "type": "integer",
+            "title": "English",
+            "default": 0
           }
         },
         "type": "object",

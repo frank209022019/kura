@@ -313,4 +313,10 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         made_at  TEXT NOT NULL
     ) STRICT;
     """,
+    # 21. English from another copy (kura/merge.py): a job of kind 'merge' adds the English sound
+    #     and subtitles another copy of the same episode has (`other_id`) to the file kept, and
+    #     sets that copy aside with the kept file's original once the result is in place.
+    """
+    ALTER TABLE jobs ADD COLUMN other_id INTEGER REFERENCES files (id) ON DELETE SET NULL;
+    """,
 )

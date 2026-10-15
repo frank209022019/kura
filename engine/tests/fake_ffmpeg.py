@@ -11,11 +11,13 @@ It answers the commands kura/core/convert.py builds, without converting anything
   arguments to its output ("endless": one every 20 ms till it's stopped); an encoder showing it
   works: says nothing; subtitles copied out: writes the ASS file, and each font to its path;
 - a sound track read for English subtitles (kura/speech.py): writes KURA_FAKE_SOUND seconds of
-  silence (one) as 16 kHz floats.
+  silence (one) as floats, at the rate asked for;
+- English from another copy (kura/core/merge.py): writes the copy kept, with words for the
+  English added.
 
 KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", "decode" (once its
 frames are out, as a decoder meeting damage), "convert" (one command, 1,200 frames in), "stream"
-(before its first bytes), "midstream" (after them), "subtitles" or "sound".
+(before its first bytes), "midstream" (after them), "subtitles", "sound" or "merge".
 KURA_FAKE_NO_ENCODERS names the encoders this PC hasn't, separated by commas.
 KURA_FAKE_SLOW is the seconds the decoder takes over each frame (none), so a test can stop a
 conversion mid-way, and the seconds a copy of subtitles takes. KURA_FAKE_ROUNDS makes a test
@@ -48,7 +50,8 @@ def main() -> None:
             print("[aac @ 0] Error decoding: invalid data found", file=sys.stderr)
             sys.exit(1)
         seconds = float(os.environ.get("KURA_FAKE_SOUND", "1"))
-        sys.stdout.buffer.write(bytes(round(seconds * 16_000) * 4))
+        rate = int(args[args.index("-ar") + 1])
+        sys.stdout.buffer.write(bytes(round(seconds * rate) * 4))
         return
     if args[-3:-1] == ["-f", "ass"]:  # subtitles copied out
         if fail == "subtitles":
@@ -115,6 +118,13 @@ def main() -> None:
             print("Invalid data found when processing input", file=sys.stderr)
             sys.exit(1)
         Path(args[-1]).write_bytes(b"png of " + " ".join(args).encode())
+        return
+    if args[-3:-1] == ["-f", "matroska"] and args.count("-i") == 2:  # English from another copy
+        if fail == "merge":
+            print("[matroska @ 0] Error writing trailer: No space left on device", file=sys.stderr)
+            sys.exit(1)
+        kept = Path(args[args.index("-i") + 1])
+        Path(args[-1]).write_bytes(b"kept " + kept.read_bytes() + b" with the other's English")
         return
     if "null" in args:  # a test play
         if fail == "play":

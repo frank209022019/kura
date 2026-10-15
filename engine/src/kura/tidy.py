@@ -31,8 +31,10 @@ from kura.changes import (
 from kura.convert import label_of
 from kura.core.copies import Copy
 from kura.core.extensions import is_video
+from kura.core.languages import beside_language
 from kura.core.library import QUARANTINE_FOLDER
 from kura.core.media import MediaInfo, media_from_ffprobe
+from kura.core.merge import borrowed, shared_sound
 from kura.core.names import film_part
 from kura.core.plan import (
     KEPT_BOTH,
@@ -73,6 +75,8 @@ class CopyFacts:
     subtitles: int  # tracks that can be switched off
     size: int
     plays: bool
+    # Its subtitles' languages, in it and in the files beside it ("ger", "en"; "" unsaid).
+    subtitle_languages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,17 @@ class Proposed:
 
 
 @dataclass(frozen=True)
+class English:
+    """English sound or subtitles the copy set aside has in it that the one kept hasn't, which
+    Kura can add to the one kept (kura/merge.py), lining the two up by a sound both have."""
+
+    other: Path  # the copy set aside
+    sound: bool  # its English sound comes
+    subtitles: bool  # its English subtitles come
+    tried: str | None = None  # why Kura couldn't, the last time it was asked to
+
+
+@dataclass(frozen=True)
 class Duplicate:
     """Copies of one episode or movie: the one Kura keeps, and the ones it sets aside."""
 
@@ -99,6 +114,7 @@ class Duplicate:
     keep: CopyFacts
     drop: tuple[CopyFacts, ...]
     reason: str
+    english: English | None = None  # two copies: what the one set aside could give
 
 
 @dataclass(frozen=True)
@@ -134,6 +150,8 @@ class Tidied:
     moved: int  # videos and subtitles filed, or put back
     quarantined: int  # copies set aside, or put back (a copy's subtitles go with it uncounted)
     problems: tuple[SavedChange, ...]  # changes that couldn't be made, each saying why
+    # Copies whose English goes into the one kept, for the queue: (kept, other) file ids.
+    english: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -207,16 +225,30 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
     return Proposal(
         tuple(proposed),
         tuple(skipped) + tuple((Path(path), reason) for path, reason in plan.skipped) + tuple(left),
-        _duplicates(videos, plan),
+        _duplicates(videos, plan, _tried(conn)),
     )
+
+
+def _tried(conn: sqlite3.Connection) -> dict[tuple[int, int], str]:
+    """Why adding English from another copy failed, the last time, for each pair of copies
+    asked about: (kept, other) file ids."""
+    return {
+        (row["file_id"], row["other_id"]): row["problem"]
+        for row in conn.execute(
+            """SELECT file_id, other_id, problem, state FROM jobs
+               WHERE kind = 'merge' AND other_id IS NOT NULL ORDER BY id"""
+        )
+        if row["state"] == "failed" and row["problem"]
+    }
 
 
 _LINKED = "Its new folder is a link to another place, which scans skip"
 
-# The kind of job busy with a video ('convert' or 'subtitles'), if one is: being made, putting
-# its result in place, or made and waiting for another app to let go of the video.
-_BUSY = """(SELECT j.kind FROM jobs AS j
-            WHERE j.file_id = f.id
+# The kind of job busy with a video ('convert', 'subtitles' or 'merge'), if one is: being made,
+# putting its result in place, or made and waiting for another app to let go of the video; or
+# 'giving' for the other copy of a merge doing so, which goes to quarantine with it.
+_BUSY = """(SELECT CASE WHEN j.file_id = f.id THEN j.kind ELSE 'giving' END FROM jobs AS j
+            WHERE (j.file_id = f.id OR (j.kind = 'merge' AND j.other_id = f.id))
               AND (j.state IN ('running', 'replacing')
                    OR (j.state = 'queued' AND j.retry_at IS NOT NULL))
             ORDER BY j.kind = 'subtitles' LIMIT 1)"""
@@ -292,12 +324,16 @@ def apply(
     *,
     now: datetime,
     keep: Iterable[str] = (),
+    english: Iterable[str] = (),
 ) -> Tidied:
     """Makes these changes (of videos, and the subtitles that go with them) exactly as the owner
     reviewed them; anything else in the library stays as it is. Kura proposes them again first,
-    and makes none (ProposalChangedError) if any isn't proposed as it was."""
+    and makes none (ProposalChangedError) if any isn't proposed as it was. `english` holds the
+    copies kept that get the English of the copy set aside beside them: that copy stays where
+    it is for now, and Tidied.english says which, for the queue (kura/merge.py sets it aside)."""
     wanted = {change.source.casefold(): change for change in reviewed}
-    if not wanted:
+    asked = {path.casefold() for path in english}
+    if not wanted and not asked:
         return Tidied(None, 0, 0, ())
     proposal = propose(conn, day=now.date(), keep=keep)
     now_proposed = {str(p.change.source).casefold(): p.change for p in proposal.changes}
@@ -305,6 +341,19 @@ def apply(
         found = now_proposed.get(source)
         if found is None or (found.kind, str(found.target)) != (change.kind, change.target):
             raise ProposalChangedError
+    giving = {
+        str(found.keep.path).casefold(): gives
+        for found in proposal.duplicates
+        if (gives := found.english) is not None
+    }
+    if any(path not in giving for path in asked):
+        raise ProposalChangedError
+    others = {str(giving[path].other).casefold() for path in asked}
+    pairs = _file_ids(conn, [(path, str(giving[path].other)) for path in asked])
+    # The copies whose English is asked for stay, with their subtitles, till it's in.
+    wanted = {key: change for key, change in wanted.items() if key not in others}
+    if not wanted:
+        return Tidied(None, 0, 0, (), pairs)
     # Subtitles go only with their video: one the owner left out keeps its subtitles with it.
     left_out = {key for key in now_proposed if key not in wanted}
     chosen = [
@@ -316,7 +365,24 @@ def apply(
     outcome = apply_plan(conn, plan_id, now=now)
     _clear_behind(conn, [change.source for change in outcome.changed])
     write_reports(conn, now=now)
-    return Tidied(plan_id, *tally(outcome.changed), outcome.problems)
+    return Tidied(plan_id, *tally(outcome.changed), outcome.problems, pairs)
+
+
+def _file_ids(
+    conn: sqlite3.Connection, paths: Iterable[tuple[str, str]]
+) -> tuple[tuple[int, int], ...]:
+    """The library's ids of each pair of copies, by their paths."""
+    found: list[tuple[int, int]] = []
+    for pair in paths:
+        ids = [
+            conn.execute(
+                "SELECT id FROM files WHERE path = ? COLLATE NOCASE AND gone_at IS NULL", (path,)
+            ).fetchone()
+            for path in pair
+        ]
+        if all(ids):
+            found.append((ids[0]["id"], ids[1]["id"]))
+    return tuple(found)
 
 
 def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) -> Tidied:
@@ -337,11 +403,11 @@ def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) 
     if not rows:
         return Tidied(None, 0, 0, ())
     if busy := [row for row in rows if row["busy"]]:
-        doing = (
-            "is getting English subtitles"
-            if busy[0]["busy"] == "subtitles"
-            else "is being converted"
-        )
+        doing = {
+            "subtitles": "is getting English subtitles",
+            "merge": "is getting its other copy's English",
+            "giving": "is giving its English to the copy kept",
+        }.get(busy[0]["busy"], "is being converted")
         raise ConvertingError(
             f"{label_of(busy[0])} {doing}. Skip it in the queue, or delete it once it's done."
         )
@@ -418,6 +484,8 @@ def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
         kind = busy.get(str(change.target).casefold())
         if kind == "subtitles":
             return "Its English subtitles are being made: put it back once they're done."
+        if kind == "merge":
+            return "Its other copy's English is being added to it: put it back once it's in."
         if kind is not None:
             return "It's being converted: put it back once it's done."
         return None
@@ -446,6 +514,14 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
            ORDER BY f.path"""  # noqa: S608 - only Kura's own SQL goes in
     ).fetchall()
     parted = _films_in_parts(rows)
+    # Copies whose English waits to go into the one kept: they stay till it's in.
+    giving = {
+        row[0]
+        for row in conn.execute(
+            """SELECT other_id FROM jobs
+               WHERE kind = 'merge' AND state IN ('queued', 'running', 'replacing')"""
+        )
+    }
     listings: dict[str, list[str]] = {}
     connected: dict[str, bool] = {}
     videos: list[_Video] = []
@@ -458,11 +534,19 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
             skipped.append((Path(row["path"]), "Its library folder isn't connected"))
             continue
         identity = _identity(row, names, parted)
+        if row["id"] in giving:
+            skipped.append((Path(row["path"]), "Its English goes into the copy kept first"))
+            continue
         if row["busy"] == "subtitles":  # they're written beside it, under its name as it is
             skipped.append((Path(row["path"]), "Its English subtitles are being made"))
             continue
         if row["busy"]:
-            skipped.append((Path(row["path"]), "It's being converted"))
+            doing = (
+                "Its other copy's English is being added to it"
+                if row["busy"] == "merge"
+                else "It's being converted"
+            )
+            skipped.append((Path(row["path"]), doing))
             if identity is not None:
                 converting.add(copy_key(identity))
             continue
@@ -541,7 +625,9 @@ def _mixed_folders(conn: sqlite3.Connection) -> set[str]:
     return {folder for folder, titles in seen.items() if len(titles) > 1}
 
 
-def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
+def _duplicates(
+    videos: Sequence[_Video], plan: Plan, tried: dict[tuple[int, int], str]
+) -> tuple[Duplicate, ...]:
     """The copies the plan sets aside, each beside the one it keeps."""
     set_aside = {
         str(c.source).casefold(): c for c in plan.changes if c.kind is ChangeKind.QUARANTINE
@@ -559,12 +645,31 @@ def _duplicates(videos: Sequence[_Video], plan: Plan) -> tuple[Duplicate, ...]:
         found.append(
             Duplicate(
                 label=change.label.removesuffix(" · duplicate"),
-                keep=_facts(kept[0].placed.copy),
-                drop=tuple(_facts(v.placed.copy) for v in dropped),
+                keep=_facts(kept[0].placed.copy, kept[0].placed.sidecars),
+                drop=tuple(_facts(v.placed.copy, v.placed.sidecars) for v in dropped),
                 reason=change.reason,
+                english=_english(kept[0], dropped[0], tried) if len(dropped) == 1 else None,
             )
         )
     return tuple(found)
+
+
+def _english(kept: _Video, other: _Video, tried: dict[tuple[int, int], str]) -> English | None:
+    """The English the copy set aside could give the one kept, when the two share a sound to
+    line them up by."""
+    ours, theirs = kept.placed.copy.media, other.placed.copy.media
+    if ours is None or theirs is None or shared_sound(ours, theirs) is None:
+        return None
+    video = kept.placed.copy.path
+    take = borrowed(ours, theirs, [beside_language(each, video) for each in kept.placed.sidecars])
+    if not take.any:
+        return None
+    return English(
+        Path(other.placed.copy.path),
+        sound=bool(take.sound),
+        subtitles=bool(take.subtitles),
+        tried=tried.get((kept.id, other.id)),
+    )
 
 
 def _there(
@@ -586,9 +691,11 @@ def _there(
 _NUMBERED = re.compile(r" \(\d+\)$")  # the "(2)" a name gets beside a file that has it
 
 
-def _facts(copy: Copy) -> CopyFacts:
+def _facts(copy: Copy, sidecars: Iterable[PurePath] = ()) -> CopyFacts:
     media = copy.media
     video = media.video if media else None
+    inside = [(track.language or "").casefold() for track in media.subtitles] if media else []
+    beside = [beside_language(each, copy.path) for each in sidecars]
     return CopyFacts(
         path=Path(copy.path),
         height=video.height if video else None,
@@ -597,6 +704,7 @@ def _facts(copy: Copy) -> CopyFacts:
         subtitles=len(media.subtitles) if media else 0,
         size=(media.size or 0) if media else 0,
         plays=not copy.broken and video is not None,
+        subtitle_languages=tuple(dict.fromkeys([*inside, *beside])),
     )
 
 

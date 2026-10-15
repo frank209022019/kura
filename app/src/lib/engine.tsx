@@ -904,6 +904,20 @@ export interface CopyFacts {
   subtitles: number;
   size: number;
   plays: boolean;
+  /** Its subtitles' languages, in it and in the files beside it ("ger", "en"; "" unsaid). */
+  subtitleLanguages: string[];
+}
+
+/** English the copy set aside has in it that the one kept hasn't, which Kura can add. */
+export interface English {
+  /** The copy set aside. */
+  other: string;
+  /** Its English sound comes. */
+  sound: boolean;
+  /** Its English subtitles come. */
+  subtitles: boolean;
+  /** Why Kura couldn't, the last time it was asked to. */
+  tried: string | null;
 }
 
 /** Copies of one episode or movie: the one Kura keeps, and the ones it sets aside. */
@@ -912,6 +926,8 @@ export interface Duplicate {
   keep: CopyFacts;
   drop: CopyFacts[];
   reason: string;
+  /** Two copies: what the one set aside could give the one kept. */
+  english: English | null;
 }
 
 export interface TidyProposal {
@@ -936,6 +952,8 @@ export interface TidyResult {
   moved: number;
   quarantined: number;
   problems: { label: string; source: string; problem: string }[];
+  /** Copies kept whose other copy's English joined the queue. */
+  english: number;
 }
 
 /** Where every video would go; `keep` holds copies the owner keeps instead. */
@@ -957,10 +975,12 @@ const TIDIED = [
   "/library",
   "/review",
   "/convert",
+  "/queue",
   "/data",
 ];
-/** Makes the changes: `apply.mutate({ path: "/tidy", body: { changes, keep } })`, `changes`
- * being ReviewedChange[]. */
+/** Makes the changes: `apply.mutate({ path: "/tidy", body: { changes, keep, english } })`,
+ * `changes` being ReviewedChange[] and `english` the copies kept that get the English of the
+ * copy set aside (which then stays where it is till the queue has added it). */
 export const useApplyTidy = () => useEngineAction<TidyResult>(TIDIED);
 /** Puts back what a tidy-up moved (or what couldn't go back last time):
  * `undo.mutate({ path: "/plans/12/undo" })`. */
@@ -981,6 +1001,9 @@ export interface Picture {
 /** What converting made of a file, as History tells it. */
 export interface Conversion {
   jobId: number;
+  /** A conversion, or English added from another copy (nothing converted: `method` is a remux),
+   * which went to quarantine with the original. */
+  kind: "convert" | "merge";
   method: Method;
   before: Picture;
   after: Picture;
@@ -988,6 +1011,9 @@ export interface Conversion {
   seconds: number | null;
   /** The original is back in its place. */
   restored: boolean;
+  /** A later conversion, or another copy's English, replaced the file since: that's put back
+   * first. */
+  replaced: boolean;
 }
 
 /** A tidy-up or conversion that was applied, as History lists it. */
@@ -1164,7 +1190,8 @@ export interface Job {
   log: string | null;
   /** Waiting for room on its drive while the others go. */
   noRoom: boolean;
-  kind: "convert" | "subtitles";
+  /** A conversion, English subtitles, or English from another copy added to the file. */
+  kind: "convert" | "subtitles" | "merge";
   /** Subtitles: the sound they're made from ("jpn"; "" when it doesn't say). */
   language: string | null;
   /** Subtitles waiting for their speech model to download. */

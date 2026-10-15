@@ -57,6 +57,37 @@ def test_kura_proposes_and_counts_what_waits(client: TestClient, mixed: sqlite3.
     assert (proposal["waiting"], proposal["broken"]) == (1, 0)
 
 
+def test_the_english_of_the_copy_set_aside_can_go_into_the_one_kept(
+    client: TestClient, mixed: sqlite3.Connection
+):
+    with mixed:  # the copy has English sound the better one hasn't
+        mixed.execute(
+            """UPDATE files SET probe = json_insert(probe, '$.streams[#]',
+                   json('{"index": 2, "codec_type": "audio", "codec_name": "aac",
+                          "channels": 2, "tags": {"language": "eng"}}'))
+               WHERE path LIKE '%(copy).mkv'"""
+        )
+        mixed.execute(
+            """UPDATE files SET probe = json_set(probe, '$.streams[0].height', 1080)
+               WHERE path LIKE '%Bebop - 01.mkv'"""
+        )
+    proposal = client.get("/tidy").json()
+    [duplicate] = proposal["duplicates"]
+    english = duplicate["english"]
+    assert english["other"].endswith("Cowboy Bebop - 01 (copy).mkv")
+    assert (english["sound"], english["subtitles"], english["tried"]) == (True, False, None)
+    changes = [c for c in proposal["changes"] if c["kind"] == "move"]
+
+    done = client.post(
+        "/tidy", json={"changes": changes, "english": [duplicate["keep"]["path"]]}
+    ).json()
+
+    assert (done["moved"], done["quarantined"], done["english"]) == (2, 0, 1)
+    [waiting] = client.get("/queue").json()["queued"]
+    assert (waiting["kind"], waiting["label"]) == ("merge", "Cowboy Bebop · S01E01")
+    assert client.get("/tidy").json()["duplicates"] == []
+
+
 def test_a_name_another_file_has_gets_2_and_the_proposal_says_so(
     client: TestClient, mixed: sqlite3.Connection, root: Path
 ):

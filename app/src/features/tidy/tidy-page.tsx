@@ -1,5 +1,6 @@
 import { ArrowRight, Check } from "lucide-react";
-import { useState } from "react";
+import { RadioGroup } from "radix-ui";
+import { Fragment, useState } from "react";
 import { useNavigate } from "react-router";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   type CopyFacts,
   type Duplicate,
+  type English,
   type ProposedChange,
   type ReviewedChange,
   type TidyCategory,
@@ -19,7 +21,7 @@ import {
   useTidy,
   useUndoPlan,
 } from "@/lib/engine";
-import { codecName, languages, size, split, within } from "@/lib/format";
+import { codecName, isEnglish, languageName, size, split, within } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SHOWN = 5; // changes listed per title before "Show more"
@@ -37,6 +39,9 @@ export function TidyPage() {
   const [only, setOnly] = useState<TidyCategory | null>(null);
   const [leftOut, setLeftOut] = useState<number[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]); // videos left where they are, this time
+  // Copies kept with the other copy's English, or as they are, by the copy kept's path; till the
+  // owner chooses, with it, unless Kura tried before and couldn't.
+  const [english, setEnglish] = useState<Record<string, boolean>>({});
   const [done, setDone] = useState<TidyResult | null>(null);
   const [undone, setUndone] = useState<TidyResult | null>(null);
 
@@ -55,21 +60,37 @@ export function TidyPage() {
   }
   const found = proposal.data;
   const shown = only ? found.changes.filter((change) => change.category === only) : found.changes;
-  const chosen = shown.filter(
+  const shownChosen = shown.filter(
     (change) => !leftOut.includes(change.titleId) && !skipped.includes(change.video),
   ); // what's on screen, and not skipped
+  const withEnglish = (duplicate: Duplicate) =>
+    duplicate.english !== null &&
+    (english[duplicate.keep.path] ?? duplicate.english.tried === null);
+  // A copy whose English goes into the one kept stays where it is, with its subtitles, till the
+  // queue has added it.
+  const giving = found.duplicates.filter(
+    (duplicate) =>
+      withEnglish(duplicate) &&
+      shownChosen.some((change) => change.video === duplicate.english?.other),
+  );
+  const chosen = shownChosen.filter(
+    (change) => !giving.some((duplicate) => duplicate.english?.other === change.video),
+  );
+  const count = chosen.length + giving.length;
   const busy = apply.isPending || undo.isPending || scanning;
 
   function applyChosen() {
     setUndone(null);
+    const asked = giving.map((duplicate) => duplicate.keep.path);
     apply.mutate(
-      { path: "/tidy", body: { changes: chosen.map(reviewed), keep } },
+      { path: "/tidy", body: { changes: chosen.map(reviewed), keep, english: asked } },
       {
         onSuccess: (result) => {
           setDone(result);
           setLeftOut([]);
           setSkipped([]);
           setKeep([]);
+          setEnglish({});
         },
       },
     );
@@ -80,8 +101,8 @@ export function TidyPage() {
       <Header
         action={
           found.changes.length > 0 && (
-            <Button variant="primary" disabled={busy || chosen.length === 0} onClick={applyChosen}>
-              {applyText(chosen.length)}
+            <Button variant="primary" disabled={busy || count === 0} onClick={applyChosen}>
+              {applyText(count)}
             </Button>
           )
         }
@@ -138,6 +159,10 @@ export function TidyPage() {
                 <Copies
                   key={duplicate.label}
                   duplicate={duplicate}
+                  withEnglish={withEnglish(duplicate)}
+                  onEnglish={(on) =>
+                    setEnglish((before) => ({ ...before, [duplicate.keep.path]: on }))
+                  }
                   onSwap={() =>
                     setKeep((before) => [
                       ...before.filter((path) => path !== duplicate.keep.path),
@@ -174,14 +199,14 @@ export function TidyPage() {
                 "Kura is scanning. Apply once it's done, so it knows every file."
               ) : (
                 <>
-                  {chosen.length} {chosen.length === 1 ? "change" : "changes"} selected.
+                  {count} {count === 1 ? "change" : "changes"} selected.
                   {found.waiting > 0 &&
                     ` ${found.waiting} ${found.waiting === 1 ? "file stays" : "files stay"} where ${found.waiting === 1 ? "it is" : "they are"} until matched.`}
                 </>
               )}
             </span>
-            <Button variant="primary" disabled={busy || chosen.length === 0} onClick={applyChosen}>
-              {applyText(chosen.length)}
+            <Button variant="primary" disabled={busy || count === 0} onClick={applyChosen}>
+              {applyText(count)}
             </Button>
           </footer>
         </>
@@ -213,10 +238,14 @@ function Done(props: {
   onHistory: () => void;
 }) {
   const { result } = props;
+  const { english } = result;
   const parts = [
-    `${result.moved} ${result.moved === 1 ? "file" : "files"} filed`,
+    (result.moved > 0 || result.quarantined + english === 0) &&
+      `${result.moved} ${result.moved === 1 ? "file" : "files"} filed`,
     result.quarantined > 0 &&
       `${result.quarantined} ${result.quarantined === 1 ? "copy" : "copies"} set aside`,
+    english > 0 &&
+      `English from ${english} other ${english === 1 ? "copy" : "copies"} joins the queue`,
   ].filter(Boolean);
   return (
     <section
@@ -505,9 +534,16 @@ function unnumbered(path: string): string {
   return path.replace(/ \(\d+\)(\.[^.\\/]+)$/, "$1");
 }
 
-function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => void }) {
+function Copies(props: {
+  duplicate: Duplicate;
+  withEnglish: boolean;
+  onEnglish: (on: boolean) => void;
+  onSwap: () => void;
+}) {
+  const { duplicate } = props;
   const [dropped] = duplicate.drop;
   if (!dropped) return null;
+  const { english } = duplicate;
   return (
     <section
       aria-label={`Copies of ${duplicate.label}`}
@@ -523,12 +559,29 @@ function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => voi
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
         <CopyCard copy={duplicate.keep} heading="Keep" note="Better" kept />
         {duplicate.drop.map((copy) => (
-          <CopyCard key={copy.path} copy={copy} heading="Quarantine" note="Set aside" />
+          <CopyCard
+            key={copy.path}
+            copy={copy}
+            heading={duplicate.drop.length === 1 ? "The other copy" : "Another copy"}
+            note="Set aside"
+            english={english?.other === copy.path ? english : null}
+          />
         ))}
       </div>
+      {english && (
+        <EnglishChoice english={english} on={props.withEnglish} onChange={props.onEnglish} />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-13 text-fg-muted">{duplicate.reason}</span>
-        <Button size="sm" onClick={onSwap}>
+        {english ? (
+          <span className="text-12 text-fg-faint">
+            {english.tried
+              ? `Kura tried before: ${english.tried}`
+              : "If the two aren't the same cut, the English won't line up: Kura says so and keeps the copies as they are."}
+          </span>
+        ) : (
+          <span className="text-13 text-fg-muted">{duplicate.reason}</span>
+        )}
+        <Button size="sm" onClick={props.onSwap}>
           Swap which one is kept
         </Button>
       </div>
@@ -536,7 +589,81 @@ function Copies({ duplicate, onSwap }: { duplicate: Duplicate; onSwap: () => voi
   );
 }
 
-function CopyCard(props: { copy: CopyFacts; heading: string; note: string; kept?: boolean }) {
+/** The other copy has English the one kept hasn't: added to it, or set aside with the copy. */
+function EnglishChoice(props: { english: English; on: boolean; onChange: (on: boolean) => void }) {
+  const what = [props.english.sound && "sound", props.english.subtitles && "subtitles"]
+    .filter(Boolean)
+    .join(" and ");
+  const choices = [
+    {
+      value: "english",
+      title: "Keep the better picture, with the other's English",
+      says: `Kura adds its English ${what} to the copy kept, lining them up with this picture by listening to both. It checks the result before it takes the file's place, then sets the other copy aside as usual.`,
+    },
+    {
+      value: "as-is",
+      title: "Keep the better one as it is",
+      says: "The other copy goes to quarantine with its English.",
+    },
+  ];
+  const value = props.on ? "english" : "as-is";
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-2 font-extrabold text-13 text-fg-soft">
+        The other copy has English this one hasn't
+      </legend>
+      <RadioGroup.Root
+        aria-label="The other copy's English"
+        value={value}
+        onValueChange={(chosen) => props.onChange(chosen === "english")}
+        className="flex flex-col gap-2"
+      >
+        {choices.map((choice) => (
+          <RadioGroup.Item
+            key={choice.value}
+            value={choice.value}
+            aria-label={choice.title}
+            className={cn(
+              "press flex cursor-pointer items-start gap-3 rounded-16 border-2 px-4 py-3.5 text-left",
+              choice.value === value ? "border-accent bg-accent/8" : "border-edge bg-tint/3",
+            )}
+          >
+            <Dot on={choice.value === value} />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-extrabold">{choice.title}</span>
+              <span className="text-13 text-fg-muted">{choice.says}</span>
+            </span>
+          </RadioGroup.Item>
+        ))}
+      </RadioGroup.Root>
+    </fieldset>
+  );
+}
+
+function Dot({ on }: { on: boolean }) {
+  return on ? (
+    <span
+      aria-hidden="true"
+      className="mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-accent"
+    >
+      <span className="size-2 rounded-full bg-on-accent" />
+    </span>
+  ) : (
+    <span
+      aria-hidden="true"
+      className="mt-px size-5 shrink-0 rounded-full shadow-[inset_0_0_0_2px_var(--color-control)]"
+    />
+  );
+}
+
+function CopyCard(props: {
+  copy: CopyFacts;
+  heading: string;
+  note: string;
+  kept?: boolean;
+  /** What of this copy's English would go into the one kept: marked. */
+  english?: English | null;
+}) {
   const { copy } = props;
   const [name] = split(copy.path);
   return (
@@ -548,7 +675,13 @@ function CopyCard(props: { copy: CopyFacts; heading: string; note: string; kept?
     >
       <span className="flex items-center justify-between gap-2">
         <span className="font-extrabold text-13">{props.heading}</span>
-        <span className="text-11 text-fg-muted">{props.note}</span>
+        {props.kept ? (
+          <span className="rounded-full bg-accent px-2 font-extrabold text-11 text-on-accent">
+            {props.note}
+          </span>
+        ) : (
+          <span className="text-11 text-fg-muted">{props.note}</span>
+        )}
       </span>
       <span className="font-mono text-12 [overflow-wrap:anywhere]">{name}</span>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-12">
@@ -558,16 +691,38 @@ function CopyCard(props: { copy: CopyFacts; heading: string; note: string; kept?
             ? `${copy.height}p${copy.codec ? ` · ${codecName(copy.codec)}` : ""}`
             : "won't play"}
         </dd>
-        <dt className="text-fg-muted">Audio</dt>
-        <dd className="font-mono">{languages(copy.audio)}</dd>
+        <dt className="text-fg-muted">Sound</dt>
+        <dd className="font-mono">
+          <Languages codes={copy.audio} marked={props.english?.sound ?? false} />
+        </dd>
         <dt className="text-fg-muted">Subtitles</dt>
         <dd className="font-mono">
-          {copy.subtitles > 0 ? `${copy.subtitles} you can switch off` : "none"}
+          <Languages codes={copy.subtitleLanguages} marked={props.english?.subtitles ?? false} />
         </dd>
         <dt className="text-fg-muted">Size</dt>
         <dd className="font-mono">{size(copy.size)}</dd>
       </dl>
     </div>
+  );
+}
+
+/** "Japanese, English", English marked in amber when it's what goes into the copy kept. */
+function Languages({ codes, marked }: { codes: string[]; marked: boolean }) {
+  if (codes.length === 0) return <>none</>;
+  return (
+    <>
+      {codes.map((code, at) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: a language may come twice
+        <Fragment key={at}>
+          {at > 0 && ", "}
+          {marked && isEnglish(code) ? (
+            <strong className="font-extrabold text-accent-fg">{languageName(code)}</strong>
+          ) : (
+            languageName(code)
+          )}
+        </Fragment>
+      ))}
+    </>
   );
 }
 

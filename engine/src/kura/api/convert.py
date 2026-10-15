@@ -92,7 +92,8 @@ class Job(ApiModel):
     retry_at: str | None
     log: str | None  # what ffmpeg said, when a conversion failed ("Copy full log")
     no_room: bool  # waiting for room on its drive while the others go
-    kind: Literal["convert", "subtitles"]  # a conversion, or English subtitles
+    # A conversion, English subtitles, or English from another copy added to the file.
+    kind: Literal["convert", "subtitles", "merge"]
     language: str | None  # subtitles: the sound they're made from ("jpn"; "" when it's unsaid)
     model_missing: bool  # subtitles waiting for their speech model to download
 
@@ -114,7 +115,9 @@ class Running(ApiModel):
     stage: Literal[
         "looking", "converting", "checking", "replacing", "reading", "listening", "writing"
     ]
-    frames: int  # converted so far; for subtitles, seconds of the video heard
+    # Converted so far: frames; for subtitles, seconds of the video heard; for English from
+    # another copy, bytes written.
+    frames: int
     total: int
     seconds_left: float | None
     fps: float | None
@@ -216,6 +219,9 @@ def what_to_convert(conn: Database) -> ConvertOptions:
                           AND j.state IN ('queued', 'running', 'replacing')) AS waiting
            FROM files AS f LEFT JOIN titles AS t ON t.id = f.title_id
            WHERE f.gone_at IS NULL AND f.probe IS NOT NULL AND f.matched != 'ignored'
+             AND f.id NOT IN (SELECT m.other_id FROM jobs AS m
+                              WHERE m.kind = 'merge' AND m.other_id IS NOT NULL
+                                AND m.state IN ('queued', 'running', 'replacing'))
            ORDER BY t.released, t.name, f.season, f.episode, f.path"""
     ).fetchall()
     found: list[Convertible] = []

@@ -202,6 +202,59 @@ describe("QueuePage", () => {
     await waitFor(() => expect(sent(fetch, "POST", "/tools/speech-best/download")).toHaveLength(1));
   });
 
+  it("shows English from another copy being added, and next in line", async () => {
+    fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: {
+          job: job(5, { state: "running", kind: "merge", method: "remux" }),
+          stage: "converting",
+          frames: 550_000_000,
+          total: 1_100_000_000,
+          secondsLeft: 6,
+          fps: 90_000_000,
+        },
+        queued: [job(6, { kind: "merge", method: "remux", gpuSeconds: 31 }), job(7)],
+      },
+    });
+    renderQueue();
+
+    const now = await screen.findByRole("region", { name: "Now adding English from another copy" });
+    expect(now).toHaveTextContent("Dragon Ball Z · S01E05");
+    expect(within(now).getByRole("listitem", { current: "step" })).toHaveTextContent(
+      "Add the English",
+    );
+    expect(now).toHaveTextContent("50% · 1 min left");
+    expect(now).not.toHaveTextContent("fps");
+    const next = screen.getByRole("region", { name: "Up next" });
+    expect(next).toHaveTextContent("English from another copy");
+  });
+
+  it("says why English couldn't be added, and offers to try again but not to mark it broken", async () => {
+    fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        queued: [],
+        today: [
+          job(9, {
+            state: "failed",
+            kind: "merge",
+            method: "remux",
+            problem: "The two copies aren't the same cut, so the English wouldn't line up.",
+            finishedAt: "2026-10-11T12:00:00+02:00",
+          }),
+        ],
+      },
+    });
+    renderQueue();
+
+    const failed = await screen.findByRole("alert");
+    expect(failed).toHaveTextContent("No English added to Dragon Ball Z · S01E09.");
+    expect(within(failed).getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(within(failed).queryByRole("button", { name: "Mark as broken" })).toBeNull();
+  });
+
   it("says why subtitles couldn't be made, and offers to try again but not to mark it broken", async () => {
     const fetch = fakeEngine({
       "/queue": {

@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 from kura import db
+from kura.changes import SavedChange
 from kura.config import DataPaths
 from kura.convert import (
     CONVERTED,
@@ -69,12 +70,13 @@ from kura.convert import (
     throw_away_kept,
     work_of,
 )
-from kura.core.estimate import estimate, hearing
+from kura.core.estimate import estimate, hearing, merging
 from kura.core.library import drive_of
 from kura.core.media import media_from_ffprobe
 from kura.core.speech import Heard, Hearing
 from kura.core.standard import Method, Standard, decide
 from kura.events import Notify
+from kura.merge import merge
 from kura.preferences import library_standard, originals_deleted
 from kura.probe import probe
 from kura.quarantine import set_aside_by_drive
@@ -92,7 +94,7 @@ type JobState = Literal["queued", "running", "replacing", "done", "failed", "ski
 type Stage = Literal[
     "looking", "converting", "checking", "replacing", "reading", "listening", "writing"
 ]
-type Kind = Literal["convert", "subtitles"]
+type Kind = Literal["convert", "subtitles", "merge"]
 type Schedule = Literal["now", "nights"]  # convert whenever files wait, or only at night
 
 _IDLE = 30.0  # seconds the worker rests with nothing to do; adding or resuming wakes it at once
@@ -137,7 +139,8 @@ class Job:
     retry_at: str | None = None
     log: str | None = None  # what ffmpeg said, when a conversion failed
     no_room: bool = False  # waiting for room on its drive while the others go
-    kind: Kind = "convert"  # a conversion, or English subtitles (`method`: their quality)
+    # A conversion, English subtitles (`method`: their quality), or English from another copy.
+    kind: Kind = "convert"
     language: str | None = None  # subtitles: the sound they're made from ("jpn"; "" unsaid)
     model_missing: bool = False  # subtitles waiting for their speech model to download
 
@@ -301,6 +304,7 @@ class Queue:
                        WHERE state IN ('queued', 'running', 'replacing') AND kind = 'convert'"""
                 )
             }
+            waiting |= _giving(conn)  # set aside once its English is in: not worth converting
             last: int = conn.execute("SELECT COALESCE(MAX(position), 0) FROM jobs").fetchone()[0]
             for file_id in dict.fromkeys(file_ids):
                 row = conn.execute(
@@ -327,8 +331,9 @@ class Queue:
     ) -> int:
         """Puts videos at the end of the queue for English subtitles at `quality` ("best"), made
         from their sound in `language` ("jpn"; a video without it, from its first), as one
-        batch History calls `title`. A video waiting for them already, or one without sound, is
-        passed over. Returns how many joined."""
+        batch History calls `title`. A video waiting for them already, one without sound, or
+        another copy whose English goes into the one kept, is passed over. Returns how many
+        joined."""
         stamp = self._now()
         added = 0
         with self._lock, closing(db.connect(self._paths.database)) as conn:
@@ -339,6 +344,7 @@ class Queue:
                        WHERE state IN ('queued', 'running') AND kind = 'subtitles'"""
                 )
             }
+            waiting |= _giving(conn)
             chosen = "fast" if quality == "fast" else "best"
             batch = new_batch(conn, title, chosen, language, now=stamp)
             with conn:
@@ -373,6 +379,36 @@ class Queue:
                     conn.execute("DELETE FROM subtitle_batches WHERE id = ?", (batch,))
         self._wake.set()
         return added
+
+    def add_merge(self, file_id: int, other_id: int) -> bool:
+        """Puts English from another copy (`other_id`) into a file kept (`file_id`) next in the
+        queue: it's quick, and a conversion of the file waiting after it then keeps the English.
+        What waits in the queue for the other copy leaves it: that copy is set aside once its
+        English is in. False when the same is waiting already."""
+        stamp = self._now().isoformat()
+        with self._lock, closing(db.connect(self._paths.database)) as conn, conn:
+            waiting = conn.execute(
+                """SELECT 1 FROM jobs WHERE kind = 'merge' AND file_id = ?
+                   AND state IN ('queued', 'running', 'replacing')""",
+                (file_id,),
+            ).fetchone()
+            if waiting is not None:
+                return False
+            first: int = conn.execute(
+                "SELECT COALESCE(MIN(position), 1) FROM jobs WHERE state = 'queued'"
+            ).fetchone()[0]
+            conn.execute(
+                """INSERT INTO jobs (file_id, kind, method, other_id, position, added_at)
+                   VALUES (?, 'merge', 'remux', ?, ?, ?)""",
+                (file_id, other_id, first - 1, stamp),
+            )
+            conn.execute(
+                """DELETE FROM jobs
+                   WHERE file_id = ? AND state = 'queued' AND retry_at IS NULL""",
+                (other_id,),
+            )
+        self._wake.set()
+        return True
 
     def pause(self) -> None:
         """Stops the file converting now and takes no other until `resume`."""
@@ -543,12 +579,13 @@ class Queue:
         it anew then). Raises LookupError when it didn't fail."""
         with self._lock, closing(db.connect(self._paths.database)) as conn, conn:
             job = conn.execute(
-                """UPDATE jobs SET state = 'skipped' WHERE id = ? AND state = 'failed'
+                """UPDATE jobs SET state = 'skipped'
+                   WHERE id = ? AND state = 'failed' AND kind = 'convert'
                    RETURNING file_id, problem""",
                 (job_id,),
             ).fetchone()
             if job is None:
-                raise LookupError("That file didn't fail.")
+                raise LookupError("That file didn't fail converting.")
             conn.execute(
                 "UPDATE files SET problem = ?, marked_at = ? WHERE id = ?",
                 (
@@ -558,11 +595,12 @@ class Queue:
                 ),
             )
 
-    def restore(self, job_id: int) -> None:
-        """Puts a converted file's original back in its place. Raises ScanBusyError while a scan
+    def restore(self, job_id: int) -> tuple[SavedChange, ...]:
+        """Puts a converted file's original back in its place, and for English from another
+        copy, that copy too: returns what couldn't come back. Raises ScanBusyError while a scan
         runs or files move, and ConvertError when it can't."""
         with self._scanner.hold(), closing(db.connect(self._paths.database)) as conn:
-            restore(conn, job_id, now=self._now())
+            return restore(conn, job_id, now=self._now())
 
     def status(self) -> QueueStatus:
         with closing(db.connect(self._paths.database)) as conn:
@@ -671,7 +709,8 @@ class Queue:
             with self._lock:
                 connected, free = _Drives(), _Free()
                 waiting = conn.execute(
-                    """SELECT j.id, j.kind, j.added_at, j.method, f.path, f.probe, d.path AS root
+                    """SELECT j.id, j.kind, j.added_at, j.method, j.file_id, j.other_id, f.path,
+                              f.probe, d.path AS root
                        FROM jobs AS j
                        JOIN files AS f ON f.id = j.file_id
                        JOIN folders AS d ON d.id = f.folder_id
@@ -682,12 +721,26 @@ class Queue:
                 standard = library_standard(conn)
                 keys = {(job["id"], job["added_at"]) for job in waiting}
                 self._needs = {key: need for key, need in self._needs.items() if key in keys}
+                # A result waiting beside its file for another app to let go, or going in: no
+                # other is made beside that file (they'd share its name), nor is a copy waiting
+                # so given away for its English.
+                held = {
+                    row[0]
+                    for row in conn.execute(
+                        """SELECT file_id FROM jobs WHERE state = 'replacing'
+                           OR (state = 'queued' AND retry_at IS NOT NULL)"""
+                    )
+                }
 
                 def goes(job: sqlite3.Row) -> bool:
                     if not connected(job["root"]):
                         return False
                     if job["kind"] == "subtitles":  # they want next to no room, but their model
                         return programs.speech(job["method"]) is not None
+                    if job["file_id"] in held or job["other_id"] in held:
+                        return False
+                    if job["kind"] == "merge":  # it looks for room itself, as it begins
+                        return True
                     if not _among(drive_of(job["path"]), fitting):
                         return True  # converting checks for room, and pauses without it
                     room = free(str(Path(job["path"]).parent))  # where converting measures
@@ -712,24 +765,40 @@ class Queue:
             if kind == "subtitles":
                 self._make(conn, row["id"], programs)
             else:
-                self._listener = None  # the card's memory goes to the conversion
+                if kind == "convert":
+                    self._listener = None  # the card's memory goes to the conversion
                 self._work(conn, row["id"], programs)
         return True
 
     def _work(self, conn: sqlite3.Connection, job_id: int, programs: Programs) -> None:
+        merging = conn.execute("SELECT kind FROM jobs WHERE id = ?", (job_id,)).fetchone()[0] == (
+            "merge"
+        )
         try:
             with _awake():
-                convert(
-                    conn,
-                    job_id,
-                    programs,
-                    library_standard(conn),
-                    now=self._now,
-                    report=self._heard,
-                    stop=self._stop_asked,
-                    discard=self._discard_asked,
-                    hold=self._hold,
-                )
+                if merging:
+                    merge(
+                        conn,
+                        job_id,
+                        programs,
+                        now=self._now,
+                        report=self._heard,
+                        stop=self._stop_asked,
+                        discard=self._discard_asked,
+                        hold=self._hold,
+                    )
+                else:
+                    convert(
+                        conn,
+                        job_id,
+                        programs,
+                        library_standard(conn),
+                        now=self._now,
+                        report=self._heard,
+                        stop=self._stop_asked,
+                        discard=self._discard_asked,
+                        hold=self._hold,
+                    )
         except Stopped:
             self._stopped(conn, job_id)
         except InUseError as error:
@@ -745,8 +814,13 @@ class Queue:
         except ConvertError as error:
             self._finished(conn, job_id, "failed", str(error), error.log)
         except Exception:
-            log.exception("Converting job %d hit a problem", job_id)
-            self._finished(conn, job_id, "failed", "Kura hit a problem converting it.")
+            log.exception("Job %d hit a problem", job_id)
+            problem = (
+                "Kura hit a problem adding the English."
+                if merging
+                else "Kura hit a problem converting it."
+            )
+            self._finished(conn, job_id, "failed", problem)
         finally:
             with self._lock:
                 self._job_id, self._stop_for, self._progress = None, None, None
@@ -1038,19 +1112,53 @@ class Queue:
 def _told(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
     """What a finished batch is called, what it came to, and where to see it: "Dragon Ball Z,
     season 1 is done", "39 episodes · all checked · 9.1 GB → 17.5 GB", its title's page (or
-    History, for several titles'). Subtitles alone say what they came to; with conversions,
-    they're counted after them."""
+    History, for several titles'). Conversions come first, then subtitles, then English from
+    other copies; what else the batch held is counted after them."""
     made = [row for row in rows if row["kind"] == "subtitles"]
-    converted = [row for row in rows if row["kind"] != "subtitles"]
-    if made and not converted:
-        return _told_subtitles(made)
-    title, words, link = _told_conversions(converted)
-    done = sum(1 for row in made if row["state"] == "done" and row["problem"] is None)
-    if done:
-        words += f" · English subtitles for {done}"
-        if {row["title_id"] for row in made} - {row["title_id"] for row in converted}:
-            link = "/history"  # they're for another title too
+    merged = [row for row in rows if row["kind"] == "merge"]
+    converted = [row for row in rows if row["kind"] == "convert"]
+    if converted:
+        title, words, link = _told_conversions(converted)
+        first = converted
+    elif made:
+        title, words, link = _told_subtitles(made)
+        first = made
+    else:
+        return _told_merges(merged)
+    others = [row for row in rows if row not in first]
+    subtitled = sum(1 for row in made if row["state"] == "done" and row["problem"] is None)
+    if subtitled and first is not made:
+        words += f" · English subtitles for {subtitled}"
+    added = sum(1 for row in merged if row["state"] == "done")
+    if added:
+        words += f" · English added to {added} from another copy"
+    if {row["title_id"] for row in others} - {row["title_id"] for row in first}:
+        link = "/history"  # they're for another title too
     return title, words, link
+
+
+def _told_merges(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
+    """ "English added from another copy", "Starfall Academy · S02E07 · checked, its other copy
+    set aside", History, where both can be put back."""
+    done = [row for row in rows if row["state"] == "done"]
+    failed = len(rows) - len(done)
+    if len(rows) == 1:
+        only = rows[0]
+        if done:
+            return (
+                "English added from another copy",
+                f"{label_of(only)} · checked, its other copy set aside",
+                "/history",
+            )
+        return (
+            "No English added",
+            f"{label_of(only)} · {only['problem'] or 'it could not be added'}",
+            "/convert/queue",
+        )
+    count = f"{len(done)} {'video' if len(done) == 1 else 'videos'} · checked"
+    words = f"{count} · {failed} couldn't be" if failed else count
+    title = "English added from other copies" if done else "No English added"
+    return title, words, "/history" if done else "/convert/queue"
 
 
 def _told_subtitles(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
@@ -1131,6 +1239,15 @@ _JOBS = """SELECT j.*, j.sound AS track, f.path, f.probe, f.size, f.season, f.ep
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            JOIN folders AS d ON d.id = f.folder_id
            LEFT JOIN titles AS t ON t.id = f.title_id"""
+
+
+def _giving(conn: sqlite3.Connection) -> set[int]:
+    """The copies whose English waits to go into the one kept: they're set aside then."""
+    return {row[0] for row in conn.execute(GIVING)}
+
+
+GIVING = """SELECT other_id FROM jobs
+   WHERE kind = 'merge' AND other_id IS NOT NULL AND state IN ('queued', 'running', 'replacing')"""
 
 
 def _waiting_job(conn: sqlite3.Connection, job_id: int) -> bool:
@@ -1278,6 +1395,8 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
     estimate; a finished one says what it got (its file's record is the result's now)."""
     if row["kind"] == "subtitles":
         return _subtitles_job(row)
+    if row["kind"] == "merge":
+        return _merge_job(row)
     method = Method(row["method"])
     gpu_seconds = 0.0
     width = height = None
@@ -1343,6 +1462,34 @@ def _subtitles_job(row: sqlite3.Row) -> Job:
         log=row["log"] if row["state"] == "failed" else None,
         kind="subtitles",
         language=sound[track] if track < len(sound) else "",
+    )
+
+
+def _merge_job(row: sqlite3.Row) -> Job:
+    """English from another copy as the queue shows it: a minute or two, on no graphics card."""
+    going = row["state"] in ("queued", "running", "replacing") and row["retry_at"] is None
+    return Job(
+        id=row["id"],
+        file_id=row["file_id"],
+        path=row["path"],
+        label=label_of(row),
+        title_id=row["title_id"],
+        title=row["title"],
+        season=row["season"],
+        episode=row["episode"],
+        method=Method.REMUX,
+        state=row["state"],
+        position=row["position"],
+        gpu_seconds=merging(row["size"] or 0) if going else 0.0,
+        added_at=row["added_at"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+        problem=row["problem"],
+        source_size=row["source_size"] or row["size"] or 0,
+        output_size=row["output_size"],
+        retry_at=row["retry_at"],
+        log=row["log"] if row["state"] == "failed" else None,
+        kind="merge",
     )
 
 

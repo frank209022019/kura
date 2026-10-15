@@ -76,6 +76,18 @@ def hearing(seconds: float, quality: str) -> float:
     return seconds * HEARING[quality]
 
 
+# English from another copy: lining the two copies up by their sound takes about this long,
+# then the copy kept is copied with the English beside it at about this many bytes a second.
+MERGE_LOOK = 20.0
+MERGE_RATE = 100_000_000
+
+
+def merging(size: int) -> float:
+    """The time adding English from another copy to a file of `size` bytes takes, in seconds:
+    no graphics card, but the queue's time all the same."""
+    return MERGE_LOOK + size / MERGE_RATE
+
+
 def total(estimates: Iterable[Estimate]) -> Estimate:
     gpu_seconds, output_bytes = 0.0, 0
     for part in estimates:

@@ -20,11 +20,11 @@ file open in another app, a crash told on Home, a failed conversion's log and "M
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
 overnight note); light mode, Paper, as Windows is or as chosen; History a week at a time and
 cleared on asking or daily; the player inside Kura (small over the page and moved anywhere,
-full screen and back); and English subtitles made on the PC from a video's own sound (Whisper on
+full screen and back); English subtitles made on the PC from a video's own sound (Whisper on
 the graphics card, in the queue with the conversions), with each video's languages on its title's
-page and Home. Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has every
-release since. Everything in [What's next](#whats-next) is built but English sound and subtitles
-taken from another copy (11's last part).
+page and Home; and another copy's English sound and subtitles added to the copy Tidy up keeps.
+Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has every release since.
+Everything in [What's next](#whats-next) is built.
 
 ## Ground rules
 
@@ -265,6 +265,15 @@ Everything decided so far. Don't ask again; change only with the owner.
   theirs). History lists each batch with "Take them away" (to quarantine, put back from History);
   the player says "made by Kura" and that names and jokes can be off. English sound is written
   down, not translated. See docs/stack/speech.md.
+- English from another copy (the same canvas, 2026-10-15): when Tidy up keeps one of two copies
+  of an episode and the other has English sound or subtitles in it that the kept one hasn't (in
+  it or beside it), the copies panel asks "Keep the better picture, with the other's English"
+  (the default) or "Keep the better one as it is". With the English, the other copy stays where
+  it is till a job next in the queue has lined the two up by a sound both have (Japanese first;
+  copies sharing none aren't offered it), added the English to the kept copy, checked it and put
+  it in place; then the kept copy as it was and the other go to quarantine together, as one
+  change History puts back, kept there even when converted originals are deleted. Copies that
+  aren't the same cut stay as they are; the next time, Tidy up says why and has "as it is" chosen.
 - A title's videos come a season at a time (the owner, 2026-10-15: "The list of episodes for a
   series is too long again, not by season and a lengthy scroll. Do something nice for movies,
   series, etc"): a pill per season above the list, then Specials, then any files without a
@@ -472,9 +481,8 @@ Everything decided so far. Don't ask again; change only with the owner.
     approved (2026-10-15): each video's sound and subtitle languages on its title's page and
     Home, and English subtitles made on the PC from its own sound, in the queue with the
     conversions, with the small things (the model first, waiting for the card, nothing said, a
-    sound that won't read, English sound written down, taking them away): done. Still to build:
-    English sound and subtitles taken from another copy the owner keeps, in Tidy up's
-    duplicates.
+    sound that won't read, English sound written down, taking them away), and English sound and
+    subtitles added from another copy the owner keeps, in Tidy up's duplicates: done.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`

@@ -55,7 +55,15 @@ from kura.core.languages import track_languages
 from kura.core.library import WORKING, drive_of, work_of
 from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
-from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
+from kura.core.plan import (
+    Change,
+    ChangeKind,
+    Plan,
+    in_quarantine,
+    plan_set_aside,
+    quarantine_place,
+    sidecars_of,
+)
 from kura.core.speech import Hearing
 from kura.core.standard import Decision, Method, Standard, decide, deinterlaced
 from kura.preferences import originals_deleted
@@ -77,6 +85,9 @@ _SAID_LINES = 400  # of what ffmpeg says, kept for "Copy full log"
 _HELD_TRIES = 5  # times Kura tries to take away a result Windows holds a moment
 _HELD_PAUSE = 0.2  # seconds between them
 IN_USE_WAIT = timedelta(minutes=5)  # before a result waiting for its original is tried again
+# What History says of a file given English from another copy, and of that copy, set aside.
+MERGED_ASIDE = "Set aside: its copy with the other's English takes its place"
+OTHER_ASIDE = "A copy: its English went into the one kept"
 
 type Stage = Literal["looking", "converting", "checking", "replacing"]
 
@@ -192,7 +203,7 @@ def convert(
     ConvertError when it can't (the original stays as it was), or Stopped when asked."""
     row = _job(conn, job_id)
     source = Path(row["path"])
-    _still_as_read(source, row["size"], row["modified"])
+    still_as_read(source, row["size"], row["modified"])
     media = media_from_ffprobe(json.loads(row["probe"]))
     decision = decide(media, standard)
     if decision.method not in CONVERTED or media.video is None:
@@ -205,10 +216,10 @@ def convert(
     made = recipe(
         source, media, decision, tag=f"{decision.method} to {standard.height}p · Kura {__version__}"
     )
-    _name_free(source, Path(made.output))
+    name_free(source, Path(made.output))
     _enough_space(source, media, decision, standard)
     work = work_of(source)
-    _clear(work)
+    clear_work(work)
     try:
         if made.method is Method.BEST:
             _with_model(programs, source, work, made, media.video, total, report, stop)
@@ -220,13 +231,13 @@ def convert(
         except (ProbeError, ProbeToolError) as error:
             raise ConvertError(f"The result couldn't be read back: {error}") from None
         problems = check(media, media_from_ffprobe(result), made)
-        problems += _play(programs, work, media.duration or 0.0)
+        problems += test_play(programs, work, media.duration or 0.0)
         if problems:
             raise ConvertError(
                 f"The result didn't check out: {problems[0]}. The original is as it was."
             )
     except BaseException:
-        _discard(work)
+        discard_result(work)
         raise
     report(Progress("replacing", total, total))
     with ExitStack() as held:
@@ -234,14 +245,14 @@ def convert(
             held.enter_context(hold())
             if discard():
                 raise Stopped
-            _still_as_read(source, row["size"], row["modified"])  # nothing saved over it since
+            still_as_read(source, row["size"], row["modified"])  # nothing saved over it since
         except BaseException:
-            _discard(work)  # never put in place: nothing to keep
+            discard_result(work)  # never put in place: nothing to keep
             raise
-        if in_use(source):
-            _keep(conn, row, result, made.method)
-            raise InUseError(_open_elsewhere(row))
-        _replace(conn, row, source, work, made.output, made.method, result, now())
+        if (held := held_open(row, source)) is not None:
+            keep_result(conn, row, result, made.method, work)
+            raise InUseError(held)
+        replace_original(conn, row, source, work, made.output, made.method, result, now())
 
 
 def put_in(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
@@ -251,14 +262,16 @@ def put_in(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
     row = _job(conn, job_id)
     source = Path(row["path"])
     work = work_of(source)
-    if row["output_probe"] is None or not work.is_file():
+    if row["output_probe"] is None or not _made_by(work, row["output_size"]):
+        if row["kind"] == "merge":
+            raise ConvertError("Its copy with the English isn't there any more. Try again.")
         raise ConvertError("Its converted copy isn't there any more. Try again to convert it anew.")
-    _still_as_read(source, row["source_size"], row["source_modified"])
-    if in_use(source):
-        raise InUseError(_open_elsewhere(row))
+    still_as_read(source, row["source_size"], row["source_modified"])
+    if (held := held_open(row, source)) is not None:
+        raise InUseError(held)
     result: Json = json.loads(row["output_probe"])
     method = Method(row["method"])
-    _replace(conn, row, source, work, source.with_suffix(".mkv"), method, result, now)
+    replace_original(conn, row, source, work, source.with_suffix(".mkv"), method, result, now)
 
 
 def throw_away_kept(conn: sqlite3.Connection, job_id: int) -> None:
@@ -272,19 +285,23 @@ def throw_away_kept(conn: sqlite3.Connection, job_id: int) -> None:
     if row is None:
         return
     path = Path(row["path"])
-    _discard(work_of(path))
+    discard_result(work_of(path))
 
 
-def _keep(conn: sqlite3.Connection, row: sqlite3.Row, result: Json, method: Method) -> None:
+def keep_result(
+    conn: sqlite3.Connection, row: sqlite3.Row, result: Json, method: Method, work: Path
+) -> None:
     """What `put_in` needs of a result kept beside its original: what it is, how it was made,
-    and the original as it was made from."""
+    its size (only that file goes in), and the original as it was made from."""
     with conn:
         conn.execute(
-            """UPDATE jobs SET method = ?, output_probe = ?, source_size = ?, source_modified = ?
+            """UPDATE jobs SET method = ?, output_probe = ?, output_size = ?, source_size = ?,
+                      source_modified = ?
                WHERE id = ?""",
             (
                 method.value,
                 json.dumps(result, separators=(",", ":")),
+                work.stat().st_size,
                 row["size"],
                 row["modified"],
                 row["id"],
@@ -292,10 +309,31 @@ def _keep(conn: sqlite3.Connection, row: sqlite3.Row, result: Json, method: Meth
         )
 
 
-def _open_elsewhere(row: sqlite3.Row) -> str:
+def _made_by(work: Path, size: int | None) -> bool:
+    """Whether the result beside a file is the one its job made (one kept before Kura noted its
+    size goes by its name)."""
+    try:
+        return work.is_file() and size in (None, work.stat().st_size)
+    except OSError:
+        return False
+
+
+def held_open(row: sqlite3.Row, source: Path) -> str | None:
+    """Why a result can't take its original's place just now, in words: the file open in another
+    app, or for English from another copy, that copy, which goes to quarantine with it."""
+    if in_use(source):
+        return open_elsewhere(row)
+    other = row["other_path"] if row["kind"] == "merge" else None
+    if other is not None and in_use(Path(other)):
+        return open_elsewhere(row, other=True)
+    return None
+
+
+def open_elsewhere(row: sqlite3.Row, *, other: bool = False) -> str:
     minutes = round(IN_USE_WAIT.total_seconds() / 60)
+    which = f"The other copy of {label_of(row)}" if other else label_of(row)
     return (
-        f"{label_of(row)} is open in another app, maybe your player. Kura will try again in "
+        f"{which} is open in another app, maybe your player. Kura will try again in "
         f"{minutes} minutes."
     )
 
@@ -308,19 +346,36 @@ def lighter(decided: Method, chosen: Method) -> Method:
     return decided
 
 
-def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
+def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> tuple[SavedChange, ...]:
     """Puts a converted file's original back, and the converted copy away. The original comes
     back where the converted file is now (a tidy-up may have filed it since), under that name with
-    its own extension. It works for a conversion that failed after setting its original aside."""
+    its own extension. It works for a conversion that failed after setting its original aside.
+    A file changed again since (converted anew, or given another copy's English) has the later
+    change put back first. English from another copy brings that copy back too; what couldn't come
+    back (its old name taken, its drive away) is returned, and asked again, put back then, as is
+    that copy alone once the file as it was is gone from quarantine."""
     job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
     plan_id: int | None = job["plan_id"] if job else None
     set_aside = _set_aside(conn, plan_id)
-    if job is None or plan_id is None or set_aside is None or job["state"] == "restored":
+    if job is None or plan_id is None or set_aside is None:
+        raise ConvertError("Kura has no converted file to put back for that.")
+    merged = job["kind"] == "merge"
+    if merged and (job["state"] == "restored" or set_aside.cleared_at is not None):
+        return _other_back(conn, plan_id, now)
+    if job["state"] == "restored":
         raise ConvertError("Kura has no converted file to put back for that.")
     if set_aside.cleared_at is not None:
         raise ConvertError("Its original was cleared out of quarantine, so it can't come back.")
+    if replaced_since(conn, job):
+        raise ConvertError("It was changed again since: put back the later change first.")
     _follow_the_copy(conn, plan_id, job["file_id"])
-    undo_plan(conn, plan_id, now=now)
+    moved = _moved(conn, plan_id)
+    in_place = moved is not None and moved.state is ChangeState.DONE
+    if in_place and moved is not None and not _made_by(moved.target, job["output_size"]):
+        raise ConvertError(
+            "The file in its place isn't the one Kura made any more, so it was left as it is."
+        )
+    outcome = undo_plan(conn, plan_id, now=now)
     set_aside, moved = _set_aside(conn, plan_id), _moved(conn, plan_id)
     if set_aside is None or set_aside.state is not ChangeState.UNDONE:
         problem = set_aside.problem if set_aside else None
@@ -332,6 +387,39 @@ def restore(conn: sqlite3.Connection, job_id: int, *, now: datetime) -> None:
     _record(conn, job["file_id"], original, job["source_size"], job["source_modified"], probe, now)
     with conn:  # it keeps when it finished: History says how long converting took
         conn.execute("UPDATE jobs SET state = 'restored' WHERE id = ?", (job_id,))
+    return outcome.problems
+
+
+def replaced_since(conn: sqlite3.Connection, job: sqlite3.Row) -> bool:
+    """Whether a later job has replaced the file a job made (converted it anew, or given it
+    another copy's English): putting the earlier one back would take the later's result away."""
+    later = conn.execute(
+        """SELECT 1 FROM jobs WHERE file_id = ? AND id != ? AND plan_id > ?
+           AND state IN ('done', 'replacing')""",
+        (job["file_id"], job["id"], job["plan_id"] or 0),
+    ).fetchone()
+    return later is not None
+
+
+def _other_back(conn: sqlite3.Connection, plan_id: int, now: datetime) -> tuple[SavedChange, ...]:
+    """English from another copy, the file as it was back already or gone from quarantine: what's
+    left in quarantine (the other copy, and the subtitles named after it) comes back, and the
+    copy with the English stays in its place."""
+
+    def held(change: SavedChange) -> str | None:
+        if change.kind is ChangeKind.MOVE:
+            return "The copy with the English stays: the file as it was isn't in quarantine."
+        return None
+
+    if not any(
+        change.kind is ChangeKind.QUARANTINE
+        and change.state is ChangeState.DONE
+        and change.cleared_at is None
+        for change in changes_of(conn, plan_id)
+    ):
+        raise ConvertError("Kura has nothing of it left to put back.")
+    outcome = undo_plan(conn, plan_id, now=now, held=held)
+    return tuple(change for change in outcome.problems if change.kind is not ChangeKind.MOVE)
 
 
 def settle(
@@ -348,6 +436,9 @@ def settle(
     if plan_id is not None and carry_on:  # the result was checked before the crash
         apply_plan(conn, plan_id, now=now)
         moved = _moved(conn, plan_id)
+    elif plan_id is not None and moved is not None and moved.state is ChangeState.DONE:
+        if any(change.state is ChangeState.PLANNED for change in changes_of(conn, plan_id)):
+            apply_plan(conn, plan_id, now=now)  # what's left: the other copy, its subtitles
     if moved is not None and moved.state is ChangeState.DONE:
         try:
             result = read(moved.target) if read else None
@@ -388,10 +479,10 @@ def _take_away(result: Path) -> None:
     """Removes a result that never went in, or came back out: only ever a file named as Kura's
     work in progress, whatever a damaged or imported journal says."""
     if result.name.endswith(WORKING):
-        _discard(result)
+        discard_result(result)
 
 
-def _discard(result: Path) -> None:
+def discard_result(result: Path) -> None:
     """Takes away a result that won't go in. Windows may hold it a moment after its ffmpeg ends
     (an antivirus looking at it, say), so Kura tries a few times; one still held is left for the
     next try, which takes it away first. Never what decides how a conversion went."""
@@ -444,10 +535,13 @@ def _follow_the_copy(conn: sqlite3.Connection, plan_id: int, file_id: int) -> No
 
 def _job(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
     row = conn.execute(
-        """SELECT j.id, j.file_id, j.method, j.output_probe, j.source_size, j.source_modified,
-                  f.path, f.size, f.modified, f.probe, f.season, f.episode, t.name AS title
+        """SELECT j.id, j.kind, j.file_id, j.method, j.output_probe, j.output_size,
+                  j.source_size, j.source_modified, f.path, f.size, f.modified, f.probe,
+                  f.season, f.episode, t.name AS title, o.path AS other_path,
+                  o.size AS other_size, o.modified AS other_modified
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            LEFT JOIN titles AS t ON t.id = f.title_id
+           LEFT JOIN files AS o ON o.id = j.other_id AND o.gone_at IS NULL
            WHERE j.id = ? AND f.gone_at IS NULL""",
         (job_id,),
     ).fetchone()
@@ -456,7 +550,7 @@ def _job(conn: sqlite3.Connection, job_id: int) -> sqlite3.Row:
     return row
 
 
-def _still_as_read(source: Path, size: int, modified: int) -> None:
+def still_as_read(source: Path, size: int, modified: int) -> None:
     try:
         now = source.stat()
     except OSError:
@@ -477,7 +571,7 @@ def _looks_interlaced(programs: Programs, source: Path, media: MediaInfo) -> boo
     return interlaced(done.stderr.decode("utf-8", "replace"))
 
 
-def _name_free(source: Path, output: Path) -> None:
+def name_free(source: Path, output: Path) -> None:
     """The result takes the original's name as an MKV: a file there already (an MKV beside an
     MP4 of the same name) would only be found once it's made, so it's looked for first."""
     if str(output).casefold() != str(source).casefold() and output.exists():
@@ -487,7 +581,7 @@ def _name_free(source: Path, output: Path) -> None:
         )
 
 
-def _clear(work: Path) -> None:
+def clear_work(work: Path) -> None:
     """Takes away what an earlier try left of the result (a crash, say)."""
     try:
         work.unlink(missing_ok=True)
@@ -548,7 +642,7 @@ def _with_model(
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    decoding, encoding = _Said(decoder.stderr), _Said(encoder.stderr)
+    decoding, encoding = Said(decoder.stderr), Said(encoder.stderr)
     reached = [0]  # frames made so far
 
     def done(count: int) -> None:
@@ -599,7 +693,7 @@ def _in_one_command(
     """One ffmpeg, its progress read from its standard output."""
     command = one_command(programs.ffmpeg, source, work, made, shader=programs.shader)
     process = programs.start(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    said = _Said(process.stderr)
+    said = Said(process.stderr)
     frames = 0
     for line in cast("IO[bytes]", process.stdout):
         if stop():
@@ -616,7 +710,7 @@ def _in_one_command(
         )
 
 
-def _play(programs: Programs, work: Path, duration: float) -> list[str]:
+def test_play(programs: Programs, work: Path, duration: float) -> list[str]:
     """A test play of the result at three points: what went wrong, if anything."""
     problems: list[str] = []
     for share in (0.1, 0.5, 0.9):
@@ -655,14 +749,14 @@ def _play(programs: Programs, work: Path, duration: float) -> list[str]:
     return problems
 
 
-def _log(*said: _Said, stopped: tuple[int, int]) -> str:
+def _log(*said: Said, stopped: tuple[int, int]) -> str:
     """What ffmpeg said, for "Copy full log", and where it stopped."""
     reached, total = stopped
     lines = [line for each in said for line in each.lines()]
     return "\n".join([*lines, f"Stopped at frame {reached:,} of {total:,}."])
 
 
-def _replace(
+def replace_original(
     conn: sqlite3.Connection,
     row: sqlite3.Row,
     source: Path,
@@ -673,22 +767,34 @@ def _replace(
     now: datetime,
 ) -> None:
     """The original to quarantine and the result into its place, journaled; then the library's
-    record of the file describes the result, keeping what it was identified as."""
+    record of the file describes the result, keeping what it was identified as. English added
+    from another copy (a job of kind 'merge') sets that copy aside in the same plan, as a
+    tidy-up sets a copy aside: History puts both back together."""
     label = label_of(row)
     place = _free_place(source, now)
-    plan = Plan(
-        (
-            Change(
-                ChangeKind.QUARANTINE,
-                source,
-                place,
-                f"{label} · original",
-                "Set aside: its converted copy takes its place",
-            ),
-            Change(ChangeKind.MOVE, work, output, label, f"Converted ({method})"),
+    merged = row["kind"] == "merge"
+    changes = [
+        Change(
+            ChangeKind.QUARANTINE,
+            source,
+            place,
+            f"{label} · original",
+            MERGED_ASIDE if merged else "Set aside: its converted copy takes its place",
+        )
+    ]
+    if merged:  # first: the result may take its name ("Ep 7.mkv" kept as "Ep 7.mp4")
+        changes += _other_aside(row, source, now, taken={str(place).casefold()})
+    changes.append(
+        Change(
+            ChangeKind.MOVE,
+            work,
+            output,
+            label,
+            "With the other copy's English" if merged else f"Converted ({method})",
         )
     )
-    plan_id = save_plan(conn, plan, f"Converted {label}", now=now, kind="convert")
+    title = f"Added English from another copy to {label}" if merged else f"Converted {label}"
+    plan_id = save_plan(conn, Plan(tuple(changes)), title, now=now, kind="convert")
     original = source.stat()
     with conn:
         conn.execute(
@@ -707,11 +813,12 @@ def _replace(
     outcome = apply_plan(conn, plan_id, now=now)
     if outcome.problems:
         undone = undo_plan(conn, plan_id, now=now)
-        if not undone.problems and in_use(source):  # a player opened it a moment ago
+        held = held_open(row, source) if not undone.problems else None
+        if held is not None:  # a player opened it a moment ago
             _forget(conn, plan_id, row["id"])  # nothing moved: it leaves no trace
-            _keep(conn, row, result, method)
-            raise InUseError(_open_elsewhere(row))
-        _discard(work)
+            keep_result(conn, row, result, method, work)
+            raise InUseError(held)
+        discard_result(work)
         problem = outcome.problems[0].problem
         if undone.problems:  # the original stays in quarantine: History can still put it back
             raise ConvertError(
@@ -725,9 +832,43 @@ def _replace(
 
 def _drop_original(conn: sqlite3.Connection, plan_id: int | None, now: datetime) -> None:
     """When the owner chose to delete converted files' originals, this one goes now that its
-    result is checked and in place; otherwise it waits in quarantine like any copy."""
-    if plan_id is not None and originals_deleted(conn):
+    result is checked and in place; otherwise it waits in quarantine like any copy. A file that
+    only had English added from another copy keeps its original in quarantine, with that copy:
+    it wasn't converted."""
+    if plan_id is None or not originals_deleted(conn):
+        return
+    job = conn.execute("SELECT kind FROM jobs WHERE plan_id = ?", (plan_id,)).fetchone()
+    if job is None or job["kind"] != "merge":
         clear_original(conn, plan_id, now=now)
+
+
+def _other_aside(row: sqlite3.Row, kept: Path, now: datetime, *, taken: set[str]) -> list[Change]:
+    """English from another copy: that copy to quarantine with the subtitles named after it, as
+    a tidy-up sets a copy aside, but not subtitles the kept copy's name fits too (two copies
+    side by side, "Ep 7.mkv" and "Ep 7.mp4"). Nothing when it went meanwhile: its English is in."""
+    other = Path(row["other_path"]) if row["other_path"] else None
+    if other is None or in_quarantine(other) or not _as_read(other, row):
+        return []
+    try:
+        names = [each.name for each in other.parent.iterdir()]
+    except OSError:
+        names = []
+    shared = set(sidecars_of(kept, names)) if other.parent == kept.parent else set[PurePath]()
+    sidecars = [each for each in sidecars_of(other, names) if each not in shared]
+    day = now.date()
+    try:
+        there = {
+            str(each).casefold() for each in Path(quarantine_place(other, day)).parent.iterdir()
+        }
+    except OSError:  # not there yet: the first today
+        there = set[str]()
+    plan = plan_set_aside(
+        [(other, f"{label_of(row)} · other copy", sidecars)],
+        day=day,
+        taken=there | taken,
+        reason=OTHER_ASIDE,
+    )
+    return list(plan.changes)
 
 
 def _forget(conn: sqlite3.Connection, plan_id: int, job_id: int) -> None:
@@ -804,6 +945,15 @@ def _record(
         )
 
 
+def _as_read(other: Path, row: sqlite3.Row) -> bool:
+    """Whether English from another copy's other copy is there as Kura read it."""
+    try:
+        found = other.stat()
+    except OSError:
+        return False
+    return (found.st_size, found.st_mtime_ns) == (row["other_size"], row["other_modified"])
+
+
 def label_of(row: sqlite3.Row) -> str:
     """ "Trigun · S01E03", or the film's name, or the file's, from a row with the file's `path`,
     `season` and `episode`, and its title's name (`title`)."""
@@ -813,7 +963,7 @@ def label_of(row: sqlite3.Row) -> str:
     return title
 
 
-class _Said:
+class Said:
     """What a program writes to its error output, read as it goes so it never blocks: its last
     few hundred lines."""
 

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 from kura.changes import ChangeState, changes_of, tally
+from kura.convert import replaced_since
 from kura.core.media import media_from_ffprobe
 from kura.core.plan import DELETED
 from kura.subtitles import NOTHING_SAID, TAKEN_AWAY, present
@@ -33,11 +34,13 @@ class Picture:
 @dataclass(frozen=True)
 class Conversion:
     job_id: int
+    kind: str  # convert, or merge: English added from another copy, nothing converted
     method: str  # remux, reencode, fast or best
     before: Picture
     after: Picture
     seconds: float | None  # how long converting took
     restored: bool  # the original is back in its place
+    replaced: bool = False  # a later job replaced the file since: that's put back first
 
 
 @dataclass(frozen=True)
@@ -298,11 +301,13 @@ def _conversion(conn: sqlite3.Connection, plan_id: int) -> Conversion | None:
         took = (ended - began).total_seconds()
     return Conversion(
         job_id=job["id"],
+        kind="merge" if job["kind"] == "merge" else "convert",
         method=job["method"],
         before=_picture(job["source_probe"], job["source_size"]),
         after=_picture(job["output_probe"], job["output_size"]),
         seconds=took,
         restored=job["state"] == "restored",
+        replaced=replaced_since(conn, job),
     )
 
 

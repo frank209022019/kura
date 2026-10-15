@@ -41,11 +41,13 @@ const CONVERTED: PlanDone = {
   quarantined: 1,
   conversion: {
     jobId: 5,
+    kind: "convert",
     method: "best",
     before: { height: 480, codec: "h264", size: 233_000_000 },
     after: { height: 1080, codec: "hevc", size: 412_000_000 },
     seconds: 3480,
     restored: false,
+    replaced: false,
   },
 };
 const RENAMED: PlanDone = {
@@ -289,6 +291,50 @@ describe("HistoryPage", () => {
     screen.getByRole("radio", { name: "Conversions" }).click();
     await waitFor(() => expect(screen.queryByText(/Tidied 30 files/)).not.toBeInTheDocument());
     expect(screen.getByText("Trigun · S01E03")).toBeInTheDocument();
+  });
+
+  it("lists English added from another copy, and puts both copies back", async () => {
+    const merged: PlanDone = {
+      ...CONVERTED,
+      title: "Added English from another copy to Starfall Academy · S02E07",
+      quarantined: 2,
+      conversion: CONVERTED.conversion && {
+        ...CONVERTED.conversion,
+        kind: "merge",
+        method: "remux",
+      },
+    };
+    const fetch = fakeEngine({
+      "/history": { plans: [merged], scans: [], subtitles: [], older: null },
+      "POST /plans/14/undo": { planId: 14, moved: 1, quarantined: 0, problems: [], english: 0 },
+    });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "14:20AddedEnglish to Starfall Academy · S02E07From its other copy, set aside with it · checked",
+    );
+    screen.getByRole("button", { name: "Put back both copies" }).click();
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(
+          ([input, init]) => init?.method === "POST" && String(input).endsWith("/plans/14/undo"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("puts a file's later change back first", async () => {
+    const earlier: PlanDone = {
+      ...CONVERTED,
+      conversion: CONVERTED.conversion && { ...CONVERTED.conversion, replaced: true },
+    };
+    fakeEngine({ "/history": { plans: [earlier], scans: [], subtitles: [], older: null } });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent("58 min · checked · changed again since");
+    expect(screen.queryByRole("button", { name: "Put back the original" })).not.toBeInTheDocument();
   });
 
   it("says when a converted file's original is gone, and offers nothing to put back", async () => {

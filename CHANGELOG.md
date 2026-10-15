@@ -25,6 +25,16 @@ shows these notes when it offers the update.
 - History lists each batch of subtitles Kura made, and takes a batch away again: to quarantine,
   from where History puts it back till it's cleared out. Subtitles you've edited since are yours,
   and stay.
+- English from another copy: when Tidy up finds two copies of an episode and the one it sets aside
+  has English sound or subtitles the one kept hasn't, it offers to add them to the one kept. Kura
+  lines the two up by the sound both have, checks the result before it takes the file's place, and
+  sets both copies as they were aside together, which History puts back. Copies that aren't the same
+  cut stay as they are, and Tidy up says why the next time.
+
+### Fixed
+- History puts a file's latest change back first: a file converted again since has that conversion
+  put back before the earlier one, which before could take the newer file away and then the original
+  too.
 
 ## 0.15.1 - 2026-10-15
 

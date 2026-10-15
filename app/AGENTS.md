@@ -45,6 +45,9 @@ and [../CLAUDE.md](../CLAUDE.md).
   `/subtitles?title=7&season=1`, or `/subtitles` for everything without English): a title's
   videos and Home's card lead there. Whatever Kura made from the sound says so where it shows
   (the title's videos, the player's menu, History), since names and jokes can come out wrong.
+- Tidy up's copies panel offers the other copy's English when it has some the kept one hasn't
+  (`features/tidy/tidy-page.tsx`): with it, the other copy's changes stay out of what's applied
+  and the kept copy's path goes in `english`; the queue adds the English, then sets both aside.
 
 ## Where things go
 

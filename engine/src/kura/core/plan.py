@@ -220,17 +220,19 @@ def plan_set_aside(
     *,
     day: date,
     taken: Iterable[str] = (),
+    reason: str = DELETED,
 ) -> Plan:
     """The changes that delete videos the way Kura deletes: each video (its path, its label and
     the subtitles named after it) to the quarantine folder on its own drive, under a name nothing
-    there has (`taken` holds what's there already), until the quarantine is cleared out."""
+    there has (`taken` holds what's there already), until the quarantine is cleared out. Each
+    says why (`reason`): the owner deleted it, unless told otherwise."""
     used = {path.casefold() for path in taken}
     changes: list[Change] = []
     for video, label, sidecars in files:
         place = unique_path(quarantine_place(video, day), used)
         used.add(str(place).casefold())
-        changes.append(Change(ChangeKind.QUARANTINE, video, place, label, DELETED))
-        changes += _with_it(video, label, sidecars, place, used, ChangeKind.QUARANTINE, DELETED)
+        changes.append(Change(ChangeKind.QUARANTINE, video, place, label, reason))
+        changes += _with_it(video, label, sidecars, place, used, ChangeKind.QUARANTINE, reason)
     return Plan(tuple(changes))
 
 

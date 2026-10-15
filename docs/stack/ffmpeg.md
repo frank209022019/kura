@@ -92,6 +92,28 @@ paths written by [kura/core/filters.py](../../engine/src/kura/core/filters.py). 
 are pictures (PGS, DVD) are laid over the picture from the file itself
 (`[0:v:0]…[base];[base][0:s:N]overlay=eof_action=pass`).
 
+## English from another copy
+
+`kura/core/merge.py` builds the one command that adds another copy's English to the copy kept: the
+kept copy's every stream as it is (`-map 0:V`, never a cover image, then its sound, subtitles and
+fonts), then the other's English sound and subtitles (and its fonts, for styled subtitles),
+stream-copied (`-c copy`), the added tracks never the default. The other copy is lined up by the
+offset Kura heard (`kura/core/align.py`): one that runs earlier is read as it is with `-itsoffset`,
+its tracks waiting till their moment; one that runs later is read from just the right moment with
+`-ss`, so its sound is made anew as AAC (96 kbit/s a channel) and its text subtitles written anew,
+and subtitles drawn as pictures can't come (Kura then keeps both copies as they are, rather than set
+one aside with English that didn't come). Copies less than 0.08 s apart, closer than lining up can
+tell, count as lined up already: copied as they are. `-t` ends the result with the kept copy's
+picture (half a second's grace), though a subtitle begun before then may stay up a moment longer.
+MP4's text subtitles become SRT, as MKV can't hold them as they are.
+
+Measured with ffmpeg 8 on two pairs of clips whose timestamps start at 0: a copy 6.7 s earlier, its
+English sound's first packet at 6.755 s and its subtitles 6.74 s later than in the copy; a copy 8 s
+later, its subtitles 8.03 s earlier, the cue the cut fell in left out. A copy whose timestamps don't
+start at 0 with its subtitles before its picture (cut with `-copyts`) can come out longer than the
+kept copy: the check finds it, and both copies stay as they are. Every video in the library it was
+tried against starts at 0.
+
 ## Moving to a newer build
 
 1. Pick the last build of a month on [BtbN's releases](https://github.com/BtbN/FFmpeg-Builds/releases)

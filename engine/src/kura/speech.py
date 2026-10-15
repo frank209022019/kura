@@ -121,13 +121,15 @@ class _Session(Protocol):
     ) -> list[np.ndarray]: ...
 
 
-def sound_of(ffmpeg: Sequence[str], video: Path, track: int, stop: Stop) -> np.ndarray:
-    """A sound track of the video (the `track`th, from 0) as the models hear sound: 16 kHz,
-    one channel, as floats."""
+def sound_of(
+    ffmpeg: Sequence[str], video: Path, track: int, stop: Stop, *, rate: int = SAMPLE_RATE
+) -> np.ndarray:
+    """A sound track of the video (the `track`th, from 0) as the models hear sound: 16 kHz
+    (or `rate` samples a second), one channel, as floats."""
     command = [
         *ffmpeg,
         *("-nostdin", "-v", "error", "-i", str(video), "-map", f"0:a:{track}"),
-        *("-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "f32le", "-"),
+        *("-ac", "1", "-ar", str(rate), "-f", "f32le", "-"),
     ]
     process = start(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     said: deque[str] = deque(maxlen=20)

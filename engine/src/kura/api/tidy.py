@@ -27,6 +27,17 @@ class CopyFacts(ApiModel):
     subtitles: int  # tracks that can be switched off
     size: int
     plays: bool
+    # Its subtitles' languages, in it and in the files beside it ("ger", "en"; "" unsaid).
+    subtitle_languages: list[str]
+
+
+class English(ApiModel):
+    """English the copy set aside has in it that the one kept hasn't, which Kura can add."""
+
+    other: str  # the copy set aside
+    sound: bool  # its English sound comes
+    subtitles: bool  # its English subtitles come
+    tried: str | None  # why Kura couldn't, the last time it was asked to
 
 
 class Duplicate(ApiModel):
@@ -34,6 +45,7 @@ class Duplicate(ApiModel):
     keep: CopyFacts
     drop: list[CopyFacts]
     reason: str
+    english: English | None  # two copies: what the one set aside could give the one kept
 
 
 class Compared(ApiModel):
@@ -87,6 +99,9 @@ class TidyRequest(ApiModel):
     changes: list[ReviewedChange]
     # Copies the owner chose to keep over others of the same episode.
     keep: list[str] = Field(default_factory=list[str])
+    # Copies kept that get the English of the copy set aside: it waits in the queue, and that
+    # copy stays where it is till it's in.
+    english: list[str] = Field(default_factory=list[str])
 
 
 class ChangeProblem(ApiModel):
@@ -100,6 +115,7 @@ class TidyResult(ApiModel):
     moved: int
     quarantined: int
     problems: list[ChangeProblem]
+    english: int = 0  # copies kept whose other copy's English joined the queue
 
 
 class Picture(ApiModel):
@@ -110,11 +126,17 @@ class Picture(ApiModel):
 
 class Conversion(ApiModel):
     job_id: int
+    # A conversion, or English added from another copy, which went to quarantine with the
+    # original (`method` is then a remux: nothing was converted).
+    kind: Literal["convert", "merge"]
     method: Literal["remux", "reencode", "fast", "best"]
     before: Picture
     after: Picture
     seconds: float | None  # how long converting took
     restored: bool  # the original is back in its place
+    # A later conversion, or another copy's English, replaced the file since: that's put back
+    # first.
+    replaced: bool
 
 
 class PlanDone(ApiModel):
@@ -220,6 +242,14 @@ def proposal(conn: Database, keep: Keep = []) -> TidyProposal:  # noqa: B006 - F
                 keep=_copy(d.keep),
                 drop=[_copy(copy) for copy in d.drop],
                 reason=d.reason,
+                english=English(
+                    other=str(d.english.other),
+                    sound=d.english.sound,
+                    subtitles=d.english.subtitles,
+                    tried=d.english.tried,
+                )
+                if d.english
+                else None,
             )
             for d in found.duplicates
         ],
@@ -229,13 +259,14 @@ def proposal(conn: Database, keep: Keep = []) -> TidyProposal:  # noqa: B006 - F
 
 
 @router.post("/tidy")
-def apply_tidy(body: TidyRequest, conn: Database, scans: Scans) -> TidyResult:
-    """Makes the changes the owner reviewed, journaled so History can undo them. None is made
-    when Kura proposes any of them differently now."""
+def apply_tidy(body: TidyRequest, conn: Database, scans: Scans, request: Request) -> TidyResult:
+    """Makes the changes the owner reviewed, journaled so History can undo them, and puts the
+    English asked for from other copies in the queue. None is made when Kura proposes any of
+    them differently now."""
     reviewed = [tidy.Reviewed(c.source, ChangeKind(c.kind), c.target) for c in body.changes]
     try:
         with scans.hold():
-            done = tidy.apply(conn, reviewed, now=_now(), keep=body.keep)
+            done = tidy.apply(conn, reviewed, now=_now(), keep=body.keep, english=body.english)
     except ScanBusyError as busy:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"{busy} Tidy up once it's done, so Kura knows every file."
@@ -245,7 +276,9 @@ def apply_tidy(body: TidyRequest, conn: Database, scans: Scans) -> TidyResult:
             status.HTTP_409_CONFLICT,
             "Kura's proposal changed since you looked at it. Look it over again before applying.",
         ) from None
-    return _result(done)
+    worker: Queue = request.app.state.queue
+    queued = sum(1 for kept, other in done.english if worker.add_merge(kept, other))
+    return _result(done, english=queued)
 
 
 class DeleteRequest(ApiModel):
@@ -310,22 +343,26 @@ def undo_plan(plan_id: int, conn: Database, scans: Scans, request: Request) -> T
 
 
 def _put_back(conn: Database, plan_id: int, request: Request) -> TidyResult:
-    """A conversion undone: its original back from quarantine (kura/queue.py)."""
+    """A conversion undone: its original back from quarantine (kura/queue.py), and for English
+    added from another copy, that copy too."""
     job = conn.execute("SELECT id FROM jobs WHERE plan_id = ?", (plan_id,)).fetchone()
     worker: Queue = request.app.state.queue
     try:
-        worker.restore(job["id"] if job else 0)
+        stayed = worker.restore(job["id"] if job else 0)
     except ConvertError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error)) from None
-    return TidyResult(plan_id=plan_id, moved=1, quarantined=0, problems=[])
+    return TidyResult(
+        plan_id=plan_id, moved=1, quarantined=0, problems=[_problem(change) for change in stayed]
+    )
 
 
-def _result(done: tidy.Tidied) -> TidyResult:
+def _result(done: tidy.Tidied, *, english: int = 0) -> TidyResult:
     return TidyResult(
         plan_id=done.plan_id,
         moved=done.moved,
         quarantined=done.quarantined,
         problems=[_problem(change) for change in done.problems],
+        english=english,
     )
 
 
@@ -353,6 +390,7 @@ def _copy(copy: tidy.CopyFacts) -> CopyFacts:
         subtitles=copy.subtitles,
         size=copy.size,
         plays=copy.plays,
+        subtitle_languages=list(copy.subtitle_languages),
     )
 
 

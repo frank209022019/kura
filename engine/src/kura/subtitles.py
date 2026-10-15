@@ -66,7 +66,8 @@ class Hearable:
 
 
 def hearable(conn: sqlite3.Connection) -> list[Hearable]:
-    """The library's videos that have sound: matched to a title, there, and not broken."""
+    """The library's videos that have sound: matched to a title, there, and not broken, nor
+    another copy whose English goes into the one kept (it's set aside then)."""
     rows = conn.execute(
         """SELECT f.id, f.path, f.season, f.episode, f.probe, f.sound, f.subtitles, f.title_id,
                   t.name AS title, m.name AS made, m.size AS made_size,
@@ -77,6 +78,9 @@ def hearable(conn: sqlite3.Connection) -> list[Hearable]:
            FROM files AS f JOIN titles AS t ON t.id = f.title_id
            LEFT JOIN made_subtitles AS m ON m.file_id = f.id
            WHERE f.gone_at IS NULL AND f.problem IS NULL AND f.probe IS NOT NULL
+             AND f.id NOT IN (SELECT g.other_id FROM jobs AS g
+                              WHERE g.kind = 'merge' AND g.other_id IS NOT NULL
+                                AND g.state IN ('queued', 'running', 'replacing'))
            ORDER BY t.name, f.season, f.episode, f.path"""
     ).fetchall()
     rows = [row for row in rows if _languages(row["sound"])]
