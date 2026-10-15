@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.17.1 - 2026-10-15
+
 ### Fixed
 - Testing the PC while Kura made English subtitles no longer stops Kura's engine, nor does "See
   it first" with Best quality: loading the AI model beside Whisper crashed the graphics driver. Both
