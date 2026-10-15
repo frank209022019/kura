@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.19.0 - 2026-10-15
+
 ### Added
 - Search the whole library from the title bar: anime by any name they go by ("DBZ" too, where
   AniList knows it), episodes by code or name ("S04E11", "Ginyu"), the ones you're missing
