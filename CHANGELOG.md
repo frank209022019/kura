@@ -8,6 +8,24 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- English subtitles for the videos that have none, made on your PC from each video's own sound:
+  "Make English subtitles" on a title's videos (or on Home) takes a season, the whole title or
+  everything without English, the sound to translate from, Best or Fast, and when. They wait in
+  the queue with the conversions, one at a time on the graphics card, and go beside each video
+  under the name media server apps read; the video itself never changes. The speech model they
+  need (1.5 GB for Best, 486 MB for Fast) is downloaded the first time you ask, from the source
+  the installer's first page lists, and checked before it's used.
+- A title's videos say what each can be heard and read in (its sound, and its subtitles in the
+  file or beside it), mark the ones with no English, and show English subtitles being made or
+  waiting in the queue; the title sums it up for all its videos.
+- Home shows your videos by language, and how many have no English at all, with the way to make
+  subtitles for them.
+- The player marks the English subtitles Kura made, and says names and jokes can be off.
+- History lists each batch of subtitles Kura made, and takes a batch away again: to quarantine,
+  from where History puts it back till it's cleared out. Subtitles you've edited since are yours,
+  and stay.
+
 ## 0.15.1 - 2026-10-15
 
 ### Fixed

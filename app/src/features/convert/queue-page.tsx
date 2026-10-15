@@ -8,6 +8,7 @@ import { EngineProblem } from "@/components/engine-problem";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { SpeechModelWait } from "@/features/subtitles/speech-model";
 import {
   driveOf,
   episodeCode,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/convert";
 import {
   type Job,
+  type Quality,
   type QueueStatus,
   type Room,
   type RunningJob,
@@ -34,7 +36,7 @@ import {
   useSettings,
   useStill,
 } from "@/lib/engine";
-import { keptFor, split } from "@/lib/format";
+import { clockTime, keptFor, languageName, split } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ConvertTabs } from "./convert-tabs";
 import { NoRoom } from "./no-room";
@@ -113,6 +115,7 @@ export function QueuePage() {
   }
   const idle = !status.running && status.queued.length === 0;
   const held = status.queued.filter((job) => job.retryAt !== null);
+  const unready = [...new Set(status.queued.filter((job) => job.modelMissing).map(qualityOf))];
   return (
     <>
       {header}
@@ -138,8 +141,13 @@ export function QueuePage() {
         (job) =>
           job.retryAt !== null && <OpenElsewhere key={job.id} job={job} retryAt={job.retryAt} />,
       )}
+      {unready.map((quality) => (
+        <SpeechModelWait key={quality} quality={quality} />
+      ))}
       {status.running && status.endsAt && <Tonight endsAt={status.endsAt} early={status.early} />}
-      {status.running ? (
+      {status.running?.job.kind === "subtitles" ? (
+        <NowHearing running={status.running} gpu={status.gpu} paused={status.paused} />
+      ) : status.running ? (
         <NowConverting running={status.running} gpu={status.gpu} paused={status.paused} />
       ) : (
         held.length < status.queued.length && !status.room && <Waiting status={status} />
@@ -343,6 +351,141 @@ function NowConverting(props: { running: RunningJob; gpu: QueueStatus["gpu"]; pa
   );
 }
 
+const HEARING = ["Read the sound", "Listen", "Write", "Check"] as const;
+
+/** Where subtitles being made are: reading the sound, hearing it, writing them, checking them. */
+function hearingStep(running: RunningJob): number {
+  if (running.stage === "listening") return 1;
+  if (running.stage === "writing") return 2;
+  if (running.stage === "checking") return 3;
+  return 0;
+}
+
+/** English subtitles being made now: the video, from which sound and at what quality, how far
+ * Kura has heard it, and the card's load. */
+function NowHearing(props: { running: RunningJob; gpu: QueueStatus["gpu"]; paused: boolean }) {
+  const { running } = props;
+  const { job } = running;
+  const action = useQueueAction();
+  const still = useStill(job.fileId, 1);
+  const at = hearingStep(running);
+  const share = progress(running);
+  const english = job.language === "eng" || job.language === "en";
+  const steps = HEARING.map((step) =>
+    step === "Listen" ? (english ? "Listen and write down" : "Listen and translate") : step,
+  );
+  return (
+    <section
+      aria-label="Now making English subtitles"
+      className="relative flex animate-fade-up flex-wrap items-center gap-6 overflow-hidden rounded-26 bg-featured p-6.5 text-white scheme-dark"
+    >
+      <span
+        aria-hidden="true"
+        className="-right-30 -bottom-40 absolute size-90 rounded-full bg-featured-orb/90"
+      />
+      <div
+        aria-hidden="true"
+        className="relative h-37.5 flex-[0_0_200px] overflow-hidden rounded-14 bg-[#6fa8dc] shadow-[0_20px_40px_-20px_rgb(0_0_0/0.6)]"
+      >
+        {still && <img src={still} alt="" className="size-full object-cover" />}
+      </div>
+      <div className="relative flex min-w-0 flex-[1_1_340px] flex-col gap-3">
+        <span className="font-extrabold text-12 text-converting">English subtitles</span>
+        <h2 className="font-extrabold text-[28px] leading-[1.1] tracking-[-0.02em]">{job.label}</h2>
+        <span className="text-13 text-white/85">
+          {[
+            job.language ? `from the ${languageName(job.language)} sound` : "from its sound",
+            METHOD_NAMES[job.method],
+          ].join(" · ")}
+        </span>
+        <ol aria-label="Steps" className="flex flex-wrap items-center gap-1.5 font-bold text-12">
+          {steps.map((step, index) => (
+            <li
+              key={step}
+              aria-current={index === at ? "step" : undefined}
+              className={cn(
+                "inline-flex items-center gap-1.5",
+                index === at ? "text-converting" : index > at && "text-white/75",
+              )}
+            >
+              {index > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={cn("mr-0.5 h-0.5 w-3.5", index <= at ? "bg-accent" : "bg-white/30")}
+                />
+              )}
+              <StepMark done={index < at} now={index === at} />
+              {step}
+            </li>
+          ))}
+        </ol>
+        <div className="relative h-2 overflow-hidden rounded-4 bg-white/16">
+          <div
+            className="relative h-full overflow-hidden rounded-4 bg-accent transition-[width] duration-600 ease-cinema"
+            style={{ width: `${share}%` }}
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 animate-shimmer bg-linear-to-r from-white/0 via-white/60 to-white/0"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1.5 text-13 text-white/85">
+          <span>
+            {share}%
+            {running.secondsLeft !== null && running.secondsLeft > 0
+              ? ` · ${gpuTime(running.secondsLeft)} left`
+              : running.stage === "checking"
+                ? " · checking them"
+                : running.stage === "writing"
+                  ? " · writing them beside the video"
+                  : ""}
+          </span>
+          {running.total > 0 && (
+            <span className="font-mono">
+              {clockTime(running.frames)} of {clockTime(running.total)} heard
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          <FeaturedButton
+            disabled={action.isPending || props.paused}
+            onClick={() => action.mutate({ path: "/queue/pause" })}
+          >
+            <Pause size={14} fill="currentColor" aria-hidden="true" />
+            Pause
+          </FeaturedButton>
+          <FeaturedButton
+            disabled={action.isPending}
+            onClick={() => action.mutate({ path: `/queue/${job.id}/skip` })}
+          >
+            Skip this file
+          </FeaturedButton>
+        </div>
+        <Problem error={action.error} />
+      </div>
+      {props.gpu && (
+        <div className="relative grid min-w-60 flex-[0_1_300px] grid-cols-2 gap-2.5">
+          <Stat className="items-center">
+            <Ring busy={props.gpu.busy} />
+            <span className="text-12 text-white/80">GPU busy</span>
+          </Stat>
+          <Stat className="justify-center">
+            <span className="font-extrabold text-22 leading-none">{props.gpu.celsius} °C</span>
+            <span className="h-1.5 overflow-hidden rounded-3 bg-white/16">
+              <span
+                className="block h-full rounded-3 bg-converting"
+                style={{ width: `${Math.min(100, props.gpu.celsius)}%` }}
+              />
+            </span>
+            <span className="text-12 text-white/80">GPU temperature</span>
+          </Stat>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** The speeds heard while this page is open, for the sparkline. */
 function useSpeeds(fps: number | null): number[] {
   const [speeds, setSpeeds] = useState<number[]>([]);
@@ -467,13 +610,16 @@ function FeaturedButton(props: React.ComponentProps<"button">) {
 function Waiting({ status }: { status: QueueStatus }) {
   const action = useQueueAction();
   const missing = drivesMissing(status.queued);
+  const waiting = status.queued.filter((job) => job.retryAt === null);
   const words = status.paused
     ? "The queue is paused. A file that was converting starts again from its beginning."
     : status.waitsForNight
       ? "Files convert tonight, from 23:00 to 07:00."
       : missing
         ? unpluggedWords(missing)
-        : "The next file starts in a moment.";
+        : waiting.length > 0 && waiting.every((job) => job.modelMissing)
+          ? "English subtitles start once their speech model is on this PC."
+          : "The next file starts in a moment.";
   return (
     <section
       aria-label="Waiting"
@@ -587,6 +733,11 @@ function RoomCard({ room, queued }: { room: Room; queued: Job[] }) {
  * A converted file waiting beside its original, which another app (a player, say) has open; or,
  * made, waiting for its drive to be connected again.
  */
+/** The quality English subtitles are made at: their job's method. */
+function qualityOf(job: Job): Quality {
+  return job.method === "fast" ? "fast" : "best";
+}
+
 function OpenElsewhere({ job, retryAt }: { job: Job; retryAt: string }) {
   const action = useQueueAction();
   const drive = driveOf(job.path) || "its drive";
@@ -893,9 +1044,15 @@ function JobRow(props: {
           <span className="rounded-full bg-tint/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
             Open in another app
           </span>
+        ) : job.modelMissing ? (
+          <span className="rounded-full bg-tint/8 px-2 py-0.5 font-bold text-11 text-fg-muted">
+            Waiting for its speech model
+          </span>
         ) : (
           <span className="rounded-full bg-accent/14 px-2 py-0.5 font-extrabold text-11 text-accent-fg">
-            {METHOD_NAMES[job.method]}
+            {job.kind === "subtitles"
+              ? `English subs · ${METHOD_NAMES[job.method]}`
+              : METHOD_NAMES[job.method]}
           </span>
         )}
         <span className="w-14 shrink-0 text-right font-mono text-12 text-fg-muted">
@@ -920,7 +1077,7 @@ function JobRow(props: {
                     action.mutate({ path: `/queue/${job.id}/move`, body: { before: first } })
                   }
                 >
-                  Convert next
+                  {job.kind === "subtitles" ? "Make next" : "Convert next"}
                 </MenuItem>
               )}
               <MenuItem
@@ -1023,7 +1180,10 @@ function Today({ jobs }: { jobs: Job[] }) {
         </button>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Figure value={String(done.length)} label="converted" />
+        <Figure
+          value={String(done.length)}
+          label={done.some((job) => job.kind === "subtitles") ? "done" : "converted"}
+        />
         <Figure value={String(failed.length)} label="failed" />
         <Figure
           value={
@@ -1061,8 +1221,15 @@ function Failed({ job }: { job: Job }) {
       <span className="flex items-start gap-2.5 text-13">
         <AlertTriangle size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-broken-fg" />
         <span>
-          <strong className="font-extrabold">{job.label} failed.</strong>{" "}
-          <span className="text-fg-soft">{job.problem}</span>
+          <strong className="font-extrabold">
+            {job.kind === "subtitles"
+              ? `No English subtitles for ${job.label}.`
+              : `${job.label} failed.`}
+          </strong>{" "}
+          <span className="text-fg-soft">
+            {job.problem}
+            {job.kind === "subtitles" && " The video is as it was."}
+          </span>
         </span>
       </span>
       {said.length > 0 && (
@@ -1076,16 +1243,19 @@ function Failed({ job }: { job: Job }) {
         </div>
       )}
       <div className="flex flex-wrap gap-2">
+        {job.kind !== "subtitles" && (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={action.isPending}
+            onClick={() => action.mutate({ path: `/queue/${job.id}/broken` })}
+          >
+            Mark as broken
+          </Button>
+        )}
         <Button
           size="sm"
-          variant="primary"
-          disabled={action.isPending}
-          onClick={() => action.mutate({ path: `/queue/${job.id}/broken` })}
-        >
-          Mark as broken
-        </Button>
-        <Button
-          size="sm"
+          variant={job.kind === "subtitles" ? "primary" : undefined}
           disabled={action.isPending}
           onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
         >

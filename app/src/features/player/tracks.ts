@@ -44,6 +44,7 @@ export function subtitleWords(
   if (state?.preparing.includes(track.number)) return [name, "getting ready…"];
   if (state?.failed.some((each) => each.number === track.number)) return [name, "won't show"];
   const detail =
+    (track.made ? "made by Kura" : null) ||
     (track.language && track.title) ||
     (track.kind === "styled" ? "as the file styles them" : null) ||
     (track.beside ? "beside the video" : null);

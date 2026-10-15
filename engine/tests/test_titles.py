@@ -76,6 +76,18 @@ def test_one_title_lists_its_seasons_and_the_episode_it_lacks(
     assert len(detail["videos"]) == 290
 
 
+def test_a_titles_videos_say_what_they_can_be_heard_and_read_in(
+    client: TestClient, identified: sqlite3.Connection, root: Path
+):
+    beside = root / "Cowboy Bebop" / "Cowboy Bebop - 01.en.srt"
+    beside.write_text("1\n00:00:01,000 --> 00:00:02,000\nHello\n", encoding="utf-8")
+    [bebop_id] = [t["id"] for t in client.get("/titles").json() if t["name"] == "Cowboy Bebop"]
+
+    [video] = client.get(f"/titles/{bebop_id}").json()["videos"]
+
+    assert (video["sound"], video["subtitles"]) == (["jpn"], ["en"])
+
+
 def test_a_franchise_gathers_what_anilist_ties_together(
     client: TestClient, identified: sqlite3.Connection
 ):

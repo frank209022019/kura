@@ -160,3 +160,27 @@ def test_a_folder_with_a_file_converting_isnt_forgotten(
     assert answer.json()["detail"] == (
         "A file in it is converting. Forget the folder once that's done, or skip it first."
     )
+
+
+def test_a_folder_with_a_file_getting_english_subtitles_isnt_forgotten(
+    client: TestClient, conn: sqlite3.Connection, anime: Path
+):
+    folder = client.post("/folders", json={"path": str(anime)}).json()
+    with conn:
+        conn.execute(
+            """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at)
+               VALUES (?, ?, 1, 0, 'now', 'now')""",
+            (folder["id"], str(anime / "x.mkv")),
+        )
+        conn.execute(
+            "INSERT INTO jobs (file_id, kind, method, position, state, added_at)"
+            " VALUES (last_insert_rowid(), 'subtitles', 'best', 1, 'running', 'now')"
+        )
+
+    answer = client.delete(f"/folders/{folder['id']}")
+
+    assert answer.status_code == 409
+    assert answer.json()["detail"] == (
+        "Kura is making English subtitles for a file in it. Forget the folder once they're "
+        "made, or skip it first."
+    )

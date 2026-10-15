@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -163,6 +164,35 @@ def test_conversions_the_test_play_failed_by_mistake_go_back_in_the_queue(tmp_pa
         ]
         files = conn.execute("SELECT problem, marked_at FROM files ORDER BY id")
         assert [tuple(row) for row in files] == [(None, None)] * 4
+
+
+def test_the_languages_of_videos_read_before_come_from_what_ffprobe_said(tmp_path: Path):
+    said = {
+        "streams": [
+            {"codec_type": "video"},
+            {"codec_type": "audio", "tags": {"language": "jpn"}},
+            {"codec_type": "audio", "tags": {"language": "und"}},
+            {"codec_type": "audio"},
+            {"codec_type": "subtitle", "tags": {"language": "ENG"}},
+        ]
+    }
+    with closing(db.connect(tmp_path / "kura.db")) as conn:
+        conn.executescript("".join(f"BEGIN;{sql}COMMIT;" for sql in MIGRATIONS[:18]))
+        conn.execute("PRAGMA user_version = 18")
+        conn.execute("INSERT INTO folders (path, added_at) VALUES ('D:/Anime', 'then')")
+        for name, probe in (("read.mkv", json.dumps(said)), ("unread.mkv", None)):
+            conn.execute(
+                """INSERT INTO files (folder_id, path, size, modified, found_at, seen_at, probe)
+                   VALUES (1, ?, 1, 1, 'then', 'then', ?)""",
+                (name, probe),
+            )
+        conn.commit()
+
+        db.migrate(conn)
+
+        rows = conn.execute("SELECT sound, subtitles FROM files ORDER BY id").fetchall()
+        assert [json.loads(rows[0][0]), json.loads(rows[0][1])] == [["jpn", "", ""], ["eng"]]
+        assert tuple(rows[1]) == (None, None)
 
 
 def test_earlier_tidy_ups_stop_naming_a_media_server(tmp_path: Path):

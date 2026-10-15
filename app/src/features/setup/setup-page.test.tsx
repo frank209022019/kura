@@ -35,6 +35,20 @@ const FFMPEG: Tool = {
   purpose: "Reads what each video holds, and converts it.",
   licence: "LGPL-2.1-or-later",
   size: 76_972_461,
+  when: "setup",
+  state: "missing",
+  done: 0,
+  problem: null,
+};
+/** A speech model, fetched the first time subtitles are asked for: not on the Tools step. */
+const WHISPER: Tool = {
+  id: "speech-best",
+  name: "Whisper medium",
+  version: "fp16 d397824",
+  purpose: "OpenAI's speech model, for English subtitles at Best.",
+  licence: "MIT",
+  size: 1_530_853_088,
+  when: "asked",
   state: "missing",
   done: 0,
   problem: null,
@@ -223,8 +237,13 @@ describe("SetupPage", () => {
   });
 
   it("starts the first scan once the tools are ready, and remembers setup is done", async () => {
-    const fetch = firstRun({ "/tools": [{ ...FFMPEG, state: "ready", done: FFMPEG.size }] });
+    const fetch = firstRun({
+      "/tools": [{ ...FFMPEG, state: "ready", done: FFMPEG.size }, WHISPER],
+    });
     renderSetup("tools");
+
+    expect(await screen.findByText("ffmpeg")).toBeInTheDocument();
+    expect(screen.queryByText("Whisper medium")).not.toBeInTheDocument(); // fetched when asked for
 
     const start = await screen.findByRole("button", { name: "Start the first scan" });
     await waitFor(() => expect(start).toBeEnabled());

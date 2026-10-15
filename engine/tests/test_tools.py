@@ -1,4 +1,5 @@
-"""The tools Kura downloads on first run: ffmpeg, checked, unpacked and found again."""
+"""The tools Kura downloads: ffmpeg on first run, checked, unpacked and found again, and the
+speech models, file by file, the first time they're wanted."""
 
 import hashlib
 import io
@@ -11,7 +12,7 @@ from urllib.error import URLError
 import pytest
 
 from kura.config import DataPaths
-from kura.tools import Download, Tools, manifest
+from kura.tools import Download, File, Tools, manifest
 
 PROGRAM = "ffprobe.exe"
 
@@ -59,20 +60,40 @@ def downloaded(tools: Tools, tool: str = "ffmpeg") -> None:
 def test_the_list_says_what_each_download_is_and_where_it_comes_from():
     items = manifest()
 
-    assert [item.id for item in items] == ["webview2", "ffmpeg"]
+    assert [item.id for item in items] == ["webview2", "ffmpeg", "speech-best", "speech-fast"]
     for item in items:
-        assert item.url.startswith("https://")
+        addresses = [each.url for each in item.files] if item.files else [item.url]
+        assert all((address or "").startswith("https://") for address in addresses)
         assert all((item.name, item.purpose, item.licence, item.home))
-    for item in (item for item in items if item.by == "kura"):
+    for item in (item for item in items if item.by == "kura" and not item.files):
         assert (item.size or 0) > 0
         assert re.fullmatch(r"[0-9a-f]{64}", item.sha256 or "")
         assert item.keep
+    for item in (item for item in items if item.files):
+        assert item.size == sum(each.size for each in item.files)
+        assert all(re.fullmatch(r"[0-9a-f]{64}", each.sha256) for each in item.files)
+        assert all(each.size > 0 for each in item.files)
+
+
+def test_the_speech_models_are_fetched_when_asked_for_from_one_pinned_version():
+    models = [item for item in manifest() if item.id.startswith("speech-")]
+
+    assert [item.when for item in models] == ["asked", "asked"]
+    for item in models:
+        assert item.licence == "MIT"
+        # Hugging Face keeps every commit: a file named by one never changes.
+        assert all(re.search(r"/resolve/[0-9a-f]{40}/", each.url) for each in item.files)
+        names = {each.name for each in item.files}
+        assert {"config.json", "generation_config.json", "vocab.json"} <= names
+        assert any(name.startswith("encoder_model") for name in names)
+        assert any(name.startswith("decoder_model_merged") for name in names)
 
 
 def test_ffmpeg_is_pinned_to_one_build_that_stays_online():
     ffmpeg = next(item for item in manifest() if item.id == "ffmpeg")
 
     # BtbN keeps each month's last build for two years; "latest" changes every day.
+    assert ffmpeg.url is not None
     assert "/autobuild-" in ffmpeg.url
     assert "latest" not in ffmpeg.url
     assert ffmpeg.licence == "LGPL-2.1-or-later"
@@ -81,7 +102,7 @@ def test_ffmpeg_is_pinned_to_one_build_that_stays_online():
 def test_only_kuras_own_downloads_are_offered_by_the_engine(paths: DataPaths):
     tools = Tools(paths, fetch=serving(BUILD))
 
-    assert [item.id for item, _ in tools.status()] == ["ffmpeg"]
+    assert [item.id for item, _ in tools.status()] == ["ffmpeg", "speech-best", "speech-fast"]
     with pytest.raises(KeyError):
         tools.start("webview2")
 
@@ -250,3 +271,105 @@ def test_a_development_copy_is_never_thrown_out(
 
     assert (own / PROGRAM).exists()
     assert tools.path("ffprobe") == own / PROGRAM
+
+
+MODEL_FILES = {"config.json": b"{}", "encoder_model.onnx": b"encoder" * 50, "vocab.json": b"[]"}
+
+
+def model_listing(files: dict[str, bytes] = MODEL_FILES) -> Download:
+    """A speech model that comes as several files, at made-up addresses."""
+    listed = tuple(
+        File(name, f"https://models.test/{name}", len(data), hashlib.sha256(data).hexdigest())
+        for name, data in files.items()
+    )
+    total = sum(each.size for each in listed)
+    return Download(
+        "speech-test",
+        "Whisper test",
+        "1",
+        "Hears.",
+        "MIT",
+        "https://models.test",
+        None,
+        total,
+        None,
+        None,
+        "kura",
+        "asked",
+        listed,
+    )
+
+
+class Serving:
+    """The model's files by address, counting what's fetched."""
+
+    def __init__(self, files: dict[str, bytes]) -> None:
+        self.files = files
+        self.fetched: list[str] = []
+
+    def __call__(self, url: str) -> io.BytesIO:
+        name = url.rsplit("/", 1)[1]
+        self.fetched.append(name)
+        return io.BytesIO(self.files[name])
+
+
+def test_a_model_is_fetched_file_by_file_each_checked(paths: DataPaths):
+    tools = Tools(paths, items=(model_listing(),), fetch=Serving(MODEL_FILES))
+    assert tools.folder("speech-test") is None
+
+    downloaded(tools, "speech-test")
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "ready"
+    assert progress.done == sum(len(data) for data in MODEL_FILES.values())
+    folder = paths.tools / "speech-test"
+    assert tools.folder("speech-test") == folder
+    assert {name: (folder / name).read_bytes() for name in MODEL_FILES} == MODEL_FILES
+    assert [file.name for file in paths.tools.iterdir()] == ["speech-test"]
+
+
+def test_a_file_that_doesnt_match_fails_the_model_and_a_retry_fetches_only_what_is_missing(
+    paths: DataPaths,
+):
+    tampered = Serving({**MODEL_FILES, "encoder_model.onnx": b"not the model"})
+    tools = Tools(paths, items=(model_listing(),), fetch=tampered)
+
+    downloaded(tools, "speech-test")
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "failed"
+    assert progress.problem is not None
+    assert progress.problem.startswith("The Whisper test download didn't match")
+    assert tools.folder("speech-test") is None
+
+    again = Serving(MODEL_FILES)
+    retry = Tools(paths, items=(model_listing(),), fetch=again)
+    downloaded(retry, "speech-test")
+
+    assert retry.folder("speech-test") == paths.tools / "speech-test"
+    assert again.fetched == ["encoder_model.onnx", "vocab.json"]  # config.json came whole before
+
+
+def test_a_model_missing_a_file_is_offered_again(paths: DataPaths):
+    tools = Tools(paths, items=(model_listing(),), fetch=Serving(MODEL_FILES))
+    downloaded(tools, "speech-test")
+
+    (paths.tools / "speech-test" / "vocab.json").unlink()
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "missing"
+    assert tools.folder("speech-test") is None
+
+
+def test_a_development_copy_of_a_model_can_stand_in(
+    paths: DataPaths, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    own = tmp_path / "whisper"
+    own.mkdir()
+    monkeypatch.setenv("KURA_SPEECH_TEST_DIR", str(own))
+
+    tools = Tools(paths, items=(model_listing(),), fetch=offline)
+
+    [(_, progress)] = tools.status()
+    assert progress.state == "ready"
+    assert tools.folder("speech-test") == own

@@ -2,6 +2,7 @@
 title in full with its seasons, the episodes it's missing, and its videos, and the franchises they
 make (a franchise's series, films, OVAs and specials together, and the ones it lacks)."""
 
+import json
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Literal
@@ -13,9 +14,12 @@ from kura import artwork, franchises, titles
 from kura.api.common import ApiModel, Database, Paths, Web
 from kura.core.catalog import Episode, TitleKind
 from kura.core.franchise import Entry
+from kura.core.languages import listed
 from kura.core.report import GAP_ANALYSIS_FILE
+from kura.languages import beside
 from kura.preferences import library_standard
 from kura.reports import own_folder
+from kura.subtitles import is_made
 from kura.titles import Order, State, Title
 
 router = APIRouter()
@@ -63,6 +67,13 @@ class TitleFile(ApiModel):
     height: int | None
     codec: str | None
     duration: float | None
+    # The languages it can be heard and read in: its sound tracks', and its subtitles' in it and
+    # beside it ("jpn", "en"; "" for one that doesn't say), each once.
+    sound: list[str]
+    subtitles: list[str]
+    made: bool  # English subtitles Kura made are beside it
+    # In the queue for English subtitles ("queued"), or having them made ("running").
+    subtitles_job: Literal["queued", "running"] | None
 
 
 class EpisodeState(ApiModel):
@@ -186,11 +197,19 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
     group = titles.franchise_of(conn, title_id, _today())
     gaps = found.gaps
     videos = conn.execute(
-        """SELECT id, path, size, season, episode, episode_end, problem, height, codec, duration
-           FROM files WHERE title_id = ? AND gone_at IS NULL
-           ORDER BY season, episode, path""",
+        """SELECT f.id, f.path, f.size, f.season, f.episode, f.episode_end, f.problem, f.height,
+                  f.codec, f.duration, f.sound, f.subtitles, m.name AS made, m.size AS made_size,
+                  m.modified AS made_modified,
+                  (SELECT j.state FROM jobs AS j
+                   WHERE j.file_id = f.id AND j.kind = 'subtitles'
+                     AND j.state IN ('queued', 'running')
+                   ORDER BY j.state = 'running' DESC LIMIT 1) AS subtitles_job
+           FROM files AS f LEFT JOIN made_subtitles AS m ON m.file_id = f.id
+           WHERE f.title_id = ? AND f.gone_at IS NULL
+           ORDER BY f.season, f.episode, f.path""",
         (title_id,),
-    )
+    ).fetchall()
+    subtitled = beside(Path(row["path"]) for row in videos)
     show = titles.show_of(conn, title_id)
     statuses = (
         titles.episode_statuses(conn, title_id, show, library_standard(conn), _today())
@@ -224,7 +243,21 @@ def one_title(title_id: int, conn: Database) -> TitleDetail:
         missing_episodes=[_episode(e) for e in (gaps.missing if gaps else ())],
         missing_specials=[_episode(e) for e in (gaps.specials_missing if gaps else ())],
         upcoming_episodes=[_episode(e) for e in (gaps.upcoming if gaps else ())],
-        videos=[TitleFile.model_validate(dict(row)) for row in videos],
+        videos=[
+            TitleFile.model_validate(
+                {
+                    **dict(row),
+                    "sound": listed(json.loads(row["sound"] or "[]")),
+                    "subtitles": listed(
+                        [*json.loads(row["subtitles"] or "[]"), *subtitled[Path(row["path"])]]
+                    ),
+                    "made": is_made(
+                        Path(row["path"]), row["made"], row["made_size"], row["made_modified"]
+                    ),
+                }
+            )
+            for row in videos
+        ],
     )
 
 

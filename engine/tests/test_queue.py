@@ -1,5 +1,5 @@
-"""The conversion queue: files added in order, converted one at a time, paused, skipped,
-reordered, tried again, put back, and settled after a crash."""
+"""The queue: files added in order, converted one at a time, paused, skipped, reordered, tried
+again, put back, and settled after a crash; and English subtitles made in turn with them."""
 
 import json
 import sqlite3
@@ -10,6 +10,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 
@@ -21,6 +22,7 @@ from kura.convert import room_for as converting_reckons
 from kura.core.fields import Json
 from kura.core.media import media_from_ffprobe
 from kura.core.plan import Change, ChangeKind, Plan
+from kura.core.speech import Made, Segment
 from kura.core.standard import Method, decide
 from kura.history import plans
 from kura.preferences import library_standard
@@ -1148,3 +1150,222 @@ def test_a_file_converted_anew_is_timed_by_this_conversion(queue: Queue, conn: s
     assert plan.conversion is not None
     assert plan.conversion.seconds is not None
     assert plan.conversion.seconds >= 0
+
+
+class Whisper:
+    """Stands in for Whisper loaded from a folder: hears two lines in anything."""
+
+    loaded: ClassVar[list[Path]] = []
+
+    def __init__(self, folder: Path) -> None:
+        Whisper.loaded.append(folder)
+
+    def hear(self, audio: object, language: str | None, *, report: object, stop: object) -> Made:
+        return Made([Segment(1.0, 2.0, "Over here!")], "ja", translated=True, speech=1.0)
+
+
+def hearing(tmp_path: Path, *, models: Sequence[str] = ("best", "fast")) -> Programs:
+    """The stand-ins for converting, and Whisper at the qualities in `models`, downloaded."""
+    Whisper.loaded = []
+    folders = {quality: tmp_path / f"speech-{quality}" for quality in models}
+    return replace(programs(RESULT), speech=folders.get, listener=Whisper)
+
+
+def test_videos_join_for_subtitles_in_order_once_as_a_batch(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, hearing(tmp_path))
+
+    assert queue.add_subtitles([2, 1, 2], "best", "jpn", "Trigun · Season 1") == 2
+    assert queue.add_subtitles([1, 3], "fast", "jpn", "Trigun") == 1  # 1 waits already
+    assert queue.add([1]) == 1  # converting it is another job
+
+    queued = queue.status().queued
+    assert [(job.file_id, job.kind, job.method) for job in queued] == [
+        (2, "subtitles", Method.BEST),
+        (1, "subtitles", Method.BEST),
+        (3, "subtitles", Method.FAST),
+        (1, "convert", Method.BEST),
+    ]
+    assert queued[0].language == "jpn"
+    assert queued[0].gpu_seconds == pytest.approx(24 * 60 * 0.4)
+    batches = conn.execute("SELECT title, quality, language FROM subtitle_batches").fetchall()
+    assert [tuple(row) for row in batches] == [
+        ("Trigun · Season 1", "best", "jpn"),
+        ("Trigun", "fast", "jpn"),
+    ]
+
+
+def test_a_batch_nothing_joins_is_forgotten(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+
+    assert queue.add_subtitles([1], "best", "jpn", "Trigun again") == 0
+    assert conn.execute("SELECT COUNT(*) FROM subtitle_batches").fetchone()[0] == 1
+
+
+def test_subtitles_are_made_in_turn_with_conversions_and_said_when_done(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    told: list[Told] = []
+    queue = make_queue(paths, hearing(tmp_path), told=told)
+    queue.add_subtitles([1, 2], "best", "jpn", "Trigun · Season 1")
+
+    assert queue.work_once()
+    assert queue.work_once()
+
+    assert states(conn) == [(1, "done"), (2, "done")]
+    assert (shows / "Trigun (1998) - S01E01.en.srt").is_file()
+    assert (shows / "Trigun (1998) - S01E02.en.srt").is_file()
+    assert Whisper.loaded == [tmp_path / "speech-best"]  # loaded once for both
+    assert told == [
+        (
+            "Trigun, season 1 has English subtitles",
+            "2 episodes · made from their sound",
+            "/titles/1",
+        )
+    ]
+
+
+def test_whisper_is_let_go_before_a_conversion_and_loaded_again_after(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "fast", "jpn", "Trigun")
+    queue.add([2])
+    queue.add_subtitles([3], "fast", "jpn", "Trigun")
+
+    while queue.work_once():
+        pass
+
+    assert states(conn) == [(1, "done"), (2, "done"), (3, "done")]
+    assert Whisper.loaded == [tmp_path / "speech-fast"] * 2
+
+
+def test_subtitles_wait_for_their_speech_model_while_the_others_go(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, hearing(tmp_path, models=("fast",)))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+    queue.add_subtitles([2], "fast", "jpn", "Trigun")
+
+    [waiting, ready] = queue.status().queued
+    assert (waiting.model_missing, ready.model_missing) == (True, False)
+    assert queue.work_once()
+    assert not queue.work_once()  # Best's model isn't here
+    assert states(conn) == [(1, "queued"), (2, "done")]
+
+
+def test_whats_done_is_told_though_subtitles_wait_for_their_speech_model(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    told: list[Told] = []
+    queue = make_queue(paths, hearing(tmp_path, models=("fast",)), told=told)
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+    queue.add([2])
+
+    assert queue.work_once()
+
+    assert states(conn) == [(1, "queued"), (2, "done")]
+    assert [title for title, _, _ in told] == ["Trigun, season 1 is done"]
+
+
+class Troubled(Whisper):
+    """Whisper whose graphics card goes away while it hears the first video."""
+
+    def hear(self, audio: object, language: str | None, *, report: object, stop: object) -> Made:
+        if len(Whisper.loaded) == 1:
+            raise RuntimeError("The GPU device instance has been suspended")
+        return super().hear(audio, language, report=report, stop=stop)
+
+
+def test_whisper_that_hit_a_problem_is_loaded_anew_for_the_next_video(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, replace(hearing(tmp_path), listener=Troubled))
+    queue.add_subtitles([1, 2], "best", "jpn", "Trigun")
+
+    queue.work_once()
+    queue.work_once()
+
+    assert states(conn) == [(1, "failed"), (2, "done")]
+    assert Whisper.loaded == [tmp_path / "speech-best"] * 2
+
+
+def test_a_batch_that_made_no_subtitles_doesnt_say_it_did(
+    paths: DataPaths,
+    shows: Path,
+    conn: sqlite3.Connection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("KURA_FAKE_FAIL", "sound")
+    told: list[Told] = []
+    queue = make_queue(paths, hearing(tmp_path), told=told)
+    queue.add_subtitles([1, 2], "best", "jpn", "Trigun · Season 1")
+
+    queue.work_once()
+    queue.work_once()
+
+    assert told == [
+        ("No English subtitles for Trigun, season 1", "2 couldn't be made", "/titles/1")
+    ]
+
+
+def test_trying_again_never_puts_a_video_in_the_queue_twice(
+    paths: DataPaths,
+    shows: Path,
+    conn: sqlite3.Connection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("KURA_FAKE_FAIL", "sound")
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+    queue.work_once()
+    [failed] = queue.status().today
+    monkeypatch.delenv("KURA_FAKE_FAIL")
+    queue.add_subtitles([1], "best", "jpn", "Trigun")  # asked for again, on its title's page
+
+    queue.retry(failed.id)  # and "Try again" on the queue
+
+    assert [job.file_id for job in queue.status().queued] == [1]
+
+
+def test_subtitles_that_cant_be_made_fail_saying_why(
+    paths: DataPaths,
+    shows: Path,
+    conn: sqlite3.Connection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("KURA_FAKE_FAIL", "sound")
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+
+    queue.work_once()
+
+    [job] = queue.status().today
+    assert (job.kind, job.state) == ("subtitles", "failed")
+    assert job.problem is not None
+    assert job.problem.startswith("ffmpeg couldn't read its sound")
+    assert job.log is not None
+
+
+def test_after_a_crash_subtitles_being_made_wait_again_and_their_part_goes(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+    with conn:
+        conn.execute("UPDATE jobs SET state = 'running'")
+    part = shows / "Trigun (1998) - S01E01.en.srt.kura-partial"
+    part.write_text("half", "utf-8")
+
+    settled = queue.recover()
+
+    assert states(conn) == [(1, "queued")]
+    assert not part.exists()
+    assert settled.restarted == 1

@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type EngineStatus, type TitleSummary } from "@/lib/engine";
+import { EngineProvider, type EngineStatus, type Hearable, type TitleSummary } from "@/lib/engine";
 import { fakeEngine, franchiseOf, NO_LIBRARY, NO_SCAN, READY, SETTINGS } from "@/test/engine";
 import { HomePage } from "./home-page";
 
@@ -98,6 +98,7 @@ function renderHome(engine: EngineStatus) {
             <Route path="/titles/:id" element={<p>A title</p>} />
             <Route path="/franchises/:id" element={<p>A franchise</p>} />
             <Route path="/history" element={<p>History</p>} />
+            <Route path="/subtitles" element={<p>Making subtitles</p>} />
           </Routes>
         </MemoryRouter>
       </EngineProvider>
@@ -179,6 +180,53 @@ describe("HomePage", () => {
     expect(
       pictures.compareDocumentPosition(attention) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("says what the videos can be heard and read in, and leads to making English subtitles", async () => {
+    const heard = (id: number, more: Partial<Hearable> = {}): Hearable => ({
+      fileId: id,
+      label: `Starfall Academy · S01E0${id}`,
+      titleId: 1,
+      title: "Starfall Academy",
+      season: 1,
+      episode: id,
+      seconds: 1440,
+      sound: ["jpn"],
+      subtitles: [],
+      english: false,
+      made: false,
+      waiting: false,
+      ...more,
+    });
+    engineWith({
+      "/folders": [FOLDER],
+      "/library": { ...NO_LIBRARY, folders: 1, files: 4, size: 4e9, hd1080: 4 },
+      "/scan": { ...NO_SCAN, state: "done", stage: "done", found: 4, toRead: 4, read: 4 },
+      "/subtitles": {
+        files: [
+          heard(1, { sound: ["jpn", "eng"], english: true }),
+          heard(2, { subtitles: ["en"], english: true, made: true }),
+          heard(3),
+          heard(4, { titleId: 2, title: "Paper Lanterns" }),
+        ],
+        rates: { best: 0.4, fast: 0.15 },
+      },
+    });
+    renderHome(READY);
+
+    const languages = await screen.findByRole("region", { name: "Your videos by language" });
+    const tiles = within(languages).getAllByRole("listitem");
+    expect(tiles.map((tile) => tile.textContent)).toEqual([
+      "English sound25%1dubbed, from the files",
+      "English subtitles25%11 of them made by Kura",
+      "No English50%2neither sound nor subtitles",
+    ]);
+    const card = await screen.findByRole("button", { name: /2 videos have no English/ });
+    expect(card).toHaveTextContent(
+      "Across 2 anime · Kura can make English subtitles from their sound",
+    );
+    card.click();
+    expect(await screen.findByText("Making subtitles")).toBeInTheDocument();
   });
 
   it("says only when a scan ran, for a scan from before Kura counted what changed", async () => {

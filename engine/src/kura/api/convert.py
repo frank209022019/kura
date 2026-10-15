@@ -92,6 +92,9 @@ class Job(ApiModel):
     retry_at: str | None
     log: str | None  # what ffmpeg said, when a conversion failed ("Copy full log")
     no_room: bool  # waiting for room on its drive while the others go
+    kind: Literal["convert", "subtitles"]  # a conversion, or English subtitles
+    language: str | None  # subtitles: the sound they're made from ("jpn"; "" when it's unsaid)
+    model_missing: bool  # subtitles waiting for their speech model to download
 
 
 class Room(ApiModel):
@@ -108,8 +111,10 @@ class Room(ApiModel):
 
 class Running(ApiModel):
     job: Job
-    stage: Literal["looking", "converting", "checking", "replacing"]
-    frames: int
+    stage: Literal[
+        "looking", "converting", "checking", "replacing", "reading", "listening", "writing"
+    ]
+    frames: int  # converted so far; for subtitles, seconds of the video heard
     total: int
     seconds_left: float | None
     fps: float | None
@@ -207,7 +212,7 @@ def what_to_convert(conn: Database) -> ConvertOptions:
     rows = conn.execute(
         """SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.title_id,
                   t.name AS title,
-                  EXISTS (SELECT 1 FROM jobs AS j WHERE j.file_id = f.id
+                  EXISTS (SELECT 1 FROM jobs AS j WHERE j.file_id = f.id AND j.kind = 'convert'
                           AND j.state IN ('queued', 'running', 'replacing')) AS waiting
            FROM files AS f LEFT JOIN titles AS t ON t.id = f.title_id
            WHERE f.gone_at IS NULL AND f.probe IS NOT NULL AND f.matched != 'ignored'

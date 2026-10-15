@@ -1,4 +1,4 @@
-import { ArrowRight, CircleHelp, FileWarning, FolderTree, ListX } from "lucide-react";
+import { ArrowRight, Captions, CircleHelp, FileWarning, FolderTree, ListX } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,10 @@ interface AttentionProps {
   broken: number;
   /** Folders holding more than one anime. */
   mixed: number;
+  /** Videos that can't be heard or read in English, and across how many anime. */
+  noEnglish: number;
+  noEnglishIn: number;
+  onSubtitles: () => void;
   onMatch: () => void;
   onMissing: () => void;
 }
@@ -40,6 +44,18 @@ export function Attention(props: AttentionProps) {
         text={`Across ${count(props.missingIn)} ${props.missingIn === 1 ? "anime" : "anime"} · gap reports updated`}
         action="Most missing first"
         onClick={props.onMissing}
+      />,
+    );
+  }
+  if (props.noEnglish > 0) {
+    cards.push(
+      <Card
+        key="english"
+        icon={<Captions size={18} />}
+        title={`${count(props.noEnglish)} ${props.noEnglish === 1 ? "video has" : "videos have"} no English`}
+        text={`Across ${count(props.noEnglishIn)} anime · Kura can make English subtitles from their sound`}
+        action="Make English subtitles"
+        onClick={props.onSubtitles}
       />,
     );
   }

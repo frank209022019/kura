@@ -9,12 +9,14 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - a test play: says nothing, as ffmpeg does when a file plays;
 - the player's stream (kura/core/player.py): writes KURA_FAKE_CHUNKS lines naming its
   arguments to its output ("endless": one every 20 ms till it's stopped); an encoder showing it
-  works: says nothing; subtitles copied out: writes the ASS file, and each font to its path.
+  works: says nothing; subtitles copied out: writes the ASS file, and each font to its path;
+- a sound track read for English subtitles (kura/speech.py): writes KURA_FAKE_SOUND seconds of
+  silence (one) as 16 kHz floats.
 
 KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", "decode" (once its
 frames are out, as a decoder meeting damage), "convert" (one command, 1,200 frames in), "stream"
-(before its first bytes), "midstream" (after them) or "subtitles". KURA_FAKE_NO_ENCODERS names
-the encoders this PC hasn't, separated by commas.
+(before its first bytes), "midstream" (after them), "subtitles" or "sound".
+KURA_FAKE_NO_ENCODERS names the encoders this PC hasn't, separated by commas.
 KURA_FAKE_SLOW is the seconds the decoder takes over each frame (none), so a test can stop a
 conversion mid-way, and the seconds a copy of subtitles takes. KURA_FAKE_ROUNDS makes a test
 play do what real ffmpeg does at some points of a file that plays well: rounding the frames'
@@ -40,6 +42,13 @@ def main() -> None:
         return
     if args[-1] == "pipe:1":  # the player's stream
         stream(args, fail, missing)
+        return
+    if args[-3:] == ["-f", "f32le", "-"]:  # a sound track read for subtitles
+        if fail == "sound":
+            print("[aac @ 0] Error decoding: invalid data found", file=sys.stderr)
+            sys.exit(1)
+        seconds = float(os.environ.get("KURA_FAKE_SOUND", "1"))
+        sys.stdout.buffer.write(bytes(round(seconds * 16_000) * 4))
         return
     if args[-3:-1] == ["-f", "ass"]:  # subtitles copied out
         if fail == "subtitles":

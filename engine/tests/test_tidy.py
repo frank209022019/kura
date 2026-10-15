@@ -185,6 +185,27 @@ def test_undo_leaves_a_video_being_converted_where_it_is(downloads: sqlite3.Conn
     ]
 
 
+def test_undo_leaves_a_video_getting_english_subtitles_where_it_is(
+    downloads: sqlite3.Connection, root: Path
+):
+    done = apply(downloads, reviewed(propose(downloads, day=NOW.date()).changes), now=NOW)
+    assert done.plan_id is not None
+    bebop = downloads.execute("SELECT id FROM files WHERE path LIKE '%Bebop (1998) - S01E01%'")
+    with downloads:
+        downloads.execute(
+            "INSERT INTO jobs (file_id, kind, method, position, state, added_at)"
+            " VALUES (?, 'subtitles', 'best', 1, 'running', 'now')",
+            (bebop.fetchone()[0],),
+        )
+
+    back = undo(downloads, done.plan_id, now=NOW)
+
+    assert [p.problem for p in back.problems] == [
+        "Kura couldn't put it back. Its English subtitles are being made: put it back once "
+        "they're done."
+    ]
+
+
 def test_only_the_files_asked_for_move(downloads: sqlite3.Connection, root: Path):
     proposal = propose(downloads, day=NOW.date())
     dbz = reviewed(p for p in proposal.changes if p.title == "Dragon Ball Z")
@@ -395,6 +416,25 @@ def test_a_video_being_converted_stays_where_it_is_till_its_done(
     }
 
 
+def test_a_video_getting_english_subtitles_stays_where_it_is_till_theyre_made(
+    downloads: sqlite3.Connection, root: Path
+):
+    bebop = downloads.execute("SELECT id FROM files WHERE path LIKE '%Bebop_-_01%'").fetchone()[0]
+    with downloads:
+        downloads.execute(
+            "INSERT INTO jobs (file_id, kind, method, position, state, added_at)"
+            " VALUES (?, 'subtitles', 'best', 1, 'running', ?)",
+            (bebop, NOW.isoformat()),
+        )
+
+    proposal = propose(downloads, day=NOW.date())
+
+    assert (
+        "[Hi10] Cowboy_Bebop_-_01_(BD_720p).mkv",
+        "Its English subtitles are being made",
+    ) in {(path.name, why) for path, why in proposal.skipped}
+
+
 def test_copies_of_a_video_being_converted_wait_for_it_too(
     paths: DataPaths, conn: sqlite3.Connection, root: Path
 ):
@@ -413,6 +453,11 @@ def test_copies_of_a_video_being_converted_wait_for_it_too(
     assert {(path.name, why) for path, why in proposal.skipped} == {
         ("Cowboy Bebop - 01.mp4", "It's being converted"),
         ("Cowboy Bebop - 01.mkv", "A copy of it is being converted"),
+    }
+    with conn:  # its English subtitles being made instead: they take no name a copy would
+        conn.execute("UPDATE jobs SET kind = 'subtitles'")
+    assert {path.name for path, _ in propose(conn, day=NOW.date()).skipped} == {
+        "Cowboy Bebop - 01.mp4"
     }
 
 

@@ -19,10 +19,12 @@ out daily; the tray with "Start with Windows" and notifications; and the small-t
 file open in another app, a crash told on Home, a failed conversion's log and "Mark as broken",
 offline, notes in the window, a name that's taken, not enough space, damaged records, the
 overnight note); light mode, Paper, as Windows is or as chosen; History a week at a time and
-cleared on asking or daily; and the player inside Kura (small over the page and moved anywhere,
-full screen and back). Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has
-every release since. Everything in [What's next](#whats-next) is built but English for every
-episode (11), drawn for the owner to approve.
+cleared on asking or daily; the player inside Kura (small over the page and moved anywhere,
+full screen and back); and English subtitles made on the PC from a video's own sound (Whisper on
+the graphics card, in the queue with the conversions), with each video's languages on its title's
+page and Home. Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has every
+release since. Everything in [What's next](#whats-next) is built but English sound and subtitles
+taken from another copy (11's last part).
 
 ## Ground rules
 
@@ -153,9 +155,11 @@ Everything decided so far. Don't ask again; change only with the owner.
   have no lawful source apart from their releases, and subtitle sites are mostly unlicensed):
   English comes from the owner's own files instead (What's next, 11). The README ("Your
   own videos only"), the downloads page and Settings › About say so: it's for videos you have
-  the right to keep and watch. The README is the tour in five steps, option B of three (the
-  owner, 2026-10-14; [docs/design/readme.html](docs/design/readme.html)), its pictures
-  Kura's own screens with made-up titles. It markets Kura as the anime companion to a media
+  the right to keep and watch. The README is the tour, option B of three (the owner,
+  2026-10-14; [docs/design/readme.html](docs/design/readme.html)), in six steps since English
+  subtitles joined it, its pictures Kura's own screens with made-up titles, taken again when
+  the screens they show change (the owner, 2026-10-15: "if need be we will also need to update
+  the README images with the screen changes"). It markets Kura as the anime companion to a media
   server (the owner, 2026-10-15: "an additional tool to be used alongside tools like Plex,
   Jellyfin, etc", named only as "popular media server applications or something"): Kura gets
   the library right, the media server plays it. "The AI inside" names every AI model Kura uses,
@@ -250,6 +254,17 @@ Everything decided so far. Don't ask again; change only with the owner.
   subtitles in the file join a moment after the picture: they're copied out of the file first,
   which reads all of it. The sound and subtitles picked last start the next video too. Built to
   the Kura Player canvas (What's next, 10).
+- English subtitles made on the PC (the owner approved the canvas, 2026-10-15: "All happy go for
+  it"). "Make English subtitles" on a title's videos, or Home's card for the videos with no
+  English, takes a season, the title or everything without English (those with English subtitles
+  too, when ticked), the sound to translate from (Japanese first), Best (Whisper medium, 1.53 GB)
+  or Fast (Whisper small, 486 MB) and when (now, nights, after the queue). A model downloads the
+  first time its quality is asked for, never in Setup. They share the queue with the conversions,
+  one at a time on the card. They go beside the video as `.en.srt`, or `.kura.en.srt` when another
+  file has that name, and are Kura's while they're as it wrote them (one the owner edits is
+  theirs). History lists each batch with "Take them away" (to quarantine, put back from History);
+  the player says "made by Kura" and that names and jokes can be off. English sound is written
+  down, not translated. See docs/stack/speech.md.
 - A title's videos come a season at a time (the owner, 2026-10-15: "The list of episodes for a
   series is too long again, not by season and a lengthy scroll. Do something nice for movies,
   series, etc"): a pill per season above the list, then Specials, then any files without a
@@ -282,9 +297,12 @@ Everything decided so far. Don't ask again; change only with the owner.
   first frame.
 - Canvases: [Kura Workflows](https://claude.ai/artifact/XgGkfpW6doBUPcnrPqrbxb) (13 boards, the source
   of truth for screens), the [options record](https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za),
-  and [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y) (Paper's Home
-  and queue, the same in Cinema's dark beside them, and the two lights not chosen). Snapshots in
-  [docs/design/](docs/design/).
+  [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y) (Paper's Home
+  and queue, the same in Cinema's dark beside them, and the two lights not chosen),
+  [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3) and
+  [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA) (seven boards).
+  Snapshots in [docs/design/](docs/design/), each canvas's as it changes (the owner, 2026-10-15:
+  "Make sure to add the designs to the docs").
 
 **Architecture**
 - Tauri 2 shell, React + Tailwind + shadcn/ui (restyled to Cinema) UI, Python engine sidecar built
@@ -333,14 +351,20 @@ Everything decided so far. Don't ask again; change only with the owner.
     precision is slower on GTX 16 cards. Real-ESRGAN's bigger anime model ran at 0.6 frames a
     second, far too slow. ONNX Runtime, the model (2.5 MB) and the shaders (0.4 MB) ship inside
     Kura; the measured speeds are the defaults in `engine/src/kura/core/estimate.py`.
+- Speech (2026-10-15, docs/stack/speech.md): Whisper as onnx-community's half-precision ONNX
+  exports on DirectML, its decoder's caches kept on the card with I/O binding (through NumPy a 6 GB
+  card ran out of memory); pyannote's segmentation model 3.0 (6 MB, MIT, inside Kura) finds who
+  speaks, as Silero's detector heard nothing under the action scenes' music; its stretches go to
+  Whisper in windows of at most 30 s of the sound as it is. Measured on the GTX 1660 Super with a
+  21-minute episode: Best 474 s, Fast 179 s, both hearing 96 to 97% of the release's lines.
 
 **Data**
 - `%LOCALAPPDATA%\Kura`: kura.db, artwork cache, nightly backups (keep 7), logs (30 days), and
   `tools\` (ffmpeg, downloaded on first run; see docs/stack/ffmpeg.md). The folder can be moved to
   another drive.
 - Next to the files: `Kura - Gap analysis.md` and `Kura - History.md` per anime (Plex ignores .md),
-  a tag inside every converted MKV, and optional poster and fanart for media servers (built:
-  off unless the owner turns it on).
+  a tag inside every converted MKV, optional poster and fanart for media servers (built: off
+  unless the owner turns it on), and the English subtitles Kura made when asked (`.en.srt`).
 - Export: one zip (SQLite, JSON, CSV, the .md reports, settings). Today it holds the database,
   settings, every file change (`changes.csv`) and a manifest; it grows with the schema.
 - Kura deletes only its own files, whatever its records say (a damaged database, or one an
@@ -443,14 +467,14 @@ Everything decided so far. Don't ask again; change only with the owner.
     the small player over the page and dragged anywhere, full screen and back, sound and
     subtitles, chapters, the next episode, and its small things: getting it ready, a file that
     won't play, a drive that isn't connected, a file gone).
-11. English for every episode, from the owner's own files: drawn on the
-    [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA) canvas
-    (2026-10-15) for the owner to approve before any of it is built: each video's sound and
-    subtitle languages on its title's page and Home, English subtitles made on the PC from the
-    file's own sound by a local speech model (Whisper's family, MIT; its speed on the GTX 1660
-    Super still to be measured), run in the queue with the conversions, nights only if wanted;
+11. English for every episode, from the owner's own files, to the
+    [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA) canvas the owner
+    approved (2026-10-15): each video's sound and subtitle languages on its title's page and
+    Home, and English subtitles made on the PC from its own sound, in the queue with the
+    conversions, with the small things (the model first, waiting for the card, nothing said, a
+    sound that won't read, English sound written down, taking them away): done. Still to build:
     English sound and subtitles taken from another copy the owner keeps, in Tidy up's
-    duplicates; and the small things.
+    duplicates.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`

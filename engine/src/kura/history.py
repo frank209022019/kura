@@ -1,18 +1,20 @@
 """What Kura did, newest first, for the History screen: each tidy-up applied (and whether it was
-undone), each file converted (and whether its original is back), and each scan. History comes a
-few days at a time, and the owner can clear it, all or what's older than a day, a week or a
-month, by hand or every day (Settings > Your data)."""
+undone), each file converted (and whether its original is back), each batch of English subtitles
+made (and whether they're still there), and each scan. History comes a few days at a time, and
+the owner can clear it, all or what's older than a day, a week or a month, by hand or every day
+(Settings > Your data)."""
 
 import json
 import logging
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Literal
 
 from kura.changes import ChangeState, changes_of, tally
 from kura.core.media import media_from_ffprobe
 from kura.core.plan import DELETED
+from kura.subtitles import NOTHING_SAID, TAKEN_AWAY, present
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +55,24 @@ class PlanDone:
     undone: int  # changes put back
     deleted: bool = False  # the owner deleted these videos: they went to quarantine
     conversion: Conversion | None = None  # what a conversion made of its file
+    # English subtitles Kura made, taken away: those set aside and still there to put back.
+    taken_away: int = 0
+
+
+@dataclass(frozen=True)
+class SubtitlesDone:
+    """A batch of English subtitles the owner asked for at once."""
+
+    id: int
+    title: str  # what they're for: "Starfall Academy · Season 1"
+    quality: str  # best or fast
+    language: str  # the sound they're made from: "jpn"
+    made_at: str  # when the latest of them was over
+    made: int  # videos that got them
+    quiet: int  # videos where no one speaks: none were made
+    failed: int  # videos they couldn't be made for
+    waiting: int  # videos still in the queue for them
+    present: int  # of those made, how many are there now as Kura wrote them
 
 
 @dataclass(frozen=True)
@@ -74,6 +94,7 @@ class Page:
     plans: list[PlanDone]
     scans: list[ScanDone]
     older: str | None  # the day the next page starts before ("2026-10-07"); None: that's all
+    subtitles: list[SubtitlesDone] = field(default_factory=list["SubtitlesDone"])
 
 
 def page(conn: sqlite3.Connection, *, before: str | None = None, days: int = DAYS_A_PAGE) -> Page:
@@ -84,18 +105,19 @@ def page(conn: sqlite3.Connection, *, before: str | None = None, days: int = DAY
     found = [
         row[0]
         for row in conn.execute(
-            """SELECT day FROM (
+            f"""SELECT day FROM (
                    SELECT date(applied_at, 'localtime') AS day FROM plans
                    UNION SELECT date(undone_at, 'localtime') FROM plans
-                   UNION SELECT date(started_at, 'localtime') FROM scans)
+                   UNION SELECT date(started_at, 'localtime') FROM scans
+                   UNION SELECT date(made_at, 'localtime') FROM ({_BATCHES}))
                WHERE day IS NOT NULL AND (?1 IS NULL OR day < ?1)
-               ORDER BY day DESC LIMIT ?2""",
+               ORDER BY day DESC LIMIT ?2""",  # noqa: S608 - a constant query goes in
             (before, days + 1),
         )
     ]
     shown = found[:days]
     if not shown:
-        return Page(plans=[], scans=[], older=None)
+        return Page(plans=[], scans=[], older=None, subtitles=[])
     first, last = shown[-1], shown[0]
     rows = conn.execute(
         """SELECT id, kind, title, applied_at, undone_at FROM plans
@@ -110,10 +132,17 @@ def page(conn: sqlite3.Connection, *, before: str | None = None, days: int = DAY
            WHERE date(started_at, 'localtime') BETWEEN ? AND ? ORDER BY id DESC""",
         (first, last),
     )
+    made = conn.execute(
+        f"""SELECT * FROM ({_BATCHES})
+            WHERE date(made_at, 'localtime') BETWEEN ? AND ?
+            ORDER BY made_at DESC, id DESC""",  # noqa: S608 - a constant query goes in
+        (first, last),
+    ).fetchall()
     return Page(
         plans=_done(conn, rows),
         scans=[ScanDone(**dict(row)) for row in scanned],
         older=first if len(found) > days else None,
+        subtitles=[_made(conn, row) for row in made],
     )
 
 
@@ -147,17 +176,35 @@ def clear(conn: sqlite3.Connection, *, keep: timedelta, now: datetime) -> int:
         )
         if _before(row["started_at"], cutoff)
     ]
+    batches = [
+        row["id"]
+        for row in conn.execute(
+            f"""SELECT b.id, b.made_at FROM ({_BATCHES}) AS b
+                WHERE NOT EXISTS (SELECT 1 FROM jobs AS j
+                                  WHERE j.batch_id = b.id
+                                    AND j.state IN ('queued', 'running'))"""  # noqa: S608 - as above
+        )
+        if _before(row["made_at"], cutoff)
+    ]
     with conn:
         for plan_id in plans:
             conn.execute("UPDATE jobs SET plan_id = NULL WHERE plan_id = ?", (plan_id,))
             conn.execute("DELETE FROM changes WHERE plan_id = ?", (plan_id,))
             conn.execute("DELETE FROM plans WHERE id = ?", (plan_id,))
         conn.executemany("DELETE FROM scans WHERE id = ?", [(scan_id,) for scan_id in scans])
-    if plans or scans:
-        log.info(
-            "Cleared %d tidy-ups and conversions and %d scans from History", len(plans), len(scans)
+        # Kura still knows the subtitles it made as its own; History forgets the batch.
+        conn.executemany(
+            "DELETE FROM subtitle_batches WHERE id = ?", [(batch,) for batch in batches]
         )
-    return len(plans) + len(scans)
+    if plans or scans or batches:
+        log.info(
+            "Cleared %d tidy-ups and conversions, %d batches of subtitles and %d scans from "
+            "History",
+            len(plans),
+            len(batches),
+            len(scans),
+        )
+    return len(plans) + len(scans) + len(batches)
 
 
 def _before(stamp: str, cutoff: datetime) -> bool:
@@ -198,9 +245,47 @@ def _done(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> list[PlanDone]:
                 undone=states.count(ChangeState.UNDONE),
                 deleted=bool(changes) and all(change.reason == DELETED for change in changes),
                 conversion=_conversion(conn, row["id"]) if row["kind"] == "convert" else None,
+                taken_away=sum(
+                    1
+                    for change in changes
+                    if change.reason == TAKEN_AWAY
+                    and change.state is ChangeState.DONE
+                    and change.cleared_at is None
+                ),
             )
         )
     return done
+
+
+# Each batch of subtitles with anything over: when the latest of its videos was.
+_BATCHES = """SELECT b.*, MAX(j.finished_at) AS made_at FROM subtitle_batches AS b
+   JOIN jobs AS j ON j.batch_id = b.id
+   WHERE j.state IN ('done', 'failed') AND j.finished_at IS NOT NULL
+   GROUP BY b.id"""
+
+
+def _made(conn: sqlite3.Connection, row: sqlite3.Row) -> SubtitlesDone:
+    counts = conn.execute(
+        """SELECT
+               SUM(state = 'done' AND (problem IS NULL OR problem != ?)) AS made,
+               SUM(state = 'done' AND problem = ?) AS quiet,
+               SUM(state = 'failed') AS failed,
+               SUM(state IN ('queued', 'running')) AS waiting
+           FROM jobs WHERE batch_id = ?""",
+        (NOTHING_SAID, NOTHING_SAID, row["id"]),
+    ).fetchone()
+    return SubtitlesDone(
+        id=row["id"],
+        title=row["title"],
+        quality=row["quality"],
+        language=row["language"],
+        made_at=row["made_at"],
+        made=counts["made"] or 0,
+        quiet=counts["quiet"] or 0,
+        failed=counts["failed"] or 0,
+        waiting=counts["waiting"] or 0,
+        present=present(conn, row["id"]),
+    )
 
 
 def _conversion(conn: sqlite3.Connection, plan_id: int) -> Conversion | None:

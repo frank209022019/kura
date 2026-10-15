@@ -7,6 +7,7 @@ import { Loading, TilesSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
 import { pickFolder } from "@/lib/dialogs";
 import {
+  type Hearable,
   type Library,
   type Scan,
   type TitleSort,
@@ -18,8 +19,9 @@ import {
   useScan,
   useScanAction,
   useSettings,
+  useSubtitleOptions,
 } from "@/lib/engine";
-import { dayAndTime, scanChanges } from "@/lib/format";
+import { dayAndTime, isEnglish, scanChanges } from "@/lib/format";
 import { Attention } from "./attention";
 import { Recovered } from "./recovered";
 import { Shelf } from "./shelf";
@@ -31,6 +33,7 @@ export function HomePage() {
   const library = useLibrary();
   const scan = useScan();
   const franchises = useFranchises();
+  const heard = useSubtitleOptions();
   const navigate = useNavigate();
   const [sort, setSort] = useState<TitleSort>("released");
 
@@ -38,6 +41,8 @@ export function HomePage() {
   if (empty && settings.data && !settings.data.setUp) return <Navigate to="/setup" replace />;
   const working = engine.state !== "failed";
   const missing = (franchises.data ?? []).filter((franchise) => franchise.missing > 0);
+  const videos = heard.data?.files ?? [];
+  const withoutEnglish = videos.filter((video) => !video.english && !video.waiting);
 
   return (
     <>
@@ -76,6 +81,7 @@ export function HomePage() {
         </Loading>
       )}
       {working && library.data && !empty && <Pictures library={library.data} />}
+      {working && !empty && videos.length > 0 && <Languages videos={videos} />}
       {working && scan.data && library.data && !empty && (
         <Attention
           waiting={scan.data.waiting}
@@ -83,6 +89,9 @@ export function HomePage() {
           missingIn={missing.length}
           broken={library.data.problems}
           mixed={scan.data.mixed}
+          noEnglish={withoutEnglish.length}
+          noEnglishIn={new Set(withoutEnglish.map((video) => video.titleId)).size}
+          onSubtitles={() => void navigate("/subtitles")}
           onMatch={() => void navigate("/match")}
           onMissing={() => {
             setSort("missing");
@@ -209,6 +218,64 @@ function Pictures({ library }: { library: Library }) {
             `${library.unread.toLocaleString("en-GB")} still to read: the next scan reads them.`}
         </p>
       )}
+    </section>
+  );
+}
+
+/** What the library's videos can be heard and read in: English sound (dubbed, from the files),
+ * English subtitles (some of them Kura's), and neither. A video can have both, so the shares
+ * aren't parts of one whole. */
+function Languages({ videos }: { videos: Hearable[] }) {
+  const sound = videos.filter((video) => video.sound.some(isEnglish)).length;
+  const subtitled = videos.filter((video) => video.subtitles.some(isEnglish));
+  const made = subtitled.filter((video) => video.made).length;
+  const none = videos.filter((video) => !video.english).length;
+  const tiles = [
+    { label: "English sound", count: sound, note: "dubbed, from the files" },
+    {
+      label: "English subtitles",
+      count: subtitled.length,
+      note:
+        made > 0
+          ? `${made.toLocaleString("en-GB")} of them made by Kura`
+          : "in the files or beside them",
+    },
+    { label: "No English", count: none, note: "neither sound nor subtitles" },
+  ];
+  return (
+    <section
+      aria-labelledby="languages-title"
+      className="flex animate-fade-up flex-col gap-2.5 [animation-delay:60ms]"
+    >
+      <h2 id="languages-title" className="font-bold text-13 text-fg-muted">
+        Your videos by language
+      </h2>
+      <ul className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-2.5">
+        {tiles.map((tile) => {
+          const share = Math.round((100 * tile.count) / videos.length);
+          return (
+            <li
+              key={tile.label}
+              className="flex flex-col gap-1.5 rounded-16 border border-edge bg-glass px-4 py-3.5 shadow-panel"
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="font-bold text-13">{tile.label}</span>
+                <span className="font-mono text-12 text-fg-muted">{share}%</span>
+              </span>
+              <span className="font-extrabold text-24 leading-[1.1]">
+                {tile.count.toLocaleString("en-GB")}
+              </span>
+              <span className="h-1.5 overflow-hidden rounded-3 bg-track" aria-hidden="true">
+                <span
+                  className="block h-full animate-grow-x rounded-3 bg-accent"
+                  style={{ width: `${share}%` }}
+                />
+              </span>
+              <span className="text-12 text-fg-muted">{tile.note}</span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

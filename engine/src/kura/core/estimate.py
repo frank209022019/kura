@@ -1,4 +1,5 @@
-"""How long converting takes on the graphics card, and how much space the results need.
+"""How long converting takes on the graphics card, and how much space the results need; and
+how long making English subtitles takes.
 
 Until Kura has measured this PC's card, it uses what the owner's GTX 1660 Super managed in the
 upscaling test (2026-10-11): about an hour per 24-minute SD episode with the AI model, 10 minutes
@@ -61,6 +62,18 @@ def estimate(
     rate = media.video.frame_rate if media.video and media.video.frame_rate else FILM
     frames = seconds * float(rate)
     return Estimate(frames / fps, round(seconds / 60 * standard.megabytes_per_minute * 1e6))
+
+
+# Seconds of the graphics card's time English subtitles take for each second of a video, as
+# the owner's GTX 1660 Super made them for a 21-minute episode (2026-10-15): about 8 minutes with
+# Whisper medium (Best) and 3 with small (Fast). They grow with how much is said, so a quiet
+# episode is quicker.
+HEARING = {"best": 0.4, "fast": 0.15}
+
+
+def hearing(seconds: float, quality: str) -> float:
+    """The graphics card's time making a video's English subtitles takes, in seconds."""
+    return seconds * HEARING[quality]
 
 
 def total(estimates: Iterable[Estimate]) -> Estimate:

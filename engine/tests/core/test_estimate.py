@@ -7,7 +7,7 @@ from fractions import Fraction
 
 import pytest
 
-from kura.core.estimate import Estimate, Speeds, estimate, total
+from kura.core.estimate import Estimate, Speeds, estimate, hearing, total
 from kura.core.media import Audio, MediaInfo, Video
 from kura.core.standard import CINEMA_1080, COMPACT_720, Decision, Method
 
@@ -112,3 +112,8 @@ def test_an_unknown_frame_rate_counts_as_film():
 
 def test_total_of_nothing_is_nothing():
     assert total([]) == Estimate(0.0, 0)
+
+
+@pytest.mark.parametrize(("quality", "minutes"), [("best", 9.6), ("fast", 3.6)])
+def test_english_subtitles_take_about_what_was_measured(quality: str, minutes: float):
+    assert hearing(24 * 60, quality) / 60 == pytest.approx(minutes)

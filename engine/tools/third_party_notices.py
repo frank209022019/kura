@@ -275,7 +275,7 @@ def cpp_runtime(files: Iterable[str]) -> list[Part]:
 
 
 def _assets() -> list[Part]:
-    """The AI model and the shader the engine carries (see engine/src/kura/assets/README.md)."""
+    """The AI models and the shader the engine carries (see engine/src/kura/assets/README.md)."""
     return [
         Part(
             "Real-ESRGAN anime video model (realesr-animevideov3)",
@@ -290,6 +290,13 @@ def _assets() -> list[Part]:
             "MIT",
             "https://github.com/bloc97/Anime4K",
             _read([ASSETS / "anime4k.LICENSE.txt"]),
+        ),
+        Part(
+            "pyannote speaker segmentation model (segmentation-3.0)",
+            "3.0",
+            "MIT",
+            "https://huggingface.co/pyannote/segmentation-3.0",
+            _read([ASSETS / "pyannote-segmentation-3.0.LICENSE.txt"]),
         ),
     ]
 

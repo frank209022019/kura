@@ -261,4 +261,56 @@ MIGRATIONS: Final[tuple[str, ...]] = (
         WHERE state IN ('failed', 'skipped')
           AND problem LIKE '%non monotonically increasing dts%';
     """,
+    # 19. The languages each video can be heard and read in: its sound tracks' and its subtitle
+    #     tracks', as ffprobe's report on it names them ("jpn"; "" when one doesn't say), read
+    #     from that report for the videos read already.
+    """
+    ALTER TABLE files ADD COLUMN sound TEXT;      -- JSON: each sound track's language, in order
+    ALTER TABLE files ADD COLUMN subtitles TEXT;  -- JSON: each subtitle track's, the same way
+    UPDATE files SET
+        sound = (
+            SELECT json_group_array(
+                COALESCE(NULLIF(lower(json_extract(s.value, '$.tags.language')), 'und'), ''))
+            FROM json_each(files.probe, '$.streams') AS s
+            WHERE json_extract(s.value, '$.codec_type') = 'audio'),
+        subtitles = (
+            SELECT json_group_array(
+                COALESCE(NULLIF(lower(json_extract(s.value, '$.tags.language')), 'und'), ''))
+            FROM json_each(files.probe, '$.streams') AS s
+            WHERE json_extract(s.value, '$.codec_type') = 'subtitle')
+        WHERE probe IS NOT NULL;
+    """,
+    # 20. English subtitles Kura makes from a video's sound (kura/subtitles.py). They wait in the
+    #     queue with the conversions, as jobs of their own kind: `method` is the quality ('best'
+    #     or 'fast'), `sound` the track they're made from (from 0). The owner asks for them a
+    #     batch at a time, which History shows and can take away again. The files Kura wrote are
+    #     its own while they're there as it wrote them, their size and time unchanged: `name`
+    #     follows the video's ("Episode 1" + ".en.srt").
+    """
+    CREATE TABLE subtitle_batches (
+        id       INTEGER PRIMARY KEY,
+        title    TEXT NOT NULL,  -- what they're for: "Starfall Academy · Season 1"
+        quality  TEXT NOT NULL CHECK (quality IN ('best', 'fast')),
+        language TEXT NOT NULL,  -- the sound they're made from: "jpn"
+        added_at TEXT NOT NULL
+    ) STRICT;
+
+    -- 'merge' is taken now for English from another copy, which comes next: a check can't
+    -- change without the table being made anew.
+    ALTER TABLE jobs ADD COLUMN kind TEXT NOT NULL DEFAULT 'convert'
+        CHECK (kind IN ('convert', 'subtitles', 'merge'));
+    ALTER TABLE jobs ADD COLUMN sound INTEGER;
+    ALTER TABLE jobs ADD COLUMN batch_id INTEGER
+        REFERENCES subtitle_batches (id) ON DELETE SET NULL;
+
+    CREATE TABLE made_subtitles (
+        file_id  INTEGER PRIMARY KEY REFERENCES files (id) ON DELETE CASCADE,
+        name     TEXT NOT NULL,     -- after the video's own name: ".en.srt"
+        batch_id INTEGER REFERENCES subtitle_batches (id) ON DELETE SET NULL,
+        language TEXT NOT NULL,     -- what Whisper heard: "ja"
+        size     INTEGER NOT NULL,  -- as Kura wrote them, in bytes
+        modified INTEGER NOT NULL,  -- and when, in nanoseconds: an edit changes it
+        made_at  TEXT NOT NULL
+    ) STRICT;
+    """,
 )

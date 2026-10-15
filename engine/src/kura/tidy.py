@@ -213,6 +213,14 @@ def propose(conn: sqlite3.Connection, *, day: date, keep: Iterable[str] = ()) ->
 
 _LINKED = "Its new folder is a link to another place, which scans skip"
 
+# The kind of job busy with a video ('convert' or 'subtitles'), if one is: being made, putting
+# its result in place, or made and waiting for another app to let go of the video.
+_BUSY = """(SELECT j.kind FROM jobs AS j
+            WHERE j.file_id = f.id
+              AND (j.state IN ('running', 'replacing')
+                   OR (j.state = 'queued' AND j.retry_at IS NOT NULL))
+            ORDER BY j.kind = 'subtitles' LIMIT 1)"""
+
 
 def _owner(change: Change, of: dict[str, _Video]) -> _Video:
     """The video a change is of: the one it moves, or the one its subtitles go with."""
@@ -315,17 +323,12 @@ def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) 
     """Deletes the videos the owner chose, the way Kura deletes: each goes to the quarantine on
     its own drive with the subtitles named after it, journaled so History can put it back till
     the quarantine is cleared out. Folders it empties go, as after a tidy-up. A video waiting to
-    be converted leaves the queue; one being converted stays (ConvertingError), and so does
-    everything else asked for."""
+    be converted leaves the queue; one being converted, or getting English subtitles, stays
+    (ConvertingError), and so does everything else asked for."""
     ids = list(dict.fromkeys(file_ids))
     marks = ", ".join("?" * len(ids))
     rows = conn.execute(
-        f"""SELECT f.id, f.path, f.season, f.episode, t.name AS title,
-                   EXISTS (SELECT 1 FROM jobs AS j
-                           WHERE j.file_id = f.id
-                             AND (j.state IN ('running', 'replacing')
-                                  OR (j.state = 'queued' AND j.retry_at IS NOT NULL)))
-                       AS converting
+        f"""SELECT f.id, f.path, f.season, f.episode, t.name AS title, {_BUSY} AS busy
             FROM files AS f LEFT JOIN titles AS t ON t.id = f.title_id
             WHERE f.id IN ({marks}) AND f.gone_at IS NULL
             ORDER BY f.path""",  # noqa: S608 - only placeholders go in
@@ -333,10 +336,14 @@ def delete(conn: sqlite3.Connection, file_ids: Iterable[int], *, now: datetime) 
     ).fetchall()
     if not rows:
         return Tidied(None, 0, 0, ())
-    if busy := [row for row in rows if row["converting"]]:
+    if busy := [row for row in rows if row["busy"]]:
+        doing = (
+            "is getting English subtitles"
+            if busy[0]["busy"] == "subtitles"
+            else "is being converted"
+        )
         raise ConvertingError(
-            f"{label_of(busy[0])} is being converted. Skip it in the queue, or delete it once "
-            "it's done."
+            f"{label_of(busy[0])} {doing}. Skip it in the queue, or delete it once it's done."
         )
     listings: dict[Path, list[str]] = {}
     videos: list[tuple[PurePath, str, Sequence[PurePath]]] = []
@@ -398,17 +405,20 @@ def undo(conn: sqlite3.Connection, plan_id: int, *, now: datetime) -> Tidied:
     """Puts back what a tidy-up moved, newest first, but a video being converted (or its result
     waiting beside it) stays, with its subtitles. Asked again, it puts back what couldn't go back
     the first time."""
-    converting = {
-        row["path"].casefold()
+    busy = {
+        row["path"].casefold(): row["kind"]
         for row in conn.execute(
-            """SELECT f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+            """SELECT f.path, j.kind FROM jobs AS j JOIN files AS f ON f.id = j.file_id
                WHERE j.state IN ('running', 'replacing')
                   OR (j.state = 'queued' AND j.retry_at IS NOT NULL)"""
         )
     }
 
     def held(change: SavedChange) -> str | None:
-        if str(change.target).casefold() in converting:
+        kind = busy.get(str(change.target).casefold())
+        if kind == "subtitles":
+            return "Its English subtitles are being made: put it back once they're done."
+        if kind is not None:
             return "It's being converted: put it back once it's done."
         return None
 
@@ -426,18 +436,14 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
         if not _PLACEHOLDER.match(row["name"])
     }
     rows = conn.execute(
-        """SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.episode_end,
+        f"""SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.episode_end,
                   t.id AS title_id, t.name, t.year, t.kind, t.tmdb_type, d.path AS root,
-                  EXISTS (SELECT 1 FROM jobs AS j
-                          WHERE j.file_id = f.id
-                            AND (j.state IN ('running', 'replacing')
-                                 OR (j.state = 'queued' AND j.retry_at IS NOT NULL)))
-                      AS converting
+                  {_BUSY} AS busy
            FROM files AS f
            JOIN titles AS t ON t.id = f.title_id
            JOIN folders AS d ON d.id = f.folder_id
            WHERE f.gone_at IS NULL AND f.matched = 'sure'
-           ORDER BY f.path"""
+           ORDER BY f.path"""  # noqa: S608 - only Kura's own SQL goes in
     ).fetchall()
     parted = _films_in_parts(rows)
     listings: dict[str, list[str]] = {}
@@ -452,7 +458,10 @@ def _videos(conn: sqlite3.Connection) -> tuple[list[_Video], list[tuple[Path, st
             skipped.append((Path(row["path"]), "Its library folder isn't connected"))
             continue
         identity = _identity(row, names, parted)
-        if row["converting"]:
+        if row["busy"] == "subtitles":  # they're written beside it, under its name as it is
+            skipped.append((Path(row["path"]), "Its English subtitles are being made"))
+            continue
+        if row["busy"]:
             skipped.append((Path(row["path"]), "It's being converted"))
             if identity is not None:
                 converting.add(copy_key(identity))

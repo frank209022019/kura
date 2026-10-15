@@ -1,5 +1,5 @@
-import { AudioLines, FileText, Play } from "lucide-react";
-import { type ReactNode, type RefObject, useRef, useState } from "react";
+import { AudioLines, Captions, FileText, Play } from "lucide-react";
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { type Asking, ConfirmDelete, Deleted, DeleteIcon, useDeleting } from "@/components/delete";
@@ -18,11 +18,12 @@ import {
   type TitleDetail,
   type TitleFile,
   useFranchiseMissing,
+  useQueueGlance,
   useReport,
   useTitle,
 } from "@/lib/engine";
 import { openFolder, showInFolder, useExplorer } from "@/lib/explorer";
-import { clockLength, codecName, size, split } from "@/lib/format";
+import { clockLength, codecName, isEnglish, languageName, listed, size, split } from "@/lib/format";
 import { files, kindWord } from "@/lib/kinds";
 import { share } from "@/lib/share";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,16 @@ export function TitlePage() {
     setAsking(null);
     setDeleted(result);
   });
+  // As the queue moves from one file to the next, the videos it made say so.
+  const running = useQueueGlance().data?.running ?? null;
+  const runningId = running?.job.id ?? null;
+  const { refetch } = title;
+  const seen = useRef(runningId);
+  useEffect(() => {
+    if (seen.current === runningId) return;
+    seen.current = runningId;
+    void refetch();
+  }, [runningId, refetch]);
   const ask = (next: Asking) => {
     deleting.reset();
     setDeleted(null);
@@ -132,6 +143,14 @@ export function TitlePage() {
         at={videosAt}
         onAsk={ask}
         confirm={confirm}
+        making={
+          running?.job.kind === "subtitles" && running.total > 0
+            ? {
+                fileId: running.job.fileId,
+                share: Math.floor((100 * running.frames) / running.total),
+              }
+            : null
+        }
       />
     </>
   );
@@ -196,6 +215,7 @@ function Header({ title, onAsk }: { title: TitleDetail; onAsk: (asking: Asking) 
         </div>
         <h1 className="type-title">{title.name}</h1>
         <span className="text-14 text-fg-muted">{facts.join(" · ")}</span>
+        <TitleLanguages videos={title.videos} />
         {title.folder && (
           <span className="font-mono text-12 text-fg-soft [overflow-wrap:anywhere]">
             {title.folder}
@@ -562,6 +582,8 @@ function Videos(props: {
   at: RefObject<HTMLElement | null>;
   onAsk: (asking: Asking) => void;
   confirm: (where: string) => ReactNode;
+  /** The video having its subtitles made now, and how far it's got. */
+  making: { fileId: number; share: number } | null;
 }) {
   const { title } = props;
   const { play } = usePlayer();
@@ -582,17 +604,34 @@ function Videos(props: {
   const numbered = shown.videos.some((video) => video.episode !== null);
   const heading =
     title.kind === "movie" ? (title.videos.length === 1 ? "Its file" : "Its files") : "Videos";
+  const without = title.videos.filter((video) => !video.problem && !english(video)).length;
+  const note = [files(title.videos.length), without > 0 && `${without} without English`]
+    .filter(Boolean)
+    .join(" · ");
+  const seasonal = season(shown) || shown.key === "0";
+  const make = `/subtitles?title=${title.id}${seasonal ? `&season=${shown.key}` : ""}`;
   return (
-    <Panel id="videos-title" at={props.at} title={heading} note={files(title.videos.length)}>
-      {all.length > 1 && (
-        <Segmented
-          label="Season"
-          value={shown.key}
-          options={all.map((shelf) => ({ value: shelf.key, label: shelf.label }))}
-          onChange={props.onShelf}
-          className="flex-wrap self-start"
-        />
-      )}
+    <Panel id="videos-title" at={props.at} title={heading} note={note}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {all.length > 1 ? (
+          <Segmented
+            label="Season"
+            value={shown.key}
+            options={all.map((shelf) => ({ value: shelf.key, label: shelf.label }))}
+            onChange={props.onShelf}
+            className="flex-wrap self-start"
+          />
+        ) : (
+          <span />
+        )}
+        <Link
+          to={make}
+          className="press inline-flex min-h-10 items-center gap-2 rounded-full border border-field-edge bg-field px-4 font-bold text-13 text-fg"
+        >
+          <Captions size={16} strokeWidth={1.9} aria-hidden="true" />
+          Make English subtitles
+        </Link>
+      </div>
       <ul
         aria-label={all.length > 1 ? shown.label : heading}
         className="-mr-2 flex max-h-120 flex-col overflow-y-auto pr-2"
@@ -604,6 +643,7 @@ function Videos(props: {
             video={video}
             numbered={numbered}
             playing={playing === video.id}
+            making={props.making?.fileId === video.id ? props.making.share : null}
             onPlay={() => play(items, following.indexOf(video))}
             onAsk={props.onAsk}
             confirm={props.confirm(`video-${video.id}`)}
@@ -620,6 +660,8 @@ function VideoRow(props: {
   /** Its shelf numbers its episodes: the row starts with the episode's. */
   numbered: boolean;
   playing: boolean;
+  /** Its subtitles being made, this far (percent); null otherwise. */
+  making: number | null;
   onPlay: () => void;
   onAsk: (asking: Asking) => void;
   confirm: ReactNode;
@@ -631,8 +673,8 @@ function VideoRow(props: {
       className={cn(
         "grid min-h-11 items-center gap-x-3 border-rule border-b py-1 text-13 last:border-b-0",
         props.numbered
-          ? "grid-cols-[4.5rem_minmax(0,1fr)_auto_2.25rem_2rem]"
-          : "grid-cols-[minmax(0,1fr)_auto_2.25rem_2rem]",
+          ? "grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1.15fr)_auto_2.25rem_2rem]"
+          : "grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_auto_2.25rem_2rem]",
       )}
     >
       {props.numbered && (
@@ -643,6 +685,7 @@ function VideoRow(props: {
       <span className={cn("truncate", playing && "font-bold text-accent-fg")} title={video.path}>
         {shownName(props.title, video)}
       </span>
+      <Spoken video={video} making={props.making} />
       <span className={cn("text-12", playing ? "font-bold text-accent-fg" : "text-fg-muted")}>
         {playing ? "Playing" : video.problem ? "won't play" : facts(video)}
       </span>
@@ -675,6 +718,92 @@ function VideoRow(props: {
       {props.confirm && <div className="col-span-full pb-2">{props.confirm}</div>}
     </li>
   );
+}
+
+/** What a video can be heard and read in: its sound, each of its subtitles (the English ones
+ * Kura made marked so), English subtitles being made or waiting in the queue, and a hollow "No
+ * English" when neither its sound nor its subtitles are in English. */
+function Spoken({ video, making }: { video: TitleFile; making: number | null }) {
+  if (video.problem) return <span />;
+  const job = making !== null ? "running" : video.subtitlesJob;
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-12 text-fg-muted">
+      <span>{video.sound.length > 0 ? video.sound.map(languageName).join(", ") : "No sound"}</span>
+      {video.subtitles
+        .filter((code) => !(video.made && isEnglish(code)))
+        .map((code) => (
+          <span key={code} className="rounded-full bg-tint/6 px-2 text-fg-soft">
+            {languageName(code)} subs
+          </span>
+        ))}
+      {video.made && (
+        <span className="rounded-full bg-accent/14 px-2 font-bold text-accent-fg">
+          English subs · made by Kura
+        </span>
+      )}
+      {job === "running" && (
+        <span className="inline-flex items-center gap-1.5 font-bold text-accent-fg">
+          <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-accent" />
+          Making English subs{making !== null ? ` · ${making}%` : ""}
+        </span>
+      )}
+      {job === "queued" && <span className="text-fg-soft">English subs next in the queue</span>}
+      {!english(video) && !job && <NoEnglish />}
+    </span>
+  );
+}
+
+function NoEnglish({ count }: { count?: number }) {
+  return (
+    <span className="whitespace-nowrap rounded-full px-2 font-bold text-accent-fg ring-[1.5px] ring-accent-fg/55 ring-inset">
+      {count === undefined ? "No English" : `${count} without English`}
+    </span>
+  );
+}
+
+/** What a title can be heard and read in over all its videos ("Japanese sound · German
+ * subtitles, English on 64 of 303"), and how many of them have no English. */
+function TitleLanguages({ videos }: { videos: TitleFile[] }) {
+  const readable = videos.filter((video) => !video.problem);
+  if (readable.length === 0) return null;
+  const sound = byUse(readable.flatMap((video) => video.sound.filter(Boolean)));
+  const others = byUse(
+    readable.flatMap((video) => video.subtitles.filter((code) => code && !isEnglish(code))),
+  );
+  const subtitled = readable.filter((video) => video.subtitles.some(isEnglish)).length;
+  const without = readable.filter((video) => !english(video)).length;
+  const words = [
+    sound.length > 0 ? `${listed(sound.slice(0, 3).map(languageName))} sound` : null,
+    subtitleWords(others.slice(0, 3).map(languageName), subtitled, readable.length),
+  ].filter(Boolean);
+  return (
+    <span className="flex flex-wrap items-center gap-2 text-13 text-fg-soft">
+      {words.join(" · ")}
+      {without > 0 && <NoEnglish count={readable.length > 1 ? without : undefined} />}
+    </span>
+  );
+}
+
+/** "German and English subtitles", "German subtitles, English on 64 of 303", "No subtitles". */
+function subtitleWords(others: string[], english: number, of: number): string {
+  if (english === of) return `${listed([...others, "English"])} subtitles`;
+  const rest = others.length > 0 ? `${listed(others)} subtitles` : null;
+  if (english === 0) return rest ?? "No subtitles";
+  return rest
+    ? `${rest}, English on ${english} of ${of}`
+    : `English subtitles on ${english} of ${of}`;
+}
+
+/** Each language once, the most used first. */
+function byUse(codes: string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const code of codes) counts.set(code, (counts.get(code) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([code]) => code);
+}
+
+/** Whether a video can be watched in English: English sound, or English subtitles. */
+function english(video: TitleFile): boolean {
+  return [...video.sound, ...video.subtitles].some(isEnglish);
 }
 
 /** One season's videos, the specials', or those of files without a season. */

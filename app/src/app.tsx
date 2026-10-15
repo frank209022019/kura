@@ -12,6 +12,7 @@ import { MatchPage } from "@/features/match/match-page";
 import { ScanPage } from "@/features/scan/scan-page";
 import { SettingsPage } from "@/features/settings/settings-page";
 import { SetupPage } from "@/features/setup/setup-page";
+import { MakeSubtitlesPage } from "@/features/subtitles/make-page";
 import { TidyPage } from "@/features/tidy/tidy-page";
 import { TitlePage } from "@/features/title/title-page";
 import { EngineProvider } from "@/lib/engine";
@@ -41,6 +42,7 @@ export function App() {
               <Route path="/tidy" element={<TidyPage />} />
               <Route path="/convert" element={<ConvertPage />} />
               <Route path="/convert/queue" element={<QueuePage />} />
+              <Route path="/subtitles" element={<MakeSubtitlesPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/:section" element={<SettingsPage />} />

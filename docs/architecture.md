@@ -91,15 +91,19 @@ kura/
   artwork.py      posters, fetched once from TMDB or AniList and kept
   watch.py        keeping the library current while Kura is open: watching, refreshing
   probe.py        running ffprobe on one file
-  tools.py        downloading what downloads.json lists (ffmpeg)
+  tools.py        downloading what downloads.json lists: ffmpeg, and the speech models when asked
   tidy.py         tidying up: the plan that files the library for Plex, applied and undone
   changes.py      applying and undoing plans (tidy-ups, a converted file's replacement), journaled
   convert.py      converting one file, checked, then in its original's place
   upscale.py      the AI model on the graphics card, between two ffmpegs
-  queue.py        the conversion queue: files in the owner's order, converted one at a time
+  queue.py        the queue: files in the owner's order, converted, or given English subtitles,
+                  one at a time on the graphics card
+  speech.py       English subtitles' hearing: the sound read, where someone speaks, Whisper
+  subtitles.py    a video's English subtitles made beside it, checked, kept as Kura's, taken away
+  languages.py    the subtitle files beside videos, and the languages their names say
   preview.py      See it first: one frame before converting and after
   gpu.py          how busy and how warm the graphics card is (nvidia-smi)
-  history.py      what Kura did, newest first: tidy-ups, conversions and scans
+  history.py      what Kura did, newest first: tidy-ups, conversions, subtitles made and scans
   player.py       playing a video inside the window: tickets, the stream, subtitles copied out
   web.py          asking web services for JSON: timeouts, rate limits, errors in words
   anilist.py      AniList: which anime a file is

@@ -129,6 +129,18 @@ def test_files_join_the_queue_and_wait_their_turn(client: TestClient, shelf: Pat
     assert [f["waiting"] for f in client.get("/convert").json()["files"]] == [True, True, False]
 
 
+def test_a_video_waiting_for_english_subtitles_can_still_be_converted(
+    client: TestClient, shelf: Path, conn: sqlite3.Connection
+):
+    with conn:
+        conn.execute(
+            """INSERT INTO jobs (file_id, kind, method, position, added_at)
+               VALUES (1, 'subtitles', 'best', 1, '2026-10-11T09:00:00+00:00')"""
+        )
+
+    assert [f["waiting"] for f in client.get("/convert").json()["files"]] == [False, False, False]
+
+
 def test_the_queue_pauses_resumes_and_waits_for_night(client: TestClient, shelf: Path):
     assert client.post("/queue/pause").json()["paused"] is True
     assert client.post("/queue/resume").json()["paused"] is False

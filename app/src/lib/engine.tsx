@@ -234,6 +234,9 @@ export interface Tool {
   purpose: string;
   licence: string;
   size: number;
+  /** Fetched on the setup's Tools step, or the first time the owner asks for what needs it (the
+   * speech models). */
+  when: "setup" | "asked";
   state: ToolState;
   done: number;
   problem: string | null;
@@ -315,7 +318,15 @@ export const useFolders = () => useEngineQuery<LibraryFolder[]>("/folders");
 export const useLibrary = () => useEngineQuery<Library>("/library");
 
 /** What the engine changes by itself: a batch converted, the queue paused, files moved in. */
-const CHANGED_ON_ITS_OWN = ["/queue", "/history", "/library", "/titles", "/franchises", "/convert"];
+const CHANGED_ON_ITS_OWN = [
+  "/queue",
+  "/history",
+  "/library",
+  "/titles",
+  "/franchises",
+  "/convert",
+  "/subtitles",
+];
 
 /** Asks again for what the engine may have changed by itself, once it tells of something. */
 export function useEngineChanged(): () => void {
@@ -567,6 +578,14 @@ export interface TitleFile {
   height: number | null;
   codec: string | null;
   duration: number | null;
+  /** The languages it can be heard and read in: its sound tracks', and its subtitles' in it and
+   * beside it ("jpn", "en"; "" for one that doesn't say), each once. */
+  sound: string[];
+  subtitles: string[];
+  /** English subtitles Kura made from its sound are beside it. */
+  made: boolean;
+  /** In the queue for English subtitles, or having them made. */
+  subtitlesJob: "queued" | "running" | null;
 }
 
 /** How an episode stands; on screen each has its shape (see the status-* utilities). */
@@ -986,6 +1005,30 @@ export interface PlanDone {
   /** The owner deleted these videos: they went to quarantine. */
   deleted: boolean;
   conversion: Conversion | null;
+  /** English subtitles Kura made, taken away: those set aside and still there to put back. */
+  takenAway: number;
+}
+
+/** A batch of English subtitles the owner asked for at once, as History lists it. */
+export interface SubtitlesDone {
+  id: number;
+  /** What they're for: "Starfall Academy · Season 1". */
+  title: string;
+  quality: Quality;
+  /** The sound they're made from: "jpn". */
+  language: string;
+  /** When the latest of them was over. */
+  madeAt: string;
+  /** Videos that got them. */
+  made: number;
+  /** Videos where no one speaks: none were made. */
+  quiet: number;
+  /** Videos they couldn't be made for. */
+  failed: number;
+  /** Videos still in the queue for them. */
+  waiting: number;
+  /** Of those made, how many are there now as Kura wrote them. */
+  present: number;
 }
 
 export interface ScanDone {
@@ -1005,6 +1048,7 @@ export interface History {
   /** A tidy-up undone on a later day is on that day's page too. */
   plans: PlanDone[];
   scans: ScanDone[];
+  subtitles: SubtitlesDone[];
   /** The day the next page starts before ("2026-10-07"); null: there's no more. */
   older: string | null;
 }
@@ -1085,7 +1129,7 @@ export type JobState =
   | "skipped"
   | "restored";
 
-/** A file in the conversion queue. */
+/** A file in the queue: to convert, or to have English subtitles made (`method` their quality). */
 export interface Job {
   id: number;
   fileId: number;
@@ -1120,6 +1164,11 @@ export interface Job {
   log: string | null;
   /** Waiting for room on its drive while the others go. */
   noRoom: boolean;
+  kind: "convert" | "subtitles";
+  /** Subtitles: the sound they're made from ("jpn"; "" when it doesn't say). */
+  language: string | null;
+  /** Subtitles waiting for their speech model to download. */
+  modelMissing: boolean;
 }
 
 /** A drive without room for the files waiting to convert on it. */
@@ -1140,10 +1189,11 @@ export interface Room {
   setAside: number;
 }
 
-/** The file converting now, and how it's going. */
+/** The file converting now, or having its subtitles made, and how it's going. */
 export interface RunningJob {
   job: Job;
-  stage: "looking" | "converting" | "checking" | "replacing";
+  stage: "looking" | "converting" | "checking" | "replacing" | "reading" | "listening" | "writing";
+  /** Frames converted; for subtitles, seconds of the video heard. */
   frames: number;
   total: number;
   secondsLeft: number | null;
@@ -1231,6 +1281,8 @@ export interface SubtitleTrack {
   default: boolean;
   forced: boolean;
   beside: boolean;
+  /** English subtitles Kura made from the sound: names and jokes can be off. */
+  made: boolean;
 }
 
 export interface ChapterMark {
@@ -1325,3 +1377,55 @@ export function streamAddress(
   if (choice.subtitles !== null) address.searchParams.set("subtitles", String(choice.subtitles));
   return address.toString();
 }
+
+/** Whisper medium ("best") or small ("fast"). */
+export type Quality = "best" | "fast";
+
+/** The speech model each quality needs, as Kura's tools name it (engine/src/kura/speech.py). */
+export const SPEECH_MODELS: Record<Quality, string> = {
+  best: "speech-best",
+  fast: "speech-fast",
+};
+
+/** A video Kura could make English subtitles for. */
+export interface Hearable {
+  fileId: number;
+  /** "Starfall Academy · S01E05". */
+  label: string;
+  titleId: number;
+  title: string;
+  season: number | null;
+  episode: number | null;
+  /** How long it plays. */
+  seconds: number;
+  /** Each sound track's language ("jpn"; "" when one doesn't say). */
+  sound: string[];
+  /** Its subtitles' languages, in it and beside it. */
+  subtitles: string[];
+  /** It can be heard or read in English already. */
+  english: boolean;
+  /** English subtitles Kura made are beside it. */
+  made: boolean;
+  /** In the queue for them, or being made. */
+  waiting: boolean;
+}
+
+export interface SubtitleOptions {
+  files: Hearable[];
+  /** Seconds of the graphics card's time each second of a video takes, at each quality. */
+  rates: Record<Quality, number>;
+}
+
+export const useSubtitleOptions = () => useEngineQuery<SubtitleOptions>("/subtitles");
+
+const SUBTITLED = ["/subtitles", "/queue", "/titles", "/history", "/library"];
+/**
+ * Puts videos in the queue for English subtitles as one batch: `make.mutate({ path:
+ * "/subtitles", body: { fileIds, quality, language, title, when } })`.
+ */
+export const useMakeSubtitles = () => useEngineAction<{ added: number }>(SUBTITLED);
+/**
+ * Sets a batch's subtitles aside, to quarantine, as a tidy-up History can undo:
+ * `take.mutate({ path: `/subtitles/batches/${id}/take-away` })`.
+ */
+export const useTakeAway = () => useEngineAction<{ planId: number | null }>(SUBTITLED);

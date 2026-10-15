@@ -1,4 +1,5 @@
-"""Kura's command line. The app runs `kura serve`; the uninstaller runs `kura export`."""
+"""Kura's command line. The app runs `kura serve`; the uninstaller runs `kura export`; `kura
+subtitles` makes one video's English subtitles, to try the speech models out."""
 
 import json
 import logging
@@ -6,6 +7,7 @@ import os
 import socket
 import sys
 import threading
+import time
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -17,11 +19,14 @@ import uvicorn
 from kura import __version__, events
 from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
+from kura.core.speech import SAMPLE_RATE, srt
 from kura.export import export_data
 from kura.player import Player
 from kura.recovery import asked_to_stop
 from kura.relocate import move_asked
+from kura.speech import MODELS, Listener, SpeechError, sound_of
 from kura.system import end_programs_with_engine
+from kura.tools import Tools
 
 app = typer.Typer(help="Kura's engine.", no_args_is_help=True, add_completion=False)
 
@@ -89,6 +94,42 @@ def export(folder: Annotated[Path, typer.Argument(help="Folder to write the zip 
         typer.echo("Kura has no data yet, so there is nothing to export.")
     else:
         typer.echo(f"Saved Kura's data to {archive}")
+
+
+@app.command()
+def subtitles(
+    video: Annotated[Path, typer.Argument(help="The video to hear.")],
+    out: Annotated[Path, typer.Argument(help="The SRT file to write.")],
+    quality: Annotated[str, typer.Option(help="best or fast.")] = "best",
+    track: Annotated[int, typer.Option(help="Its sound track to hear, from 0.")] = 0,
+    language: Annotated[
+        str, typer.Option(help="What it's spoken in, as files tag it (jpn). Whisper tells if not.")
+    ] = "",
+) -> None:
+    """Make English subtitles for VIDEO from its sound, into OUT, as the queue makes them: with
+    Kura's ffmpeg and speech model, which must be downloaded already."""
+    if quality not in MODELS:
+        typer.echo("The quality is best or fast.", err=True)
+        raise typer.Exit(2)
+    tools = Tools(DataPaths.default())
+    ffmpeg, model = tools.path("ffmpeg"), tools.folder(MODELS[quality])
+    if ffmpeg is None or model is None:
+        typer.echo("Kura needs ffmpeg and its speech model downloaded first.", err=True)
+        raise typer.Exit(1)
+    began = time.monotonic()
+    try:
+        sound = sound_of([str(ffmpeg)], video, track, lambda: False)
+        made = Listener(model).hear(
+            sound, language or None, report=lambda _heard: None, stop=lambda: False
+        )
+    except SpeechError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    out.write_text(srt(made.subtitles), encoding="utf-8", newline="")
+    typer.echo(
+        f"{len(made.subtitles)} subtitles from {made.speech:.0f} s of speech in "
+        f"{len(sound) / SAMPLE_RATE:.0f} s ({made.language}), in {time.monotonic() - began:.0f} s"
+    )
 
 
 @app.command()

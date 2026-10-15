@@ -1336,7 +1336,7 @@
     "/history": {
       "get": {
         "summary": "What Kura Did",
-        "description": "What Kura did on its latest days with anything on them (a week's worth), newest first:\neach tidy-up applied, each conversion and each scan. `before` (\"2026-10-07\", the page's\n`older`) asks for the days before that one.",
+        "description": "What Kura did on its latest days with anything on them (a week's worth), newest first:\neach tidy-up applied, each conversion, each batch of subtitles made and each scan.\n`before` (\"2026-10-07\", the page's `older`) asks for the days before that one.",
         "operationId": "what_kura_did_history_get",
         "security": [
           {
@@ -2379,6 +2379,117 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subtitles": {
+      "get": {
+        "summary": "Subtitle Options",
+        "description": "The library's videos that have sound, with what they can be heard and read in: what\nKura could make English subtitles for, and how long that takes.",
+        "operationId": "subtitle_options_subtitles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleOptions"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Make Subtitles",
+        "description": "Puts videos in the queue for English subtitles, as one batch, to make now, at night, or\nafter what waits. A video waiting for them already, or one without sound, is passed over.",
+        "operationId": "make_subtitles_subtitles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubtitlesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Added"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/subtitles/batches/{batch_id}/take-away": {
+      "post": {
+        "summary": "Take Away",
+        "description": "Sets aside the subtitles a batch made that are there as Kura wrote them, to the\nquarantine, as a tidy-up History can undo.",
+        "operationId": "take_away_subtitles_batches__batch_id__take_away_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakenAway"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -4031,6 +4142,95 @@
         ],
         "title": "Health"
       },
+      "Hearable": {
+        "properties": {
+          "fileId": {
+            "type": "integer",
+            "title": "Fileid"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "titleId": {
+            "type": "integer",
+            "title": "Titleid"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "season": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season"
+          },
+          "episode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          },
+          "sound": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sound"
+          },
+          "subtitles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subtitles"
+          },
+          "english": {
+            "type": "boolean",
+            "title": "English"
+          },
+          "made": {
+            "type": "boolean",
+            "title": "Made"
+          },
+          "waiting": {
+            "type": "boolean",
+            "title": "Waiting"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fileId",
+          "label",
+          "titleId",
+          "title",
+          "season",
+          "episode",
+          "seconds",
+          "sound",
+          "subtitles",
+          "english",
+          "made",
+          "waiting"
+        ],
+        "title": "Hearable",
+        "description": "A video Kura could make English subtitles for."
+      },
       "History": {
         "properties": {
           "plans": {
@@ -4047,6 +4247,13 @@
             "type": "array",
             "title": "Scans"
           },
+          "subtitles": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitlesDone"
+            },
+            "type": "array",
+            "title": "Subtitles"
+          },
           "older": {
             "anyOf": [
               {
@@ -4062,7 +4269,8 @@
         "type": "object",
         "required": [
           "plans",
-          "scans"
+          "scans",
+          "subtitles"
         ],
         "title": "History"
       },
@@ -4294,6 +4502,29 @@
           "noRoom": {
             "type": "boolean",
             "title": "Noroom"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "convert",
+              "subtitles"
+            ],
+            "title": "Kind"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "modelMissing": {
+            "type": "boolean",
+            "title": "Modelmissing"
           }
         },
         "type": "object",
@@ -4320,7 +4551,10 @@
           "driveMissing",
           "retryAt",
           "log",
-          "noRoom"
+          "noRoom",
+          "kind",
+          "language",
+          "modelMissing"
         ],
         "title": "Job"
       },
@@ -4873,6 +5107,10 @@
                 "type": "null"
               }
             ]
+          },
+          "takenAway": {
+            "type": "integer",
+            "title": "Takenaway"
           }
         },
         "type": "object",
@@ -4887,7 +5125,8 @@
           "failed",
           "undone",
           "deleted",
-          "conversion"
+          "conversion",
+          "takenAway"
         ],
         "title": "PlanDone"
       },
@@ -5314,7 +5553,10 @@
               "looking",
               "converting",
               "checking",
-              "replacing"
+              "replacing",
+              "reading",
+              "listening",
+              "writing"
             ],
             "title": "Stage"
           },
@@ -5848,6 +6090,30 @@
         ],
         "title": "Stopped"
       },
+      "SubtitleOptions": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/Hearable"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "rates": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Rates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files",
+          "rates"
+        ],
+        "title": "SubtitleOptions"
+      },
       "SubtitleProblem": {
         "properties": {
           "number": {
@@ -5914,6 +6180,10 @@
           "beside": {
             "type": "boolean",
             "title": "Beside"
+          },
+          "made": {
+            "type": "boolean",
+            "title": "Made"
           }
         },
         "type": "object",
@@ -5924,9 +6194,118 @@
           "kind",
           "default",
           "forced",
-          "beside"
+          "beside",
+          "made"
         ],
         "title": "SubtitleTrack"
+      },
+      "SubtitlesDone": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "best",
+              "fast"
+            ],
+            "title": "Quality"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "madeAt": {
+            "type": "string",
+            "title": "Madeat"
+          },
+          "made": {
+            "type": "integer",
+            "title": "Made"
+          },
+          "quiet": {
+            "type": "integer",
+            "title": "Quiet"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting"
+          },
+          "present": {
+            "type": "integer",
+            "title": "Present"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "quality",
+          "language",
+          "madeAt",
+          "made",
+          "quiet",
+          "failed",
+          "waiting",
+          "present"
+        ],
+        "title": "SubtitlesDone",
+        "description": "A batch of English subtitles the owner asked for at once."
+      },
+      "SubtitlesRequest": {
+        "properties": {
+          "fileIds": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Fileids"
+          },
+          "quality": {
+            "type": "string",
+            "enum": [
+              "best",
+              "fast"
+            ],
+            "title": "Quality"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "when": {
+            "type": "string",
+            "enum": [
+              "now",
+              "nights",
+              "after"
+            ],
+            "title": "When",
+            "default": "after"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fileIds",
+          "quality",
+          "language",
+          "title"
+        ],
+        "title": "SubtitlesRequest"
       },
       "System": {
         "properties": {
@@ -5947,6 +6326,26 @@
           "graphicsCard"
         ],
         "title": "System"
+      },
+      "TakenAway": {
+        "properties": {
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "planId"
+        ],
+        "title": "TakenAway"
       },
       "TidyProposal": {
         "properties": {
@@ -6319,6 +6718,39 @@
               }
             ],
             "title": "Duration"
+          },
+          "sound": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sound"
+          },
+          "subtitles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subtitles"
+          },
+          "made": {
+            "type": "boolean",
+            "title": "Made"
+          },
+          "subtitlesJob": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitlesjob"
           }
         },
         "type": "object",
@@ -6332,7 +6764,11 @@
           "problem",
           "height",
           "codec",
-          "duration"
+          "duration",
+          "sound",
+          "subtitles",
+          "made",
+          "subtitlesJob"
         ],
         "title": "TitleFile"
       },
@@ -6509,6 +6945,14 @@
             "type": "integer",
             "title": "Size"
           },
+          "when": {
+            "type": "string",
+            "enum": [
+              "setup",
+              "asked"
+            ],
+            "title": "When"
+          },
           "state": {
             "$ref": "#/components/schemas/kura__tools__State"
           },
@@ -6536,6 +6980,7 @@
           "purpose",
           "licence",
           "size",
+          "when",
           "state",
           "done",
           "problem"

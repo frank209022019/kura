@@ -37,6 +37,9 @@ function job(id: number, more: Partial<Job> = {}): Job {
     retryAt: null,
     log: null,
     noRoom: false,
+    kind: "convert",
+    language: null,
+    modelMissing: false,
     ...more,
   };
 }
@@ -120,6 +123,116 @@ describe("QueuePage", () => {
     expect(
       screen.getByText("Running · 3 in the queue · about 3 h of GPU time"),
     ).toBeInTheDocument();
+  });
+
+  it("shows English subtitles being made: from which sound, how far, and what's heard", async () => {
+    const hearing = job(5, {
+      state: "running",
+      kind: "subtitles",
+      method: "best",
+      language: "jpn",
+      label: "Starfall Academy · S01E05",
+    });
+    fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: {
+          job: hearing,
+          stage: "listening",
+          frames: 608,
+          total: 1453,
+          secondsLeft: 190,
+          fps: null,
+        },
+        queued: [
+          job(6, { kind: "subtitles", method: "best", language: "jpn", gpuSeconds: 580 }),
+          job(7, { kind: "subtitles", method: "fast", modelMissing: true, gpuSeconds: 220 }),
+          job(8),
+        ],
+      },
+    });
+    renderQueue();
+
+    const now = await screen.findByRole("region", { name: "Now making English subtitles" });
+    expect(now).toHaveTextContent("Starfall Academy · S01E05");
+    expect(now).toHaveTextContent("from the Japanese sound · Best");
+    expect(within(now).getByRole("listitem", { current: "step" })).toHaveTextContent(
+      "Listen and translate",
+    );
+    expect(now).toHaveTextContent("42% · 3 min left");
+    expect(now).toHaveTextContent("10:08 of 24:13 heard");
+    const next = screen.getByRole("region", { name: "Up next" });
+    expect(next).toHaveTextContent("English subs · Best");
+    expect(next).toHaveTextContent("Waiting for its speech model");
+    expect(next).toHaveTextContent("Best"); // the conversion after them
+  });
+
+  it("offers the speech model subtitles wait for, saying why its download didn't finish", async () => {
+    const whisper = {
+      id: "speech-best",
+      name: "Whisper medium",
+      version: "fp16 d397824",
+      purpose: "OpenAI's speech model, for English subtitles at Best.",
+      licence: "MIT",
+      size: 1_530_853_088,
+      when: "asked",
+      state: "failed",
+      done: 0,
+      problem: "The download stopped: the connection was reset.",
+    };
+    const fetch = fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        queued: [job(6, { kind: "subtitles", method: "best", modelMissing: true })],
+      },
+      "/tools": [whisper],
+      "POST /tools/speech-best/download": { ...whisper, state: "downloading", problem: null },
+    });
+    renderQueue();
+
+    const card = await screen.findByRole("status", { name: "Speech model" });
+    expect(card).toHaveTextContent("English subtitles wait for their speech model.");
+    expect(card).toHaveTextContent("Whisper medium · 1.5 GB · MIT licence");
+    expect(card).toHaveTextContent("The download stopped: the connection was reset.");
+    expect(screen.getByRole("region", { name: "Waiting" })).toHaveTextContent(
+      "English subtitles start once their speech model is on this PC.",
+    );
+    fireEvent.click(within(card).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(sent(fetch, "POST", "/tools/speech-best/download")).toHaveLength(1));
+  });
+
+  it("says why subtitles couldn't be made, and offers to try again but not to mark it broken", async () => {
+    const fetch = fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        queued: [],
+        today: [
+          job(9, {
+            state: "failed",
+            kind: "subtitles",
+            label: "Starfall Academy · S01E09",
+            problem: "ffmpeg couldn't read its sound (invalid data).",
+            log: "[aac @ 0] Error decoding: invalid data",
+            finishedAt: "2026-10-11T12:00:00+02:00",
+          }),
+        ],
+      },
+      "POST /queue/9/retry": null,
+    });
+    renderQueue();
+
+    const failed = await screen.findByRole("alert");
+    expect(failed).toHaveTextContent(
+      "No English subtitles for Starfall Academy · S01E09. ffmpeg couldn't read its sound (invalid data). The video is as it was.",
+    );
+    expect(failed).toHaveTextContent("Error decoding: invalid data");
+    expect(
+      within(failed).queryByRole("button", { name: "Mark as broken" }),
+    ).not.toBeInTheDocument();
+    within(failed).getByRole("button", { name: "Try again" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/9/retry")).toHaveLength(1));
   });
 
   it("pauses everything, by the button or the space bar", async () => {

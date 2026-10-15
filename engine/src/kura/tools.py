@@ -1,9 +1,12 @@
-"""The tools Kura downloads on first run, as listed in downloads.json: today, ffmpeg.
+"""The tools Kura downloads, as listed in downloads.json: ffmpeg on first run, and Whisper's
+speech models the first time the owner makes subtitles at their quality.
 
-A download is used only when its size and SHA-256 match the list. It is unpacked into the data
-folder's tools folder, replacing an older build, keeping only the listed folder of the archive.
-Downloads run on a background thread and say how far they are. In development,
-KURA_FFMPEG_DIR can point at an ffmpeg that's already on the PC instead.
+A download is used only when its size and SHA-256 match the list. An archive is unpacked into
+the data folder's tools folder, replacing an older build, keeping only the listed folder of the
+archive; a download that comes as several files (a model's) is saved there file by file, each
+checked, a file fetched whole already kept when a download starts again. Downloads run on a
+background thread and say how far they are. In development, KURA_FFMPEG_DIR (or
+KURA_SPEECH_BEST_DIR, and so on) can point at a copy that's already on the PC instead.
 """
 
 import errno
@@ -20,7 +23,7 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path, PurePosixPath
 from types import TracebackType
-from typing import Literal, Protocol, Self, cast
+from typing import Any, Literal, Protocol, Self, cast
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -33,6 +36,16 @@ _MARKER = "kura-download.json"  # which build is unpacked, to notice when the li
 
 
 @dataclass(frozen=True)
+class File:
+    """One file of a download that comes as several, saved as `name` in the tool's folder."""
+
+    name: str
+    url: str
+    size: int
+    sha256: str
+
+
+@dataclass(frozen=True)
 class Download:
     """One entry of downloads.json."""
 
@@ -42,17 +55,28 @@ class Download:
     purpose: str
     licence: str
     home: str
-    url: str
-    size: int | None
+    url: str | None  # an archive's address; None for a download that comes as `files`
+    size: int | None  # in all
     sha256: str | None
     keep: str | None  # the folder inside the archive that Kura keeps
-    by: Literal["kura", "installer"]  # who fetches it: Kura on first run, or the installer
+    by: Literal["kura", "installer"]  # who fetches it: Kura, or the installer
+    # When Kura fetches it: on the setup's Tools step, or the first time the owner asks for
+    # what needs it.
+    when: Literal["setup", "asked"] = "setup"
+    files: tuple[File, ...] = ()
 
 
 def manifest() -> tuple[Download, ...]:
     """Everything Kura downloads to a PC, in the order the installer lists it."""
     text = resources.files("kura").joinpath("downloads.json").read_text(encoding="utf-8")
-    return tuple(Download(**item) for item in json.loads(text)["downloads"])
+    items: list[dict[str, Any]] = json.loads(text)["downloads"]
+    return tuple(_entry(item) for item in items)
+
+
+def _entry(item: dict[str, Any]) -> Download:
+    """One entry of the list, with its files when it comes as several."""
+    listed = {key: value for key, value in item.items() if key != "files"}
+    return Download(**listed, files=tuple(File(**each) for each in item.get("files", [])))
 
 
 type State = Literal["missing", "downloading", "unpacking", "ready", "failed"]
@@ -134,6 +158,13 @@ class Tools:
         if thread := self._threads.get(tool):
             thread.join(timeout)
 
+    def folder(self, tool: str) -> Path | None:
+        """Where a tool's files are, once it's ready: `folder("speech-best")`."""
+        item = self._items[tool]
+        if (override := self._override(item)) is not None:
+            return override
+        return self._folder(item) if self._installed(item) else None
+
     def path(self, program: str) -> Path | None:
         """Where one of the tools' programs is, once its tool is ready: `path("ffprobe")`."""
         for item in self._items.values():
@@ -178,13 +209,13 @@ class Tools:
             files: object = marker["files"]
         except OSError, ValueError, KeyError, TypeError:
             return False
-        if sha256 != item.sha256 or not isinstance(files, list):
+        if sha256 != _identity(item) or not isinstance(files, list):
             return False
         return all((folder / str(name)).is_file() for name in cast(list[object], files))
 
     @staticmethod
     def _override(item: Download) -> Path | None:
-        folder = os.environ.get(f"KURA_{item.id.upper()}_DIR")
+        folder = os.environ.get(f"KURA_{item.id.upper().replace('-', '_')}_DIR")
         return Path(folder) if folder and Path(folder).is_dir() else None
 
     def _set(self, item: Download, state: State, done: int = 0, problem: str | None = None) -> None:
@@ -193,12 +224,15 @@ class Tools:
 
     def _download(self, item: Download) -> None:
         try:
-            archive = self._fetch_checked(item)
-            try:
-                self._set(item, "unpacking", item.size or 0)
-                self._unpack(item, archive)
-            finally:
-                archive.unlink(missing_ok=True)
+            if item.files:
+                self._fetch_files(item)
+            else:
+                archive = self._fetch_checked(item)
+                try:
+                    self._set(item, "unpacking", item.size or 0)
+                    self._unpack(item, archive)
+                finally:
+                    archive.unlink(missing_ok=True)
         except DownloadError as error:
             self._set(item, "failed", problem=str(error))
         except URLError as error:
@@ -219,7 +253,49 @@ class Tools:
                 self._progress.pop(item.id, None)
             log.info("Downloaded %s %s", item.name, item.version)
 
+    def _fetch_files(self, item: Download) -> None:
+        """A download that comes as several files: each fetched into a folder beside the tools'
+        own and checked, then the folder takes the tool's place. A file fetched whole before (a
+        download cut short, then started again) is kept."""
+        staging = self._paths.tools / f"{item.id}.downloading"
+        staging.mkdir(parents=True, exist_ok=True)
+        done = 0
+        for each in item.files:
+            target = staging / each.name
+            if not _whole(target, each):
+                self._fetch_file(item, each, target, done)
+            done += each.size
+            self._set(item, "downloading", done)
+        marker = {"version": item.version, "sha256": _identity(item), "files": _names(item)}
+        (staging / _MARKER).write_text(json.dumps(marker), encoding="utf-8")
+        final = self._folder(item)
+        shutil.rmtree(final, ignore_errors=True)
+        staging.rename(final)
+
+    def _fetch_file(self, item: Download, each: File, target: Path, before: int) -> None:
+        part = target.with_name(f"{target.name}.part")
+        digest = hashlib.sha256()
+        done = 0
+        try:
+            with self._fetch(each.url) as response, part.open("wb") as out:
+                while chunk := _read(response):
+                    out.write(chunk)
+                    digest.update(chunk)
+                    done += len(chunk)
+                    self._set(item, "downloading", before + done)
+            if done != each.size or digest.hexdigest() != each.sha256:
+                raise DownloadError(
+                    f"The {item.name} download didn't match what Kura expects, so Kura didn't "
+                    "use it. Try again; if it happens again, the file online has changed."
+                )
+            part.replace(target)
+        except BaseException:
+            part.unlink(missing_ok=True)
+            raise
+
     def _fetch_checked(self, item: Download) -> Path:
+        if item.url is None:
+            raise DownloadError(f"The list doesn't say where to get {item.name}.")
         self._paths.tools.mkdir(parents=True, exist_ok=True)
         part = self._paths.tools / f"{item.id}.download"
         digest = hashlib.sha256()
@@ -271,6 +347,31 @@ class Tools:
         except BaseException:
             shutil.rmtree(staging, ignore_errors=True)
             raise
+
+
+def _identity(item: Download) -> str | None:
+    """What says which build of a tool is unpacked: its archive's SHA-256, or its files'."""
+    if item.files:
+        return hashlib.sha256(" ".join(each.sha256 for each in item.files).encode()).hexdigest()
+    return item.sha256
+
+
+def _names(item: Download) -> list[str]:
+    return [each.name for each in item.files]
+
+
+def _whole(target: Path, each: File) -> bool:
+    """A file fetched before, whole and as listed."""
+    try:
+        if target.stat().st_size != each.size:
+            return False
+        digest = hashlib.sha256()
+        with target.open("rb") as file:
+            while chunk := file.read(_CHUNK):
+                digest.update(chunk)
+    except OSError:
+        return False
+    return digest.hexdigest() == each.sha256
 
 
 def _read(response: Response) -> bytes:

@@ -20,7 +20,9 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
   const save = useSaveSettings();
   const scan = useScanAction();
   const navigate = useNavigate();
-  const ready = tools.data?.every((tool) => tool.state === "ready") ?? false;
+  // The speech models come the first time subtitles are asked for, not now.
+  const needed = tools.data?.filter((tool) => tool.when === "setup");
+  const ready = needed?.every((tool) => tool.state === "ready") ?? false;
 
   function startScan() {
     if (!stored.data) return;
@@ -40,7 +42,7 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
       intro="Kura fetches these once, checks each one against the list it ships with, and keeps them in its data folder."
     >
       <ul className="flex flex-col gap-3">
-        {tools.data?.map((tool) => (
+        {needed?.map((tool) => (
           <li key={tool.id}>
             <ToolRow tool={tool} />
           </li>

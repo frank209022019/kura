@@ -129,6 +129,8 @@ class PlanDone(ApiModel):
     undone: int
     deleted: bool  # the owner deleted these videos: they went to quarantine
     conversion: Conversion | None  # for a conversion: what the file became
+    # English subtitles Kura made, taken away: those set aside and still there to put back.
+    taken_away: int
 
 
 class ScanDone(ApiModel):
@@ -142,9 +144,25 @@ class ScanDone(ApiModel):
     gone: int | None  # videos it found gone
 
 
+class SubtitlesDone(ApiModel):
+    """A batch of English subtitles the owner asked for at once."""
+
+    id: int
+    title: str  # what they're for: "Starfall Academy · Season 1"
+    quality: Literal["best", "fast"]
+    language: str  # the sound they're made from: "jpn"
+    made_at: str  # when the latest of them was over
+    made: int  # videos that got them
+    quiet: int  # videos where no one speaks: none were made
+    failed: int  # videos they couldn't be made for
+    waiting: int  # videos still in the queue for them
+    present: int  # of those made, how many are there now as Kura wrote them
+
+
 class History(ApiModel):
     plans: list[PlanDone]  # newest first
     scans: list[ScanDone]  # newest first
+    subtitles: list[SubtitlesDone]  # newest first
     older: str | None = None  # the day the next page starts before ("2026-10-07"); None: no more
 
 
@@ -154,7 +172,7 @@ class ClearHistory(ApiModel):
 
 
 class Cleared(ApiModel):
-    cleared: int  # tidy-ups, conversions and scans forgotten
+    cleared: int  # tidy-ups, conversions, batches of subtitles and scans forgotten
 
 
 KEEPS = {
@@ -256,12 +274,13 @@ Day = Annotated[str | None, Query(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 @router.get("/history")
 def what_kura_did(conn: Database, before: Day = None) -> History:
     """What Kura did on its latest days with anything on them (a week's worth), newest first:
-    each tidy-up applied, each conversion and each scan. `before` ("2026-10-07", the page's
-    `older`) asks for the days before that one."""
+    each tidy-up applied, each conversion, each batch of subtitles made and each scan.
+    `before` ("2026-10-07", the page's `older`) asks for the days before that one."""
     found = history.page(conn, before=before)
     return History(
         plans=[PlanDone.model_validate(asdict(plan)) for plan in found.plans],
         scans=[ScanDone.model_validate(scan.__dict__) for scan in found.scans],
+        subtitles=[SubtitlesDone.model_validate(made.__dict__) for made in found.subtitles],
         older=found.older,
     )
 

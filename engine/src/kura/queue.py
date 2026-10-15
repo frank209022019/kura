@@ -1,28 +1,31 @@
-"""The conversion queue: the files waiting to be converted, in the owner's order, and the worker
-that converts them one at a time on a background thread (kura/convert.py converts each).
+"""The queue: the files waiting to be converted, or to have English subtitles made, in the owner's
+order, and the worker that works on them one at a time on a background thread (kura/convert.py
+converts each; kura/subtitles.py makes subtitles). Both use the graphics card, so one waits for the
+other. Whisper stays loaded while subtitles follow subtitles, and is let go before a conversion and
+once nothing waits.
 
-Jobs live in the jobs table (migration 6): queued, running, replacing (the result taking its
-original's place), then done, failed, skipped or restored. The worker takes the first queued job
-while the queue isn't paused, and on the nights-only schedule only between 23:00 and 07:00 (a
-file started before 07:00 finishes), or till 03:00 on a night the owner says to stop then
-(`stop_early`). Pausing or skipping stops a file being made at once (ffmpeg
-is stopped, and the original is as it was); paused, the file is first in line again and starts
-over when the queue resumes. An exit does the same. A file made already is checked and put in
-place though the queue pauses, and thrown away when it's skipped. A file whose drive isn't
-connected waits while the others go; a drive without room for a result pauses the queue, saying
-what its files need (`Room`), till the owner makes room (emptying its quarantine, say) or says to
-convert what fits (`convert_what_fits`): then a file there that doesn't fit waits for room while
-the others go, till none waits there. While a result takes its original's place no scan runs
-(Scanner.hold): the worker waits for one that's running. While a file converts, Windows doesn't
-put the PC to sleep. After a crash, `recover` puts a job that was converting back in line and
-settles one whose result was taking its original's place. Once nothing waits, the app is told
-what the batch came to, and it's told when the queue pauses itself: a Windows notification while
-Kura is in the tray.
+Jobs live in the jobs table (migration 6; subtitles since 20): queued, running, replacing (a
+conversion's result taking its original's place), then done, failed, skipped or restored. Subtitles
+at a quality whose speech model isn't downloaded wait for it while the others go. The worker takes
+the first queued job while the queue isn't paused, and on the nights-only schedule only between
+23:00 and 07:00 (a file started before 07:00 finishes), or till 03:00 on a night the owner says to
+stop then (`stop_early`). Pausing or skipping stops a file being made at once (ffmpeg is stopped,
+and the original is as it was); paused, the file is first in line again and starts over when the
+queue resumes. An exit does the same. A file made already is checked and put in place though the
+queue pauses, and thrown away when it's skipped. A file whose drive isn't connected waits while the
+others go; a drive without room for a result pauses the queue, saying what its files need (`Room`),
+till the owner makes room (emptying its quarantine, say) or says to convert what fits
+(`convert_what_fits`): then a file there that doesn't fit waits for room while the others go, till
+none waits there. While a result takes its original's place no scan runs (Scanner.hold): the worker
+waits for one that's running. While a file converts, Windows doesn't put the PC to sleep. After a
+crash, `recover` puts a job that was converting back in line and settles one whose result was taking
+its original's place. Once nothing waits, the app is told what the batch came to, and it's told when
+the queue pauses itself: a Windows notification while Kura is in the tray.
 
-When another app has an original open as its result is ready (a player playing it), the result
-waits beside it and the next file goes. A second thread puts such results in place, five minutes
-after each try or at once when the owner asks (`retry`), though another file is converting:
-`try_waiting`. Skipping the file, or taking it out of the queue, throws its result away.
+When another app has an original open as its result is ready (a player playing it), the result waits
+beside it and the next file goes. A second thread puts such results in place, five minutes after
+each try or at once when the owner asks (`retry`), though another file is converting: `try_waiting`.
+Skipping the file, or taking it out of the queue, throws its result away.
 """
 
 import ctypes
@@ -66,9 +69,10 @@ from kura.convert import (
     throw_away_kept,
     work_of,
 )
-from kura.core.estimate import estimate
+from kura.core.estimate import estimate, hearing
 from kura.core.library import drive_of
 from kura.core.media import media_from_ffprobe
+from kura.core.speech import Heard, Hearing
 from kura.core.standard import Method, Standard, decide
 from kura.events import Notify
 from kura.preferences import library_standard, originals_deleted
@@ -76,13 +80,19 @@ from kura.probe import probe
 from kura.quarantine import set_aside_by_drive
 from kura.recovery import Recovery
 from kura.scan import ScanBusyError, Scanner
+from kura.speech import MODELS, SpeechError
+from kura.subtitles import SubtitlesError, new_batch, track_for, unfinished
+from kura.subtitles import make as make_subtitles
 from kura.tools import Tools
 from kura.upscale import MODEL, model
 
 log = logging.getLogger(__name__)
 
 type JobState = Literal["queued", "running", "replacing", "done", "failed", "skipped", "restored"]
-type Stage = Literal["looking", "converting", "checking", "replacing"]
+type Stage = Literal[
+    "looking", "converting", "checking", "replacing", "reading", "listening", "writing"
+]
+type Kind = Literal["convert", "subtitles"]
 type Schedule = Literal["now", "nights"]  # convert whenever files wait, or only at night
 
 _IDLE = 30.0  # seconds the worker rests with nothing to do; adding or resuming wakes it at once
@@ -127,6 +137,9 @@ class Job:
     retry_at: str | None = None
     log: str | None = None  # what ffmpeg said, when a conversion failed
     no_room: bool = False  # waiting for room on its drive while the others go
+    kind: Kind = "convert"  # a conversion, or English subtitles (`method`: their quality)
+    language: str | None = None  # subtitles: the sound they're made from ("jpn"; "" unsaid)
+    model_missing: bool = False  # subtitles waiting for their speech model to download
 
 
 @dataclass(frozen=True)
@@ -144,7 +157,8 @@ class Room:
 
 @dataclass(frozen=True)
 class Running:
-    """The job converting now, and how it's going."""
+    """The job running now, and how it's going: frames converted, or for subtitles, seconds of
+    the video heard."""
 
     job: Job
     stage: Stage
@@ -204,6 +218,9 @@ class Queue:
         self._stop_for: Literal["pause", "skip"] | None = None
         self._progress: Progress | None = None
         self._frames: deque[tuple[float, int]] = deque()  # (when, frames done) while converting
+        self._speech: Heard | None = None  # how far the subtitles being made have got
+        self._hearing: tuple[float, float] | None = None  # (when, seconds heard) as they began
+        self._listener: tuple[Path, Hearing] | None = None  # Whisper, loaded from that folder
         self._problem: str | None = None
         # The room files were found to want as converting began, more than the queue reckoned
         # (a picture found interlaced is made anew rather than copied), and what it reckoned
@@ -234,16 +251,17 @@ class Queue:
         read = programs.read if programs else None
         with closing(db.connect(self._paths.database)) as conn:
             running = conn.execute(
-                """SELECT f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+                """SELECT j.kind, f.path FROM jobs AS j JOIN files AS f ON f.id = j.file_id
                    WHERE j.state = 'running'"""
             ).fetchall()
             for row in running:
                 path = Path(row["path"])
-                unfinished = work_of(path)
-                try:
-                    unfinished.unlink(missing_ok=True)
-                except OSError:  # still open: converting the file again takes it away
-                    log.warning("Couldn't remove %s", unfinished)
+                left = unfinished(path) if row["kind"] == "subtitles" else [work_of(path)]
+                for each in left:
+                    try:
+                        each.unlink(missing_ok=True)
+                    except OSError:  # still open: working on the file again takes it away
+                        log.warning("Couldn't remove %s", each)
             with conn:
                 conn.execute(
                     "UPDATE jobs SET state = 'queued', started_at = NULL WHERE state = 'running'"
@@ -279,7 +297,8 @@ class Queue:
             waiting = {
                 row[0]
                 for row in conn.execute(
-                    "SELECT file_id FROM jobs WHERE state IN ('queued', 'running', 'replacing')"
+                    """SELECT file_id FROM jobs
+                       WHERE state IN ('queued', 'running', 'replacing') AND kind = 'convert'"""
                 )
             }
             last: int = conn.execute("SELECT COALESCE(MAX(position), 0) FROM jobs").fetchone()[0]
@@ -300,6 +319,58 @@ class Queue:
                     (file_id, lighter(decided, method or decided).value, last, stamp),
                 )
                 added += 1
+        self._wake.set()
+        return added
+
+    def add_subtitles(
+        self, file_ids: Iterable[int], quality: str, language: str, title: str
+    ) -> int:
+        """Puts videos at the end of the queue for English subtitles at `quality` ("best"), made
+        from their sound in `language` ("jpn"; a video without it, from its first), as one
+        batch History calls `title`. A video waiting for them already, or one without sound, is
+        passed over. Returns how many joined."""
+        stamp = self._now()
+        added = 0
+        with self._lock, closing(db.connect(self._paths.database)) as conn:
+            waiting = {
+                row[0]
+                for row in conn.execute(
+                    """SELECT file_id FROM jobs
+                       WHERE state IN ('queued', 'running') AND kind = 'subtitles'"""
+                )
+            }
+            chosen = "fast" if quality == "fast" else "best"
+            batch = new_batch(conn, title, chosen, language, now=stamp)
+            with conn:
+                last: int = conn.execute("SELECT COALESCE(MAX(position), 0) FROM jobs").fetchone()[
+                    0
+                ]
+                for file_id in dict.fromkeys(file_ids):
+                    row = conn.execute(
+                        """SELECT sound FROM files
+                           WHERE id = ? AND gone_at IS NULL AND problem IS NULL""",
+                        (file_id,),
+                    ).fetchone()
+                    sound = _languages(row["sound"]) if row else []
+                    if file_id in waiting or not sound:
+                        continue
+                    last += 1
+                    conn.execute(
+                        """INSERT INTO jobs (file_id, kind, method, sound, batch_id, position,
+                                             added_at)
+                           VALUES (?, 'subtitles', ?, ?, ?, ?, ?)""",
+                        (
+                            file_id,
+                            chosen,
+                            track_for(sound, language),
+                            batch,
+                            last,
+                            stamp.isoformat(),
+                        ),
+                    )
+                    added += 1
+                if not added:
+                    conn.execute("DELETE FROM subtitle_batches WHERE id = ?", (batch,))
         self._wake.set()
         return added
 
@@ -434,8 +505,9 @@ class Queue:
         return cancelled
 
     def retry(self, job_id: int) -> None:
-        """A failed or skipped file goes back in the queue, last. One made and waiting for its
-        original to be free is tried again now. One marked broken is passed over: it's broken."""
+        """A failed or skipped file goes back in the queue, last, unless it waits there for the
+        same again already. One made and waiting for its original to be free is tried again now.
+        One marked broken is passed over: it's broken."""
         with closing(db.connect(self._paths.database)) as conn, conn:
             due = conn.execute(
                 """UPDATE jobs SET retry_at = ?
@@ -445,6 +517,14 @@ class Queue:
             if due:
                 self._try_now.set()
                 return
+            if conn.execute(
+                """SELECT 1 FROM jobs AS j JOIN jobs AS other
+                       ON other.file_id = j.file_id AND other.kind = j.kind AND other.id != j.id
+                   WHERE j.id = ? AND j.state IN ('failed', 'skipped')
+                     AND other.state IN ('queued', 'running', 'replacing')""",
+                (job_id,),
+            ).fetchone():
+                return  # asked for again meanwhile: it waits in the queue already
             last: int = conn.execute("SELECT COALESCE(MAX(position), 0) FROM jobs").fetchone()[0]
             again = conn.execute(
                 """UPDATE jobs SET state = 'queued', position = ?, problem = NULL, log = NULL,
@@ -502,7 +582,10 @@ class Queue:
             unmade = [
                 row
                 for row in rows
-                if row["state"] == "queued" and row["retry_at"] is None and connected(row["root"])
+                if row["state"] == "queued"
+                and row["retry_at"] is None
+                and row["kind"] == "convert"
+                and connected(row["root"])
             ]
             held = short if paused and isinstance(short, str) else None
             # Paused by the owner, or waiting for the night, files waiting for room don't say
@@ -517,23 +600,32 @@ class Queue:
                 found = set_aside_by_drive(conn)
                 aside = next((n for d, n in found.items() if _among(d, [room.drive])), 0)
                 room = replace(room, set_aside=aside)
+        programs = self._programs()
+        ready = {
+            quality: programs is not None and programs.speech(quality) is not None
+            for quality in MODELS
+        }
         jobs = [
             replace(
                 _job(row, standard),
                 drive_missing=not connected(row["root"]),
                 no_room=row["id"] in no_room,
+                model_missing=row["kind"] == "subtitles" and not ready.get(row["method"], False),
             )
             if row["state"] == "queued"
             else _job(row, standard)
             for row in rows
         ]
         with self._lock:
-            progress, running_id = self._progress, self._job_id
-            fps = self._fps()
+            progress, heard, running_id = self._progress, self._speech, self._job_id
+            fps, left = self._fps(), self._hearing_left()
         running: Running | None = None
         for job in jobs:  # the worker's file, before one that waited going in meanwhile
             if job.state in ("running", "replacing") and (running is None or job.id == running_id):
-                running = self._running(job, progress if job.id == running_id else None, fps)
+                if job.kind == "subtitles":
+                    running = _hearing_now(job, heard if job.id == running_id else None, left)
+                else:
+                    running = self._running(job, progress if job.id == running_id else None, fps)
         queued = tuple(job for job in jobs if job.state == "queued")
         today = sorted(
             (job for job in jobs if job.finished_at is not None and job.state != "queued"),
@@ -579,14 +671,14 @@ class Queue:
             with self._lock:
                 connected, free = _Drives(), _Free()
                 waiting = conn.execute(
-                    """SELECT j.id, j.added_at, j.method, f.path, f.probe, d.path AS root
+                    """SELECT j.id, j.kind, j.added_at, j.method, f.path, f.probe, d.path AS root
                        FROM jobs AS j
                        JOIN files AS f ON f.id = j.file_id
                        JOIN folders AS d ON d.id = f.folder_id
                        WHERE j.state = 'queued' AND j.retry_at IS NULL
                        ORDER BY j.position, j.id"""
                 ).fetchall()
-                fitting = _still_fitting(conn, waiting)
+                fitting = _still_fitting(conn, [job for job in waiting if job["kind"] == "convert"])
                 standard = library_standard(conn)
                 keys = {(job["id"], job["added_at"]) for job in waiting}
                 self._needs = {key: need for key, need in self._needs.items() if key in keys}
@@ -594,6 +686,8 @@ class Queue:
                 def goes(job: sqlite3.Row) -> bool:
                     if not connected(job["root"]):
                         return False
+                    if job["kind"] == "subtitles":  # they want next to no room, but their model
+                        return programs.speech(job["method"]) is not None
                     if not _among(drive_of(job["path"]), fitting):
                         return True  # converting checks for room, and pauses without it
                     room = free(str(Path(job["path"]).parent))  # where converting measures
@@ -612,8 +706,14 @@ class Queue:
                 if row is None:
                     return False
                 self._job_id, self._stop_for, self._progress = row["id"], None, None
+                self._speech, self._hearing = None, None
                 self._frames.clear()
-            self._work(conn, row["id"], programs)
+            kind = next(job["kind"] for job in waiting if job["id"] == row["id"])
+            if kind == "subtitles":
+                self._make(conn, row["id"], programs)
+            else:
+                self._listener = None  # the card's memory goes to the conversion
+                self._work(conn, row["id"], programs)
         return True
 
     def _work(self, conn: sqlite3.Connection, job_id: int, programs: Programs) -> None:
@@ -652,6 +752,45 @@ class Queue:
                 self._job_id, self._stop_for, self._progress = None, None, None
         self._noted(conn, job_id)
 
+    def _make(self, conn: sqlite3.Connection, job_id: int, programs: Programs) -> None:
+        quality = conn.execute("SELECT method FROM jobs WHERE id = ?", (job_id,)).fetchone()[0]
+        try:
+            with _awake():
+                make_subtitles(
+                    conn,
+                    job_id,
+                    programs,
+                    self._whisper(programs, quality),
+                    now=self._now,
+                    report=self._heard_speech,
+                    stop=self._stop_asked,
+                )
+        except Stopped:
+            self._stopped(conn, job_id)
+        except SubtitlesError as error:
+            self._finished(conn, job_id, "failed", str(error), error.log)
+        except SpeechError as error:  # Whisper couldn't load
+            self._listener = None
+            self._finished(conn, job_id, "failed", str(error), error.log)
+        except Exception:
+            log.exception("Making subtitles for job %d hit a problem", job_id)
+            self._listener = None  # loaded anew for the next: the card may have gone meanwhile
+            self._finished(conn, job_id, "failed", "Kura hit a problem making its subtitles.")
+        finally:
+            with self._lock:
+                self._job_id, self._stop_for, self._speech = None, None, None
+        self._noted(conn, job_id)
+
+    def _whisper(self, programs: Programs, quality: str) -> Hearing:
+        """Whisper at this quality, loaded once while subtitles follow subtitles."""
+        folder = programs.speech(quality)
+        if folder is None:
+            raise SubtitlesError("Kura needs its speech model first: download it, then try again.")
+        if self._listener is None or self._listener[0] != folder:
+            self._listener = None  # one at a time on the card
+            self._listener = (folder, programs.listener(folder))
+        return self._listener[1]
+
     def _found_wanting(self, conn: sqlite3.Connection, job_id: int, needed: int) -> None:
         """Remembers the room a file was found to want as converting began, though the queue
         reckoned less: till the reckoning changes (another standard, say), or it leaves."""
@@ -673,15 +812,12 @@ class Queue:
             row = conn.execute("SELECT state FROM jobs WHERE id = ?", (job_id,)).fetchone()
             if row is not None and row["state"] in ("done", "failed"):
                 self._batch.append(job_id)
-            waiting = conn.execute(
-                "SELECT 1 FROM jobs WHERE state IN ('queued', 'running', 'replacing') LIMIT 1"
-            ).fetchone()
-            if waiting is not None or not self._batch:
+            if self._going_on(conn) or not self._batch:
                 return
             marks = ", ".join("?" * len(self._batch))
             rows = conn.execute(
-                f"""SELECT j.state, j.source_size, j.output_size, f.season, f.episode,
-                           f.title_id, t.name AS title
+                f"""SELECT j.state, j.kind, j.problem, j.source_size, j.output_size, f.season,
+                           f.episode, f.title_id, t.name AS title
                     FROM jobs AS j JOIN files AS f ON f.id = j.file_id
                     LEFT JOIN titles AS t ON t.id = f.title_id
                     WHERE j.id IN ({marks})""",  # noqa: S608 - only placeholders go in
@@ -690,6 +826,18 @@ class Queue:
             self._batch.clear()
         title, body, link = _told(rows)
         self._notify(title, body, link=link)
+
+    def _going_on(self, conn: sqlite3.Connection) -> bool:
+        """Whether a job in the queue is still to go: subtitles waiting for a speech model
+        that isn't on this PC don't count, so what's done is told meanwhile."""
+        programs = self._programs()
+        return any(
+            row["kind"] != "subtitles"
+            or (programs is not None and programs.speech(row["method"]) is not None)
+            for row in conn.execute(
+                "SELECT kind, method FROM jobs WHERE state IN ('queued', 'running', 'replacing')"
+            )
+        )
 
     def try_waiting(self) -> bool:
         """Puts in place each result waiting beside its original for another app to let go of
@@ -798,6 +946,25 @@ class Queue:
                 while self._frames and moment - self._frames[0][0] > _SPEED_WINDOW:
                     self._frames.popleft()
 
+    def _heard_speech(self, heard: Heard) -> None:
+        with self._lock:
+            self._speech = heard
+            if heard.stage == "listening" and self._hearing is None:
+                self._hearing = (self._clock(), heard.done)
+
+    def _hearing_left(self) -> float | None:
+        """Seconds the subtitles being made want still, at the pace they've been heard."""
+        heard, began = self._speech, self._hearing
+        if heard is not None and heard.stage in ("writing", "checking"):
+            return 0.0
+        if heard is None or began is None or heard.stage != "listening":
+            return None
+        moment, start = began
+        pace = (heard.done - start) / max(self._clock() - moment, 1e-6)
+        if pace <= 0:
+            return None
+        return max(heard.total - heard.done, 0.0) / pace
+
     def _fps(self) -> float | None:
         """Frames a second over the last ten minutes, once there's a second of them."""
         if len(self._frames) < 2:
@@ -854,6 +1021,7 @@ class Queue:
                 log.exception("The conversion queue hit a problem")
                 worked = False
             if not worked:
+                self._listener = None  # nothing to hear: the card's memory goes back
                 self._wake.wait(_IDLE)
                 self._wake.clear()
 
@@ -870,7 +1038,53 @@ class Queue:
 def _told(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
     """What a finished batch is called, what it came to, and where to see it: "Dragon Ball Z,
     season 1 is done", "39 episodes · all checked · 9.1 GB → 17.5 GB", its title's page (or
-    History, for several titles')."""
+    History, for several titles'). Subtitles alone say what they came to; with conversions,
+    they're counted after them."""
+    made = [row for row in rows if row["kind"] == "subtitles"]
+    converted = [row for row in rows if row["kind"] != "subtitles"]
+    if made and not converted:
+        return _told_subtitles(made)
+    title, words, link = _told_conversions(converted)
+    done = sum(1 for row in made if row["state"] == "done" and row["problem"] is None)
+    if done:
+        words += f" · English subtitles for {done}"
+        if {row["title_id"] for row in made} - {row["title_id"] for row in converted}:
+            link = "/history"  # they're for another title too
+    return title, words, link
+
+
+def _told_subtitles(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
+    """ "Starfall Academy, season 1 has English subtitles", "37 episodes · made from their
+    sound", its title's page (or History, for several titles'). A batch that made none says so:
+    "No English subtitles for Starfall Academy, season 1", "2 couldn't be made"."""
+    titles = {row["title_id"] for row in rows}
+    seasons = {row["season"] for row in rows}
+    name = rows[0]["title"]
+    where: str | None = None
+    if len(titles) == 1 and name and len(seasons) == 1 and None not in seasons:
+        season = rows[0]["season"]
+        where = f"{name}, season {season}" if season else f"{name}, the specials"
+    elif len(titles) == 1 and name:
+        where = name
+    made = [row for row in rows if row["state"] == "done" and row["problem"] is None]
+    quiet = sum(1 for row in rows if row["state"] == "done" and row["problem"] is not None)
+    failed = len(rows) - len(made) - quiet
+    if made:
+        title = f"{where} has English subtitles" if where else "English subtitles are ready"
+    else:
+        title = f"No English subtitles for {where}" if where else "No English subtitles were made"
+    what = "episode" if all(row["episode"] is not None for row in rows) else "video"
+    parts = [f"{len(made)} {what}{'' if len(made) == 1 else 's'} · made from their sound"]
+    if quiet:
+        parts.append(f"{quiet} with no one speaking")
+    if failed:
+        parts.append(f"{failed} couldn't be made")
+    words = " · ".join(parts if made else parts[1:])
+    [only] = titles if len(titles) == 1 else [None]
+    return title, words, f"/titles/{only}" if only is not None else "/history"
+
+
+def _told_conversions(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
     titles = {row["title_id"] for row in rows}
     seasons = {row["season"] for row in rows}
     name = rows[0]["title"]
@@ -897,8 +1111,9 @@ def _told(rows: list[sqlite3.Row]) -> tuple[str, str, str]:
 
 
 def programs_from(tools: Tools) -> Programs | None:
-    """What converting runs: Kura's ffmpeg and ffprobe (None until they're downloaded), the AI
-    model and Anime4K's shader, which ship inside Kura."""
+    """What the queue runs: Kura's ffmpeg and ffprobe (None until they're downloaded), the AI
+    model and Anime4K's shader, which ship inside Kura, and the speech models, once
+    downloaded."""
     ffmpeg, ffprobe = tools.path("ffmpeg"), tools.path("ffprobe")
     if ffmpeg is None or ffprobe is None:
         return None
@@ -907,11 +1122,12 @@ def programs_from(tools: Tools) -> Programs | None:
         read=lambda path: probe(ffprobe, path),
         model=lambda width, height: model(width, height, MODEL),
         shader=SHADER,
+        speech=lambda quality: tools.folder(MODELS[quality]) if quality in MODELS else None,
     )
 
 
-_JOBS = """SELECT j.*, f.path, f.probe, f.size, f.season, f.episode, f.title_id,
-                  t.name AS title, d.path AS root
+_JOBS = """SELECT j.*, j.sound AS track, f.path, f.probe, f.size, f.season, f.episode,
+                  f.title_id, f.sound AS languages, t.name AS title, d.path AS root
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            JOIN folders AS d ON d.id = f.folder_id
            LEFT JOIN titles AS t ON t.id = f.title_id"""
@@ -1060,6 +1276,8 @@ class _Drives:
 def _job(row: sqlite3.Row, standard: Standard) -> Job:
     """A job as the queue shows it. One still to finish gets what suits its file, with an
     estimate; a finished one says what it got (its file's record is the result's now)."""
+    if row["kind"] == "subtitles":
+        return _subtitles_job(row)
     method = Method(row["method"])
     gpu_seconds = 0.0
     width = height = None
@@ -1094,6 +1312,53 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
         retry_at=row["retry_at"],
         log=row["log"] if row["state"] == "failed" else None,
     )
+
+
+def _subtitles_job(row: sqlite3.Row) -> Job:
+    """English subtitles as the queue shows them, with how long hearing the video takes."""
+    seconds = 0.0
+    if row["probe"]:
+        seconds = media_from_ffprobe(json.loads(row["probe"])).duration or 0.0
+    sound = _languages(row["languages"])
+    track = row["track"] or 0
+    return Job(
+        id=row["id"],
+        file_id=row["file_id"],
+        path=row["path"],
+        label=label_of(row),
+        title_id=row["title_id"],
+        title=row["title"],
+        season=row["season"],
+        episode=row["episode"],
+        method=Method(row["method"]),
+        state=row["state"],
+        position=row["position"],
+        gpu_seconds=hearing(seconds, row["method"]) if row["state"] in ("queued", "running") else 0,
+        added_at=row["added_at"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+        problem=row["problem"],
+        source_size=row["size"] or 0,
+        output_size=row["output_size"],
+        log=row["log"] if row["state"] == "failed" else None,
+        kind="subtitles",
+        language=sound[track] if track < len(sound) else "",
+    )
+
+
+def _hearing_now(job: Job, heard: Heard | None, left: float | None) -> Running:
+    """Subtitles being made, and how far: seconds of the video heard."""
+    if heard is None:
+        return Running(job, "looking", 0, 0, None, None)
+    return Running(job, heard.stage, round(heard.done), round(heard.total), left, None)
+
+
+def _languages(stored: str | None) -> list[str]:
+    try:
+        found: object = json.loads(stored) if stored else []
+    except ValueError:
+        return []
+    return [str(each) for each in cast("list[object]", found)] if isinstance(found, list) else []
 
 
 def _paused(conn: sqlite3.Connection) -> bool:

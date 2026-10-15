@@ -107,7 +107,22 @@ const LANGUAGES: Record<string, string> = {
 
 export function languages(codes: string[]): string {
   if (codes.length === 0) return "none";
-  return codes.map((code) => LANGUAGES[code] ?? code.toUpperCase()).join(", ");
+  return codes.map(languageName).join(", ");
+}
+
+/** A language as people say it: "Japanese" for "jpn", "English" for "en" or a file's "english",
+ * "unnamed" for a track that doesn't say. */
+export function languageName(code: string): string {
+  const known = LANGUAGES[code];
+  if (known) return known;
+  if (code === "") return LANGUAGES.unknown ?? "unnamed";
+  return code.length > 3 ? code.charAt(0).toUpperCase() + code.slice(1) : code.toUpperCase();
+}
+
+/** English, however a file names it: "eng", "en", "English", "en-US". */
+export function isEnglish(code: string): boolean {
+  const lower = code.toLowerCase();
+  return ["eng", "en", "english"].includes(lower) || /^en[-_]/.test(lower);
 }
 
 export function listed(items: string[]): string {

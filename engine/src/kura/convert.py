@@ -51,10 +51,12 @@ from kura.core.convert import (
 )
 from kura.core.estimate import FILM, estimate
 from kura.core.fields import Json
+from kura.core.languages import track_languages
 from kura.core.library import WORKING, drive_of, work_of
 from kura.core.media import MediaInfo, Video, media_from_ffprobe
 from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
+from kura.core.speech import Hearing
 from kura.core.standard import Decision, Method, Standard, decide, deinterlaced
 from kura.preferences import originals_deleted
 from kura.probe import ProbeError, ProbeToolError
@@ -147,16 +149,29 @@ def start(
     )
 
 
+def _nowhere(_quality: str) -> Path | None:
+    return None
+
+
+def _whisper(folder: Path) -> Hearing:
+    from kura.speech import Listener  # it needs this module first
+
+    return Listener(folder)
+
+
 @dataclass(frozen=True)
 class Programs:
-    """What converting runs: ffmpeg (a command, so tests can stand in for it), ffprobe on a file,
-    the AI model for frames of a size, and Anime4K's shader."""
+    """What the queue runs: ffmpeg (a command, so tests can stand in for it), ffprobe on a file,
+    the AI model for frames of a size, and Anime4K's shader; and for English subtitles, where
+    each quality's speech model is once it's downloaded ("best"), and Whisper loaded from there."""
 
     ffmpeg: Sequence[str]
     read: Callable[[Path], Json]
     model: Callable[[int, int], Upscaler]
     shader: Path
     start: Starter = field(default=start)
+    speech: Callable[[str], Path | None] = field(default=_nowhere)
+    listener: Callable[[Path], Hearing] = field(default=_whisper)
 
 
 def convert(
@@ -769,7 +784,8 @@ def _record(
         conn.execute("DELETE FROM files WHERE path = ? AND id != ?", (str(path), file_id))
         conn.execute(
             """UPDATE files SET path = ?, size = ?, modified = ?, gone_at = NULL, probed_at = ?,
-                      probe = ?, problem = NULL, duration = ?, width = ?, height = ?, codec = ?
+                      probe = ?, problem = NULL, duration = ?, width = ?, height = ?, codec = ?,
+                      sound = ?, subtitles = ?
                WHERE id = ?""",
             (
                 str(path),
@@ -781,6 +797,8 @@ def _record(
                 video.width if video else None,
                 video.height if video else None,
                 video.codec if video else None,
+                json.dumps(track_languages(track.language for track in media.audio)),
+                json.dumps(track_languages(track.language for track in media.subtitles)),
                 file_id,
             ),
         )

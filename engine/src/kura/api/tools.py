@@ -1,4 +1,7 @@
-"""The tools Kura downloads on first run (downloads.json): how each one is, and fetching it."""
+"""The tools Kura downloads (downloads.json): how each one is, and fetching it. ffmpeg comes on
+first run; a speech model the first time the owner makes subtitles at its quality."""
+
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -15,6 +18,8 @@ class Tool(ApiModel):
     purpose: str
     licence: str
     size: int
+    # Fetched on the setup's Tools step, or the first time the owner asks for what needs it.
+    when: Literal["setup", "asked"]
     state: State
     done: int  # bytes downloaded so far
     problem: str | None
@@ -28,6 +33,7 @@ def _tool(item: Download, progress: Progress) -> Tool:
         purpose=item.purpose,
         licence=item.licence,
         size=item.size or 0,
+        when=item.when,
         state=progress.state,
         done=progress.done,
         problem=progress.problem,

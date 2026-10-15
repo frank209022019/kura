@@ -1,0 +1,108 @@
+"""Reading a video's sound for subtitles, and the voice detector that ships inside Kura. Whisper
+itself is a download, so the queue's tests stand in for it."""
+
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+from kura.core.speech import SAMPLE_RATE
+from kura.speech import Detector, Listener, SpeechError, Stopped, sound_of
+from tests.converting import FAKE_FFMPEG
+
+
+def test_a_sound_track_is_read_as_the_models_hear_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("KURA_FAKE_SOUND", "2.5")
+
+    sound = sound_of(FAKE_FFMPEG, tmp_path / "Episode 1.mkv", 1, lambda: False)
+
+    assert sound.dtype == np.float32
+    assert len(sound) == 2.5 * SAMPLE_RATE
+
+
+def test_a_sound_track_that_cant_be_read_says_why(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("KURA_FAKE_FAIL", "sound")
+
+    with pytest.raises(SpeechError, match=r"ffmpeg couldn't read its sound \(.*invalid data"):
+        sound_of(FAKE_FFMPEG, tmp_path / "Episode 1.mkv", 0, lambda: False)
+
+
+def test_reading_the_sound_stops_when_asked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("KURA_FAKE_SOUND", "120")
+
+    with pytest.raises(Stopped):
+        sound_of(FAKE_FFMPEG, tmp_path / "Episode 1.mkv", 0, lambda: True)
+
+
+def test_the_voice_detector_hears_no_one_in_silence_or_a_hum():
+    seconds = np.arange(25 * SAMPLE_RATE, dtype=np.float32) / SAMPLE_RATE
+    hum = 0.1 * np.sin(2 * np.pi * 50 * seconds).astype(np.float32)
+    detector = Detector()
+
+    assert detector.speech(np.zeros(25 * SAMPLE_RATE, np.float32), lambda: False) == []
+    assert detector.speech(hum, lambda: False) == []
+
+
+def test_the_voice_detector_stops_when_asked():
+    with pytest.raises(Stopped):
+        Detector().speech(np.zeros(25 * SAMPLE_RATE, np.float32), lambda: True)
+
+
+class Halves:
+    """Stands in for ONNX Runtime loading Whisper's encoder and decoder: the card runs the halves
+    named in `card`, and the processor the rest. `loads` keeps what was loaded where."""
+
+    def __init__(self, card: set[str]) -> None:
+        self.card = card
+        self.loads: list[tuple[str, bool]] = []
+
+    def __call__(self, path: Path, *, graphics: bool) -> SimpleNamespace:
+        half = path.name.split("_model")[0]
+        self.loads.append((half, graphics))
+        providers = ["CPUExecutionProvider"]
+        if graphics and half in self.card:
+            providers.insert(0, "DmlExecutionProvider")
+        port = SimpleNamespace(name="past_key_values.0.decoder.key", type="tensor(float16)")
+        return SimpleNamespace(
+            get_providers=lambda: providers,
+            get_inputs=lambda: [port],
+            get_outputs=lambda: [SimpleNamespace(name="logits", type="tensor(float16)")],
+        )
+
+
+def whisper_folder(tmp_path: Path) -> Path:
+    files = {
+        "config.json": {"num_mel_bins": 80, "decoder_attention_heads": 2, "d_model": 8},
+        "generation_config.json": {"eos_token_id": 3, "lang_to_id": {"<|ja|>": 1}},
+        "vocab.json": {"a": 0},
+    }
+    for name, content in files.items():
+        (tmp_path / name).write_text(json.dumps(content), encoding="utf-8")
+    for half in ("encoder_model", "decoder_model_merged"):
+        (tmp_path / f"{half}_fp16.onnx").write_bytes(b"")
+    return tmp_path
+
+
+@pytest.mark.parametrize(
+    ("card", "loads"),
+    [
+        ({"encoder", "decoder"}, [("encoder", True), ("decoder", True)]),
+        # The card took the encoder but not the decoder: the encoder goes where the decoder runs.
+        ({"encoder"}, [("encoder", True), ("decoder", True), ("encoder", False)]),
+        # The card took neither: the decoder isn't tried there.
+        (set[str](), [("encoder", True), ("decoder", False)]),
+    ],
+)
+def test_whispers_two_halves_run_in_the_same_place(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, card: set[str], loads: list[tuple[str, bool]]
+):
+    detector, halves = Detector(), Halves(card)
+    monkeypatch.setattr("kura.speech._session", halves)
+
+    Listener(whisper_folder(tmp_path), detector=detector)
+
+    assert halves.loads == loads

@@ -1,0 +1,97 @@
+# Speech: English subtitles from a video's own sound
+
+Kura makes English subtitles for a video that has none by listening to its sound, on this PC:
+Whisper, OpenAI's speech model, hears it and translates it into English (or writes English down
+as it's said, for a dub). It's for videos the owner has the right to keep and watch; Kura never
+downloads subtitles or sound (see CLAUDE.md, "No piracy"). The video itself never changes: the
+subtitles go beside it as `Episode 1.en.srt`, the name media server apps read, or
+`Episode 1.kura.en.srt` when another file has the first.
+
+## The pieces
+
+| Part | What | Where |
+| --- | --- | --- |
+| Reading the sound | ffmpeg makes the chosen sound track 16 kHz mono floats | `kura/speech.py` `sound_of` |
+| Who speaks when | pyannote's segmentation model 3.0, on the processor | `kura/speech.py` `Detector`, `kura/assets/pyannote-segmentation-3.0.onnx` |
+| Hearing | Whisper medium (Best) or small (Fast), on the graphics card | `kura/speech.py` `Listener` |
+| Rules and subtitles | log-mel, Whisper's timestamp rules, temperatures, lines and timing, SRT | `kura/core/speech.py` |
+| A job | the queue's job of kind `subtitles`: read, listen, write, check, record | `kura/subtitles.py`, `kura/queue.py` |
+
+## The models
+
+- **Whisper** (MIT, OpenAI), as [onnx-community](https://huggingface.co/onnx-community)'s ONNX
+  exports in half precision: `whisper-medium-ONNX` (1.53 GB) for Best, `whisper-small` (486 MB)
+  for Fast, each an encoder and a merged decoder with its JSON (config, generation config,
+  vocabulary). They're downloads, listed in `engine/src/kura/downloads.json` file by file, pinned
+  to a commit so a file never changes, each checked by size and SHA-256; Kura fetches one the
+  first time the owner makes subtitles at its quality (`when: "asked"`), never during Setup.
+- **pyannote segmentation 3.0** (MIT): 6 MB, so it ships inside Kura. It says, about every 17 ms,
+  how likely it is that someone speaks, 10 seconds at a time; windows overlap by half and are
+  averaged.
+
+Licences: Whisper's code and weights are MIT; pyannote's model card says MIT, and its notice uses
+pyannote.audio's licence text (CNRS). Both are listed in THIRD-PARTY-NOTICES.txt (the detector)
+and on the installer's first page (the downloads).
+
+## How a video is heard
+
+1. **Where someone speaks.** The detector's likelihood starts a stretch at 0.5 and ends it below
+   0.35; pauses under 0.3 s close, blips under 0.2 s go, and each stretch gets 0.2 s either side.
+2. **Windows.** Stretches are gathered into windows of the sound as it is, at most 30 s each
+   (Whisper hears 30 s at a time), the pauses between them included. Times come straight from a
+   window's start, so a line can't land minutes away from where it's said.
+3. **Whisper hears each window**: the log-mel spectrogram, the encoder, then the decoder a token
+   at a time, keeping Whisper's rules (timestamps in pairs, never back, the first within a
+   second, none past the window's sound; a timestamp when they're likelier together than any
+   word). An answer that loops (text compressing more than 2.4 to 1) or that Whisper is unsure
+   of is tried again warmer (0.2 to 1.0); translating takes less certainty (an average
+   log-probability of -1.5) than writing down (-1.0). Where no one speaks, it says so.
+4. **Lines.** Repeats and lines Whisper invents from nothing ("Thanks for watching") go. A
+   subtitle holds two lines of 42 characters at most, as even as they'll go; a longer line is
+   shared among as few subtitles as hold it, cut at a sentence or clause where one is near. Each
+   stays a second at least and seven at most, 0.4 s past its words where the next leaves room.
+5. **Written and checked**: under a name of its own (`.kura-partial`) till it reads back whole,
+   in order and within the video's length, then in place. `made_subtitles` records it as Kura's
+   before it takes its name (a crash in between leaves nothing Kura wrote unknown), and it stays
+   Kura's while it's there as written, its size and the time it was written unchanged; one the
+   owner changed is theirs.
+
+## On the graphics card
+
+ONNX Runtime with DirectML, as the upscaler, with the encoder and decoder in the same place: when
+the card won't take the decoder, the encoder runs on the processor with it. A Whisper that hits a
+problem it doesn't know is loaded anew for the next video. The decoder's caches stay on the card
+between tokens, bound in place with I/O binding (`run_with_iobinding`), and only the next token's
+scores come back: handed through Python and NumPy, a 6 GB card ran out of memory ("Not enough
+memory resources") on the first episode. The cross-attention's caches are made once per window and
+kept. Without a card that can, the processor runs it, slowly.
+
+One job at a time on the card: subtitles wait in the queue with the conversions, in the owner's
+order. Whisper stays loaded while subtitles follow subtitles, and is let go before a conversion
+and once nothing waits, so the AI upscaler gets the card's memory.
+
+## Measured (GTX 1660 Super, 2026-10-15)
+
+A 21-minute episode (Japanese sound, music under most of it), checked against the release's own
+English subtitles:
+
+| | Best (medium) | Fast (small) |
+| --- | --- | --- |
+| Time, through the queue | 474 s (2.6x real time) | 179 s (6.9x) |
+| Lines heard where the release has one | 96% | 97% |
+| Made lines over a release line | 90% | 93% |
+| Names | right more often (Goku, Dende, Lord Pilaf) | rougher (Gokyu, Piras) |
+
+The estimates (`kura/core/estimate.py` `HEARING`) are 0.4 and 0.15 seconds of the card's time
+per second of video. A decoder step costs about 90 to 150 ms with medium and 25 ms with small;
+batching windows gained at most 2x at batch 8, not worth its memory.
+
+Why pyannote, not Silero's detector: on that episode Silero heard nothing (0.00) under the
+action scenes' music, where the release has 18 lines; Whisper over the whole sound heard them but
+invented lines in the music and drifted in time. pyannote heard 258 of the 262 lines.
+
+## Trying it
+
+`kura subtitles VIDEO OUT --quality best --track 0 --language jpn` makes one video's subtitles as
+the queue does, with Kura's own ffmpeg and model (`KURA_FFMPEG_DIR` and `KURA_SPEECH_BEST_DIR`
+can point at copies in development).

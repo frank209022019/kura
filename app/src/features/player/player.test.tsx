@@ -47,6 +47,7 @@ const OPENED: OpenedVideo = {
       default: true,
       forced: false,
       beside: false,
+      made: false,
     },
     {
       number: 1,
@@ -56,6 +57,7 @@ const OPENED: OpenedVideo = {
       default: false,
       forced: true,
       beside: false,
+      made: false,
     },
   ],
   chapters: [
@@ -265,6 +267,39 @@ describe("PlayerLayer", () => {
     expect(asked(next.querySelector("video")?.getAttribute("src") ?? "").subtitles).toBeNull();
   });
 
+  it("marks the English subtitles Kura made, and says they can be off", async () => {
+    const made: OpenedVideo = {
+      ...OPENED,
+      subtitles: [
+        ...OPENED.subtitles,
+        {
+          number: 2,
+          language: "en",
+          title: null,
+          kind: "text",
+          default: false,
+          forced: false,
+          beside: true,
+          made: true,
+        },
+      ],
+    };
+    renderPlayer({ "POST /player": made });
+    await started();
+    await playing();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Sound and subtitles" }), {
+      key: "Enter",
+    });
+
+    expect(
+      await screen.findByRole("menuitemradio", { name: /^Englishmade by Kura$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Kura made the English ones from the sound: names and jokes can be off."),
+    ).toBeInTheDocument();
+  });
+
   it("takes a mouse's pick from its menu, the press starting no drag", async () => {
     renderPlayer({});
     await started();
@@ -430,6 +465,7 @@ describe("PlayerLayer", () => {
           default: false,
           forced: false,
           beside: false,
+          made: false,
         },
       ],
     };

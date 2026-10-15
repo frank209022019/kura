@@ -41,6 +41,10 @@ and [../CLAUDE.md](../CLAUDE.md).
   `index` playing next. Its `<video>` plays the engine's stream address (`streamAddress` in
   `lib/engine.tsx`), which carries the video's ticket instead of the token. The player stays
   dark in light mode (`scheme-dark`), as a picture does.
+- English subtitles are asked for on their own page (`features/subtitles/make-page.tsx`, at
+  `/subtitles?title=7&season=1`, or `/subtitles` for everything without English): a title's
+  videos and Home's card lead there. Whatever Kura made from the sound says so where it shows
+  (the title's videos, the player's menu, History), since names and jokes can come out wrong.
 
 ## Where things go
 

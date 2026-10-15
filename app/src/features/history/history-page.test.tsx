@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type History, type PlanDone } from "@/lib/engine";
+import { EngineProvider, type History, type PlanDone, type SubtitlesDone } from "@/lib/engine";
 import { fakeEngine, READY } from "@/test/engine";
 import { HistoryPage } from "./history-page";
 
@@ -29,6 +29,7 @@ const TIDIED: PlanDone = {
   undone: 0,
   deleted: false,
   conversion: null,
+  takenAway: 0,
 };
 const CONVERTED: PlanDone = {
   ...TIDIED,
@@ -82,6 +83,7 @@ function localDay(moment: Date): string {
 
 const HISTORY: History = {
   plans: [TIDIED, RENAMED, UNDONE],
+  subtitles: [],
   scans: [
     {
       id: 4,
@@ -165,7 +167,7 @@ describe("HistoryPage", () => {
       deleted: true,
     };
     const fetch = fakeEngine({
-      "/history": { plans: [deleted], scans: [], older: null },
+      "/history": { plans: [deleted], scans: [], subtitles: [], older: null },
       "POST /plans/15/undo": { planId: 15, moved: 0, quarantined: 2, problems: [] },
     });
     renderHistory();
@@ -185,9 +187,78 @@ describe("HistoryPage", () => {
     );
   });
 
+  it("lists the English subtitles Kura made, and takes them away", async () => {
+    const made: SubtitlesDone = {
+      id: 4,
+      title: "Starfall Academy · Season 1",
+      quality: "best",
+      language: "jpn",
+      madeAt: today(6, 42),
+      made: 37,
+      quiet: 1,
+      failed: 0,
+      waiting: 0,
+      present: 37,
+    };
+    const fetch = fakeEngine({
+      "/history": { plans: [], scans: [], subtitles: [made], older: null },
+      "POST /subtitles/batches/4/take-away": { planId: 20 },
+    });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "06:42MadeEnglish subtitles for 37 videosStarfall Academy · Season 1 · from the Japanese sound · Best · 1 with no one speaking",
+    );
+    screen.getByRole("button", { name: "Take them away" }).click();
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(
+          ([input, init]) =>
+            init?.method === "POST" && String(input).endsWith("/subtitles/batches/4/take-away"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("puts back the subtitles Kura took away, and shows them under Subtitles", async () => {
+    const taken: PlanDone = {
+      ...TIDIED,
+      id: 20,
+      title: "Took away the English subtitles Kura made for Starfall Academy · Season 1",
+      moved: 0,
+      quarantined: 0,
+      takenAway: 37,
+    };
+    const fetch = fakeEngine({
+      "/history": { plans: [taken, TIDIED], scans: [], subtitles: [], older: null },
+      "POST /plans/20/undo": { planId: 20, moved: 0, quarantined: 0, problems: [] },
+    });
+    renderHistory();
+
+    const todayList = await screen.findByRole("region", { name: "Today" });
+    expect(todayList).toHaveTextContent(
+      "Took awayEnglish subtitles Kura made for Starfall Academy · Season 137 files in quarantine · plan 20",
+    );
+    screen.getByRole("radio", { name: "Subtitles" }).click();
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "Today" })).not.toHaveTextContent("Tidied"),
+    );
+    screen.getByRole("button", { name: "Put back the subtitles" }).click();
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(
+          ([input, init]) => init?.method === "POST" && String(input).endsWith("/plans/20/undo"),
+        ),
+      ).toBe(true),
+    );
+  });
+
   it("keeps Undo for a tidy-up not all put back", async () => {
     const partly: PlanDone = { ...TIDIED, moved: 1, quarantined: 0, undone: 29 };
-    fakeEngine({ "/history": { plans: [partly], scans: [], older: null } });
+    fakeEngine({ "/history": { plans: [partly], scans: [], subtitles: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -197,7 +268,7 @@ describe("HistoryPage", () => {
 
   it("lists each conversion with what it made, and puts an original back", async () => {
     const fetch = fakeEngine({
-      "/history": { plans: [CONVERTED, TIDIED], scans: [], older: null },
+      "/history": { plans: [CONVERTED, TIDIED], scans: [], subtitles: [], older: null },
       "POST /plans/14/undo": { planId: 14, moved: 1, quarantined: 0, problems: [] },
     });
     renderHistory();
@@ -222,7 +293,7 @@ describe("HistoryPage", () => {
 
   it("says when a converted file's original is gone, and offers nothing to put back", async () => {
     const gone: PlanDone = { ...CONVERTED, quarantined: 0 }; // deleted, or cleared out
-    fakeEngine({ "/history": { plans: [gone], scans: [], older: null } });
+    fakeEngine({ "/history": { plans: [gone], scans: [], subtitles: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -238,7 +309,7 @@ describe("HistoryPage", () => {
       undoneAt: today(15, 0),
       conversion: CONVERTED.conversion && { ...CONVERTED.conversion, restored: true },
     };
-    fakeEngine({ "/history": { plans: [back], scans: [], older: null } });
+    fakeEngine({ "/history": { plans: [back], scans: [], subtitles: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -259,7 +330,7 @@ describe("HistoryPage", () => {
   });
 
   it("says when there's nothing yet", async () => {
-    fakeEngine({ "/history": { plans: [], scans: [], older: null } });
+    fakeEngine({ "/history": { plans: [], scans: [], subtitles: [], older: null } });
     renderHistory();
 
     expect(await screen.findByRole("heading", { name: "Nothing yet" })).toBeInTheDocument();
@@ -271,8 +342,8 @@ describe("HistoryPage", () => {
     const fetch = fakeEngine({
       "/history": (_init: RequestInit | undefined, url: URL) =>
         url.searchParams.get("before") === null
-          ? { plans: [lately], scans: [], older: localDay(new Date()) }
-          : { plans: [lately, RENAMED_EARLIER], scans: [], older: null },
+          ? { plans: [lately], scans: [], subtitles: [], older: localDay(new Date()) }
+          : { plans: [lately, RENAMED_EARLIER], scans: [], subtitles: [], older: null },
     });
     renderHistory();
 
@@ -305,7 +376,9 @@ describe("HistoryPage", () => {
       id: 31,
       appliedAt: new Date(year - 2, 9, 8, 18, 0).toISOString(),
     };
-    fakeEngine({ "/history": { plans: [lastYear, before], scans: [], older: null } });
+    fakeEngine({
+      "/history": { plans: [lastYear, before], scans: [], subtitles: [], older: null },
+    });
     renderHistory();
 
     expect(
@@ -324,7 +397,7 @@ describe("HistoryPage", () => {
         appliedAt: today(1, n),
       }),
     );
-    fakeEngine({ "/history": { plans: night, scans: [], older: null } });
+    fakeEngine({ "/history": { plans: night, scans: [], subtitles: [], older: null } });
     renderHistory();
 
     const todayList = await screen.findByRole("region", { name: "Today" });
@@ -339,7 +412,8 @@ describe("HistoryPage", () => {
   it("clears History after asking what to keep", async () => {
     let cleared = false;
     const fetch = fakeEngine({
-      "/history": () => (cleared ? { plans: [TIDIED], scans: [], older: null } : HISTORY),
+      "/history": () =>
+        cleared ? { plans: [TIDIED], scans: [], subtitles: [], older: null } : HISTORY,
       "POST /history/clear": () => {
         cleared = true;
         return { cleared: 3 };

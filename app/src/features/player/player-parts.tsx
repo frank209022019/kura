@@ -146,6 +146,11 @@ export function TracksMenu(props: {
             ))}
             <Choice value="off" words={["Off", null]} />
           </DropdownMenu.RadioGroup>
+          {video.subtitles.some((track) => track.made) && (
+            <span className="px-2.5 pt-1.5 pb-1 text-12 text-fg-faint">
+              Kura made the English ones from the sound: names and jokes can be off.
+            </span>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

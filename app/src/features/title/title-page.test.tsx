@@ -77,6 +77,10 @@ const DBZ: TitleDetail = {
       height: 480,
       codec: "h264",
       duration: 1440,
+      made: false,
+      subtitlesJob: null,
+      sound: ["jpn"],
+      subtitles: ["eng"],
     },
   ],
 };
@@ -94,6 +98,10 @@ function video(id: number, season: number | null, episode: number | null, name: 
     height: 1080,
     codec: "hevc",
     duration: 1453,
+    sound: ["jpn"],
+    subtitles: ["ger"],
+    made: false,
+    subtitlesJob: null as "queued" | "running" | null,
   };
 }
 
@@ -497,7 +505,8 @@ describe("TitlePage", () => {
     const rows = within(first).getAllByRole("listitem");
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("S01E01Episode 1won't play");
-    expect(rows[1]).toHaveTextContent("S01E02Episode 21080p · HEVC · 24 min · 412 MB");
+    expect(rows[1]).toHaveTextContent("S01E02Episode 2");
+    expect(rows[1]).toHaveTextContent("1080p · HEVC · 24 min · 412 MB");
     expect(within(first).getByText("Episode 2")).toHaveAttribute(
       "title",
       video(2, 1, 2, "S01E02").path,
@@ -510,7 +519,69 @@ describe("TitlePage", () => {
     );
     within(seasons).getByRole("radio", { name: "Other files" }).click();
     expect(await screen.findByRole("list", { name: "Other files" })).toHaveTextContent(
-      "Opening.mkv1080p · HEVC · 24 min · 412 MB",
+      "Opening.mkv",
+    );
+  });
+
+  it("says what each video, and the title, can be heard and read in, and what has no English", async () => {
+    renderTitle({
+      ...DBZ,
+      videos: [
+        { ...video(1, 1, 1, "S01E01"), sound: ["jpn"], subtitles: ["ger", "en"] },
+        { ...video(2, 1, 2, "S01E02"), sound: ["jpn", "eng"], subtitles: [] },
+        { ...video(3, 1, 3, "S01E03"), sound: ["jpn"], subtitles: ["ger"] },
+      ],
+    });
+
+    const header = await screen.findByRole("region", { name: "Dragon Ball Z" });
+    expect(header).toHaveTextContent(
+      "Japanese and English sound · German subtitles, English on 1 of 3",
+    );
+    expect(within(header).getByText("1 without English")).toBeInTheDocument();
+    const rows = within(screen.getByRole("list", { name: "Videos" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("JapaneseGerman subsEnglish subs");
+    expect(rows[0]).not.toHaveTextContent("No English");
+    expect(rows[1]).toHaveTextContent("Japanese, English");
+    expect(rows[1]).not.toHaveTextContent("No English");
+    expect(rows[2]).toHaveTextContent("JapaneseGerman subsNo English");
+  });
+
+  it("marks the English subtitles Kura made, is making and has waiting, and makes more", async () => {
+    renderTitle(
+      {
+        ...DBZ,
+        videos: [
+          { ...video(1, 1, 1, "S01E01"), subtitles: ["ger", "en"], made: true },
+          { ...video(2, 1, 2, "S01E02"), subtitlesJob: "running" },
+          { ...video(3, 1, 3, "S01E03"), subtitlesJob: "queued" },
+          video(4, 1, 4, "S01E04"),
+        ],
+      },
+      undefined,
+      null,
+      {
+        "/queue": {
+          running: {
+            job: { id: 30, fileId: 2, kind: "subtitles" },
+            stage: "listening",
+            frames: 604,
+            total: 1440,
+          },
+          queued: [],
+        },
+      },
+    );
+
+    const list = await screen.findByRole("list", { name: "Videos" });
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("JapaneseGerman subsEnglish subs · made by Kura");
+    await waitFor(() => expect(rows[1]).toHaveTextContent("Making English subs · 41%"));
+    expect(rows[2]).toHaveTextContent("English subs next in the queue");
+    expect(rows[3]).toHaveTextContent("No English");
+    expect(screen.getByText("4 files · 3 without English")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Make English subtitles" })).toHaveAttribute(
+      "href",
+      "/subtitles?title=1&season=1",
     );
   });
 
@@ -552,9 +623,8 @@ describe("TitlePage", () => {
     renderTitle(film, undefined, null, { "POST /player": OPENED }, true);
 
     const file = await screen.findByRole("list", { name: "Its file" });
-    expect(file).toHaveTextContent(
-      "Cowboy Bebop - The Movie (2001).mkv1080p · HEVC · 1 h 55 min · 2.1 GB",
-    );
+    expect(file).toHaveTextContent("Cowboy Bebop - The Movie (2001).mkv");
+    expect(file).toHaveTextContent("1080p · HEVC · 1 h 55 min · 2.1 GB");
     const header = screen.getByRole("region", { name: "Cowboy Bebop: The Movie" });
     within(header).getByRole("button", { name: "Play" }).click();
 

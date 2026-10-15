@@ -102,6 +102,17 @@ def test_a_video_being_converted_isnt_deleted(
     assert plans(conn) == []
 
 
+def test_a_video_getting_english_subtitles_isnt_deleted(conn: sqlite3.Connection, season: Path):
+    with conn:
+        conn.execute(
+            "INSERT INTO jobs (file_id, kind, method, position, state, added_at)"
+            " VALUES (1, 'subtitles', 'best', 1, 'running', 'now')"
+        )
+
+    with pytest.raises(ConvertingError, match=r"^Trigun · S01E01 is getting English subtitles"):
+        delete(conn, [1], now=NOW)
+
+
 def test_a_video_waiting_to_convert_leaves_the_queue(conn: sqlite3.Connection, season: Path):
     with conn:
         conn.execute(

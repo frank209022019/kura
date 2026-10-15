@@ -85,17 +85,21 @@ def forget_folder(folder_id: int, conn: Database) -> Response:
     """Takes a folder out of the library. Its files stay exactly where they are. Not while a
     file in it is converting, or made and waiting for another app to let go of its original:
     its result is about to take the original's place."""
-    converting = conn.execute(
-        """SELECT 1 FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+    busy = conn.execute(
+        """SELECT j.kind FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            WHERE f.folder_id = ?
              AND (j.state IN ('running', 'replacing')
                   OR (j.state = 'queued' AND j.retry_at IS NOT NULL))""",
         (folder_id,),
     ).fetchone()
-    if converting is not None:
+    if busy is not None:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "A file in it is converting. Forget the folder once that's done, or skip it first.",
+            "Kura is making English subtitles for a file in it. Forget the folder once they're "
+            "made, or skip it first."
+            if busy["kind"] == "subtitles"
+            else "A file in it is converting. Forget the folder once that's done, or skip it "
+            "first.",
         )
     if not remove_folder(conn, folder_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That folder isn't in your library.")

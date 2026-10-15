@@ -174,7 +174,9 @@ function Done({ step, onChange }: { step: Step; onChange: (step: Step) => void }
 function Upcoming({ step }: { step: Step }) {
   const system = useSystem();
   const tools = useTools();
-  const size = (tools.data ?? []).reduce((total, tool) => total + tool.size, 0);
+  const size = (tools.data ?? [])
+    .filter((tool) => tool.when === "setup")
+    .reduce((total, tool) => total + tool.size, 0);
 
   if (step === "folders") {
     return (

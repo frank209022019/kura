@@ -7,6 +7,7 @@ includes without the token's check).
 """
 
 import json
+import sqlite3
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Annotated, Literal
@@ -18,6 +19,7 @@ from kura.api.common import ApiModel, Database
 from kura.core.fields import Json
 from kura.core.player import Playable
 from kura.player import Player, PlayerError, State, UnknownTicketError
+from kura.subtitles import is_made
 
 router = APIRouter()
 streams = APIRouter()  # no token: each stream's ticket is its key
@@ -39,6 +41,7 @@ class SubtitleTrack(ApiModel):
     default: bool
     forced: bool
     beside: bool  # a file of its own beside the video
+    made: bool  # English subtitles Kura made from the sound (names and jokes can be off)
 
 
 class ChapterMark(ApiModel):
@@ -85,7 +88,11 @@ def open_video(body: OpenVideo, conn: Database, request: Request) -> Opened:
     """Opens a video to play: a ticket for its stream, with its sound, subtitles and chapters.
     A video whose drive isn't connected, or that went, has no ticket, and says which."""
     row = conn.execute(
-        "SELECT path, probe FROM files WHERE id = ? AND gone_at IS NULL", (body.file,)
+        """SELECT f.path, f.probe, m.name AS made, m.size AS made_size,
+                  m.modified AS made_modified
+           FROM files AS f LEFT JOIN made_subtitles AS m ON m.file_id = f.id
+           WHERE f.id = ? AND f.gone_at IS NULL""",
+        (body.file,),
     ).fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That video isn't in the library any more.")
@@ -120,7 +127,7 @@ def open_video(body: OpenVideo, conn: Database, request: Request) -> Opened:
         drive=drive,
         duration=opened.playable.duration,
         sound=_sound(opened.playable),
-        subtitles=_subtitles(opened.playable),
+        subtitles=_subtitles(opened.playable, _made(path, row)),
         chapters=[ChapterMark(start=c.start, title=c.title) for c in opened.playable.chapters],
         chosen_sound=opened.sound,
         chosen_subtitles=opened.subtitles,
@@ -216,7 +223,7 @@ def _sound(found: Playable) -> list[SoundTrack]:
     ]
 
 
-def _subtitles(found: Playable) -> list[SubtitleTrack]:
+def _subtitles(found: Playable, made: Path | None) -> list[SubtitleTrack]:
     return [
         SubtitleTrack(
             number=track.number,
@@ -226,9 +233,18 @@ def _subtitles(found: Playable) -> list[SubtitleTrack]:
             default=track.default,
             forced=track.forced,
             beside=track.beside is not None,
+            made=made is not None and track.beside is not None and Path(track.beside) == made,
         )
         for track in found.subtitles
     ]
+
+
+def _made(video: Path, row: sqlite3.Row) -> Path | None:
+    """The English subtitles Kura made for the video, when they're beside it as it wrote them."""
+    name: str | None = row["made"]
+    if name and is_made(video, name, row["made_size"], row["made_modified"]):
+        return video.with_name(video.stem + name)
+    return None
 
 
 def _report(probe: str) -> Json:

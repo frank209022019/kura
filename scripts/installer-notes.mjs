@@ -29,8 +29,11 @@ export function beforeYouInstall(downloads, licence) {
     lines.push(`${index + 1}. ${item.name}${version}${size}`);
     lines.push(item.purpose);
     lines.push(`Licence: ${item.licence}`);
-    lines.push(`From: ${item.url}`);
-    if (item.sha256) lines.push(`SHA-256: ${item.sha256}`);
+    if (item.when === "asked") lines.push("Only when you first ask for what needs it.");
+    for (const file of item.files?.length ? item.files : [item]) {
+      lines.push(`From: ${file.url}`);
+      if (file.sha256) lines.push(`SHA-256: ${file.sha256}`);
+    }
     lines.push("");
   });
   lines.push(

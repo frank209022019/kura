@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path, PureWindowsPath
 
 from kura.core.extensions import is_video
+from kura.core.languages import track_languages
 from kura.core.library import WORKING, Covered, Holds, fits, skipped_folder
 from kura.core.media import Json, media_from_ffprobe
 from kura.probe import ProbeError
@@ -194,7 +195,7 @@ def read_file(
         conn.execute(
             """UPDATE files
                SET probed_at = ?, probe = ?, problem = NULL,
-                   duration = ?, width = ?, height = ?, codec = ?
+                   duration = ?, width = ?, height = ?, codec = ?, sound = ?, subtitles = ?
                WHERE id = ?""",
             (
                 now.isoformat(),
@@ -203,6 +204,8 @@ def read_file(
                 video.width if video else None,
                 video.height if video else None,
                 video.codec if video else None,
+                json.dumps(track_languages(track.language for track in media.audio)),
+                json.dumps(track_languages(track.language for track in media.subtitles)),
                 file_id,
             ),
         )
@@ -239,6 +242,7 @@ def _record(
                found_at = COALESCE(?, found_at),
                probed_at = NULL, probe = NULL, problem = NULL, marked_at = NULL,
                duration = NULL, width = NULL, height = NULL, codec = NULL,
+               sound = NULL, subtitles = NULL,
                identified_at = CASE WHEN pinned = 1 THEN identified_at END
            WHERE path = ?""",
         (folder_id, size, modified, stamp, found, str(path)),

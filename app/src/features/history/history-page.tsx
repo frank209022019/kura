@@ -11,19 +11,22 @@ import {
   type Picture,
   type PlanDone,
   type ScanDone,
+  type SubtitlesDone,
   type TidyResult,
   useClearHistory,
   useHistory,
   useSettings,
+  useTakeAway,
   useUndoPlan,
 } from "@/lib/engine";
-import { clockLength, codecName, scanChanges, size } from "@/lib/format";
+import { clockLength, codecName, languageName, scanChanges, size } from "@/lib/format";
 
-type Shown = "all" | "conversions" | "moves" | "scans";
+type Shown = "all" | "conversions" | "subtitles" | "moves" | "scans";
 
 const FILTERS = [
   { value: "all", label: "All" },
   { value: "conversions", label: "Conversions" },
+  { value: "subtitles", label: "Subtitles" },
   { value: "moves", label: "Renames and moves" },
   { value: "scans", label: "Scans" },
 ] as const;
@@ -32,7 +35,8 @@ const FILTERS = [
 type Event =
   | { kind: "plan"; at: string; plan: PlanDone }
   | { kind: "undo"; at: string; plan: PlanDone }
-  | { kind: "scan"; at: string; scan: ScanDone };
+  | { kind: "scan"; at: string; scan: ScanDone }
+  | { kind: "subtitles"; at: string; made: SubtitlesDone };
 
 /** What a day shows before "Show all": a night's conversions or a day of scans can be many. */
 const A_DAY = 20;
@@ -51,6 +55,7 @@ const KEEP = [
 export function HistoryPage() {
   const history = useHistory();
   const undo = useUndoPlan();
+  const takeAway = useTakeAway();
   const settings = useSettings().data;
   const kept = settings?.quarantineDays;
   const [shown, setShown] = useState<Shown>("all");
@@ -61,7 +66,9 @@ export function HistoryPage() {
 
   const pages = history.data?.pages;
   const events = pages ? eventsOf(together(pages), shown) : [];
-  const anything = pages?.some((page) => page.plans.length + page.scans.length > 0) ?? false;
+  const anything =
+    pages?.some((page) => page.plans.length + page.scans.length + page.subtitles.length > 0) ??
+    false;
   return (
     <>
       <header className="page-top flex animate-fade-up flex-wrap items-end justify-between gap-4">
@@ -107,9 +114,9 @@ export function HistoryPage() {
           <PanelSkeleton rows={3} />
         </Loading>
       )}
-      {undo.isError && (
+      {(undo.error ?? takeAway.error) && (
         <p role="alert" className="text-13 text-broken-fg">
-          {undo.error.message}
+          {(undo.error ?? takeAway.error)?.message}
         </p>
       )}
       {result && result.problems.length > 0 && <Stayed problems={result.problems} />}
@@ -133,11 +140,14 @@ export function HistoryPage() {
             <ul className="flex flex-col">
               {(all ? onDay : onDay.slice(0, A_DAY)).map((event) => (
                 <EventRow
-                  key={`${event.kind}-${event.kind === "scan" ? event.scan.id : event.plan.id}`}
+                  key={`${event.kind}-${idOf(event)}`}
                   event={event}
-                  busy={undo.isPending}
+                  busy={undo.isPending || takeAway.isPending}
                   onUndo={(plan) =>
                     undo.mutate({ path: `/plans/${plan.id}/undo` }, { onSuccess: setResult })
+                  }
+                  onTakeAway={(made) =>
+                    takeAway.mutate({ path: `/subtitles/batches/${made.id}/take-away` })
                   }
                 />
               ))}
@@ -215,7 +225,12 @@ function ClearHistory(props: { onClose: () => void; onCleared: (gone: number) =>
   );
 }
 
-function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone) => void }) {
+function EventRow(props: {
+  event: Event;
+  busy: boolean;
+  onUndo: (plan: PlanDone) => void;
+  onTakeAway: (made: SubtitlesDone) => void;
+}) {
   const { event } = props;
   const [verb, title, detail] = words(event);
   const plan = event.kind === "plan" ? event.plan : null;
@@ -223,13 +238,36 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
   const undoable =
     plan !== null &&
     plan.undoneAt === null &&
-    (plan.kind === "convert" ? plan.quarantined > 0 : plan.moved + plan.quarantined > 0);
+    (plan.kind === "convert"
+      ? plan.quarantined > 0
+      : plan.moved + plan.quarantined + plan.takenAway > 0);
   const action =
     plan?.kind === "convert"
       ? "Put back the original"
       : plan?.deleted
         ? "Put back what was deleted"
-        : "Undo";
+        : plan && plan.takenAway > 0
+          ? "Put back the subtitles"
+          : "Undo";
+  if (event.kind === "subtitles") {
+    return (
+      <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-rule border-b py-3 text-13 last:border-b-0">
+        <span className="font-mono text-12 text-fg-muted">{clock(event.at)}</span>
+        <span className="font-extrabold">{verb}</span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-bold">{title}</span>
+          {detail && <span className="text-12 text-fg-muted">{detail}</span>}
+        </span>
+        {event.made.present > 0 ? (
+          <Button size="sm" disabled={props.busy} onClick={() => props.onTakeAway(event.made)}>
+            Take them away
+          </Button>
+        ) : (
+          <span />
+        )}
+      </li>
+    );
+  }
   return (
     <li className="grid grid-cols-[3.5rem_6.5rem_1fr_auto] items-center gap-x-3 gap-y-1 border-rule border-b py-3 text-13 last:border-b-0">
       <span className="font-mono text-12 text-fg-muted">{clock(event.at)}</span>
@@ -245,7 +283,7 @@ function EventRow(props: { event: Event; busy: boolean; onUndo: (plan: PlanDone)
           disabled={props.busy}
           onClick={() => props.onUndo(plan)}
         >
-          {plan.kind === "convert" || plan.deleted ? "Put back" : "Undo"}
+          {plan.kind === "convert" || plan.deleted || plan.takenAway > 0 ? "Put back" : "Undo"}
         </Button>
       ) : (
         <span />
@@ -272,6 +310,7 @@ function words(event: Event): [string, string, string | null] {
         : "";
     return ["Scanned", "Your library folders", `${detail}${changed}`];
   }
+  if (event.kind === "subtitles") return subtitleWords(event.made);
   const { plan } = event;
   const made = plan.conversion;
   if (plan.kind === "convert") {
@@ -293,6 +332,18 @@ function words(event: Event): [string, string, string | null] {
     ].filter(Boolean);
     return ["Deleted", label, parts.join(" · ")];
   }
+  if (plan.takenAway > 0 || (plan.undoneAt !== null && plan.title.startsWith("Took away"))) {
+    const label = plan.title.replace(/^Took away the /, "");
+    if (event.kind === "undo") {
+      return ["Put back", label, `You put ${count(plan.undone, "file")} back`];
+    }
+    const parts = [
+      plan.takenAway > 0 && `${count(plan.takenAway, "file")} in quarantine`,
+      plan.undoneAt !== null && "Put back since",
+      `plan ${plan.id}`,
+    ].filter(Boolean);
+    return ["Took away", label, parts.join(" · ")];
+  }
   if (event.kind === "undo") {
     return ["Undone", plan.title, `You put ${count(plan.undone, "file")} back`];
   }
@@ -305,6 +356,22 @@ function words(event: Event): [string, string, string | null] {
     `plan ${plan.id}`,
   ].filter(Boolean);
   return [plan.title.startsWith("Renamed") ? "Renamed" : "Moved", plan.title, parts.join(" · ")];
+}
+
+/** "English subtitles for 37 episodes", "Starfall Academy · Season 1 · from the Japanese sound ·
+ * Best", with what couldn't be made, what waits, and whether they're still there. */
+function subtitleWords(made: SubtitlesDone): [string, string, string] {
+  const parts = [
+    made.title,
+    made.language ? `from the ${languageName(made.language)} sound` : "from their sound",
+    made.quality === "best" ? "Best" : "Fast",
+    made.quiet > 0 && `${made.quiet} with no one speaking`,
+    made.failed > 0 && `${made.failed} couldn't be made`,
+    made.waiting > 0 && `${made.waiting} still to make`,
+    made.made > 0 && made.present === 0 && "taken away since",
+    made.present > 0 && made.present < made.made && `${made.present} still there`,
+  ].filter(Boolean);
+  return ["Made", `English subtitles for ${count(made.made, "video")}`, parts.join(" · ")];
 }
 
 /** "480p H.264 233 MB → 1080p HEVC 412 MB · 58 min · checked": every result is checked before
@@ -327,35 +394,49 @@ function conversionWords(made: Conversion): string {
 /** The pages loaded, as one: a tidy-up undone on a later day is on both days' pages. Only
  * what happened on the days loaded shows (from `from` on), so the tidy-up itself waits for its
  * own page. */
-function together(pages: History[]): { plans: PlanDone[]; scans: ScanDone[]; from: string | null } {
+function together(pages: History[]): {
+  plans: PlanDone[];
+  scans: ScanDone[];
+  subtitles: SubtitlesDone[];
+  from: string | null;
+} {
   const plans = new Map<number, PlanDone>();
   const scans = new Map<number, ScanDone>();
+  const subtitles = new Map<number, SubtitlesDone>();
   for (const page of pages) {
     for (const plan of page.plans) if (!plans.has(plan.id)) plans.set(plan.id, plan);
     for (const scan of page.scans) if (!scans.has(scan.id)) scans.set(scan.id, scan);
+    for (const made of page.subtitles) if (!subtitles.has(made.id)) subtitles.set(made.id, made);
   }
   return {
     plans: [...plans.values()],
     scans: [...scans.values()],
+    subtitles: [...subtitles.values()],
     from: pages.at(-1)?.older ?? null,
   };
 }
 
 function eventsOf(history: ReturnType<typeof together>, shown: Shown): Event[] {
   const events: Event[] = [];
-  const kinds: Record<Shown, PlanDone["kind"][]> = {
-    all: ["tidy", "convert"],
-    conversions: ["convert"],
-    moves: ["tidy"],
-    scans: [],
+  // Taking Kura's subtitles away is a tidy-up, shown with the subtitles.
+  const showsPlan: Record<Shown, (plan: PlanDone) => boolean> = {
+    all: () => true,
+    conversions: (plan) => plan.kind === "convert",
+    subtitles: (plan) => plan.takenAway > 0 || plan.title.startsWith("Took away"),
+    moves: (plan) =>
+      plan.kind === "tidy" && !(plan.takenAway > 0 || plan.title.startsWith("Took away")),
+    scans: () => false,
   };
   for (const plan of history.plans) {
-    if (!kinds[shown].includes(plan.kind)) continue;
+    if (!showsPlan[shown](plan)) continue;
     events.push({ kind: "plan", at: plan.appliedAt, plan });
     if (plan.undoneAt) events.push({ kind: "undo", at: plan.undoneAt, plan });
   }
   if (shown === "all" || shown === "scans") {
     for (const scan of history.scans) events.push({ kind: "scan", at: scan.startedAt, scan });
+  }
+  if (shown === "all" || shown === "subtitles") {
+    for (const made of history.subtitles) events.push({ kind: "subtitles", at: made.madeAt, made });
   }
   return events
     .filter((event) => history.from === null || localDay(event.at) >= history.from)
@@ -394,6 +475,12 @@ function dayName(moment: Date): string {
       ? { day: "numeric", month: "long" }
       : { day: "numeric", month: "long", year: "numeric" },
   );
+}
+
+function idOf(event: Event): number {
+  if (event.kind === "scan") return event.scan.id;
+  if (event.kind === "subtitles") return event.made.id;
+  return event.plan.id;
 }
 
 function clock(at: string): string {
