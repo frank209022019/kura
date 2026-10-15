@@ -40,7 +40,9 @@ answer, what was known stays: the cards as they were, and their times.
    to open") link the maker's driver page; others mean the card has no encoder for it. The
    player's H.264 encoders are tried too (`kura/core/player.py`'s order, Windows' own first): a
    Windows N edition without Microsoft's Media Feature Pack plays through the card's.
-2. **The AI model** runs one small frame through ONNX Runtime with DirectML. DirectML takes the
+2. **The AI model** runs one small frame through ONNX Runtime with DirectML, in a process of its
+   own (`kura check-model`, which answers in one line of JSON): a graphics driver that fails on
+   it takes only that process with it, never the engine. DirectML takes the
    PC's high-performance card (`performance_preference`), so a laptop with two uses its own
    card, not the processor's graphics that drive the screen. When DirectML can't start, ONNX
    Runtime quietly falls back to the processor; `kura/upscale.py` refuses that ("it needs

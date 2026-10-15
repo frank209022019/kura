@@ -8,6 +8,12 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Fixed
+- Testing the PC while Kura made English subtitles no longer stops Kura's engine, nor does "See
+  it first" with Best quality: loading the AI model beside Whisper crashed the graphics driver. Both
+  now run the AI model in a process of their own, so a driver that fails takes only that with it,
+  and the AI model and Whisper take turns on the graphics card a frame or a word at a time.
+
 ## 0.17.0 - 2026-10-15
 
 ### Added

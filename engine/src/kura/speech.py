@@ -23,6 +23,7 @@ from typing import Protocol, cast
 
 import numpy as np
 
+from kura import directml
 from kura.convert import Stopped, start
 from kura.core.speech import (
     CHUNK,
@@ -56,7 +57,6 @@ from kura.core.speech import (
     whisper_language,
     windows,
 )
-from kura.upscale import DIRECTML
 
 log = logging.getLogger(__name__)
 
@@ -192,11 +192,12 @@ def _session(path: Path, *, graphics: bool) -> _Session:
     try:
         if graphics:
             try:
-                session = ort.InferenceSession(
-                    str(path),
-                    options(levels.ORT_ENABLE_ALL),
-                    providers=[DIRECTML, "CPUExecutionProvider"],
-                )
+                with directml.LOCK:
+                    session = ort.InferenceSession(
+                        str(path),
+                        options(levels.ORT_ENABLE_ALL),
+                        providers=[directml.PROVIDER, "CPUExecutionProvider"],
+                    )
                 return cast(_Session, session)
             except Exception:  # ONNX Runtime raises plain Exceptions: the card can't, so the CPU
                 log.warning("The graphics card couldn't load %s; the processor runs it", path.name)
@@ -328,12 +329,13 @@ class Listener:
     def _encode(self, sound: np.ndarray) -> _Value:
         """A window of sound as Whisper's encoder hears it, kept where the model runs."""
         spectrum = log_mel(sound, self._filters)[:, :FRAMES]
-        heard = _on(self._device, spectrum[None].astype(self._float))
-        binding = self._encoder.io_binding()
-        binding.bind_ortvalue_input(self._encoder.get_inputs()[0].name, heard)
-        binding.bind_output(self._encoder.get_outputs()[0].name, self._device, 0)
-        self._encoder.run_with_iobinding(binding)
-        return binding.get_outputs()[0]
+        with directml.LOCK:  # taking turns on the card (kura/directml.py)
+            heard = _on(self._device, spectrum[None].astype(self._float))
+            binding = self._encoder.io_binding()
+            binding.bind_ortvalue_input(self._encoder.get_inputs()[0].name, heard)
+            binding.bind_output(self._encoder.get_outputs()[0].name, self._device, 0)
+            self._encoder.run_with_iobinding(binding)
+            return binding.get_outputs()[0]
 
     def _language(self, hidden: _Value) -> str:
         """The language Whisper hears in a window, by its code ("ja")."""
@@ -406,6 +408,12 @@ class Listener:
         """One step of the decoder: the scores of what comes after each of `ids`, and its
         caches for the next step. The cross-attention's caches, made on the first step, are
         kept; the decoder's own grow with each token."""
+        with directml.LOCK:  # taking turns on the card (kura/directml.py)
+            return self._stepped(ids, hidden, cache)
+
+    def _stepped(
+        self, ids: list[int], hidden: _Value, cache: dict[str, _Value] | None
+    ) -> tuple[np.ndarray, dict[str, _Value]]:
         binding = self._decoder.io_binding()
         binding.bind_cpu_input("input_ids", np.array([ids], np.int64))
         binding.bind_ortvalue_input("encoder_hidden_states", hidden)

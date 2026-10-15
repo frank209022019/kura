@@ -3,7 +3,8 @@
 ONNX Runtime runs the model through DirectML (see docs/stack/upscaling.md). One ffmpeg decodes the
 source to raw frames of planar float RGB, the model upscales each, and a second ffmpeg encodes
 them. The three run side by side, so the card never waits for a frame to be read or written.
-kura/core/convert.py builds the two commands.
+kura/core/convert.py builds the two commands. The model is loaded and run a frame at a time under
+kura/directml.py's lock, taking turns with any other use of DirectML in the engine.
 """
 
 import queue
@@ -16,10 +17,9 @@ from typing import IO, Protocol
 import numpy as np
 import numpy.typing as npt
 
+from kura import directml
+
 MODEL = Path(__file__).parent / "assets" / "realesr-animevideov3.onnx"
-# DirectML on the PC's high-performance graphics card: on a laptop with two, the card of its own
-# rather than the processor's graphics that drive the screen.
-DIRECTML = ("DmlExecutionProvider", {"performance_preference": "high_performance"})
 _BUFFERED = 8  # frames waiting on either side of the model
 
 type Frame = npt.NDArray[np.float32]  # (1, 3, height, width): planes G, B, R from 0 to 1
@@ -49,14 +49,16 @@ def model(width: int, height: int, path: Path = MODEL) -> Upscaler:
     options.add_free_dimension_override_by_name("w", width)  # a fixed size runs faster
     options.add_free_dimension_override_by_name("h", height)
     try:
-        session = ort.InferenceSession(str(path), options, providers=[DIRECTML])
+        with directml.LOCK:
+            session = ort.InferenceSession(str(path), options, providers=[directml.PROVIDER])
     except Exception as error:  # ONNX Runtime raises its own kinds, all of them plain Exceptions
         raise UpscaleError(f"The graphics card couldn't run the AI model ({error}).") from error
     if "DmlExecutionProvider" not in session.get_providers():  # it fell back to the processor
         raise UpscaleError("The graphics card couldn't run the AI model: it needs DirectX 12.")
 
     def upscale(frame: Frame) -> Frame:
-        return session.run(None, {"frame": frame})[0]
+        with directml.LOCK:
+            return session.run(None, {"frame": frame})[0]
 
     return upscale
 

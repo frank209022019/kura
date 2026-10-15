@@ -207,3 +207,15 @@ def test_serve_says_so_when_the_drive_the_data_moved_to_isnt_there(
 
     assert result.exit_code == 1
     assert "which isn't there. Connect its drive, then try again." in result.stderr
+
+
+def test_the_ai_model_check_answers_in_one_line():
+    """What the PC check reads from its own process (kura/pc_check.py): whether the card runs
+    the model, wherever the tests run (CI's machines have no graphics card)."""
+    done = subprocess.run(
+        [*_engine(), "check-model"], capture_output=True, text=True, timeout=120, check=False
+    )
+
+    answer = json.loads(done.stdout.strip().splitlines()[-1])
+    assert set(answer) == {"runs", "megapixels"}
+    assert isinstance(answer["runs"], bool)

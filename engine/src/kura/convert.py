@@ -184,6 +184,9 @@ class Programs:
     start: Starter = field(default=start)
     speech: Callable[[str], Path | None] = field(default=_nowhere)
     listener: Callable[[Path, bool], Hearing] = field(default=_whisper)  # on the card?
+    # The command that runs this engine again, for AI work outside the queue (the PC check, See
+    # it first) in a process of its own: kura/directml.py says why. None runs it here (tests).
+    engine: Sequence[str] = ()
 
 
 def convert(

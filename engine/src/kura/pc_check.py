@@ -4,17 +4,19 @@ kura/core/hardware.py decides from it).
 Each HEVC 10-bit encoder Kura's ffmpeg has is tried on a made-up picture for a moment, the best
 card's own maker's first, and the first that starts is the one Kura converts with; so are the
 player's H.264 encoders. The AI model runs one small frame on the graphics card (ONNX Runtime with
-DirectML), and Anime4K two through libplacebo (Vulkan). Testing the PC, Setup's last step or
-About in Settings, times each as well: the encoder making 1080p, the AI model on DVD-sized frames,
-and Anime4K making 1080p from 720p, each for at most half a minute (a slow card's speed is what it
-managed by then), unless the queue is busy with the card (then it only checks). A way that
-couldn't be timed keeps the time it had: no guess is kept as measured.
+DirectML) in a process of its own, `kura check-model`, so a graphics driver that fails on it takes
+only that with it, never the engine; and Anime4K two frames through libplacebo (Vulkan). Testing
+the PC, Setup's last step or About in Settings, times each as well: the encoder making 1080p, the
+AI model on DVD-sized frames, and Anime4K making 1080p from 720p, each for at most half a minute
+(a slow card's speed is what it managed by then), unless the queue is busy with the card (then it
+only checks). A way that couldn't be timed keeps the time it had: no guess is kept as measured.
 
 As the engine starts it checks again when this PC hasn't been checked, its last check found a
 part that didn't run, or its cards or their drivers have changed; new cards' times are measured
 anew. Converting waits while it checks, and a test asked for meanwhile follows the check.
 """
 
+import json
 import logging
 import subprocess
 import threading
@@ -23,7 +25,7 @@ from collections.abc import Callable, Sequence
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -36,6 +38,7 @@ from kura.core.hardware import ENCODER_OF, Card, Checked, best_card
 from kura.core.player import ENCODERS as PLAYER_ENCODERS
 from kura.core.player import encoder_check_command
 from kura.hardware import Facts
+from kura.upscale import Upscaler
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +50,7 @@ _TRY = 24  # frames a try of an encoder makes
 _TIMED = 480  # frames a timing makes, when it has the time: twenty seconds of video
 _MODEL_FRAMES = 16  # DVD-sized frames the AI model upscales, at most
 _MODEL_SECONDS = 20.0  # or for as long as this, on a slow card
+_MODEL_CHECK = 120  # seconds the AI model's own process gets, loading and timing included
 _UNKNOWN = Facts((), None, None, None)
 # ffmpeg's lines that say only that something stopped, not why.
 _PLUMBING = (
@@ -93,13 +97,9 @@ def check(
         if speed is not None:
             timed["reencode"] = speed
     told(Checking("ai", ("encoder",), timed.get("reencode"), timing))
-    ai = _ai_runs(programs)
-    if timing and ai:
-        speed = _model_speed(programs)
-        if speed is None:
-            ai = False  # it ran on a small frame, not on a DVD's: not here
-        else:
-            timed["best"] = speed
+    ai, speed = _ai(programs, timing=timing)
+    if speed is not None:
+        timed["best"] = speed
     told(Checking("anime4k", ("encoder", "ai"), timed.get("reencode"), timing))
     anime4k = _anime4k_runs(programs)
     if timing and anime4k and encoder is not None:
@@ -316,15 +316,47 @@ def _player(programs: Programs) -> str | None:
     return None
 
 
-def _ai_runs(programs: Programs) -> bool:
-    """Whether the AI model runs on this PC's graphics card: one small frame."""
+def probe_model(load: Callable[[int, int], Upscaler], *, timing: bool) -> tuple[bool, float | None]:
+    """Whether the AI model runs on this PC's graphics card (one small frame) and, with
+    `timing`, its megapixels a second on DVD-sized frames. One that runs a small frame but not a
+    DVD's isn't here. `kura check-model` runs this in a process of its own."""
     try:
-        upscale = programs.model(64, 48)
+        upscale = load(64, 48)
         upscale(np.zeros((1, 3, 48, 64), np.float32))
     except Exception as error:  # UpscaleError, or ONNX Runtime's own, all plain Exceptions
         log.info("The AI model doesn't run here: %s", error)
-        return False
-    return True
+        return False, None
+    if not timing:
+        return True, None
+    speed = _model_speed(load)
+    return speed is not None, speed
+
+
+def _ai(programs: Programs, *, timing: bool) -> tuple[bool, float | None]:
+    """The AI model on this PC: in a process of its own when Kura can start one, else here."""
+    if not programs.engine:
+        return probe_model(programs.model, timing=timing)
+    command = [*programs.engine, "check-model", *(["--time"] if timing else [])]
+    process = programs.start(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    try:
+        said, _ = process.communicate(timeout=_MODEL_CHECK)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
+        log.info("The AI model's check took too long")
+        return False, None
+    for line in reversed(said.decode("utf-8", "replace").splitlines()):
+        try:
+            found: object = json.loads(line)
+        except ValueError:
+            continue  # ONNX Runtime's own words, say
+        if isinstance(found, dict):
+            answer = cast("dict[str, object]", found)
+            speed = answer.get("megapixels")
+            runs = answer.get("runs") is True
+            return runs, float(speed) if runs and isinstance(speed, int | float) else None
+    log.info("The AI model's check stopped with code %s, saying nothing", process.returncode)
+    return False, None
 
 
 def _anime4k_runs(programs: Programs) -> bool:
@@ -431,12 +463,12 @@ def pace(seen: Sequence[tuple[float, int]]) -> float | None:
     return (last - first) / (ended - began)
 
 
-def _model_speed(programs: Programs) -> float | None:
+def _model_speed(load: Callable[[int, int], Upscaler]) -> float | None:
     """The AI model's megapixels a second here, from DVD-sized frames (after one to warm up),
     or None when it can't upscale them."""
     width, height = 720, 480
     try:
-        upscale = programs.model(width, height)
+        upscale = load(width, height)
         frame = np.random.default_rng(0).random((1, 3, height, width), np.float32)
         upscale(frame)
         began, done = time.monotonic(), 0

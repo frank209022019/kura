@@ -1,10 +1,12 @@
 """Checking what this PC can do, and timing it, with ffmpeg and the AI model stood in for."""
 
 import sqlite3
+import sys
 import threading
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -415,3 +417,36 @@ def test_a_test_asked_for_while_the_engine_looks_at_a_checked_pc_runs(
     assert measured is not None
     assert measured.tested
     assert pc.testing() is None
+
+
+FAKE_ENGINE = [sys.executable, str(Path(__file__).parent / "fake_engine.py")]
+
+
+def apart() -> Programs:
+    """The stand-ins, trying the AI model in a process of its own, as the engine does."""
+    return replace(stood_in(), model=no_card, engine=FAKE_ENGINE)
+
+
+def test_the_ai_model_is_tried_in_a_process_of_its_own(monkeypatch: pytest.MonkeyPatch):
+    (found, speeds), _ = checked(program=apart())  # the engine's own model isn't touched
+
+    assert found.ai
+    assert speeds == {}
+
+    (found, speeds), _ = checked(timing=True, program=apart())
+
+    assert found.ai
+    assert speeds["best"] == 2.5
+
+
+@pytest.mark.parametrize("what", ["no", "crash"])
+def test_a_card_that_fails_the_ai_model_takes_only_its_own_process(
+    monkeypatch: pytest.MonkeyPatch, what: str
+):
+    monkeypatch.setenv("KURA_FAKE_MODEL", what)
+
+    (found, speeds), _ = checked(timing=True, program=apart())
+
+    assert not found.ai  # and the check went on: the engine is still here
+    assert found.encoder == "nvenc"
+    assert "best" not in speeds

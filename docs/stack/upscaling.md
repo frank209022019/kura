@@ -27,7 +27,13 @@ off and sequential execution (DirectML's requirements), and fixes the free width
 the source's (`add_free_dimension_override_by_name`), which DirectML runs faster. DirectML takes
 the PC's high-performance card (`performance_preference`: a laptop's card of its own, not the
 processor's graphics), and a session ONNX Runtime quietly moved to the processor, as it does when
-DirectML can't start, is refused: the model there would take days an episode. ONNX Runtime's
+DirectML can't start, is refused: the model there would take days an episode. In one process
+DirectML breaks two ways (`kura/directml.py`): two threads loading or running models at once crash
+the graphics driver, so every session is made and run under one lock, a frame or a token at a
+time; and a model loaded and let go of while Whisper is loaded crashes Whisper's next step, lock
+or no lock. So the queue lets Whisper go before a conversion loads the model, and the model's use
+outside the queue, See it first and the PC check, runs in a process of its own (`kura
+upscale-frame`, `kura check-model`). ONNX Runtime's
 official Windows builds report their use to Microsoft through Windows' diagnostics unless told
 not to, so Kura turns that off (`disable_telemetry_events`) before loading the model. The engine
 carries Microsoft's C++ runtime, which ONNX Runtime needs (see [pyinstaller.md](pyinstaller.md)),

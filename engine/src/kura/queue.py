@@ -104,6 +104,7 @@ from kura.subtitles import (
     unfinished,
 )
 from kura.subtitles import make as make_subtitles
+from kura.system import own_command
 from kura.tools import Tools
 from kura.upscale import MODEL, model
 
@@ -1343,6 +1344,7 @@ def programs_from(tools: Tools) -> Programs | None:
         model=lambda width, height: model(width, height, MODEL),
         shader=SHADER,
         speech=lambda quality: tools.folder(MODELS[quality]) if quality in MODELS else None,
+        engine=own_command(),
     )
 
 

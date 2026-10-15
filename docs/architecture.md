@@ -96,6 +96,8 @@ kura/
   changes.py      applying and undoing plans (tidy-ups, a converted file's replacement), journaled
   convert.py      converting one file, checked, then in its original's place
   upscale.py      the AI model on the graphics card, between two ffmpegs
+  directml.py     DirectML's card, the lock its users take turns under, and why AI work
+                  outside the queue runs in a process of its own
   hardware.py     what this PC has (its cards, processor and memory) and what's kept about it:
                   what checking it found, and its own times, measured as it works
   pc_check.py     checking what this PC can do (its encoder, the AI model, Anime4K) and timing

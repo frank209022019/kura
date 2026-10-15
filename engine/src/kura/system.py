@@ -39,6 +39,14 @@ class _ExtendedLimits(ctypes.Structure):  # JOBOBJECT_EXTENDED_LIMIT_INFORMATION
     )
 
 
+def own_command() -> list[str]:
+    """The command that runs this engine again: its bundled kura-engine.exe, or Python with
+    Kura's package, as `kura` from source."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, "-m", "kura"]
+
+
 def end_programs_with_engine() -> bool:
     """Puts the engine in a Windows job that ends every program it starts (ffmpeg, say) when the
     engine ends, however it ends: the app stopping it, a crash, or Task Manager. Nothing then

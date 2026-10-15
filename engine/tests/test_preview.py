@@ -1,6 +1,8 @@
 """See it first: a frame before converting and after, with ffmpeg and the AI model stood in for."""
 
+import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,7 @@ from kura.config import DataPaths
 from kura.core.media import media_from_ffprobe
 from kura.core.standard import CINEMA_1080, Method
 from kura.preview import PreviewError, frame
+from kura.upscale import Upscaler
 from tests.converting import programs, report
 
 
@@ -102,3 +105,31 @@ def test_a_file_without_a_picture_has_no_frame(paths: DataPaths, episode: Path):
             way=Method.BEST,
             point=0,
         )
+
+
+FAKE_ENGINE = [sys.executable, str(Path(__file__).parent / "fake_engine.py")]
+
+
+def test_the_ai_models_frame_is_made_in_a_process_of_its_own(paths: DataPaths, episode: Path):
+    """The engine's own DirectML may hold Whisper: a model loaded beside it would crash it."""
+    commands: list[Sequence[str]] = []
+    kit = replace(programs({}, commands), model=_never, engine=FAKE_ENGINE)
+
+    after = frame(paths, kit, episode, SD, CINEMA_1080, side="after", way=Method.BEST, point=0)
+
+    assert after.read_text() == f"converted {16 * 12 * 3 * 4} bytes of frames"  # doubled there
+    assert any("upscale-frame" in command for command in commands)
+
+
+def test_an_ai_model_that_cant_run_in_its_process_says_why(
+    paths: DataPaths, episode: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("KURA_FAKE_MODEL", "no")
+    kit = replace(programs({}), model=_never, engine=FAKE_ENGINE)
+
+    with pytest.raises(PreviewError, match="it needs DirectX 12"):
+        frame(paths, kit, episode, SD, CINEMA_1080, side="after", way=Method.BEST, point=0)
+
+
+def _never(_width: int, _height: int) -> Upscaler:
+    raise AssertionError("the engine's own process loaded the AI model")

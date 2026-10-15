@@ -172,3 +172,42 @@ def test_a_model_that_fails_part_way_stops_it_with_the_reason():
     assert isinstance(error, UpscaleError)
     assert "the device was removed" in str(error)
     assert encoder.closed
+
+
+class Turns:
+    """DirectML's lock, standing in: counts who's inside (kura/directml.py)."""
+
+    def __init__(self) -> None:
+        self.inside = 0
+
+    def __enter__(self) -> None:
+        self.inside += 1
+
+    def __exit__(self, *_: object) -> None:
+        self.inside -= 1
+
+
+def test_the_model_is_loaded_and_run_taking_turns_on_the_card(monkeypatch: pytest.MonkeyPatch):
+    """Two threads on DirectML at once crash the graphics driver: the PC check loading the model
+    while Whisper heard a video ended the engine (2026-10-15)."""
+    turns = Turns()
+    seen: list[int] = []
+
+    class Running(Session):
+        def run(self, _outputs: object, feed: dict[str, Frame]) -> list[Frame]:
+            seen.append(turns.inside)
+            return [doubled(feed["frame"])]
+
+    def session(path: str, options: object, providers: object) -> Running:
+        seen.append(turns.inside)
+        return Running(["DmlExecutionProvider"])
+
+    runtime(monkeypatch, [], ["DmlExecutionProvider"], [])
+    monkeypatch.setattr(sys.modules["onnxruntime"], "InferenceSession", session)
+    monkeypatch.setattr("kura.directml.LOCK", turns)
+
+    upscale = model(WIDTH, HEIGHT)
+    upscale(np.zeros((1, 3, HEIGHT, WIDTH), np.float32))
+
+    assert seen == [1, 1]  # loading, then the frame: each inside the lock
+    assert turns.inside == 0

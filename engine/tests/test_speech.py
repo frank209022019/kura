@@ -3,14 +3,18 @@ itself is a download, so the queue's tests stand in for it."""
 
 import json
 import sys
+import threading
 import types
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import numpy as np
 import pytest
 
+from kura import directml
 from kura.core.speech import SAMPLE_RATE
+from kura.directml import PROVIDER as DIRECTML
 from kura.speech import (
     Detector,
     Listener,
@@ -20,7 +24,6 @@ from kura.speech import (
     out_of_memory,
     sound_of,
 )
-from kura.upscale import DIRECTML
 from tests.converting import FAKE_FFMPEG
 
 
@@ -170,3 +173,49 @@ def test_a_card_out_of_memory_is_told_apart():
 
     assert out_of_memory(full)
     assert not out_of_memory(RuntimeError("The GPU device instance has been suspended"))
+
+
+def test_whisper_takes_turns_on_the_card(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Each window it encodes and each token it writes holds DirectML's lock, a step at a time,
+    so the AI model can load and run between them (kura/directml.py)."""
+    detector, halves = Detector(), Halves({"encoder", "decoder"})
+    monkeypatch.setattr("kura.speech._session", halves)
+    listener = Listener(whisper_folder(tmp_path), detector=detector)
+    held: list[bool] = []
+
+    class SeenError(Exception):
+        pass
+
+    def on(_device: str, _array: object) -> object:
+        held.append(_held_here())
+        raise SeenError
+
+    def stepped(_self: object, *_args: object) -> tuple[object, dict[str, object]]:
+        held.append(_held_here())
+        return np.zeros((1, 4), np.float32), {}
+
+    monkeypatch.setattr("kura.speech._on", on)
+    monkeypatch.setattr(Listener, "_stepped", stepped)
+
+    with pytest.raises(SeenError):
+        listener._encode(np.zeros(SAMPLE_RATE, np.float32))  # pyright: ignore[reportPrivateUsage]
+    listener._step([1], cast("Any", None), None)  # pyright: ignore[reportPrivateUsage]
+
+    assert held == [True, True]
+    assert not _held_here()  # and let go after
+
+
+def _held_here() -> bool:
+    """Whether DirectML's lock is held: another thread can't take it meanwhile."""
+    free: list[bool] = []
+
+    def try_it() -> None:
+        taken = directml.LOCK.acquire(blocking=False)
+        free.append(taken)
+        if taken:
+            directml.LOCK.release()
+
+    other = threading.Thread(target=try_it)
+    other.start()
+    other.join()
+    return not free[0]

@@ -8,6 +8,7 @@ raw frame between two ffmpegs, or one ffmpeg command for the other methods.
 """
 
 import hashlib
+import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -28,7 +29,7 @@ from kura.core.convert import (
 from kura.core.media import MediaInfo
 from kura.core.standard import Method, Standard, decide
 from kura.stills import POINTS
-from kura.upscale import UpscaleError
+from kura.upscale import Frame, UpscaleError
 
 type Side = Literal["before", "after"]
 
@@ -101,17 +102,42 @@ def _with_model(
     if len(raw) < width * height * 3 * 4:
         raise PreviewError("ffmpeg couldn't take a frame from it.")
     picture = np.frombuffer(raw[: width * height * 3 * 4], np.float32).reshape(1, 3, height, width)
-    try:
-        upscale = programs.model(width, height)
-        upscaled = upscale(picture)
-    except UpscaleError as error:
-        raise PreviewError(str(error)) from error
-    big = (upscaled.shape[3], upscaled.shape[2])
-    _run(
-        programs,
-        from_frame_command(programs.ffmpeg, out, made, upscaled=big),
-        given=upscaled.tobytes(),
+    if programs.engine:
+        big, data = _upscaled_apart(programs, picture)
+    else:
+        try:
+            upscaled = programs.model(width, height)(picture)
+        except UpscaleError as error:
+            raise PreviewError(str(error)) from error
+        big, data = (upscaled.shape[3], upscaled.shape[2]), upscaled.tobytes()
+    _run(programs, from_frame_command(programs.ffmpeg, out, made, upscaled=big), given=data)
+
+
+def _upscaled_apart(programs: Programs, picture: Frame) -> tuple[tuple[int, int], bytes]:
+    """A frame through the AI model in a process of its own (kura/directml.py says why): its
+    size, and its planar float RGB."""
+    height, width = picture.shape[2], picture.shape[3]
+    command = [*programs.engine, "upscale-frame", str(width), str(height)]
+    process = programs.start(
+        command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
+    try:
+        out, err = process.communicate(picture.tobytes(), timeout=_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
+        raise PreviewError(
+            "The AI model took too long over one frame, so Kura stopped it."
+        ) from None
+    header, _, data = out.partition(b"\n")
+    try:
+        size = json.loads(header)
+        big = (int(size["width"]), int(size["height"]))
+    except ValueError, KeyError, TypeError:
+        said = err.decode("utf-8", "replace").strip().splitlines()
+        why = said[-1] if said else f"it stopped with code {process.returncode}"
+        raise PreviewError(f"The AI model couldn't make the frame: {why}") from None
+    return big, data
 
 
 def _run(programs: Programs, command: list[str], *, given: bytes | None = None) -> bytes:

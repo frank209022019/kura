@@ -13,6 +13,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Annotated
 
+import numpy as np
 import typer
 import uvicorn
 
@@ -21,12 +22,14 @@ from kura.api import create_app, openapi_schema
 from kura.config import DataPaths
 from kura.core.speech import SAMPLE_RATE, srt
 from kura.export import export_data
+from kura.pc_check import probe_model
 from kura.player import Player
 from kura.recovery import asked_to_stop
 from kura.relocate import move_asked
 from kura.speech import MODELS, Listener, SpeechError, sound_of
 from kura.system import end_programs_with_engine
 from kura.tools import Tools
+from kura.upscale import UpscaleError, model
 
 app = typer.Typer(help="Kura's engine.", no_args_is_help=True, add_completion=False)
 
@@ -130,6 +133,41 @@ def subtitles(
         f"{len(made.subtitles)} subtitles from {made.speech:.0f} s of speech in "
         f"{len(sound) / SAMPLE_RATE:.0f} s ({made.language}), in {time.monotonic() - began:.0f} s"
     )
+
+
+@app.command(name="check-model", hidden=True)
+def check_model(
+    timing: Annotated[
+        bool, typer.Option("--time", help="Time it on DVD-sized frames too.")
+    ] = False,
+) -> None:
+    """Whether the AI model runs on this PC's graphics card, and how fast: one JSON line. The
+    PC check runs this in a process of its own, so a graphics driver that fails takes only it."""
+    runs, speed = probe_model(model, timing=timing)
+    typer.echo(json.dumps({"runs": runs, "megapixels": speed}))
+
+
+@app.command(name="upscale-frame", hidden=True)
+def upscale_frame(
+    width: Annotated[int, typer.Argument(help="The frame's width.")],
+    height: Annotated[int, typer.Argument(help="Its height.")],
+) -> None:
+    """One frame through the AI model, in a process of its own (See it first): planar float RGB
+    on standard input; its new size as one JSON line, then its bytes, on standard output."""
+    frame = np.frombuffer(sys.stdin.buffer.read(), np.float32)
+    if frame.size != 3 * width * height:
+        typer.echo("The frame isn't the size given.", err=True)
+        raise typer.Exit(2)
+    out = sys.stdout.buffer
+    sys.stdout = sys.stderr  # ONNX Runtime talks on standard output: not into the frame
+    try:
+        made = model(width, height)(frame.reshape(1, 3, height, width))
+    except UpscaleError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(1) from error
+    out.write(json.dumps({"width": made.shape[3], "height": made.shape[2]}).encode() + b"\n")
+    out.write(made.astype(np.float32).tobytes())
+    out.flush()
 
 
 @app.command()

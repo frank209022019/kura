@@ -76,6 +76,11 @@ medium heard a minute of an episode in 84 seconds on the owner's i5-9600K; small
 third of the work, so Fast on a processor is guessed at a second of work for each second of sound
 till the PC measures its own.
 
+Every window Whisper encodes and every token it writes takes DirectML's lock
+(`kura/directml.py`): two threads on DirectML at once crash the graphics driver. And another model
+loaded and let go of in the engine while Whisper is loaded crashes Whisper's next step, so the AI
+model's work outside the queue (See it first, the PC check) runs in a process of its own.
+
 One job at a time on the card: subtitles wait in the queue with the conversions, in the owner's
 order. Whisper stays loaded while subtitles follow subtitles, and is let go before a conversion
 and once nothing waits, so the AI upscaler gets the card's memory.
