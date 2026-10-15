@@ -85,21 +85,45 @@ does the rest, on the TV, the phone or wherever you watch.
 
 ## Alongside your media server
 
-| | |
-| --- | --- |
-| **Same folders** | Kura works on the folders your media server already watches; its next scan sees the changes. |
-| **Its layout** | Show and season folders and file names as media server apps read them: no release tags, resolutions or codecs. |
-| **Its pictures** | Poster and background images beside each show, if you want them, for servers that use them. |
-| **Hands off** | Kura never touches your media server, its database or its settings. |
+<table>
+  <tr>
+    <td nowrap><b>Same folders</b></td>
+    <td>Kura works on the folders your media server already watches; its next scan sees the changes.</td>
+  </tr>
+  <tr>
+    <td nowrap><b>Its layout</b></td>
+    <td>Show and season folders and file names as media server apps read them: no release tags, resolutions or codecs.</td>
+  </tr>
+  <tr>
+    <td nowrap><b>Its pictures</b></td>
+    <td>Poster and background images beside each show, if you want them, for servers that use them.</td>
+  </tr>
+  <tr>
+    <td nowrap><b>Hands off</b></td>
+    <td>Kura never touches your media server, its database or its settings.</td>
+  </tr>
+</table>
 
 ## Safe by design
 
-| | |
-| --- | --- |
-| **Asks first** | Renames, moves, deletions and conversions are proposed, then applied on your word. |
-| **Undoes** | History puts back any tidy-up, and any converted file's original. |
-| **Keeps copies** | What's replaced or deleted waits 30 days in quarantine on its own drive. |
-| **Stays local** | No account and no cloud; nightly backups and a one-zip export. |
+<table>
+  <tr>
+    <td nowrap><b>Asks first</b></td>
+    <td>Renames, moves, deletions and conversions are proposed, then applied on your word.</td>
+  </tr>
+  <tr>
+    <td nowrap><b>Undoes</b></td>
+    <td>History puts back any tidy-up, and any converted file's original.</td>
+  </tr>
+  <tr>
+    <td nowrap><b>Keeps copies</b></td>
+    <td>What's replaced or deleted waits 30 days in quarantine on its own drive.</td>
+  </tr>
+  <tr>
+    <td nowrap><b>Stays local</b></td>
+    <td>No account and no cloud; nightly backups and a one-zip export.</td>
+  </tr>
+</table>
 
 ## The AI inside
 
@@ -107,12 +131,24 @@ Every model runs on your own PC, and no video or sound leaves it. The upscalers 
 detector ship inside Kura; Whisper is downloaded the first time you make subtitles, from the
 source the installer's first page lists.
 
-| | |
-| --- | --- |
-| **[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)** | Its anime video model, `realesr-animevideov3`, upscales SD episodes (480p and 576p). BSD-3-Clause licence. |
-| **[Anime4K](https://github.com/bloc97/Anime4K)** | Version 4.0's mode A (HQ), small neural networks written as graphics shaders, upscales 720p to 1080p. MIT licence. |
-| **[Whisper](https://github.com/openai/whisper)** | OpenAI's speech model hears an episode's sound and writes it in English: medium for Best, small for Fast, on your graphics card (Fast on the processor when the card hasn't the memory). MIT licence. |
-| **[pyannote](https://huggingface.co/pyannote/segmentation-3.0)** | Its speaker segmentation model 3.0 finds where someone speaks, even over music, so Whisper hears just that. MIT licence. |
+<table>
+  <tr>
+    <td nowrap><b><a href="https://github.com/xinntao/Real-ESRGAN">Real-ESRGAN</a></b></td>
+    <td>Its anime video model, <code>realesr-animevideov3</code>, upscales SD episodes (480p and 576p). BSD-3-Clause licence.</td>
+  </tr>
+  <tr>
+    <td nowrap><b><a href="https://github.com/bloc97/Anime4K">Anime4K</a></b></td>
+    <td>Version 4.0's mode A (HQ), small neural networks written as graphics shaders, upscales 720p to 1080p. MIT licence.</td>
+  </tr>
+  <tr>
+    <td nowrap><b><a href="https://github.com/openai/whisper">Whisper</a></b></td>
+    <td>OpenAI's speech model hears an episode's sound and writes it in English: medium for Best, small for Fast, on your graphics card (Fast on the processor when the card hasn't the memory). MIT licence.</td>
+  </tr>
+  <tr>
+    <td nowrap><b><a href="https://huggingface.co/pyannote/segmentation-3.0">pyannote</a></b></td>
+    <td>Its speaker segmentation model 3.0 finds where someone speaks, even over music, so Whisper hears just that. MIT licence.</td>
+  </tr>
+</table>
 
 ## Your own videos only
 
