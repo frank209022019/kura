@@ -158,7 +158,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   Kura's own screens with made-up titles. It markets Kura as the anime companion to a media
   server (the owner, 2026-10-15: "an additional tool to be used alongside tools like Plex,
   Jellyfin, etc", named only as "popular media server applications or something"): Kura gets
-  the library right, the media server plays it.
+  the library right, the media server plays it. "The AI inside" names every AI model Kura uses,
+  with its licence (the owner, 2026-10-15: "make sure to name any AI model we are using for any
+  upscaling, etc"), so a model Kura takes on joins it in the same commit.
 - Home shows the library (the owner, 2026-10-12): what this copy of Kura is up to (the engine,
   the data folder, the database, TMDB, updates) is in Settings › About. Its videos by picture
   are a summary at the top, and Scan again and Add a folder sit by the page's title with when

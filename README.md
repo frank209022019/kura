@@ -53,9 +53,10 @@ nothing moves until you apply them, and History undoes any of it.
 
 ### 4. Bring it all to one standard
 
-Choose 1080p or 720p and Kura encodes HEVC 10-bit on your graphics card: SD gets an AI upscale,
-720p gets Anime4K, and "See it first" shows a frame before and after. The queue can run at night,
-waits when a drive is full, and checks every result before it replaces the original.
+Choose 1080p or 720p and Kura encodes HEVC 10-bit on your graphics card. SD gets an AI upscale
+from Real-ESRGAN's anime video model, 720p gets Anime4K's, and "See it first" shows a frame before
+and after. The queue can run at night, waits when a drive is full, and checks every result before
+it replaces the original.
 
 ![The queue: the file converting now and what's next](docs/readme/queue.png)
 
@@ -84,6 +85,16 @@ does the rest, on the TV, the phone or wherever you watch.
 | **Undoes** | History puts back any tidy-up, and any converted file's original. |
 | **Keeps copies** | What's replaced or deleted waits 30 days in quarantine on its own drive. |
 | **Stays local** | No account and no cloud; nightly backups and a one-zip export. |
+
+## The AI inside
+
+Both models run on your own graphics card and ship inside Kura: nothing is downloaded for them,
+and no video leaves your PC.
+
+| | |
+| --- | --- |
+| **[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)** | Its anime video model, `realesr-animevideov3`, upscales SD episodes (480p and 576p). BSD-3-Clause licence. |
+| **[Anime4K](https://github.com/bloc97/Anime4K)** | Version 4.0's mode A (HQ), small neural networks written as graphics shaders, upscales 720p to 1080p. MIT licence. |
 
 ## Your own videos only
 
