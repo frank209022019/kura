@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.15.1 - 2026-10-15
+
 ### Fixed
 - Picking another sound or subtitles in the player's menu with the mouse did nothing: the click
   was taken as the start of moving the player. The menu takes it now.
