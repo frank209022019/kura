@@ -33,7 +33,7 @@ import {
 } from "@/lib/startup";
 import { updateStatus, useInstallUpdate, useReadyUpdate } from "@/lib/updates";
 import { cn } from "@/lib/utils";
-import { AboutPanel } from "./about-panel";
+import { AboutPanel, PcPanel } from "./about-panel";
 import { BackupsPanel } from "./backups-panel";
 import { ExportPanel } from "./export-panel";
 import { Panel } from "./panel";
@@ -108,7 +108,12 @@ function Content({ section }: { section: Section }) {
     case "updates":
       return <Updates />;
     case "about":
-      return <AboutPanel />;
+      return (
+        <>
+          <PcPanel />
+          <AboutPanel />
+        </>
+      );
   }
 }
 

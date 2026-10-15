@@ -19,7 +19,7 @@ from tests.shelf import NOW, library
 
 
 class Whisper:
-    def __init__(self, folder: Path) -> None:
+    def __init__(self, folder: Path, graphics: bool) -> None:
         self.folder = folder
 
     def hear(self, audio: object, language: str | None, *, report: object, stop: object) -> Made:

@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EngineProvider, type Hearable, type Tool } from "@/lib/engine";
-import { fakeEngine, READY } from "@/test/engine";
+import { EngineProvider, type Hearable, type System, type Tool } from "@/lib/engine";
+import { fakeEngine, READY, SYSTEM } from "@/test/engine";
 import { MakeSubtitlesPage } from "./make-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -59,10 +59,12 @@ function model(state: Tool["state"]): Tool {
   };
 }
 
-function engine(state: Tool["state"] = "ready") {
+function engine(state: Tool["state"] = "ready", system: System = SYSTEM) {
+  const fast = { ...model("ready"), id: "speech-fast", name: "Whisper small", size: 486_000_000 };
   return fakeEngine({
     "/subtitles": { files: FILES, rates: { best: 0.4, fast: 0.15 } },
-    "/tools": [model(state)],
+    "/system": system,
+    "/tools": [model(state), fast],
     "/queue": { schedule: "now", queued: [], running: null },
     "POST /subtitles": { added: 2 },
     "POST /tools/speech-best/download": { ...model("downloading") },
@@ -204,5 +206,50 @@ describe("MakeSubtitlesPage", () => {
     expect(
       await screen.findByRole("button", { name: "Make subtitles for 4 episodes" }),
     ).toBeEnabled();
+  });
+
+  it("offers Fast where the card hasn't the memory for Best", async () => {
+    const small: System = {
+      ...SYSTEM,
+      card: {
+        name: "NVIDIA GeForce GTX 1050",
+        maker: "nvidia",
+        memory: 2 * 1024 ** 3,
+        integrated: false,
+        driver: "551.86",
+      },
+      subtitles: { best: null, fast: "card", bestWants: "memory" },
+    };
+    const fetch = engine("ready", small);
+    renderMake();
+
+    const best = await screen.findByRole("radio", { name: "Best" });
+    await waitFor(() => expect(best).toBeDisabled());
+    expect(best).toHaveTextContent("Not on this card");
+    expect(best).toHaveTextContent(
+      "Wants a graphics card with 4 GB of its own memory; this one has 2 GB.",
+    );
+    const fast = screen.getByRole("radio", { name: "Fast" });
+    expect(fast).toBeChecked();
+    expect(fast).toHaveTextContent("Right for this PC");
+    expect(fast).toHaveTextContent("≈ 4 min per episode on this PC");
+
+    screen.getByRole("button", { name: /Make subtitles for 2 episodes/ }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/subtitles")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/subtitles") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toMatchObject({ quality: "fast" });
+  });
+
+  it("names DirectX 12 when that's what Best wants here", async () => {
+    engine("ready", {
+      ...SYSTEM,
+      subtitles: { best: null, fast: "processor", bestWants: "directx" },
+    });
+    renderMake();
+
+    const best = await screen.findByRole("radio", { name: "Best" });
+    await waitFor(() => expect(best).toBeDisabled());
+    expect(best).toHaveTextContent("Wants a graphics card that runs DirectX 12; this one doesn't.");
   });
 });

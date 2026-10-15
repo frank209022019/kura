@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import Field
 
-from kura import preview
+from kura import hardware, preview
 from kura import queue as conversions
 from kura.api.common import ApiModel, Database, Paths, Scans
 from kura.convert import CONVERTED, ConvertError, Programs, label_of, lighter
@@ -96,6 +96,7 @@ class Job(ApiModel):
     kind: Literal["convert", "subtitles", "merge"]
     language: str | None  # subtitles: the sound they're made from ("jpn"; "" when it's unsaid)
     model_missing: bool  # subtitles waiting for their speech model to download
+    fast_instead: bool  # subtitles at Best that failed where Fast would go ("Make them with Fast")
 
 
 class Room(ApiModel):
@@ -210,8 +211,10 @@ Card = Annotated[Gpu, Depends(_gpu)]
 
 @router.get("/convert")
 def what_to_convert(conn: Database) -> ConvertOptions:
-    """Every video not at the standard yet, with what each way of converting it would take."""
+    """Every video not at the standard yet, with what each way of converting it would take on
+    this PC."""
     standard = library_standard(conn)
+    speeds = hardware.speeds(conn)
     rows = conn.execute(
         """SELECT f.id, f.path, f.probe, f.problem, f.season, f.episode, f.title_id,
                   t.name AS title,
@@ -239,7 +242,7 @@ def what_to_convert(conn: Database) -> ConvertOptions:
         if not broken:
             for choice in _CHOICES:
                 method = lighter(decision.method, Method(choice))
-                made = estimate(media, replace(decision, method=method), standard)
+                made = estimate(media, replace(decision, method=method), standard, speeds)
                 ways[choice] = Estimate.model_validate(
                     {"method": method.value, "gpu_seconds": made.gpu_seconds}
                 )
@@ -426,12 +429,17 @@ def mark_broken(job_id: int, queue: Queue) -> None:
         queue.mark_broken(job_id)
 
 
+class RetryRequest(ApiModel):
+    quality: Literal["best", "fast"] | None = None  # subtitles: made at this quality instead
+
+
 @router.post("/queue/{job_id}/retry", status_code=status.HTTP_204_NO_CONTENT)
-def retry_job(job_id: int, queue: Queue) -> None:
+def retry_job(job_id: int, queue: Queue, body: RetryRequest | None = None) -> None:
     """A failed or skipped file goes back in the queue, last; one made and waiting for another
-    app to let go of its original is tried again now ("Try now")."""
+    app to let go of its original is tried again now ("Try now"). Subtitles go at `quality`
+    when it's given: Fast, after the card ran out of memory for Best ("Make them with Fast")."""
     with _known():
-        queue.retry(job_id)
+        queue.retry(job_id, body.quality if body else None)
 
 
 @router.post("/queue/{job_id}/restore", status_code=status.HTTP_204_NO_CONTENT)

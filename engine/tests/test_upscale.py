@@ -82,18 +82,30 @@ def test_the_model_says_how_big_its_frames_come_out():
     assert upscaled_size(doubled, 720, 480) == (1440, 960)
 
 
-def test_onnx_runtime_reports_nothing_to_microsoft(monkeypatch: pytest.MonkeyPatch):
-    """Its Windows builds send usage reports through Windows unless told not to, first."""
-    said: list[str] = []
+class Session:
+    """ONNX Runtime's session, standing in, running where `providers` says."""
+
+    def __init__(self, providers: list[str]) -> None:
+        self.providers = providers
+
+    def get_providers(self) -> list[str]:
+        return self.providers
+
+
+def runtime(
+    monkeypatch: pytest.MonkeyPatch, said: list[str], ran: list[str], asked: list[object]
+) -> None:
+    """ONNX Runtime standing in, its sessions running on `ran`: no graphics card needed."""
 
     class Options:
         def add_free_dimension_override_by_name(self, name: str, size: int) -> None: ...
 
-    def session(path: str, options: Options, providers: object) -> object:
+    def session(path: str, options: Options, providers: object) -> Session:
         said.append("model loaded")
-        return object()
+        asked.append(providers)
+        return Session(ran)
 
-    onnxruntime = types.ModuleType("onnxruntime")  # a stand-in: no graphics card needed
+    onnxruntime = types.ModuleType("onnxruntime")
     vars(onnxruntime).update(
         disable_telemetry_events=lambda: said.append("no reports"),
         SessionOptions=Options,
@@ -103,9 +115,33 @@ def test_onnx_runtime_reports_nothing_to_microsoft(monkeypatch: pytest.MonkeyPat
     )
     monkeypatch.setitem(sys.modules, "onnxruntime", onnxruntime)
 
+
+def test_onnx_runtime_reports_nothing_to_microsoft(monkeypatch: pytest.MonkeyPatch):
+    """Its Windows builds send usage reports through Windows unless told not to, first."""
+    said: list[str] = []
+    runtime(monkeypatch, said, ["DmlExecutionProvider", "CPUExecutionProvider"], [])
+
     model(WIDTH, HEIGHT)
 
     assert said == ["no reports", "model loaded"]
+
+
+def test_the_model_runs_on_the_pcs_high_performance_card(monkeypatch: pytest.MonkeyPatch):
+    """On a laptop with two, the card of its own rather than the processor's graphics."""
+    asked: list[object] = []
+    runtime(monkeypatch, [], ["DmlExecutionProvider", "CPUExecutionProvider"], asked)
+
+    model(WIDTH, HEIGHT)
+
+    assert asked == [[("DmlExecutionProvider", {"performance_preference": "high_performance"})]]
+
+
+def test_a_card_without_directx_12_cant_run_the_model(monkeypatch: pytest.MonkeyPatch):
+    """ONNX Runtime falls back to the processor by itself: far too slow, so it's refused."""
+    runtime(monkeypatch, [], ["CPUExecutionProvider"], [])
+
+    with pytest.raises(UpscaleError, match="it needs DirectX 12"):
+        model(WIDTH, HEIGHT)
 
 
 def test_a_model_that_fails_part_way_stops_it_with_the_reason():

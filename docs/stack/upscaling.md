@@ -1,4 +1,4 @@
-# Upscaling (ONNX Runtime, Real-ESRGAN, Anime4K, NVENC)
+# Upscaling (ONNX Runtime, Real-ESRGAN, Anime4K, the encoders)
 
 Every file goes to the library standard (1080p or 720p HEVC 10-bit). How its picture gets there
 depends on where it starts, as the owner chose after the upscaling test on 2026-10-11 (the
@@ -11,9 +11,11 @@ numbers are in [kura/core/estimate.py](../../engine/src/kura/core/estimate.py)):
 | 1080p, not HEVC 10-bit | Re-encode | ffmpeg alone | about 3 minutes |
 | Bigger than 1080p | Re-encode | brought down to 1080p | |
 
-Whatever the method, NVENC (the card's encoder) writes HEVC 10-bit, and the picture keeps its
-shape: 4:3 stays 4:3 at 1440x1080, nothing stretched or cropped.
-[kura/core/convert.py](../../engine/src/kura/core/convert.py) builds the ffmpeg commands.
+Whatever the method, the card's encoder writes HEVC 10-bit (NVIDIA's NVENC, AMD's AMF or Intel's
+Quick Sync, whichever the PC has), and the picture keeps its shape: 4:3 stays 4:3 at 1440x1080,
+nothing stretched or cropped. [kura/core/convert.py](../../engine/src/kura/core/convert.py) builds
+the ffmpeg commands. On another PC, a way that doesn't run there gives way to the next one down
+and a slow one is said to be slow, with that PC's own times: [hardware.md](hardware.md).
 
 ## The AI model: ONNX Runtime with DirectML
 
@@ -22,7 +24,10 @@ through DirectML, which every DirectX 12 card has: no CUDA download (CUDA was no
 adds more than a gigabyte). The model runs in full precision: half precision is slower on GTX 16
 cards, which have no tensor cores. The session uses `DmlExecutionProvider` with memory patterns
 off and sequential execution (DirectML's requirements), and fixes the free width and height to
-the source's (`add_free_dimension_override_by_name`), which DirectML runs faster. ONNX Runtime's
+the source's (`add_free_dimension_override_by_name`), which DirectML runs faster. DirectML takes
+the PC's high-performance card (`performance_preference`: a laptop's card of its own, not the
+processor's graphics), and a session ONNX Runtime quietly moved to the processor, as it does when
+DirectML can't start, is refused: the model there would take days an episode. ONNX Runtime's
 official Windows builds report their use to Microsoft through Windows' diagnostics unless told
 not to, so Kura turns that off (`disable_telemetry_events`) before loading the model. The engine
 carries Microsoft's C++ runtime, which ONNX Runtime needs (see [pyinstaller.md](pyinstaller.md)),
@@ -48,12 +53,17 @@ is Anime4K v4.0's "Mode A (HQ)", six shaders in one file
 (`C\\:/Users/…`), so a folder with an apostrophe, a comma or brackets in its name reads back
 as it is.
 
-## NVENC
+## The encoders
 
 `hevc_nvenc`, preset p5, tuned for quality, constant quality 23 with no bitrate cap, spatial
 adaptive quantisation, 10-bit (`main10`, `p010le`). At quality 20 the test's episodes came out at
 590 to 810 MB; 23 lands near the standard's 450 MB for 24 minutes. Turing cards (GTX 16) encode
 HEVC 10-bit but not AV1.
+
+On PCs without NVIDIA's, AMD's `hevc_amf` (transcoding, quality preset, constant QP 22 and 24) or
+Intel's `hevc_qsv` (preset slower, global quality 23), both `main10`, make the same standard. The
+check of the PC finds which one starts ([hardware.md](hardware.md)); they haven't been measured
+against NVENC's sizes on real cards yet.
 
 ## Tests
 

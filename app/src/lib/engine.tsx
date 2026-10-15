@@ -516,13 +516,93 @@ export const useConnectTmdb = () => useEngineAction<TmdbStatus>(["/tmdb", "/scan
 /** Forgets the key: `forget.mutate({ path: "/tmdb" })`. */
 export const useForgetTmdb = () => useEngineAction<TmdbStatus>(["/tmdb"], "DELETE");
 
-/** What this PC has to work with. */
-export interface System {
-  /** As Windows names it; null when Windows wouldn't say. */
-  graphicsCard: string | null;
+/** A graphics card, or the processor's graphics. */
+export interface Card {
+  /** As Windows names it: "NVIDIA GeForce GTX 1660 SUPER". */
+  name: string;
+  maker: "nvidia" | "amd" | "intel" | "other";
+  /** Bytes of its own; null when Windows doesn't say. */
+  memory: number | null;
+  /** The processor's graphics, sharing the PC's memory. */
+  integrated: boolean;
+  /** Its driver's version, as its maker writes it: "617.42". */
+  driver: string | null;
 }
 
-export const useSystem = () => useEngineQuery<System>("/system");
+/** A part of Kura, as this PC's check lists them. */
+export type PcAbility = "convert" | "ai" | "fast" | "subtitles" | "player";
+/** A part of the check itself. */
+export type PcStep = "encoder" | "ai" | "anime4k";
+/** Where English subtitles of a quality are made. */
+export type Place = "card" | "processor";
+
+/** One part of Kura on this PC. */
+export interface Ability {
+  part: PcAbility;
+  /** Ready; slow (over three hours an episode); limited (a lighter way only); or not here. */
+  state: "ready" | "slow" | "limited" | "no";
+  /** What does it here: "HEVC 10-bit on NVIDIA's encoder (NVENC)". */
+  how: string;
+  /** What's slow or limited, or why it can't. */
+  note: string | null;
+  /** A 24-minute episode's time here, in seconds; for subtitles, Best's then Fast's. */
+  seconds: number[];
+}
+
+/** What this PC has, and what Kura can do on it and how fast. */
+export interface System {
+  /** The card Kura works on, as Windows names it; null when Windows wouldn't say. */
+  graphicsCard: string | null;
+  /** The card Kura works on: the one of its own with the most memory. */
+  card: Card | null;
+  cards: Card[];
+  /** "Intel Core i5-9600K". */
+  processor: string | null;
+  cores: number | null;
+  /** Bytes installed. */
+  memory: number | null;
+  /** When this PC was checked; null till it is. */
+  checkedAt: string | null;
+  /** The encoder that converts here; null without one, or before the check. */
+  encoder: "nvenc" | "amf" | "qsv" | null;
+  /** The card's maker's drivers, when its own encoder didn't start for want of a newer one. */
+  driverLink: string | null;
+  /** What that encoder said. */
+  encoderProblem: string | null;
+  /** Each part of Kura here, once this PC is checked. */
+  abilities: Ability[];
+  /**
+   * Where English subtitles are made at each quality, null where this PC can't, and why Best
+   * isn't here: its card hasn't the memory, or doesn't run DirectX 12.
+   */
+  subtitles: { best: Place | null; fast: Place | null; bestWants: "memory" | "directx" | null };
+  /** How the times were measured; null while they're a guess. */
+  measured: { at: string; tested: boolean; conversions: number; subtitles: number } | null;
+  /** A check under way: its part, the parts done, the encoder's frames a second once timed. */
+  testing: { step: PcStep; done: PcStep[]; fps: number | null; timing: boolean } | null;
+}
+
+/** Where a test's times show: what's to convert and the queue, and subtitles' estimates. */
+const TIMED = ["/convert", "/subtitles", "/queue"];
+
+/**
+ * What this PC has and can do, asked every second while it's being tested; once a test is over,
+ * the screens with times catch up.
+ */
+export function useSystem() {
+  const query = useEngineQuery<System>("/system", (now) => (now?.testing ? 1000 : false));
+  const refresh = useRefresh();
+  const testing = Boolean(query.data?.testing);
+  const was = useRef(testing);
+  useEffect(() => {
+    if (was.current && !testing) void refresh(TIMED);
+    was.current = testing;
+  }, [testing, refresh]);
+  return query;
+}
+
+/** Tests this PC again, in the background: `test.mutate({ path: "/system/test" })`. */
+export const useTestPc = () => useEngineAction<System>(["/system"]);
 
 /** What a title is, in the words Kura shows: a TV series, a movie, an OVA or a special. */
 export type TitleKind = "series" | "movie" | "ova" | "special";
@@ -1196,6 +1276,8 @@ export interface Job {
   language: string | null;
   /** Subtitles waiting for their speech model to download. */
   modelMissing: boolean;
+  /** Subtitles at Best that failed where Fast would go: "Make them with Fast". */
+  fastInstead: boolean;
 }
 
 /** A drive without room for the files waiting to convert on it. */
@@ -1269,9 +1351,10 @@ const QUEUED = ["/queue", "/convert", "/history", "/library", "/titles"];
  */
 export const useAddToQueue = () => useEngineAction<{ added: number }>(QUEUED);
 /**
- * Changes the queue: `/queue/pause`, `/queue/resume`, `/queue/7/skip`, `/queue/7/retry`,
- * `/queue/7/move` (with `{ before }`), `/queue/7/restore`, or `/queue/fit` (with `{ drive }`:
- * there, the files that fit convert and the rest wait for room).
+ * Changes the queue: `/queue/pause`, `/queue/resume`, `/queue/7/skip`, `/queue/7/retry`
+ * (subtitles with `{ quality: "fast" }` to make them with Fast instead), `/queue/7/move` (with
+ * `{ before }`), `/queue/7/restore`, or `/queue/fit` (with `{ drive }`: there, the files that
+ * fit convert and the rest wait for room).
  */
 export const useQueueAction = () => useEngineAction<unknown>(QUEUED);
 /**

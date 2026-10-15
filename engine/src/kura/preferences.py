@@ -4,7 +4,9 @@ import json
 import sqlite3
 from dataclasses import replace
 
+from kura.core.hardware import capable
 from kura.core.standard import CINEMA_1080, COMPACT_720, Standard
+from kura.hardware import checked_here
 
 
 def names_kept(conn: sqlite3.Connection) -> bool:
@@ -21,16 +23,18 @@ def reports_wanted(conn: sqlite3.Connection) -> bool:
 
 
 def library_standard(conn: sqlite3.Connection) -> Standard:
-    """The standard the owner chose in setup, with their upscaling choices."""
+    """The standard the owner chose in setup, with their upscaling choices, as this PC can make
+    it: SD gets the fast upscale where the AI model doesn't run, say (kura/core/hardware.py)."""
     stored = {
         row["key"]: json.loads(row["value"]) for row in conn.execute("SELECT * FROM settings")
     }
     base = COMPACT_720 if stored.get("standard") == "compact-720" else CINEMA_1080
-    return replace(
+    chosen = replace(
         base,
         ai_for_sd=stored.get("upscale_sd", True) is not False,
         fast_for_hd=stored.get("upscale_720", True) is not False,
     )
+    return capable(chosen, checked_here(conn))
 
 
 def artwork_wanted(conn: sqlite3.Connection) -> bool:

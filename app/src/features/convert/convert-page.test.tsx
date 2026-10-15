@@ -3,14 +3,16 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  type Ability,
   type ConvertOptions,
   EngineProvider,
   type FranchiseSummary,
   type QueueStatus,
+  type System,
   type TitleSummary,
 } from "@/lib/engine";
 import { convertible } from "@/test/convert";
-import { fakeEngine, READY, SETTINGS } from "@/test/engine";
+import { fakeEngine, READY, SETTINGS, SYSTEM, UNCHECKED } from "@/test/engine";
 import { ConvertPage } from "./convert-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -68,6 +70,41 @@ const QUEUE: QueueStatus = {
   endsAt: null,
   early: false,
 };
+
+/** The owner's PC with some of its parts as another PC has them. */
+function another(
+  parts: Partial<Record<Ability["part"], Partial<Ability>>>,
+  more: Partial<System> = {},
+) {
+  return {
+    ...SYSTEM,
+    abilities: SYSTEM.abilities.map((each) => ({ ...each, ...parts[each.part] })),
+    ...more,
+  };
+}
+
+const LAPTOP = another(
+  {
+    convert: { how: "HEVC 10-bit on Intel Quick Sync", seconds: [840] },
+    ai: {
+      state: "slow",
+      how: "Real-ESRGAN on the processor's graphics, slowly",
+      note: "SD episodes get the fast upscale unless you choose the AI model on Convert.",
+      seconds: [32_400],
+    },
+  },
+  {
+    graphicsCard: "Intel(R) UHD Graphics 620",
+    card: {
+      name: "Intel(R) UHD Graphics 620",
+      maker: "intel",
+      memory: 128 * 1024 ** 2,
+      integrated: true,
+      driver: "31.0.101.2111",
+    },
+    encoder: "qsv",
+  },
+);
 
 function renderConvert() {
   shell.invoke.mockImplementation(async (command: string) =>
@@ -408,5 +445,135 @@ describe("ConvertPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Everything is at your standard" }),
     ).toBeInTheDocument();
+  });
+
+  it("says its times are this PC's own once it's measured", async () => {
+    fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/system": SYSTEM,
+    });
+    renderConvert();
+
+    expect(
+      await screen.findByText("Measured on this PC · NVIDIA GeForce GTX 1660 SUPER"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/These times are a guess/)).toBeNull();
+  });
+
+  it("says its times are a guess till this PC is measured, and tests it on asking", async () => {
+    const fetch = fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/system": UNCHECKED,
+      "POST /system/test": {
+        ...UNCHECKED,
+        testing: { step: "encoder", done: [], fps: null, timing: true },
+      },
+    });
+    renderConvert();
+
+    expect(
+      await screen.findByText(
+        "These times are a guess, from a GTX 1660 Super, until Kura has measured this PC.",
+      ),
+    ).toBeInTheDocument();
+    screen.getByRole("button", { name: "Test this PC" }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/system/test")).toHaveLength(1));
+  });
+
+  it("chooses Fast where the AI model is slow on this PC, and says so", async () => {
+    fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/system": LAPTOP,
+    });
+    renderConvert();
+
+    const best = await screen.findByRole("radio", { name: /Best quality/ });
+    await waitFor(() => expect(screen.getByRole("radio", { name: /Fast/ })).toBeChecked());
+    expect(best).toHaveTextContent("Slow here");
+    expect(
+      screen.getByText(
+        "On this PC's graphics the AI model takes about 9 hours an episode, so Fast is chosen for SD. Choose Best quality any time: it's slow, not worse.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Re-encode only/ })).toHaveTextContent(
+      "Intel Quick Sync encoder",
+    );
+
+    best.click();
+
+    await waitFor(() => expect(best).toBeChecked()); // slow, not worse: still the owner's to choose
+  });
+
+  it("can't choose a way this PC can't run, and says why", async () => {
+    const why =
+      "Its graphics card can't run the AI model: it needs DirectX 12. SD episodes get the fast upscale instead.";
+    fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/system": another({ ai: { state: "no", how: "Not on this PC", note: why, seconds: [] } }),
+    });
+    renderConvert();
+
+    const best = await screen.findByRole("radio", { name: /Best quality/ });
+    await waitFor(() => expect(best).toBeDisabled());
+    expect(best).toHaveTextContent("Not on this PC");
+    expect(best).toHaveTextContent(why);
+    expect(screen.getByRole("radio", { name: /Fast/ })).toBeChecked();
+  });
+
+  it("says when this PC can't convert, and what still works", async () => {
+    const r7: System["card"] = {
+      name: "AMD Radeon R7 250",
+      maker: "amd",
+      memory: 2 * 1024 ** 3,
+      integrated: false,
+      driver: "27.20.20913.2000",
+    };
+    fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/system": { ...SYSTEM, card: r7, graphicsCard: r7?.name ?? null, encoder: null },
+    });
+    renderConvert();
+
+    expect(await screen.findByText("This PC can't convert to your standard")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Its graphics card, an AMD Radeon R7 250, has no encoder for HEVC 10-bit/),
+    ).toHaveTextContent("English subtitles and the player");
+    expect(screen.getByRole("button", { name: "Test this PC again" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: /Best quality/ })).toBeNull();
+  });
+
+  it("links the card maker's drivers when its encoder didn't start", async () => {
+    fakeEngine({
+      "/convert": OPTIONS,
+      "/franchises": FRANCHISES,
+      "/queue": QUEUE,
+      "/system": {
+        ...SYSTEM,
+        encoder: null,
+        driverLink: "https://www.nvidia.com/Download/index.aspx",
+        encoderProblem: "Driver does not support the required nvenc API version.",
+      },
+    });
+    renderConvert();
+
+    expect(await screen.findByText("NVIDIA's encoder didn't start")).toBeInTheDocument();
+    expect(
+      screen.getByText("hevc_nvenc: Driver does not support the required nvenc API version"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "NVIDIA's drivers" })).toHaveAttribute(
+      "href",
+      "https://www.nvidia.com/Download/index.aspx",
+    );
   });
 });

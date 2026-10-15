@@ -9,7 +9,10 @@ It answers the commands kura/core/convert.py builds, without converting anything
 - a test play: says nothing, as ffmpeg does when a file plays;
 - the player's stream (kura/core/player.py): writes KURA_FAKE_CHUNKS lines naming its
   arguments to its output ("endless": one every 20 ms till it's stopped); an encoder showing it
-  works: says nothing; subtitles copied out: writes the ASS file, and each font to its path;
+  works, or Anime4K (libplacebo) on a made-up picture (kura/pc_check.py): says nothing, taking
+  as long as KURA_FAKE_FPS frames a second makes its frames (no time at all without), and tells
+  its progress as it goes when it's asked to (-progress);
+  subtitles copied out: writes the ASS file, and each font to its path;
 - a sound track read for English subtitles (kura/speech.py): writes KURA_FAKE_SOUND seconds of
   silence (one) as floats, at the rate asked for;
 - English from another copy (kura/core/merge.py): writes the copy kept, with words for the
@@ -18,7 +21,8 @@ It answers the commands kura/core/convert.py builds, without converting anything
 KURA_FAKE_FAIL names a step that fails instead: "encode", "play" or "frame", "decode" (once its
 frames are out, as a decoder meeting damage), "convert" (one command, 1,200 frames in), "stream"
 (before its first bytes), "midstream" (after them), "subtitles", "sound" or "merge".
-KURA_FAKE_NO_ENCODERS names the encoders this PC hasn't, separated by commas.
+KURA_FAKE_NO_ENCODERS names the encoders this PC hasn't, separated by commas ("libplacebo" for
+Anime4K), and KURA_FAKE_WHY what each says as it doesn't start.
 KURA_FAKE_SLOW is the seconds the decoder takes over each frame (none), so a test can stop a
 conversion mid-way, and the seconds a copy of subtitles takes. KURA_FAKE_ROUNDS makes a test
 play do what real ffmpeg does at some points of a file that plays well: rounding the frames'
@@ -37,10 +41,25 @@ def main() -> None:
     args = sys.argv[1:]
     fail = os.environ.get("KURA_FAKE_FAIL", "")
     missing = os.environ.get("KURA_FAKE_NO_ENCODERS", "").split(",")
-    if "lavfi" in args:  # an encoder showing it works
-        if args[args.index("-c:v") + 1] in missing:
+    if "lavfi" in args:  # an encoder showing it works, or Anime4K on a made-up picture
+        wanted = args[args.index("-c:v") + 1] if "-c:v" in args else "libplacebo"
+        if wanted in missing:
+            why = os.environ.get("KURA_FAKE_WHY", "No capable devices found")
+            print(f"[{wanted} @ 000001d2c5f0] {why}", file=sys.stderr)
             print("Error while opening encoder: no device", file=sys.stderr)
             sys.exit(1)
+        fps = float(os.environ.get("KURA_FAKE_FPS", "0"))
+        frames = int(args[args.index("-frames:v") + 1]) if "-frames:v" in args else 0
+        if "-progress" in args:  # being timed: its progress, as ffmpeg tells it
+            made, step = 0, max(1, frames // 10)
+            while made < frames:
+                made = min(frames, made + step)
+                time.sleep(step / fps if fps else 0)
+                print(f"frame={made}", flush=True)
+                print("progress=continue", flush=True)
+            print("progress=end", flush=True)
+        elif fps and frames:
+            time.sleep(frames / fps)
         return
     if args[-1] == "pipe:1":  # the player's stream
         stream(args, fail, missing)

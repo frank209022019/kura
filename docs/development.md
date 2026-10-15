@@ -121,7 +121,8 @@ for nothing.
 Other people's PCs count too: a newer model never raises what a PC needs (README.md's "What your
 PC needs"). One that wants more memory or a stronger card than the one it replaces comes as a
 choice beside the lighter one, as Best beside Fast, and Kura's check of the PC (Setup's last step,
-Settings › About) learns what the new one needs.
+Settings › About) is told what the new one needs: the memory each quality wants is in
+`engine/src/kura/core/hardware.py` ([stack/hardware.md](stack/hardware.md)).
 
 ## Troubleshooting
 

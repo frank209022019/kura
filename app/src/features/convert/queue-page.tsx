@@ -6,6 +6,7 @@ import { CheckBox } from "@/components/check-box";
 import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
+import { fastSubtitles } from "@/components/this-pc";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SpeechModelWait } from "@/features/subtitles/speech-model";
@@ -35,6 +36,7 @@ import {
   useRemoveFromQueue,
   useSettings,
   useStill,
+  useSystem,
 } from "@/lib/engine";
 import { clockTime, keptFor, languageName, split } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -1313,6 +1315,8 @@ const LOG_SHOWN = 2; // of what ffmpeg said, the last lines a failed file shows
 /** A file that failed: why, what ffmpeg said last, and what can be done about it. */
 function Failed({ job }: { job: Job }) {
   const action = useQueueAction();
+  const system = useSystem();
+  const fast = fastSubtitles(system.data);
   const [copied, setCopied] = useState(false);
   const said = (job.log ?? "").split("\n").filter(Boolean).slice(-LOG_SHOWN);
   const asked = (path: string) => action.variables?.path === `/queue/${job.id}/${path}`;
@@ -1333,6 +1337,7 @@ function Failed({ job }: { job: Job }) {
           </strong>{" "}
           <span className="text-fg-soft">
             {job.problem}
+            {job.fastInstead && fastOffer(fast, system.data?.subtitles.bestWants === "directx")}
             {job.kind === "subtitles" && " The video is as it was."}
           </span>
         </span>
@@ -1358,9 +1363,21 @@ function Failed({ job }: { job: Job }) {
             Mark as broken
           </Button>
         )}
+        {job.fastInstead && (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={action.isPending}
+            onClick={() =>
+              action.mutate({ path: `/queue/${job.id}/retry`, body: { quality: "fast" } })
+            }
+          >
+            Make them with Fast
+          </Button>
+        )}
         <Button
           size="sm"
-          variant={job.kind === "convert" ? undefined : "primary"}
+          variant={job.kind === "convert" || job.fastInstead ? undefined : "primary"}
           disabled={action.isPending}
           onClick={() => action.mutate({ path: `/queue/${job.id}/retry` })}
         >
@@ -1381,6 +1398,22 @@ function Failed({ job }: { job: Job }) {
       <Problem error={asked("retry") || asked("broken") ? action.error : null} />
     </div>
   );
+}
+
+/** What Fast offers after Best failed: less memory, or the processor where DirectX 12 isn't. */
+function fastOffer(seconds: number | null, processor: boolean): string {
+  const time = seconds ? ` in about ${inWords(seconds)}` : "";
+  return processor
+    ? ` Fast runs on the processor here${time ? `, ${time.trim()}` : ""}.`
+    : ` Fast needs less${time ? `, and makes them${time} here` : ""}.`;
+}
+
+/** "4 minutes", "an hour", "2 hours": a time said in words. */
+function inWords(seconds: number): string {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  const hours = Math.round(minutes / 60);
+  return hours === 1 ? "an hour" : `${hours} hours`;
 }
 
 /** Why something asked of the queue didn't happen, when it didn't. */

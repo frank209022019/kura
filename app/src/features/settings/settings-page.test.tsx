@@ -10,7 +10,7 @@ import {
   type LibraryFolder,
 } from "@/lib/engine";
 import type { ReadyUpdate } from "@/lib/updates";
-import { fakeEngine, READY, SETTINGS } from "@/test/engine";
+import { fakeEngine, READY, SETTINGS, SYSTEM } from "@/test/engine";
 import { SettingsPage } from "./settings-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -508,6 +508,43 @@ describe("SettingsPage", () => {
     expect(
       await screen.findByText(/for videos you have the right to keep and watch/),
     ).toHaveTextContent("it never searches for, downloads or shares video");
+  });
+
+  it("says what this PC can do, how long it takes, and how that was measured", async () => {
+    const fetch = fakeEngine({
+      "/folders": FOLDERS,
+      "/health": HEALTH,
+      "/system": SYSTEM,
+      "POST /system/test": {
+        ...SYSTEM,
+        testing: { step: "encoder", done: [], fps: null, timing: true },
+      },
+    });
+    renderSettings("about");
+
+    const panel = await screen.findByRole("region", { name: "This PC" });
+    expect(
+      within(panel).getByText("NVIDIA GeForce GTX 1660 SUPER · 6 GB · driver 617.42"),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText("Intel Core i5-9600K · 6 cores")).toBeInTheDocument();
+    expect(within(panel).getByText("24 GB")).toBeInTheDocument();
+    expect(within(panel).getByText("NVIDIA's encoder (NVENC)")).toBeInTheDocument();
+    expect(within(panel).getByText("≈ 3 min an episode")).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        "Measured on 15 Oct, and since then by 12 conversions and 37 episodes' subtitles. Test again after changing the graphics card or its driver.",
+      ),
+    ).toBeInTheDocument();
+
+    within(panel).getByRole("button", { name: "Test again" }).click();
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.filter(
+          ([input, init]) => init?.method === "POST" && String(input).endsWith("/system/test"),
+        ),
+      ).toHaveLength(1),
+    );
   });
 
   it("says when the engine isn't running", async () => {

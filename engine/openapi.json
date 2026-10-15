@@ -411,6 +411,30 @@
         ]
       }
     },
+    "/system/test": {
+      "post": {
+        "summary": "Test This Pc",
+        "description": "Checks this PC again and times each part, in the background (about a minute); unless a\ncheck is under way already.",
+        "operationId": "test_this_pc_system_test_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/System"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/tmdb": {
       "get": {
         "summary": "Tmdb",
@@ -1657,7 +1681,7 @@
     "/convert": {
       "get": {
         "summary": "What To Convert",
-        "description": "Every video not at the standard yet, with what each way of converting it would take.",
+        "description": "Every video not at the standard yet, with what each way of converting it would take on\nthis PC.",
         "operationId": "what_to_convert_convert_get",
         "responses": {
           "200": {
@@ -2320,7 +2344,7 @@
     "/queue/{job_id}/retry": {
       "post": {
         "summary": "Retry Job",
-        "description": "A failed or skipped file goes back in the queue, last; one made and waiting for another\napp to let go of its original is tried again now (\"Try now\").",
+        "description": "A failed or skipped file goes back in the queue, last; one made and waiting for another\napp to let go of its original is tried again now (\"Try now\"). Subtitles go at `quality`\nwhen it's given: Fast, after the card ran out of memory for Best (\"Make them with Fast\").",
         "operationId": "retry_job_queue__job_id__retry_post",
         "security": [
           {
@@ -2338,6 +2362,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RetryRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -2926,6 +2967,63 @@
   },
   "components": {
     "schemas": {
+      "Ability": {
+        "properties": {
+          "part": {
+            "type": "string",
+            "enum": [
+              "convert",
+              "ai",
+              "fast",
+              "subtitles",
+              "player"
+            ],
+            "title": "Part"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "slow",
+              "limited",
+              "no"
+            ],
+            "title": "State"
+          },
+          "how": {
+            "type": "string",
+            "title": "How"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "seconds": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part",
+          "state",
+          "how",
+          "note",
+          "seconds"
+        ],
+        "title": "Ability",
+        "description": "One part of Kura on this PC."
+      },
       "AddRequest": {
         "properties": {
           "files": {
@@ -3047,6 +3145,59 @@
         ],
         "title": "Backups"
       },
+      "Card": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "maker": {
+            "type": "string",
+            "enum": [
+              "nvidia",
+              "amd",
+              "intel",
+              "other"
+            ],
+            "title": "Maker"
+          },
+          "memory": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory"
+          },
+          "integrated": {
+            "type": "boolean",
+            "title": "Integrated"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "maker",
+          "memory",
+          "integrated",
+          "driver"
+        ],
+        "title": "Card"
+      },
       "ChangeProblem": {
         "properties": {
           "label": {
@@ -3107,6 +3258,44 @@
           "title"
         ],
         "title": "ChapterMark"
+      },
+      "Checking": {
+        "properties": {
+          "step": {
+            "$ref": "#/components/schemas/Part"
+          },
+          "done": {
+            "items": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "type": "array",
+            "title": "Done"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "timing": {
+            "type": "boolean",
+            "title": "Timing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "done",
+          "fps",
+          "timing"
+        ],
+        "title": "Checking",
+        "description": "A check of this PC under way."
       },
       "Choice": {
         "properties": {
@@ -3734,6 +3923,14 @@
           "files"
         ],
         "title": "Emptied"
+      },
+      "Encoder": {
+        "type": "string",
+        "enum": [
+          "nvenc",
+          "amf",
+          "qsv"
+        ]
       },
       "English": {
         "properties": {
@@ -4595,6 +4792,10 @@
           "modelMissing": {
             "type": "boolean",
             "title": "Modelmissing"
+          },
+          "fastInstead": {
+            "type": "boolean",
+            "title": "Fastinstead"
           }
         },
         "type": "object",
@@ -4624,7 +4825,8 @@
           "noRoom",
           "kind",
           "language",
-          "modelMissing"
+          "modelMissing",
+          "fastInstead"
         ],
         "title": "Job"
       },
@@ -4769,6 +4971,35 @@
           "problems"
         ],
         "title": "LibraryFolder"
+      },
+      "Measured": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "tested": {
+            "type": "boolean",
+            "title": "Tested"
+          },
+          "conversions": {
+            "type": "integer",
+            "title": "Conversions"
+          },
+          "subtitles": {
+            "type": "integer",
+            "title": "Subtitles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "tested",
+          "conversions",
+          "subtitles"
+        ],
+        "title": "Measured",
+        "description": "How this PC's times were measured: by a test at `at`, or by the jobs since `at`."
       },
       "MissingTitle": {
         "properties": {
@@ -5071,6 +5302,14 @@
           "missing"
         ]
       },
+      "Part": {
+        "type": "string",
+        "enum": [
+          "encoder",
+          "ai",
+          "anime4k"
+        ]
+      },
       "Picture": {
         "properties": {
           "height": {
@@ -5114,6 +5353,63 @@
           "size"
         ],
         "title": "Picture"
+      },
+      "Places": {
+        "properties": {
+          "best": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "processor"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best"
+          },
+          "fast": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "processor"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fast"
+          },
+          "bestWants": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "memory",
+                  "directx"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bestwants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "best",
+          "fast",
+          "bestWants"
+        ],
+        "title": "Places",
+        "description": "Where English subtitles of each quality are made here; None: not on this PC."
       },
       "PlanDone": {
         "properties": {
@@ -5539,6 +5835,27 @@
           "problem"
         ],
         "title": "Restored"
+      },
+      "RetryRequest": {
+        "properties": {
+          "quality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "best",
+                  "fast"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality"
+          }
+        },
+        "type": "object",
+        "title": "RetryRequest"
       },
       "ReviewedChange": {
         "properties": {
@@ -6389,11 +6706,147 @@
               }
             ],
             "title": "Graphicscard"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Card"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            },
+            "type": "array",
+            "title": "Cards"
+          },
+          "processor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processor"
+          },
+          "cores": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cores"
+          },
+          "memory": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory"
+          },
+          "checkedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkedat"
+          },
+          "encoder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Encoder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "driverLink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driverlink"
+          },
+          "encoderProblem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoderproblem"
+          },
+          "abilities": {
+            "items": {
+              "$ref": "#/components/schemas/Ability"
+            },
+            "type": "array",
+            "title": "Abilities"
+          },
+          "subtitles": {
+            "$ref": "#/components/schemas/Places"
+          },
+          "measured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Measured"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "testing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Checking"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
-          "graphicsCard"
+          "graphicsCard",
+          "card",
+          "cards",
+          "processor",
+          "cores",
+          "memory",
+          "checkedAt",
+          "encoder",
+          "driverLink",
+          "encoderProblem",
+          "abilities",
+          "subtitles",
+          "measured",
+          "testing"
         ],
         "title": "System"
       },

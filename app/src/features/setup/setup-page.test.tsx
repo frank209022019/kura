@@ -7,9 +7,10 @@ import {
   type EngineStatus,
   type LibraryFolder,
   type Settings,
+  type System,
   type Tool,
 } from "@/lib/engine";
-import { fakeEngine, NO_SCAN, READY, SETTINGS } from "@/test/engine";
+import { fakeEngine, NO_SCAN, READY, SETTINGS, SYSTEM, UNCHECKED } from "@/test/engine";
 import { SetupPage } from "./setup-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -76,7 +77,7 @@ function firstRun(overrides: Record<string, unknown> = {}) {
     },
     "/tools": [FFMPEG],
     "POST /tools/ffmpeg/download": { ...FFMPEG, state: "downloading" },
-    "/system": { graphicsCard: "NVIDIA GeForce GTX 1660 SUPER" },
+    "/system": UNCHECKED,
     "/tmdb": () => library.tmdb,
     "PUT /tmdb": (init?: RequestInit) => {
       const { key } = JSON.parse(String(init?.body)) as { key: string };
@@ -253,5 +254,49 @@ describe("SetupPage", () => {
     const [[, put]] = sent(fetch, "PUT", "/settings") as [[unknown, RequestInit]];
     expect(JSON.parse(String(put.body))).toMatchObject({ setUp: true });
     expect(sent(fetch, "POST", "/scan")).toHaveLength(1);
+  });
+
+  it("tests this PC once ffmpeg is ready, then says what it can do and how long it takes", async () => {
+    let pc = UNCHECKED;
+    const testing: System["testing"] = { step: "ai", done: ["encoder"], fps: 61.4, timing: true };
+    const fetch = firstRun({
+      "/tools": [{ ...FFMPEG, state: "ready", done: FFMPEG.size }],
+      "/system": () => pc,
+      "POST /system/test": () => {
+        pc = { ...UNCHECKED, testing };
+        return pc;
+      },
+    });
+    renderSetup("tools");
+
+    const progress = await screen.findByRole("status", { name: "Testing this PC" });
+    expect(progress).toHaveTextContent("The encoder · 61 frames a second");
+    expect(progress).toHaveTextContent("The AI model, on 16 frames");
+    expect(sent(fetch, "POST", "/system/test")).toHaveLength(1);
+
+    const now = { at: "2026-10-15T20:00:00+02:00", tested: true, conversions: 0, subtitles: 0 };
+    pc = { ...SYSTEM, measured: now };
+    expect(
+      await screen.findByText("Convert to your standard", {}, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("HEVC 10-bit on NVIDIA's encoder (NVENC)")).toBeInTheDocument();
+    expect(screen.getByText("≈ 58 min an episode")).toBeInTheDocument();
+    expect(screen.getByText("≈ 8 min · 3 min")).toBeInTheDocument();
+    expect(screen.getByText("Intel Core i5-9600K · 6 cores · 24 GB")).toBeInTheDocument();
+    expect(screen.getByText(/Times measured on this PC just now/)).toBeInTheDocument();
+    expect(sent(fetch, "POST", "/system/test")).toHaveLength(1); // once
+
+    screen.getByRole("button", { name: "Test this PC again" }).click();
+    await waitFor(() => expect(sent(fetch, "POST", "/system/test")).toHaveLength(2));
+  });
+
+  it("says before ffmpeg is there that the PC is tested once it is", async () => {
+    firstRun();
+    renderSetup("tools");
+
+    expect(
+      await screen.findByText(/Kura tests what this PC can do once ffmpeg is ready/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("NVIDIA GeForce GTX 1660 SUPER · 6 GB")).toBeInTheDocument();
   });
 });

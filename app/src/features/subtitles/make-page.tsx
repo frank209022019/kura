@@ -6,6 +6,7 @@ import { Breadcrumb, LIBRARY } from "@/components/breadcrumb";
 import { CheckBox } from "@/components/check-box";
 import { EngineProblem } from "@/components/engine-problem";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
+import { gigabytes } from "@/components/this-pc";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { nights } from "@/lib/convert";
@@ -13,11 +14,13 @@ import {
   type Hearable,
   type Quality,
   SPEECH_MODELS,
+  type System,
   type Tool,
   useDownloadTool,
   useMakeSubtitles,
   useQueue,
   useSubtitleOptions,
+  useSystem,
   useTools,
 } from "@/lib/engine";
 import { isEnglish, languageName, size } from "@/lib/format";
@@ -37,6 +40,20 @@ const WHEN: { value: When; label: string }[] = [
   { value: "after", label: "After the queue" },
 ];
 
+/** Why Best can't run here: "Wants a graphics card with 4 GB of its own memory; this one has 2 GB." */
+function wanting(system: System | undefined): string {
+  if (system?.subtitles.bestWants === "directx") {
+    return "Wants a graphics card that runs DirectX 12; this one doesn't.";
+  }
+  const card = system?.card;
+  const has = !card
+    ? "this PC has none"
+    : card.integrated || card.memory === null
+      ? "this PC's graphics share its memory"
+      : `this one has ${gigabytes(card.memory)}`;
+  return `Wants a graphics card with 4 GB of its own memory; ${has}.`;
+}
+
 /** About what a subtitle file takes beside a video, for each second it plays. */
 const BYTES_A_SECOND = 20;
 
@@ -54,12 +71,16 @@ export function MakeSubtitlesPage() {
   const options = useSubtitleOptions();
   const tools = useTools();
   const queue = useQueue();
+  const system = useSystem();
   const make = useMakeSubtitles();
   const download = useDownloadTool();
   const [scope, setScope] = useState<Scope | null>(null);
   const [also, setAlso] = useState(false);
   const [language, setLanguage] = useState<string | null>(null);
-  const [quality, setQuality] = useState<Quality>("best");
+  const [pickedQuality, setQuality] = useState<Quality | null>(null);
+  // Best wants a card with 4 GB of its own: on a PC without one, Fast is right.
+  const bestHere = system.data?.subtitles.best !== null;
+  const quality: Quality = pickedQuality ?? (bestHere ? "best" : "fast");
   const [when, setWhen] = useState<When | null>(null);
   const [needsModel, setNeedsModel] = useState(false); // asking to download the model first
 
@@ -213,33 +234,54 @@ export function MakeSubtitlesPage() {
             {QUALITIES.map((each) => {
               const on = each.quality === quality;
               const average = picked.length > 0 ? seconds / picked.length : 24 * 60;
+              const no = each.quality === "best" && !bestHere;
+              const chip =
+                each.quality === "best"
+                  ? bestHere && "Recommended"
+                  : !bestHere && "Right for this PC";
               return (
                 <RadioGroup.Item
                   key={each.quality}
                   value={each.quality}
+                  disabled={no}
                   aria-label={each.name}
                   aria-describedby={`quality-${each.quality}`}
                   className={cn(
-                    "press flex cursor-pointer flex-col gap-1 rounded-16 border-2 px-4 py-3.5 text-left",
-                    on ? "border-accent bg-accent/8" : "border-edge bg-tint/3",
+                    "press flex flex-col gap-1 rounded-16 border-2 px-4 py-3.5 text-left",
+                    no
+                      ? "cursor-default border-tint/14 border-dashed"
+                      : on
+                        ? "cursor-pointer border-accent bg-accent/8"
+                        : "cursor-pointer border-edge bg-tint/3",
                   )}
                 >
                   <span className="flex w-full items-center justify-between gap-2">
-                    <span className="font-extrabold">{each.name}</span>
-                    {each.quality === "best" && (
-                      <span className="rounded-full bg-accent px-2 font-extrabold text-11 text-on-accent">
-                        Recommended
+                    <span className={cn("font-extrabold", no && "text-fg-muted")}>{each.name}</span>
+                    {no ? (
+                      <span className="shrink-0 whitespace-nowrap rounded-10 px-2 font-extrabold text-11 text-fg-muted shadow-[inset_0_0_0_1.5px_var(--color-fg-faint)]">
+                        {system.data?.card ? "Not on this card" : "Not on this PC"}
                       </span>
+                    ) : (
+                      chip && (
+                        <span className="rounded-full bg-accent px-2 font-extrabold text-11 text-on-accent">
+                          {chip}
+                        </span>
+                      )
                     )}
                   </span>
                   <span id={`quality-${each.quality}`} className="flex flex-col gap-1">
                     <span className="text-13 text-fg-muted">{each.says}</span>
-                    <span
-                      className={cn("font-mono text-12", on ? "text-accent-fg" : "text-fg-muted")}
-                    >
-                      ≈ {minutes(average * options.data.rates[each.quality])} per{" "}
-                      {episodes ? "episode" : "video"}
-                    </span>
+                    {no ? (
+                      <span className="text-12 text-fg-soft">{wanting(system.data)}</span>
+                    ) : (
+                      <span
+                        className={cn("font-mono text-12", on ? "text-accent-fg" : "text-fg-muted")}
+                      >
+                        ≈ {minutes(average * options.data.rates[each.quality])} per{" "}
+                        {episodes ? "episode" : "video"}
+                        {!bestHere && " on this PC"}
+                      </span>
+                    )}
                   </span>
                 </RadioGroup.Item>
               );

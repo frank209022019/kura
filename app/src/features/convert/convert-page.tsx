@@ -7,6 +7,7 @@ import { EmptyState, ShelfIllustration } from "@/components/empty-state";
 import { EngineProblem } from "@/components/engine-problem";
 import { Loading, PanelSkeleton } from "@/components/skeleton";
 import { STANDARDS } from "@/components/standard-choices";
+import { abilityOf, GuessNote, NoEncoder } from "@/components/this-pc";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import {
@@ -24,8 +25,10 @@ import {
   tree,
 } from "@/lib/convert";
 import {
+  type Ability,
   type Convertible,
   type Settings,
+  type System,
   useAddToQueue,
   useConvertOptions,
   useEmptyQuarantine,
@@ -44,26 +47,46 @@ import { SeeItFirst } from "./see-it-first";
 
 type When = "now" | "nights" | "after";
 
-const WAYS: { way: Way; name: string; says: string; engine: string }[] = [
+const WAYS: { way: Way; name: string; says: string; engine: string; part: Ability["part"] }[] = [
   {
     way: "best",
     name: "Best quality",
     says: "Crispest lines, cleans blur and blocky compression.",
     engine: "Real-ESRGAN anime model",
+    part: "ai",
   },
   {
     way: "fast",
     name: "Fast",
     says: "Sharper lines, lighter clean-up. Good for 720p.",
     engine: "Anime4K shaders",
+    part: "fast",
   },
   {
     way: "reencode",
     name: "Re-encode only",
     says: "No AI. Brings the format to your standard.",
     engine: "Graphics card encoder",
+    part: "convert",
   },
 ];
+
+/** The encoder this PC converts with, as Convert's third way names it. */
+const ENCODERS: Record<NonNullable<System["encoder"]>, string> = {
+  nvenc: "NVIDIA NVENC encoder",
+  amf: "AMD AMF encoder",
+  qsv: "Intel Quick Sync encoder",
+};
+
+/**
+ * The way chosen till the owner picks one: Best, unless the AI model is slow or can't run on
+ * this PC; then Fast, unless that's slow or can't too.
+ */
+function firstWay(system: System | undefined): Way {
+  const ok = (part: Ability["part"]) => (abilityOf(system, part)?.state ?? "ready") === "ready";
+  if (ok("ai")) return "best";
+  return ok("fast") ? "fast" : "reencode";
+}
 
 /** Convert: pick what to convert and how, see what it takes, then queue it. */
 export function ConvertPage() {
@@ -71,6 +94,7 @@ export function ConvertPage() {
   const options = useConvertOptions();
   const franchises = useFranchises();
   const queue = useQueue();
+  const system = useSystem();
   const add = useAddToQueue();
   const empty = useEmptyQuarantine();
   const stored = useSettings();
@@ -81,7 +105,8 @@ export function ConvertPage() {
   const change = (part: Partial<Settings>) =>
     settings && save.mutate({ path: "/settings", body: { ...settings, ...part } });
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [way, setWay] = useState<Way>("best");
+  const [picked, setWay] = useState<Way | null>(null);
+  const way = picked ?? firstWay(system.data);
   const [when, setWhen] = useState<When | null>(null);
   const [asking, setAsking] = useState(false); // about a drive without room for the choice
 
@@ -111,6 +136,14 @@ export function ConvertPage() {
             <PanelSkeleton rows={2} className="flex-[1_1_380px]" />
           </div>
         </Loading>
+      </>
+    );
+  }
+  if (system.data?.checkedAt && system.data.encoder === null) {
+    return (
+      <>
+        {header}
+        <NoEncoder system={system.data} />
       </>
     );
   }
@@ -195,6 +228,7 @@ export function ConvertPage() {
           basis={chosen.length > 0 ? chosen : open(files)}
           chosen={chosen}
           way={way}
+          system={system.data}
           onWay={(next) => {
             setWay(next);
             setAsking(false);
@@ -211,6 +245,7 @@ export function ConvertPage() {
         <Estimate
           chosen={chosen}
           way={way}
+          system={system.data}
           free={options.data.free}
           settings={settings}
           onOriginals={(originals) => change({ originals })}
@@ -405,6 +440,7 @@ function How(props: {
   basis: Convertible[];
   chosen: Convertible[];
   way: Way;
+  system: System | undefined;
   onWay: (way: Way) => void;
 }) {
   const tall = standardHeight(props.standard);
@@ -441,31 +477,59 @@ function How(props: {
         onValueChange={(value) => props.onWay(value as Way)}
         className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5"
       >
-        {WAYS.map(({ way, name, says, engine }) => {
+        {WAYS.map(({ way, name, says, engine, part }) => {
           const on = props.way === way;
           const each = perFile(props.basis, way);
+          const here = abilityOf(props.system, part);
+          const no = here?.state === "no";
+          const slow = here?.state === "slow";
+          const encoder = props.system?.encoder;
           return (
             <RadioGroup.Item
               key={way}
               value={way}
+              disabled={no}
               aria-label={name}
               aria-describedby={`way-${way}`}
               className={cn(
-                "press flex cursor-pointer flex-col gap-2 rounded-18 border-2 p-4 text-left",
-                on ? "border-accent bg-accent/10" : "border-edge bg-tint/3",
+                "press flex flex-col gap-2 rounded-18 border-2 p-4 text-left",
+                no
+                  ? "cursor-default border-tint/14 border-dashed"
+                  : on
+                    ? "cursor-pointer border-accent bg-accent/10"
+                    : "cursor-pointer border-edge bg-tint/3",
               )}
             >
               <span className="flex w-full items-center justify-between gap-2">
-                <span className="font-extrabold text-16">{name}</span>
-                <Dot on={on} />
+                <span className={cn("font-extrabold text-16", no && "text-fg-muted")}>{name}</span>
+                {no ? (
+                  <span className="shrink-0 whitespace-nowrap rounded-10 px-2 font-extrabold text-11 text-fg-muted shadow-[inset_0_0_0_1.5px_var(--color-fg-faint)]">
+                    Not on this PC
+                  </span>
+                ) : (
+                  <span className="flex shrink-0 items-center gap-2">
+                    {slow && (
+                      <span className="whitespace-nowrap rounded-10 bg-accent/14 px-2 font-extrabold text-11 text-accent-fg">
+                        Slow here
+                      </span>
+                    )}
+                    {(on || !slow) && <Dot on={on} />}
+                  </span>
+                )}
               </span>
               <span id={`way-${way}`} className="flex flex-col gap-2">
-                <span className="text-13 text-fg-muted">{says}</span>
-                <span className={cn("font-mono text-12", on ? "text-accent-fg" : "text-fg-muted")}>
-                  {each === null ? "nothing to convert" : `≈ ${gpuTime(each)} per episode`}
-                </span>
+                <span className="text-13 text-fg-muted">{no ? here?.note : says}</span>
+                {!no && (
+                  <span
+                    className={cn("font-mono text-12", on ? "text-accent-fg" : "text-fg-muted")}
+                  >
+                    {each === null ? "nothing to convert" : `≈ ${gpuTime(each)} per episode`}
+                  </span>
+                )}
               </span>
-              <span className="text-12 text-fg-faint">{engine}</span>
+              <span className="text-12 text-fg-faint">
+                {way === "reencode" && encoder ? ENCODERS[encoder] : engine}
+              </span>
             </RadioGroup.Item>
           );
         })}
@@ -482,9 +546,42 @@ function How(props: {
         ) : (
           lighterNotes(props.chosen, props.way).map((note) => <span key={note}>{note}</span>)
         )}
+        {slowNotes(props.system).map((note) => (
+          <span key={note}>{note}</span>
+        ))}
       </div>
     </Step>
   );
+}
+
+/**
+ * What's slow on this PC, and what's chosen instead: "On this PC's graphics the AI model takes
+ * about 9 hours an episode, so Fast is chosen for SD. Choose Best quality any time: it's slow,
+ * not worse."
+ */
+function slowNotes(system: System | undefined): string[] {
+  const graphics = system?.card?.integrated === false ? "graphics card" : "graphics";
+  const notes: string[] = [];
+  const ai = abilityOf(system, "ai");
+  if (ai?.state === "slow" && ai.seconds[0]) {
+    const fast = abilityOf(system, "fast")?.state === "ready";
+    notes.push(
+      `On this PC's ${graphics} the AI model takes ${hours(ai.seconds[0])} an episode, so ${fast ? "Fast" : "Re-encode only"} is chosen for SD. Choose Best quality any time: it's slow, not worse.`,
+    );
+  }
+  const fast = abilityOf(system, "fast");
+  if (fast?.state === "slow" && fast.seconds[0]) {
+    notes.push(
+      `On this PC's ${graphics} the fast upscale takes ${hours(fast.seconds[0])} an episode; Re-encode only is much quicker.`,
+    );
+  }
+  return notes;
+}
+
+/** "about 9 hours". */
+function hours(seconds: number): string {
+  const whole = Math.round(seconds / 3600);
+  return `about ${whole} hour${whole === 1 ? "" : "s"}`;
 }
 
 /**
@@ -571,24 +668,25 @@ function shortage(
 function Estimate(props: {
   chosen: Convertible[];
   way: Way;
+  system: System | undefined;
   free: Record<string, number>;
   settings: Settings | undefined;
   onOriginals: (originals: Settings["originals"]) => void;
 }) {
-  const system = useSystem();
   const days = props.settings?.quarantineDays;
   const deleting = props.settings?.originals === "delete";
   const sum = totals(props.chosen, props.way);
   const [drive, needed] = spaceToShow(needs(props.chosen, props.way, deleting), props.free);
   const free = props.free[drive] ?? null;
   const enough = free === null || free >= needed;
-  const card = system.data?.graphicsCard ?? "";
+  const system = props.system;
+  const card = system?.graphicsCard;
   return (
     <Step
       n={4}
       id="estimate-title"
       title="Estimate"
-      note={/1660/.test(card) ? `Measured on your ${card}` : "Speeds measured on a GTX 1660 Super"}
+      note={system?.measured ? `Measured on this PC${card ? ` · ${card}` : ""}` : undefined}
       className="flex-[999_1_520px]"
     >
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-2.5">
@@ -642,6 +740,7 @@ function Estimate(props: {
           )}
         </div>
       </div>
+      {system && !system.measured && <GuessNote system={system} />}
     </Step>
   );
 }

@@ -17,6 +17,9 @@ import numpy as np
 import numpy.typing as npt
 
 MODEL = Path(__file__).parent / "assets" / "realesr-animevideov3.onnx"
+# DirectML on the PC's high-performance graphics card: on a laptop with two, the card of its own
+# rather than the processor's graphics that drive the screen.
+DIRECTML = ("DmlExecutionProvider", {"performance_preference": "high_performance"})
 _BUFFERED = 8  # frames waiting on either side of the model
 
 type Frame = npt.NDArray[np.float32]  # (1, 3, height, width): planes G, B, R from 0 to 1
@@ -46,11 +49,11 @@ def model(width: int, height: int, path: Path = MODEL) -> Upscaler:
     options.add_free_dimension_override_by_name("w", width)  # a fixed size runs faster
     options.add_free_dimension_override_by_name("h", height)
     try:
-        session = ort.InferenceSession(
-            str(path), options, providers=[("DmlExecutionProvider", {"device_id": 0})]
-        )
+        session = ort.InferenceSession(str(path), options, providers=[DIRECTML])
     except Exception as error:  # ONNX Runtime raises its own kinds, all of them plain Exceptions
         raise UpscaleError(f"The graphics card couldn't run the AI model ({error}).") from error
+    if "DmlExecutionProvider" not in session.get_providers():  # it fell back to the processor
+        raise UpscaleError("The graphics card couldn't run the AI model: it needs DirectX 12.")
 
     def upscale(frame: Frame) -> Frame:
         return session.run(None, {"frame": frame})[0]

@@ -8,6 +8,36 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+### Added
+- Kura on any PC: Setup's last step, now "Tools and this PC", tests what this PC can do once
+  ffmpeg is there (about a minute) and says it part by part, with how long an episode takes:
+  converting, the AI upscale for SD, the fast upscale for 720p, English subtitles and the player.
+  Settings › About shows the same under "This PC", with "Test again" for a new graphics card or
+  driver.
+- Converting on AMD's and Intel's graphics, with their own HEVC 10-bit encoders (AMF and Quick
+  Sync), as on NVIDIA's. A PC without such an encoder says so on Convert, and what still works
+  there; one whose card needs a newer driver links its maker's drivers.
+- Times measured on your PC: Convert, the queue and Make English subtitles use this PC's own
+  speeds, from the test and then from every file converted and every video's subtitles, and say
+  when they're still a guess, with "Test this PC".
+- A way that's slow on this PC says "Slow here": the AI model, at over three hours an episode,
+  has the fast upscale chosen first, and Convert says Re-encode only is much quicker where the fast
+  upscale is slow. One that can't run there says why and can't be chosen, and SD files get the fast
+  upscale instead.
+- English subtitles on smaller cards: Best wants a graphics card with 4 GB of its own memory, so
+  on one with less Fast is chosen ("Right for this PC"), and runs on the processor where the card
+  hasn't the 2 GB Fast wants. A card that runs out of memory for Best says so, with "Make them
+  with Fast".
+- The README and the downloads page say what a PC needs for each part of Kura.
+
+### Fixed
+- The AI model and Whisper run on a laptop's own graphics card, not the processor's graphics
+  that drive its screen.
+- On a PC whose graphics card can't run the AI model, it no longer runs it on the processor by
+  itself, which would have taken days an episode.
+- Whisper on the processor loads: before, its half-precision model wouldn't, so English subtitles
+  failed on a PC whose card couldn't run them.
+
 ## 0.16.0 - 2026-10-15
 
 ### Added

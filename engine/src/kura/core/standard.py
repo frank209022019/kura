@@ -20,6 +20,10 @@ class Standard:
     container: str = "mkv"
     ai_for_sd: bool = True  # 480p and 576p get the best-quality AI model
     fast_for_hd: bool = True  # sizes between SD and the standard get the fast upscale
+    # What this PC can run (kura/core/hardware.py's `capable`): where the AI model doesn't, SD
+    # gets the fast upscale instead; where Anime4K doesn't either, a plain re-encode.
+    ai_here: bool = True
+    anime4k_here: bool = True
     megabytes_per_minute: float = 18.75  # for estimates: about 450 MB for a 24-minute episode
 
 
@@ -89,8 +93,14 @@ def deinterlaced(decision: Decision) -> Decision:
 
 def _upscale(video: Video, standard: Standard) -> tuple[Method, str]:
     if video.height <= SD_HEIGHT and standard.ai_for_sd:
-        return Method.BEST, f"SD {video.height}p: the AI model brings it to {standard.height}p"
-    if video.height > SD_HEIGHT and standard.fast_for_hd:
+        if standard.ai_here:
+            return Method.BEST, f"SD {video.height}p: the AI model brings it to {standard.height}p"
+        if standard.anime4k_here:
+            return Method.FAST, (
+                f"SD {video.height}p: the fast upscale brings it to {standard.height}p, as the AI "
+                "model doesn't run on this PC"
+            )
+    if video.height > SD_HEIGHT and standard.fast_for_hd and standard.anime4k_here:
         return Method.FAST, f"{video.height}p: the fast upscale brings it to {standard.height}p"
     return Method.REENCODE, f"{video.height}p: scaled up to {standard.height}p"
 

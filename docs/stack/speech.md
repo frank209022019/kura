@@ -13,7 +13,7 @@ subtitles go beside it as `Episode 1.en.srt`, the name media server apps read, o
 | --- | --- | --- |
 | Reading the sound | ffmpeg makes the chosen sound track 16 kHz mono floats | `kura/speech.py` `sound_of` |
 | Who speaks when | pyannote's segmentation model 3.0, on the processor | `kura/speech.py` `Detector`, `kura/assets/pyannote-segmentation-3.0.onnx` |
-| Hearing | Whisper medium (Best) or small (Fast), on the graphics card | `kura/speech.py` `Listener` |
+| Hearing | Whisper medium (Best) or small (Fast), on the graphics card; Fast on the processor where the card hasn't 2 GB | `kura/speech.py` `Listener` |
 | Rules and subtitles | log-mel, Whisper's timestamp rules, temperatures, lines and timing, SRT | `kura/core/speech.py` |
 | A job | the queue's job of kind `subtitles`: read, listen, write, check, record | `kura/subtitles.py`, `kura/queue.py` |
 
@@ -64,7 +64,17 @@ problem it doesn't know is loaded anew for the next video. The decoder's caches 
 between tokens, bound in place with I/O binding (`run_with_iobinding`), and only the next token's
 scores come back: handed through Python and NumPy, a 6 GB card ran out of memory ("Not enough
 memory resources") on the first episode. The cross-attention's caches are made once per window and
-kept. Without a card that can, the processor runs it, slowly.
+kept. Without a card that can, the processor runs it, slowly: there ONNX Runtime 1.24's highest
+graph optimisation breaks the half-precision layer norms as the model loads, so the processor's
+sessions load one level below (`ORT_ENABLE_EXTENDED`), as quick.
+
+Other PCs ([hardware.md](hardware.md)): Best wants a card with 4 GB of its own, Fast 2 GB, and
+Fast runs on the processor where the card hasn't that (the queue loads Whisper there on purpose).
+A card that runs out of memory ("8007000E Not enough memory resources") fails the video saying
+so, and Whisper is loaded anew; at Best, the queue's card offers "Make them with Fast". Whisper
+medium heard a minute of an episode in 84 seconds on the owner's i5-9600K; small does about a
+third of the work, so Fast on a processor is guessed at a second of work for each second of sound
+till the PC measures its own.
 
 One job at a time on the card: subtitles wait in the queue with the conversions, in the owner's
 order. Whisper stays loaded while subtitles follow subtitles, and is let go before a conversion

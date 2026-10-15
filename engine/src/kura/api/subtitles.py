@@ -7,10 +7,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
 
-from kura import subtitles
+from kura import hardware, subtitles
 from kura.api.common import ApiModel, Database, Scans
 from kura.api.convert import Added, Queue
-from kura.core.estimate import HEARING
 from kura.scan import ScanBusyError
 
 router = APIRouter()
@@ -62,7 +61,7 @@ def subtitle_options(conn: Database) -> SubtitleOptions:
             Hearable.model_validate({**video.__dict__, "english": subtitles.english(video)})
             for video in subtitles.hearable(conn)
         ],
-        rates=dict(HEARING),
+        rates=hardware.hearing(conn),
     )
 
 

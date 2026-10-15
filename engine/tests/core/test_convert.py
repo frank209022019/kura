@@ -291,3 +291,22 @@ def test_the_ai_models_frame_is_taken_raw_and_written_as_a_picture():
     assert picture[picture.index("-s") + 1] == "2880x1920"
     assert picture[picture.index("-vf") + 1] == "scale=1440:1080:flags=lanczos,setsar=1"
     assert picture[-1] == str(PNG)
+
+
+def test_amd_and_intel_encoders_make_the_same_standard():
+    media = sd()
+    for encoder, name in (("amf", "hevc_amf"), ("qsv", "hevc_qsv")):
+        reencoded = recipe(
+            SOURCE, media, Decision(Method.REENCODE, 1440, 1080), tag=TAG, encoder=encoder
+        )
+        upscaled = recipe(
+            SOURCE, media, Decision(Method.BEST, 1440, 1080), tag=TAG, encoder=encoder
+        )
+
+        one = one_command(FF, SOURCE, WORK, reencoded, shader=None)
+        best = encoder_command(FF, SOURCE, WORK, upscaled, upscaled=(1440, 960))
+
+        for command in (one, best):
+            assert command[command.index("-c:v") + 1] == name
+            assert command[command.index("-profile:v") + 1] == "main10"
+            assert command[command.index("-vf") + 1].endswith("format=p010le")

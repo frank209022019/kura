@@ -15,7 +15,7 @@ const STEPS = [
   { id: "data", label: "Your data" },
   { id: "folders", label: "Your folders" },
   { id: "standard", label: "Your standard" },
-  { id: "tools", label: "Tools" },
+  { id: "tools", label: "Tools and this PC" },
 ] as const;
 
 type Step = (typeof STEPS)[number]["id"];
@@ -196,11 +196,12 @@ function Upcoming({ step }: { step: Step }) {
     <Row
       dashed
       icon={<Cpu size={18} />}
-      title="Tools"
+      title="Tools and this PC"
       action={system.data?.graphicsCard && <CardFound name={system.data.graphicsCard} />}
     >
       <span className="text-13">
-        ffmpeg{size ? `, about ${megabytes(size)}` : ""}, plus a quick graphics card check.
+        ffmpeg{size ? `, about ${megabytes(size)}` : ""}, then a minute's test of what this PC can
+        do.
       </span>
     </Row>
   );

@@ -111,7 +111,7 @@ source the installer's first page lists.
 | --- | --- |
 | **[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)** | Its anime video model, `realesr-animevideov3`, upscales SD episodes (480p and 576p). BSD-3-Clause licence. |
 | **[Anime4K](https://github.com/bloc97/Anime4K)** | Version 4.0's mode A (HQ), small neural networks written as graphics shaders, upscales 720p to 1080p. MIT licence. |
-| **[Whisper](https://github.com/openai/whisper)** | OpenAI's speech model hears an episode's sound and writes it in English: medium for Best, small for Fast, on your graphics card. MIT licence. |
+| **[Whisper](https://github.com/openai/whisper)** | OpenAI's speech model hears an episode's sound and writes it in English: medium for Best, small for Fast, on your graphics card (Fast on the processor when the card hasn't the memory). MIT licence. |
 | **[pyannote](https://huggingface.co/pyannote/segmentation-3.0)** | Its speaker segmentation model 3.0 finds where someone speaks, even over music, so Whisper hears just that. MIT licence. |
 
 ## Your own videos only
@@ -134,6 +134,23 @@ From the [downloads page](https://frankgrobbelaar.github.io/kura/): Windows 10 o
 every version with what changed. Kura updates itself. It isn't code-signed, so SmartScreen warns
 the first time: More info › Run anyway. The installer's first page lists everything Kura
 downloads, such as ffmpeg on the first run.
+
+### What your PC needs
+
+Kura runs on any 64-bit Windows 10 or 11 PC. What it can convert, and how fast, depends on the
+graphics card. Kura tests your PC when it's set up, says what it can and can't do there, and
+measures its own times on it.
+
+| For | It works with | Best with |
+| --- | --- | --- |
+| **Everything but converting** | Windows 10 or 11, 64-bit, and 8 GB of memory: finding and naming episodes, tidying up, the gap analysis and playing | 16 GB of memory |
+| **Converting to the standard** | A graphics card or the processor's graphics that encodes HEVC 10-bit: NVIDIA GeForce GTX 10-series or newer, AMD Radeon RX 5000 or newer, or Intel Core 7th generation or newer | NVIDIA GeForce GTX 16-series or newer |
+| **AI upscaling for SD** | A DirectX 12 graphics card. The processor's graphics work too, slowly: Kura then upscales SD the fast way unless you choose otherwise | A dedicated card with 6 GB: about an hour an episode |
+| **English subtitles** | Fast: 2 GB of graphics memory, or the processor, slowly. Best: 4 GB | 6 GB: Best in about 8 minutes an episode |
+| **Space** | About 350 MB for Kura and ffmpeg, 2 GB more with both speech models | Room beside your library for a converted file and its original |
+
+Kura installs nothing by hand but a graphics driver, and says when one is too old for what it
+asks of the card.
 
 ## Licence
 

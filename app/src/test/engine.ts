@@ -1,10 +1,12 @@
 import { vi } from "vitest";
 import type {
+  Card,
   EngineStatus,
   FranchiseSummary,
   Library,
   Scan,
   Settings,
+  System,
   TitleKind,
   TitleSummary,
 } from "@/lib/engine";
@@ -60,6 +62,74 @@ export const NO_SCAN: Scan = {
   mixed: 0,
   added: null,
   gone: null,
+};
+
+const GIB = 1024 ** 3;
+
+/** The owner's graphics card. */
+export const GTX: Card = {
+  name: "NVIDIA GeForce GTX 1660 SUPER",
+  maker: "nvidia",
+  memory: 6 * GIB,
+  integrated: false,
+  driver: "617.42",
+};
+
+/** The owner's PC, tested on 15 October and measured since by the queue: everything ready. */
+export const SYSTEM: System = {
+  graphicsCard: GTX.name,
+  card: GTX,
+  cards: [GTX],
+  processor: "Intel Core i5-9600K",
+  cores: 6,
+  memory: 24 * GIB,
+  checkedAt: "2026-10-15T20:00:00+02:00",
+  encoder: "nvenc",
+  driverLink: null,
+  encoderProblem: null,
+  abilities: [
+    {
+      part: "convert",
+      state: "ready",
+      how: "HEVC 10-bit on NVIDIA's encoder (NVENC)",
+      note: null,
+      seconds: [180],
+    },
+    {
+      part: "ai",
+      state: "ready",
+      how: "Real-ESRGAN on the graphics card",
+      note: null,
+      seconds: [3480],
+    },
+    {
+      part: "fast",
+      state: "ready",
+      how: "Anime4K on the graphics card",
+      note: null,
+      seconds: [660],
+    },
+    {
+      part: "subtitles",
+      state: "ready",
+      how: "Best and Fast on the graphics card",
+      note: null,
+      seconds: [480, 180],
+    },
+    { part: "player", state: "ready", how: "Windows' own video encoder", note: null, seconds: [] },
+  ],
+  subtitles: { best: "card", fast: "card", bestWants: null },
+  measured: { at: "2026-10-15T20:00:00+02:00", tested: true, conversions: 12, subtitles: 37 },
+  testing: null,
+};
+
+/** The same PC before Kura has checked it. */
+export const UNCHECKED: System = {
+  ...SYSTEM,
+  checkedAt: null,
+  encoder: null,
+  abilities: [],
+  measured: null,
 };
 
 type Answer = unknown | ((init: RequestInit | undefined, url: URL) => unknown);

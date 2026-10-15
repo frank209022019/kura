@@ -104,6 +104,53 @@ export function versions(releases) {
     }));
 }
 
+// What a PC needs for each part of Kura, as the "Kura on Any PC" canvas has it (and the README).
+const NEEDS = [
+  [
+    "Everything but converting",
+    "Windows 10 or 11, 64-bit, and 8 GB of memory: finding and naming episodes, tidying up, the gap analysis and playing",
+    "16 GB of memory",
+  ],
+  [
+    "Converting to the standard",
+    "A graphics card or the processor's graphics that encodes HEVC 10-bit: NVIDIA GeForce GTX 10-series or newer, AMD Radeon RX 5000 or newer, or Intel Core 7th generation or newer",
+    "NVIDIA GeForce GTX 16-series or newer",
+  ],
+  [
+    "AI upscaling for SD",
+    "A DirectX 12 graphics card. The processor's graphics work too, slowly: Kura then upscales SD the fast way unless you choose otherwise",
+    "A dedicated card with 6 GB: about an hour an episode",
+  ],
+  [
+    "English subtitles",
+    "Fast: 2 GB of graphics memory, or the processor, slowly. Best: 4 GB",
+    "6 GB: Best in about 8 minutes an episode",
+  ],
+  [
+    "Space",
+    "About 350 MB for Kura and ffmpeg, 2 GB more with both speech models",
+    "Room beside your library for a converted file and its original",
+  ],
+];
+
+function needs() {
+  const rows = NEEDS.map(
+    ([part, works, best]) =>
+      `<tr><th scope="row">${escapeHtml(part)}</th><td>${escapeHtml(works)}</td><td>${escapeHtml(best)}</td></tr>`,
+  ).join("\n");
+  return `<section class="panel" aria-labelledby="needs">
+  <h2 id="needs">What your PC needs</h2>
+  <p>Kura runs on any 64-bit Windows 10 or 11 PC. What it can convert, and how fast, depends on the graphics card. Kura tests your PC when it's set up, says what it can and can't do there, and measures its own times on it.</p>
+  <div class="table"><table>
+<thead><tr><th scope="col">For</th><th scope="col">It works with</th><th scope="col">Best with</th></tr></thead>
+<tbody>
+${rows}
+</tbody>
+</table></div>
+  <p class="note">Kura installs nothing by hand but a graphics driver, and says when one is too old for what it asks of the card.</p>
+</section>`;
+}
+
 function downloadButton(version) {
   if (!version.installer) return "";
   return `<a class="button primary" href="${escapeHtml(version.installer.browser_download_url)}">Download for Windows</a>`;
@@ -250,6 +297,14 @@ export function renderPage(releases, repository = `https://github.com/${REPOSITO
   .version .date { margin-left: auto; }
   .version .date { color: var(--fg-muted); font: 13px/1.8 var(--mono); }
   .version .body { padding: 4px 0 6px; }
+  .table { overflow-x: auto; margin-top: 14px; border: 1px solid var(--edge); border-radius: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead tr { background: var(--glass); }
+  th, td { padding: 12px 16px; text-align: left; vertical-align: top; }
+  th { font-weight: 800; color: var(--fg); }
+  td { color: var(--fg-soft); }
+  tbody tr { border-top: 1px solid var(--edge); }
+  .note { margin: 12px 0 0; font-size: 13px; color: var(--fg-faint); }
   .facts { display: grid; gap: 10px; margin: 8px 0 0; padding: 0; list-style: none; }
   .facts li { color: var(--fg-soft); margin: 0; }
   .facts strong { color: var(--fg); }
@@ -279,6 +334,7 @@ ${whatsNew}
     <li><strong>Nothing is fetched behind your back.</strong> The installer's first page lists everything Kura downloads, such as ffmpeg, and Kura checks each download before using it.</li>
   </ul>
 </section>
+${needs()}
 ${previous(older)}
 </main>
 <footer>

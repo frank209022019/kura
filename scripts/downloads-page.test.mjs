@@ -50,6 +50,16 @@ describe("downloads page", () => {
     assert.match(page, /never searches for, downloads or shares video\. It isn't for piracy in any form/);
   });
 
+  it("says what a PC needs for each part of Kura, and that Kura tests it", () => {
+    const page = renderPage([release("0.10.0")]);
+
+    assert.match(page, /What your PC needs<\/h2>/);
+    assert.match(page, /Kura tests your PC when it's set up/);
+    assert.match(page, /<th scope="row">Converting to the standard<\/th><td>A graphics card or the processor&#39;s graphics that encodes HEVC 10-bit/);
+    assert.match(page, /<th scope="row">English subtitles<\/th><td>Fast: 2 GB of graphics memory, or the processor, slowly\. Best: 4 GB<\/td>/);
+    assert.match(page, /Kura installs nothing by hand but a graphics driver/);
+  });
+
   it("leaves out drafts and tags that aren't versions", () => {
     const list = versions([release("0.1.0"), release("0.2.0", { draft: true }), { ...release("0.3.0"), tag_name: "nightly" }]);
 

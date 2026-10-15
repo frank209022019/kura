@@ -9,7 +9,7 @@ makes, and re-encoding waits on reading the source; only the fast upscale works 
 makes, so it's quicker making 720p.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -67,13 +67,17 @@ def estimate(
 # Seconds of the graphics card's time English subtitles take for each second of a video, as
 # the owner's GTX 1660 Super made them for a 21-minute episode (2026-10-15): about 8 minutes with
 # Whisper medium (Best) and 3 with small (Fast). They grow with how much is said, so a quiet
-# episode is quicker.
-HEARING = {"best": 0.4, "fast": 0.15}
+# episode is quicker. "fast_processor" is Fast on the processor, where the graphics card hasn't
+# the memory for it: Whisper medium heard a minute of an episode in 84 s on the owner's i5-9600K,
+# and small is about a third of its work, so about 0.5 there; a laptop's processor is slower.
+# Each PC measures its own as it makes them (kura/hardware.py).
+HEARING = {"best": 0.4, "fast": 0.15, "fast_processor": 1.0}
 
 
-def hearing(seconds: float, quality: str) -> float:
-    """The graphics card's time making a video's English subtitles takes, in seconds."""
-    return seconds * HEARING[quality]
+def hearing(seconds: float, quality: str, rates: Mapping[str, float] = HEARING) -> float:
+    """The time making a video's English subtitles takes, in seconds, at `rates` (this PC's:
+    kura/hardware.py's hearing)."""
+    return seconds * rates[quality]
 
 
 # English from another copy: lining the two copies up by their sound takes about this long,

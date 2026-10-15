@@ -29,7 +29,7 @@ from kura.core.naming import unique_path
 from kura.core.plan import Change, ChangeKind, Plan, quarantine_place
 from kura.core.speech import Heard, Hearing, Quality, Report, Stop, srt
 from kura.languages import beside
-from kura.speech import SpeechError, sound_of
+from kura.speech import SpeechError, out_of_memory, sound_of
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,10 @@ ENGLISH = ".en.srt"
 OURS = ".kura.en.srt"  # when another file has the first name
 TAKEN_AWAY = "Made by Kura, taken away"  # the reason of a change that set Kura's subtitles aside
 NOTHING_SAID = "No one speaks in it, so there was nothing to write: Kura made no subtitles."
+SHORT_OF_MEMORY = {  # by quality: the graphics card ran out of memory making them
+    "best": "The graphics card ran out of memory for Best.",
+    "fast": "The graphics card ran out of memory for Fast.",
+}
 
 
 class SubtitlesError(Exception):
@@ -46,6 +50,11 @@ class SubtitlesError(Exception):
     def __init__(self, message: str, log: str | None = None) -> None:
         super().__init__(message)
         self.log = log
+
+
+class OutOfMemory(SubtitlesError):  # noqa: N818 - said as it is
+    """The graphics card ran out of memory hearing the video: Whisper is loaded anew for the
+    next."""
 
 
 @dataclass(frozen=True)
@@ -153,7 +162,7 @@ def make(
     speaks gets none, and says so. Raises SubtitlesError when they can't be made, and Stopped
     when asked to stop; either way nothing beside the video changes."""
     row = conn.execute(
-        """SELECT j.sound AS track, j.batch_id, f.id AS file_id, f.path, f.probe, f.sound,
+        """SELECT j.sound AS track, j.batch_id, j.method, f.id AS file_id, f.path, f.probe, f.sound,
                   m.name AS made, m.size AS made_size, m.modified AS made_modified
            FROM jobs AS j JOIN files AS f ON f.id = j.file_id
            LEFT JOIN made_subtitles AS m ON m.file_id = f.id
@@ -174,6 +183,11 @@ def make(
         made = listener.hear(audio, language or None, report=report, stop=stop)
     except SpeechError as error:
         raise SubtitlesError(str(error), error.log) from error
+    except Exception as error:  # ONNX Runtime's own kinds are plain Exceptions
+        if not out_of_memory(error):
+            raise
+        log.warning("Whisper ran out of the graphics card's memory: %s", error)
+        raise OutOfMemory(SHORT_OF_MEMORY.get(row["method"], SHORT_OF_MEMORY["fast"])) from error
     if not made.subtitles:
         _done(conn, job_id, now(), size=0, problem=NOTHING_SAID)
         return

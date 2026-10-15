@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
 
+from kura import hardware
 from kura.core.catalog import Show
 from kura.core.episodes import EpisodeNumber
 from kura.core.estimate import Estimate, estimate, total
@@ -108,6 +109,7 @@ def _analysis(
 ) -> GapAnalysis:
     local = now.astimezone()  # the report is read in the time of this PC
     statuses = episode_statuses(conn, row["id"], show, standard, local.date())
+    speeds = hardware.speeds(conn)  # the time converting takes here
     states: list[EpisodeState] = []
     to_convert: list[Estimate] = []
     heights: list[int] = []
@@ -120,7 +122,7 @@ def _analysis(
         where = EpisodeNumber(episode.season, episode.number, absolute)
         states.append(EpisodeState(where, _REPORTED[status.state], status.problem))
         if status.state == "to convert" and status.media and status.decision:
-            to_convert.append(estimate(status.media, status.decision, standard))
+            to_convert.append(estimate(status.media, status.decision, standard, speeds))
             if status.media.video:
                 heights.append(status.media.video.height)
     specials = [s.episode for s in statuses if s.episode.season == 0 and s.state == "missing"]

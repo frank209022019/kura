@@ -6,7 +6,7 @@ converts the whole library to one standard, with AI upscaling for SD sources. It
 own tool: one user, one PC, never commercial, no sign-in. The code is shared under the MIT
 licence: anyone may fork it, but the repo takes no contributions.
 
-**Where it stands (2026-10-14):** design language chosen; repo, CI, installer and updater
+**Where it stands (2026-10-15):** design language chosen; repo, CI, installer and updater
 pipeline set up, with semantic versions, a changelog and a downloads page. Built and tested end to
 end: first-run setup with ffmpeg fetched from the list the installer shows; the scan (find, read
 with ffprobe, identify on AniList and TMDB, check for gaps and write the reports); "Which anime is
@@ -22,9 +22,11 @@ overnight note); light mode, Paper, as Windows is or as chosen; History a week a
 cleared on asking or daily; the player inside Kura (small over the page and moved anywhere,
 full screen and back); English subtitles made on the PC from a video's own sound (Whisper on
 the graphics card, in the queue with the conversions), with each video's languages on its title's
-page and Home; and another copy's English sound and subtitles added to the copy Tidy up keeps.
-Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has every release since.
-Everything in [What's next](#whats-next) is built but Kura on any PC (12), being built.
+page and Home; another copy's English sound and subtitles added to the copy Tidy up keeps; and
+Kura on any PC (what each PC can do, tested in Setup and Settings › About, AMD's and Intel's
+encoders, this PC's own times, the lighter way where a card is small or slow). Kura 0.1.0, the
+first release, went out on 2026-10-12; CHANGELOG.md has every release since. Everything in
+[What's next](#whats-next) is built.
 
 ## Ground rules
 
@@ -289,7 +291,11 @@ Everything decided so far. Don't ask again; change only with the owner.
   owner's card's; before then they say they're a guess. A part the PC can't do says so and what
   still works; one that's slow there (the AI model over 3 hours an episode) has the lighter way
   chosen first, the heavier one still a choice. The README and the downloads page say what a PC
-  needs. Drawn on the Kura on Any PC canvas (What's next, 12).
+  needs. Drawn on the Kura on Any PC canvas (What's next, 12). Built 2026-10-15
+  (docs/stack/hardware.md): DirectML takes the PC's high-performance card and never quietly falls
+  back to the processor for the AI model; Whisper on the processor loads one optimisation level
+  below the highest (ONNX Runtime 1.24 breaks its half-precision layer norms there); a test only
+  checks while a job has the card; new cards are timed anew, a new driver only checked.
 - A title's videos come a season at a time (the owner, 2026-10-15: "The list of episodes for a
   series is too long again, not by season and a lengthy scroll. Do something nice for movies,
   series, etc"): a pill per season above the list, then Specials, then any files without a
@@ -363,7 +369,8 @@ Everything decided so far. Don't ask again; change only with the owner.
   Closing the window quits Kura unless "Keep Kura running when you close the window", a setting
   of its own under it, is on (the owner, 2026-10-12).
 - Conversion is Kura's own pipeline: ffmpeg decodes (deinterlacing detected with idet), Python runs
-  the AI model with ONNX Runtime on DirectML, ffmpeg resizes and encodes NVENC HEVC 10-bit. Kura's
+  the AI model with ONNX Runtime on DirectML, ffmpeg resizes and encodes HEVC 10-bit on the card's
+  own encoder (NVENC; AMF or Quick Sync on other PCs, whichever the PC check finds). Kura's
   own final mux handles the audio policy, subtitles, fonts, chapters and a "processed" tag. Every
   output is verified (length, streams, a test play) before it replaces the original, which goes
   to quarantine for 30 days.
@@ -504,7 +511,7 @@ Everything decided so far. Don't ask again; change only with the owner.
     canvas (2026-10-15): what this PC can do in Setup and Settings › About, tested there;
     converting on AMD's and Intel's encoders as on NVIDIA's; times measured on this PC; the lighter
     way where the card is small or slow; the small things; and what a PC needs in the README and
-    on the downloads page. Being built.
+    on the downloads page: done.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`

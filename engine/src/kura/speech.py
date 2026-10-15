@@ -56,6 +56,7 @@ from kura.core.speech import (
     whisper_language,
     windows,
 )
+from kura.upscale import DIRECTML
 
 log = logging.getLogger(__name__)
 
@@ -73,6 +74,16 @@ class SpeechError(Exception):
     def __init__(self, message: str, log: str | None = None) -> None:
         super().__init__(message)
         self.log = log
+
+
+# What DirectML says when the graphics card's memory runs out (E_OUTOFMEMORY).
+_OUT_OF_MEMORY = ("8007000e", "out of memory", "not enough memory")
+
+
+def out_of_memory(error: BaseException) -> bool:
+    """Whether an error is the graphics card running out of memory."""
+    said = str(error).casefold()
+    return any(each in said for each in _OUT_OF_MEMORY)
 
 
 class _Value(Protocol):
@@ -169,22 +180,31 @@ def _session(path: Path, *, graphics: bool) -> _Session:
     except ImportError as error:
         raise SpeechError(f"Kura couldn't load ONNX Runtime ({error}).") from error
     ort.disable_telemetry_events()  # its Windows builds report use to Microsoft unless told not to
-    options = ort.SessionOptions()
-    options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    options.enable_mem_pattern = False  # DirectML asks for both of these
-    options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    levels = ort.GraphOptimizationLevel
+
+    def options(level: ort.GraphOptimizationLevel) -> ort.SessionOptions:
+        made = ort.SessionOptions()
+        made.graph_optimization_level = level
+        made.enable_mem_pattern = False  # DirectML asks for both of these
+        made.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        return made
+
     try:
         if graphics:
             try:
                 session = ort.InferenceSession(
                     str(path),
-                    options,
-                    providers=[("DmlExecutionProvider", {"device_id": 0}), "CPUExecutionProvider"],
+                    options(levels.ORT_ENABLE_ALL),
+                    providers=[DIRECTML, "CPUExecutionProvider"],
                 )
                 return cast(_Session, session)
             except Exception:  # ONNX Runtime raises plain Exceptions: the card can't, so the CPU
                 log.warning("The graphics card couldn't load %s; the processor runs it", path.name)
-        session = ort.InferenceSession(str(path), options, providers=["CPUExecutionProvider"])
+        # On the processor, the highest level's rewrites break Whisper's half-precision layer
+        # norms (ONNX Runtime 1.24 won't load it), so the one below: it loads, as quick.
+        session = ort.InferenceSession(
+            str(path), options(levels.ORT_ENABLE_EXTENDED), providers=["CPUExecutionProvider"]
+        )
         return cast(_Session, session)
     except Exception as error:
         raise SpeechError(f"Kura couldn't load the speech model ({error}).") from error
@@ -238,7 +258,11 @@ class Detector:
 class Listener:
     """Whisper loaded and ready, with the voice detector: `hear` makes a video's subtitles."""
 
-    def __init__(self, folder: Path, detector: Detector | None = None) -> None:
+    def __init__(
+        self, folder: Path, detector: Detector | None = None, *, graphics: bool = True
+    ) -> None:
+        """Whisper from its folder, on the graphics card unless `graphics` is False (a card
+        without the memory for it) or the card can't run it: the processor then."""
         try:
             self._config = json.loads((folder / "generation_config.json").read_text("utf-8"))
             model = json.loads((folder / "config.json").read_text("utf-8"))
@@ -251,7 +275,7 @@ class Listener:
         self._filters = mel_filters(int(model["num_mel_bins"]))
         heads = int(model["decoder_attention_heads"])
         encoder = _model_file(folder, "encoder_model")
-        self._encoder = _session(encoder, graphics=True)
+        self._encoder = _session(encoder, graphics=graphics)
         self._decoder = _session(
             _model_file(folder, "decoder_model_merged"), graphics=_on_card(self._encoder)
         )

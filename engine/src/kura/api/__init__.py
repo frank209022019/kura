@@ -46,6 +46,7 @@ from kura.care import Care
 from kura.config import DataPaths
 from kura.events import Notify
 from kura.gpu import Gpu
+from kura.pc_check import PcCheck
 from kura.player import Player
 from kura.queue import Queue, programs_from
 from kura.recovery import Recovery, stopped_on_purpose
@@ -135,6 +136,8 @@ def create_app(
             watcher.start()
         care: Care = running.state.care
         if work:
+            pc: PcCheck = running.state.pc
+            pc.refresh()  # checks this PC when it hasn't been, or its cards have changed
             worker.start()  # converts what waits
             care.start()  # tonight's backup, and the quarantine cleared out daily
         yield
@@ -165,7 +168,20 @@ def create_app(
     # What converting runs: Kura's ffmpeg, the AI model and Anime4K's shader (tests stand in).
     app.state.programs = lambda: programs_from(app.state.tools)
     app.state.queue = Queue(
-        paths, app.state.scanner, lambda: app.state.programs(), now=_now, notify=notify
+        paths,
+        app.state.scanner,
+        lambda: app.state.programs(),
+        now=_now,
+        notify=notify,
+        checking=lambda: app.state.pc.testing() is not None,
+    )
+    # What this PC can do, checked in the background; converting waits while it's checked.
+    app.state.pc = PcCheck(
+        paths,
+        lambda: app.state.programs(),
+        now=_now,
+        busy=lambda: app.state.queue.busy(),
+        after=lambda: app.state.queue.wake(),
     )
     app.state.gpu = Gpu()
     app.state.player = Player(paths, lambda: _ffmpeg(app.state.tools))

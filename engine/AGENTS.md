@@ -40,6 +40,10 @@ Start with [../AGENTS.md](../AGENTS.md) and [../CLAUDE.md](../CLAUDE.md).
 - Errors carry a sentence a person can act on, and say what Kura already did.
 - Long jobs (scans, conversions) report their stage, percentage and time left, can pause, and pick
   up where they stopped after a restart or a crash.
+- Kura runs on other people's PCs too: work on the graphics card uses what this PC has, never one
+  card by name (the encoder the PC check found, `hardware.speeds(conn)` and `hardware.hearing(conn)`
+  for times), and a new kind of job measures its own speed as it finishes (see
+  [docs/stack/hardware.md](../docs/stack/hardware.md)).
 - Every new package must survive PyInstaller: after adding one, build the engine and run the
   handshake test against the bundle (see [docs/stack/pyinstaller.md](../docs/stack/pyinstaller.md)).
 - Add a dependency only for a clear need, at its latest stable version (`uv add`), with a licence

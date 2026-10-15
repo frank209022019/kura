@@ -14,16 +14,26 @@ from typing import ClassVar
 
 import pytest
 
-from kura import changes
+from kura import changes, hardware
 from kura.changes import changes_of, save_plan
 from kura.config import DataPaths
 from kura.convert import WORKING, ConvertError, Programs, room_for, work_of
 from kura.convert import room_for as converting_reckons
+from kura.core.estimate import HEARING, Speeds
 from kura.core.fields import Json
+from kura.core.hardware import (
+    BEST_WANTS_DIRECTX,
+    BEST_WANTS_MEMORY,
+    GIB,
+    NO_ENCODER,
+    Card,
+    Checked,
+)
 from kura.core.media import media_from_ffprobe
 from kura.core.plan import Change, ChangeKind, Plan
 from kura.core.speech import Made, Segment
 from kura.core.standard import Method, decide
+from kura.hardware import Facts
 from kura.history import plans
 from kura.preferences import library_standard
 from kura.queue import Queue, Room
@@ -1153,12 +1163,15 @@ def test_a_file_converted_anew_is_timed_by_this_conversion(queue: Queue, conn: s
 
 
 class Whisper:
-    """Stands in for Whisper loaded from a folder: hears two lines in anything."""
+    """Stands in for Whisper loaded from a folder, on the graphics card or the processor: hears
+    two lines in anything."""
 
     loaded: ClassVar[list[Path]] = []
+    graphics: ClassVar[list[bool]] = []
 
-    def __init__(self, folder: Path) -> None:
+    def __init__(self, folder: Path, graphics: bool) -> None:
         Whisper.loaded.append(folder)
+        Whisper.graphics.append(graphics)
 
     def hear(self, audio: object, language: str | None, *, report: object, stop: object) -> Made:
         return Made([Segment(1.0, 2.0, "Over here!")], "ja", translated=True, speech=1.0)
@@ -1166,7 +1179,7 @@ class Whisper:
 
 def hearing(tmp_path: Path, *, models: Sequence[str] = ("best", "fast")) -> Programs:
     """The stand-ins for converting, and Whisper at the qualities in `models`, downloaded."""
-    Whisper.loaded = []
+    Whisper.loaded, Whisper.graphics = [], []
     folders = {quality: tmp_path / f"speech-{quality}" for quality in models}
     return replace(programs(RESULT), speech=folders.get, listener=Whisper)
 
@@ -1369,3 +1382,239 @@ def test_after_a_crash_subtitles_being_made_wait_again_and_their_part_goes(
     assert states(conn) == [(1, "queued")]
     assert not part.exists()
     assert settled.restarted == 1
+
+
+GTX = Card("NVIDIA GeForce GTX 1660 SUPER", "nvidia", 6 * GIB, False, "617.42")
+SMALL = Card("NVIDIA GeForce GTX 1050", "nvidia", 2 * GIB, False, "551.86")
+UHD = Card("Intel(R) UHD Graphics 620", "intel", 128 * 1024**2, True, "31.0.101.2111")
+
+
+def this_pc(
+    conn: sqlite3.Connection,
+    card: Card,
+    encoder: str | None = "nvenc",
+    *,
+    ai: bool = True,
+    problem: str | None = None,
+) -> None:
+    """What checking this PC found: its card, the encoder that started on it (and what the
+    card's own said when it didn't), and whether the AI model ran."""
+    facts = Facts((card,), "Intel Core i5-9600K", 6, 24 * GIB)
+    found = Checked(encoder, problem, ai=ai, anime4k=True, at=NOW.isoformat())
+    hardware.keep(conn, facts, found)
+
+
+def test_sd_gets_the_fast_upscale_where_the_ai_model_doesnt_run(
+    queue: Queue, conn: sqlite3.Connection
+):
+    this_pc(conn, UHD, "qsv", ai=False)
+
+    queue.add([1], Method.BEST)
+
+    assert [job.method for job in queue.status().queued] == [Method.FAST]
+
+
+def test_without_an_encoder_files_wait_to_convert_while_subtitles_go(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    this_pc(conn, GTX, encoder=None)
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add([1])
+    queue.add_subtitles([2], "fast", "jpn", "Trigun")
+
+    while queue.work_once():
+        pass
+
+    assert states(conn) == [(1, "queued"), (2, "done")]
+    assert queue.status().problem == NO_ENCODER
+
+
+def test_files_convert_with_the_encoder_this_pc_has(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    this_pc(conn, Card("AMD Radeon RX 6700 XT", "amd", 12 * GIB, False, "32.0"), "amf")
+    commands: list[Sequence[str]] = []
+    queue = make_queue(paths, programs(RESULT, commands))
+    queue.add([1])
+
+    queue.work_once()
+
+    assert states(conn) == [(1, "done")]
+    assert any("hevc_amf" in command for command in commands)
+    assert not any("hevc_nvenc" in command for command in commands)
+
+
+def test_each_file_done_measures_its_way_on_this_pc(queue: Queue, conn: sqlite3.Connection):
+    assert hardware.measured(conn) is None
+
+    queue.add([1])
+    queue.work_once()
+
+    measured = hardware.measured(conn)
+    assert measured is not None
+    assert (measured.tested, measured.conversions) == (False, 1)
+    assert hardware.speeds(conn).best != Speeds().best  # this PC's own now
+
+
+def test_nothing_starts_while_this_pc_is_checked(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    checking = [True]
+    queue = Queue(
+        paths,
+        Scanner(paths, Tools(paths, items=())),
+        lambda: programs(RESULT),
+        now=lambda: NOW,
+        checking=lambda: checking[0],
+    )
+    queue.add([1])
+
+    assert not queue.work_once()
+
+    checking[0] = False
+    assert queue.work_once()
+    assert states(conn) == [(1, "done")]
+
+
+class OutOfCardMemory(Whisper):
+    """Whisper on a card that runs out of memory as it hears the first video."""
+
+    def hear(self, audio: object, language: str | None, *, report: object, stop: object) -> Made:
+        if len(Whisper.loaded) == 1:
+            raise RuntimeError(
+                "Exception(3) tid(2b4c) 8007000E Not enough memory resources are available to "
+                "complete this operation."
+            )
+        return super().hear(audio, language, report=report, stop=stop)
+
+
+def test_best_that_ran_out_of_the_cards_memory_can_be_made_with_fast(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    queue = make_queue(paths, replace(hearing(tmp_path), listener=OutOfCardMemory))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+
+    queue.work_once()
+
+    [failed] = queue.status().today
+    assert failed.problem == "The graphics card ran out of memory for Best."
+    assert failed.fast_instead
+
+    queue.retry(failed.id, "fast")
+    queue.work_once()
+
+    [made] = queue.status().today
+    assert (made.state, made.method) == ("done", Method.FAST)
+    assert Whisper.loaded == [tmp_path / "speech-best", tmp_path / "speech-fast"]
+
+
+def test_best_on_a_card_without_the_memory_for_it_says_fast_runs_here(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    this_pc(conn, SMALL)
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+
+    queue.work_once()
+
+    [failed] = queue.status().today
+    assert failed.problem == BEST_WANTS_MEMORY
+    assert failed.fast_instead
+    assert Whisper.loaded == []
+
+
+def test_fast_runs_on_the_processor_where_the_card_hasnt_the_memory(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    this_pc(conn, UHD, "qsv")
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "fast", "jpn", "Trigun")
+    waiting = queue.status().queued[0].gpu_seconds
+
+    queue.work_once()
+
+    assert states(conn) == [(1, "done")]
+    assert Whisper.graphics == [False]
+    assert waiting == pytest.approx(1440 * HEARING["fast_processor"])  # the processor's time
+    measured = hardware.measured(conn)
+    assert measured is not None
+    assert measured.subtitles == 1
+
+
+def test_a_card_whose_driver_is_too_old_says_so_in_the_queue(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection
+):
+    too_old = "Driver does not support the required nvenc API version."
+    this_pc(conn, GTX, encoder=None, problem=too_old)
+    queue = make_queue(paths, programs(RESULT))
+    queue.add([1])
+
+    assert not queue.work_once()
+
+    assert queue.status().problem == (
+        "NVIDIA's encoder (NVENC) didn't start: the graphics card's driver may be too old for "
+        "it. Update it, then test this PC again under About in Settings."
+    )
+
+
+def test_subtitles_done_are_told_while_conversions_wait_for_an_encoder(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    this_pc(conn, GTX, encoder=None)
+    told: list[Told] = []
+    queue = make_queue(paths, hearing(tmp_path), told=told)
+    queue.add([1])
+    queue.add_subtitles([2], "fast", "jpn", "Trigun")
+
+    while queue.work_once():
+        pass
+
+    assert states(conn) == [(1, "queued"), (2, "done")]
+    assert [title for title, _, _ in told] == ["Trigun, season 1 has English subtitles"]
+
+
+def test_a_file_done_stays_done_when_keeping_its_time_fails(
+    queue: Queue, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    def locked(*_args: object) -> None:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr("kura.hardware.learn_conversion", locked)
+    queue.add([1])
+
+    queue.work_once()
+
+    assert states(conn) == [(1, "done")]
+
+
+def test_subtitles_made_stay_made_when_keeping_their_time_fails(
+    paths: DataPaths,
+    shows: Path,
+    conn: sqlite3.Connection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def locked(*_args: object) -> None:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr("kura.hardware.learn_hearing", locked)
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "fast", "jpn", "Trigun")
+
+    queue.work_once()
+
+    assert states(conn) == [(1, "done")]
+
+
+def test_best_where_directx_doesnt_run_says_so(
+    paths: DataPaths, shows: Path, conn: sqlite3.Connection, tmp_path: Path
+):
+    this_pc(conn, GTX, ai=False)  # an 8 GB card has the memory: DirectML is what's missing
+    queue = make_queue(paths, hearing(tmp_path))
+    queue.add_subtitles([1], "best", "jpn", "Trigun")
+
+    queue.work_once()
+
+    [failed] = queue.status().today
+    assert failed.problem == BEST_WANTS_DIRECTX
+    assert failed.fast_instead

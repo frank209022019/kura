@@ -26,6 +26,12 @@ When another app has an original open as its result is ready (a player playing i
 beside it and the next file goes. A second thread puts such results in place, five minutes after
 each try or at once when the owner asks (`retry`), though another file is converting: `try_waiting`.
 Skipping the file, or taking it out of the queue, throws its result away.
+
+Each file converts with the encoder this PC has (kura/hardware.py keeps what checking it found);
+without one, conversions wait and the queue says why, while subtitles and English from another
+copy go on. Nothing starts while the PC is being checked. Whisper runs where this PC has room for
+it: Fast on the processor when the graphics card hasn't the memory. Every file done measures its
+way's speed on this PC, so the queue's times are this PC's own.
 """
 
 import ctypes
@@ -45,7 +51,7 @@ from datetime import time as clock_time
 from pathlib import Path
 from typing import Literal, cast
 
-from kura import db
+from kura import db, hardware
 from kura.changes import SavedChange
 from kura.config import DataPaths
 from kura.convert import (
@@ -70,10 +76,16 @@ from kura.convert import (
     throw_away_kept,
     work_of,
 )
-from kura.core.estimate import estimate, hearing, merging
+from kura.core.estimate import HEARING, Speeds, estimate, hearing, merging
+from kura.core.hardware import (
+    BEST_WANTS_DIRECTX,
+    BEST_WANTS_MEMORY,
+    best_wants,
+    why_not_converting,
+)
 from kura.core.library import drive_of
-from kura.core.media import media_from_ffprobe
-from kura.core.speech import Heard, Hearing
+from kura.core.media import MediaInfo, media_from_ffprobe
+from kura.core.speech import Heard, Hearing, Quality
 from kura.core.standard import Method, Standard, decide
 from kura.events import Notify
 from kura.merge import merge
@@ -83,7 +95,14 @@ from kura.quarantine import set_aside_by_drive
 from kura.recovery import Recovery
 from kura.scan import ScanBusyError, Scanner
 from kura.speech import MODELS, SpeechError
-from kura.subtitles import SubtitlesError, new_batch, track_for, unfinished
+from kura.subtitles import (
+    SHORT_OF_MEMORY,
+    OutOfMemory,
+    SubtitlesError,
+    new_batch,
+    track_for,
+    unfinished,
+)
 from kura.subtitles import make as make_subtitles
 from kura.tools import Tools
 from kura.upscale import MODEL, model
@@ -109,6 +128,8 @@ _EARLY = "queue_stops_early"  # when tonight's run takes its last file, stopping
 NIGHT = (clock_time(23, 0), clock_time(7, 0))  # when the nights-only schedule converts
 EARLY = clock_time(3, 0)  # "Stop at 03:00"
 NO_FFMPEG = "Kura needs ffmpeg to convert. It's downloaded on the setup's Tools step."
+# Why Best failed where Fast would go: its card ran out of memory, or this PC can't run it.
+_FAST_INSTEAD = (SHORT_OF_MEMORY["best"], BEST_WANTS_MEMORY, BEST_WANTS_DIRECTX)
 
 
 @dataclass(frozen=True)
@@ -143,6 +164,7 @@ class Job:
     kind: Kind = "convert"
     language: str | None = None  # subtitles: the sound they're made from ("jpn"; "" unsaid)
     model_missing: bool = False  # subtitles waiting for their speech model to download
+    fast_instead: bool = False  # subtitles at Best that failed where Fast would go
 
 
 @dataclass(frozen=True)
@@ -200,15 +222,19 @@ class Queue:
         now: Callable[[], datetime],
         clock: Callable[[], float] = time.monotonic,
         notify: Notify = lambda _title, _body, link=None: None,
+        checking: Callable[[], bool] = lambda: False,
     ) -> None:
         """`programs` gives what converting runs, or None while Kura has no ffmpeg. `notify`
-        tells the app something worth a notification: a title, a line, and where it leads."""
+        tells the app something worth a notification: a title, a line, and where it leads.
+        `checking` says whether the PC is being checked (kura/pc_check.py): nothing starts
+        meanwhile."""
         self._paths = paths
         self._notify = notify
         self._batch: list[int] = []  # files converted (or failed) since nothing last waited
         self._noting = threading.Lock()  # both threads add to the batch
         self._scanner = scanner
         self._programs = programs
+        self._checking = checking
         self._now = now
         self._clock = clock
         self._lock = threading.Lock()
@@ -223,7 +249,9 @@ class Queue:
         self._frames: deque[tuple[float, int]] = deque()  # (when, frames done) while converting
         self._speech: Heard | None = None  # how far the subtitles being made have got
         self._hearing: tuple[float, float] | None = None  # (when, seconds heard) as they began
-        self._listener: tuple[Path, Hearing] | None = None  # Whisper, loaded from that folder
+        # Whisper, loaded from that folder, on the graphics card (True) or the processor.
+        self._listener: tuple[Path, bool, Hearing] | None = None
+        self._made_at: float | None = None  # when the file converting now was made, to measure
         self._problem: str | None = None
         # The room files were found to want as converting began, more than the queue reckoned
         # (a picture found interlaced is made anew rather than copied), and what it reckoned
@@ -423,6 +451,11 @@ class Queue:
             conn.execute("DELETE FROM settings WHERE key = ?", (_SHORT,))
         self._wake.set()
 
+    def busy(self) -> bool:
+        """Whether a job is running now: the card is the queue's."""
+        with self._lock:
+            return self._job_id is not None
+
     def wake(self) -> None:
         """Looks for a file to convert now rather than at the next look: room was made, say."""
         self._wake.set()
@@ -540,11 +573,18 @@ class Queue:
                 cancelled += 1
         return cancelled
 
-    def retry(self, job_id: int) -> None:
+    def retry(self, job_id: int, quality: Quality | None = None) -> None:
         """A failed or skipped file goes back in the queue, last, unless it waits there for the
-        same again already. One made and waiting for its original to be free is tried again now.
+        same again already; subtitles at `quality` when it's given ("fast", after Best ran out of
+        the card's memory). One made and waiting for its original to be free is tried again now.
         One marked broken is passed over: it's broken."""
         with closing(db.connect(self._paths.database)) as conn, conn:
+            if quality is not None:
+                conn.execute(
+                    """UPDATE jobs SET method = ?
+                       WHERE id = ? AND kind = 'subtitles' AND state IN ('failed', 'skipped')""",
+                    (quality, job_id),
+                )
             due = conn.execute(
                 """UPDATE jobs SET retry_at = ?
                    WHERE id = ? AND state = 'queued' AND retry_at IS NOT NULL""",
@@ -605,6 +645,7 @@ class Queue:
     def status(self) -> QueueStatus:
         with closing(db.connect(self._paths.database)) as conn:
             standard = library_standard(conn)
+            speeds, rates = hardware.speeds(conn), hardware.hearing(conn)
             paused = _paused(conn)
             schedule = _schedule(conn)
             stop = _early(conn)
@@ -645,13 +686,13 @@ class Queue:
         }
         jobs = [
             replace(
-                _job(row, standard),
+                _job(row, standard, speeds, rates),
                 drive_missing=not connected(row["root"]),
                 no_room=row["id"] in no_room,
                 model_missing=row["kind"] == "subtitles" and not ready.get(row["method"], False),
             )
             if row["state"] == "queued"
-            else _job(row, standard)
+            else _job(row, standard, speeds, rates)
             for row in rows
         ]
         with self._lock:
@@ -700,8 +741,11 @@ class Queue:
                 return False
             programs = self._programs()
             self._problem = None if programs else NO_FFMPEG
-            if programs is None:
+            if programs is None or self._checking():
                 return False
+            # The encoder this PC's check found; before it's checked, NVIDIA's, as Kura always used.
+            facts, checked = hardware.stored(conn)
+            encoder = checked.encoder if checked is not None else "nvenc"
             # Taken under the lock skip and remove take too, so a file skipped or taken out a
             # moment before never converts; one whose drive isn't connected waits, one made
             # already waits for its original (try_waiting), and one without room waits on a
@@ -735,6 +779,8 @@ class Queue:
                 def goes(job: sqlite3.Row) -> bool:
                     if not connected(job["root"]):
                         return False
+                    if job["kind"] == "convert" and encoder is None:
+                        return False  # this PC can't: the queue says so
                     if job["kind"] == "subtitles":  # they want next to no room, but their model
                         return programs.speech(job["method"]) is not None
                     if job["file_id"] in held or job["other_id"] in held:
@@ -746,6 +792,9 @@ class Queue:
                     room = free(str(Path(job["path"]).parent))  # where converting measures
                     return room is None or room >= _wanted(job, standard, self._needs)
 
+                converts = any(job["kind"] == "convert" for job in waiting)
+                if checked is not None and encoder is None and converts:
+                    self._problem = why_not_converting(facts.cards if facts else (), checked)
                 first = next((job["id"] for job in waiting if goes(job)), None)
                 if first is None:
                     return False
@@ -759,7 +808,7 @@ class Queue:
                 if row is None:
                     return False
                 self._job_id, self._stop_for, self._progress = row["id"], None, None
-                self._speech, self._hearing = None, None
+                self._speech, self._hearing, self._made_at = None, None, None
                 self._frames.clear()
             kind = next(job["kind"] for job in waiting if job["id"] == row["id"])
             if kind == "subtitles":
@@ -767,14 +816,18 @@ class Queue:
             else:
                 if kind == "convert":
                     self._listener = None  # the card's memory goes to the conversion
-                self._work(conn, row["id"], programs)
+                self._work(conn, row["id"], programs, encoder)
         return True
 
-    def _work(self, conn: sqlite3.Connection, job_id: int, programs: Programs) -> None:
+    def _work(
+        self, conn: sqlite3.Connection, job_id: int, programs: Programs, encoder: str | None
+    ) -> None:
         merging = conn.execute("SELECT kind FROM jobs WHERE id = ?", (job_id,)).fetchone()[0] == (
             "merge"
         )
+        began = self._clock()
         try:
+            made = None if merging else _making(conn, job_id)
             with _awake():
                 if merging:
                     merge(
@@ -798,7 +851,12 @@ class Queue:
                         stop=self._stop_asked,
                         discard=self._discard_asked,
                         hold=self._hold,
+                        encoder=encoder,
                     )
+                    with self._lock:
+                        made_at = self._made_at
+                    if made is not None and made_at is not None:
+                        self._learn_conversion(conn, made, made_at - began)
         except Stopped:
             self._stopped(conn, job_id)
         except InUseError as error:
@@ -826,21 +884,39 @@ class Queue:
                 self._job_id, self._stop_for, self._progress = None, None, None
         self._noted(conn, job_id)
 
+    def _learn_conversion(
+        self, conn: sqlite3.Connection, made: tuple[Method, MediaInfo, int], took: float
+    ) -> None:
+        """How long a file took to make, kept for this PC; the file is done whatever happens."""
+        method, media, height = made
+        try:
+            hardware.learn_conversion(conn, method, media, height, took, self._now())
+        except Exception:
+            log.exception("Keeping how long the file took hit a problem")
+
     def _make(self, conn: sqlite3.Connection, job_id: int, programs: Programs) -> None:
         quality = conn.execute("SELECT method FROM jobs WHERE id = ?", (job_id,)).fetchone()[0]
+        place = hardware.hearing_place(conn, quality)
+        began = self._clock()
         try:
+            if place is None:
+                raise SubtitlesError(best_wants(hardware.checked_here(conn)))
             with _awake():
                 make_subtitles(
                     conn,
                     job_id,
                     programs,
-                    self._whisper(programs, quality),
+                    self._whisper(programs, quality, graphics=place == "card"),
                     now=self._now,
                     report=self._heard_speech,
                     stop=self._stop_asked,
                 )
+            self._learn_hearing(conn, job_id, quality, place, self._clock() - began)
         except Stopped:
             self._stopped(conn, job_id)
+        except OutOfMemory as error:  # Whisper is loaded anew, the card's memory let go
+            self._listener = None
+            self._finished(conn, job_id, "failed", str(error), error.log)
         except SubtitlesError as error:
             self._finished(conn, job_id, "failed", str(error), error.log)
         except SpeechError as error:  # Whisper couldn't load
@@ -855,15 +931,40 @@ class Queue:
                 self._job_id, self._stop_for, self._speech = None, None, None
         self._noted(conn, job_id)
 
-    def _whisper(self, programs: Programs, quality: str) -> Hearing:
-        """Whisper at this quality, loaded once while subtitles follow subtitles."""
+    def _whisper(self, programs: Programs, quality: str, *, graphics: bool) -> Hearing:
+        """Whisper at this quality, on the graphics card or the processor, loaded once while
+        subtitles follow subtitles."""
         folder = programs.speech(quality)
         if folder is None:
             raise SubtitlesError("Kura needs its speech model first: download it, then try again.")
-        if self._listener is None or self._listener[0] != folder:
+        if self._listener is None or self._listener[:2] != (folder, graphics):
             self._listener = None  # one at a time on the card
-            self._listener = (folder, programs.listener(folder))
-        return self._listener[1]
+            self._listener = (folder, graphics, programs.listener(folder, graphics))
+        return self._listener[2]
+
+    def _learn_hearing(
+        self, conn: sqlite3.Connection, job_id: int, quality: str, place: str, took: float
+    ) -> None:
+        """How long a video's subtitles took for its sound, kept for this PC: unless no one
+        speaks in it, which takes next to no time. They're made whatever happens here."""
+        try:
+            self._keep_hearing(conn, job_id, quality, place, took)
+        except Exception:
+            log.exception("Keeping how long the subtitles took hit a problem")
+
+    def _keep_hearing(
+        self, conn: sqlite3.Connection, job_id: int, quality: str, place: str, took: float
+    ) -> None:
+        row = conn.execute(
+            """SELECT j.problem, f.probe FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+               WHERE j.id = ? AND j.state = 'done'""",
+            (job_id,),
+        ).fetchone()
+        if row is None or row["problem"] is not None or not row["probe"]:
+            return
+        sound = media_from_ffprobe(json.loads(row["probe"])).duration or 0.0
+        key = f"{quality}_processor" if place == "processor" else quality
+        hardware.learn_hearing(conn, key, sound, took, self._now())
 
     def _found_wanting(self, conn: sqlite3.Connection, job_id: int, needed: int) -> None:
         """Remembers the room a file was found to want as converting began, though the queue
@@ -903,13 +1004,22 @@ class Queue:
 
     def _going_on(self, conn: sqlite3.Connection) -> bool:
         """Whether a job in the queue is still to go: subtitles waiting for a speech model
-        that isn't on this PC don't count, so what's done is told meanwhile."""
+        that isn't on this PC don't count, nor do conversions on a PC that can't convert, so
+        what's done is told meanwhile."""
         programs = self._programs()
+        checked = hardware.checked_here(conn)
+        stuck = checked is not None and checked.encoder is None
+
+        def waits(row: sqlite3.Row) -> bool:
+            if row["kind"] == "subtitles":
+                return programs is not None and programs.speech(row["method"]) is not None
+            return not (stuck and row["kind"] == "convert" and row["state"] == "queued")
+
         return any(
-            row["kind"] != "subtitles"
-            or (programs is not None and programs.speech(row["method"]) is not None)
+            waits(row)
             for row in conn.execute(
-                "SELECT kind, method FROM jobs WHERE state IN ('queued', 'running', 'replacing')"
+                """SELECT kind, method, state FROM jobs
+                   WHERE state IN ('queued', 'running', 'replacing')"""
             )
         )
 
@@ -1014,6 +1124,8 @@ class Queue:
     def _heard(self, progress: Progress) -> None:
         with self._lock:
             self._progress = progress
+            if progress.stage == "checking" and self._made_at is None:
+                self._made_at = self._clock()
             if progress.stage == "converting":
                 moment = self._clock()
                 self._frames.append((moment, progress.frames))
@@ -1390,11 +1502,17 @@ class _Drives:
         return self._seen[folder]
 
 
-def _job(row: sqlite3.Row, standard: Standard) -> Job:
+def _job(
+    row: sqlite3.Row,
+    standard: Standard,
+    speeds: Speeds | None = None,
+    rates: dict[str, float] | None = None,
+) -> Job:
     """A job as the queue shows it. One still to finish gets what suits its file, with an
-    estimate; a finished one says what it got (its file's record is the result's now)."""
+    estimate at this PC's `speeds` (or `rates`, for subtitles); a finished one says what it got
+    (its file's record is the result's now)."""
     if row["kind"] == "subtitles":
-        return _subtitles_job(row)
+        return _subtitles_job(row, rates)
     if row["kind"] == "merge":
         return _merge_job(row)
     method = Method(row["method"])
@@ -1406,7 +1524,7 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
         decision = replace(decision, method=lighter(decision.method, method))
         method, width, height = decision.method, decision.width, decision.height
         if row["retry_at"] is None:  # one waiting for its original is made already
-            gpu_seconds = estimate(media, decision, standard).gpu_seconds
+            gpu_seconds = estimate(media, decision, standard, speeds).gpu_seconds
     return Job(
         id=row["id"],
         file_id=row["file_id"],
@@ -1433,8 +1551,8 @@ def _job(row: sqlite3.Row, standard: Standard) -> Job:
     )
 
 
-def _subtitles_job(row: sqlite3.Row) -> Job:
-    """English subtitles as the queue shows them, with how long hearing the video takes."""
+def _subtitles_job(row: sqlite3.Row, rates: dict[str, float] | None = None) -> Job:
+    """English subtitles as the queue shows them, with how long hearing the video takes here."""
     seconds = 0.0
     if row["probe"]:
         seconds = media_from_ffprobe(json.loads(row["probe"])).duration or 0.0
@@ -1452,7 +1570,9 @@ def _subtitles_job(row: sqlite3.Row) -> Job:
         method=Method(row["method"]),
         state=row["state"],
         position=row["position"],
-        gpu_seconds=hearing(seconds, row["method"]) if row["state"] in ("queued", "running") else 0,
+        gpu_seconds=hearing(seconds, row["method"], rates or HEARING)
+        if row["state"] in ("queued", "running")
+        else 0,
         added_at=row["added_at"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
@@ -1462,6 +1582,9 @@ def _subtitles_job(row: sqlite3.Row) -> Job:
         log=row["log"] if row["state"] == "failed" else None,
         kind="subtitles",
         language=sound[track] if track < len(sound) else "",
+        fast_instead=row["state"] == "failed"
+        and row["method"] == "best"
+        and row["problem"] in _FAST_INSTEAD,
     )
 
 
@@ -1491,6 +1614,21 @@ def _merge_job(row: sqlite3.Row) -> Job:
         log=row["log"] if row["state"] == "failed" else None,
         kind="merge",
     )
+
+
+def _making(conn: sqlite3.Connection, job_id: int) -> tuple[Method, MediaInfo, int] | None:
+    """What a conversion is about to make: its way, its original, and the height it makes."""
+    row = conn.execute(
+        """SELECT j.method, f.probe FROM jobs AS j JOIN files AS f ON f.id = j.file_id
+           WHERE j.id = ?""",
+        (job_id,),
+    ).fetchone()
+    if row is None or not row["probe"]:
+        return None
+    media = media_from_ffprobe(json.loads(row["probe"]))
+    decision = decide(media, library_standard(conn))
+    method = lighter(decision.method, Method(row["method"]))
+    return method, media, decision.height or 0
 
 
 def _hearing_now(job: Job, heard: Heard | None, left: float | None) -> Running:

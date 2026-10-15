@@ -51,6 +51,7 @@ from kura.core.convert import (
 )
 from kura.core.estimate import FILM, estimate
 from kura.core.fields import Json
+from kura.core.hardware import NO_ENCODER
 from kura.core.languages import track_languages
 from kura.core.library import WORKING, drive_of, work_of
 from kura.core.media import MediaInfo, Video, media_from_ffprobe
@@ -164,10 +165,10 @@ def _nowhere(_quality: str) -> Path | None:
     return None
 
 
-def _whisper(folder: Path) -> Hearing:
+def _whisper(folder: Path, graphics: bool) -> Hearing:
     from kura.speech import Listener  # it needs this module first
 
-    return Listener(folder)
+    return Listener(folder, graphics=graphics)
 
 
 @dataclass(frozen=True)
@@ -182,7 +183,7 @@ class Programs:
     shader: Path
     start: Starter = field(default=start)
     speech: Callable[[str], Path | None] = field(default=_nowhere)
-    listener: Callable[[Path], Hearing] = field(default=_whisper)
+    listener: Callable[[Path, bool], Hearing] = field(default=_whisper)  # on the card?
 
 
 def convert(
@@ -196,11 +197,15 @@ def convert(
     stop: Callable[[], bool],
     discard: Callable[[], bool],
     hold: Callable[[], AbstractContextManager[None]] = nullcontext,
+    encoder: str | None = "nvenc",
 ) -> None:
     """Converts a job's file and puts the result in its place, `hold` holding scans off while
     it moves. `stop` stops it while the file is being made; once it's made, it's checked and put
-    in place unless `discard` says to throw it away (the owner skipped it, say). Raises
+    in place unless `discard` says to throw it away (the owner skipped it, say). `encoder` is
+    the one this PC has (kura/core/convert.py's ENCODERS), None when it has none. Raises
     ConvertError when it can't (the original stays as it was), or Stopped when asked."""
+    if encoder is None:
+        raise ConvertError(NO_ENCODER)
     row = _job(conn, job_id)
     source = Path(row["path"])
     still_as_read(source, row["size"], row["modified"])
@@ -214,7 +219,11 @@ def convert(
     if media.video.interlaced is None and _looks_interlaced(programs, source, media):
         decision = deinterlaced(decision)
     made = recipe(
-        source, media, decision, tag=f"{decision.method} to {standard.height}p · Kura {__version__}"
+        source,
+        media,
+        decision,
+        tag=f"{decision.method} to {standard.height}p · Kura {__version__}",
+        encoder=encoder,
     )
     name_free(source, Path(made.output))
     _enough_space(source, media, decision, standard)

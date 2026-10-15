@@ -2,15 +2,18 @@
 
 [ffmpeg](https://ffmpeg.org) 9.0.2 reads what each video holds (`ffprobe`) and does the conversion
 work: decoding, deinterlacing, resizing, Anime4K through libplacebo, and encoding HEVC 10-bit with
-NVENC. Kura doesn't ship it: it downloads one pinned build the first time it starts, from the list
+the graphics card's encoder (NVENC, AMF or Quick Sync: [hardware.md](hardware.md)). Kura doesn't
+ship it: it downloads one pinned build the first time it starts, from the list
 in [engine/src/kura/downloads.json](../../engine/src/kura/downloads.json), the same list the
 installer shows (see [releasing.md](../releasing.md)).
 
 ## Which build, and why
 
 - **BtbN's LGPL shared build for Windows** (`ffmpeg-n9.0.2-…-win64-lgpl-shared-9.0.zip`,
-  77 MB): the release branch, built with NVENC, libplacebo and Vulkan, and nothing under the GPL,
-  so Kura's MIT code may drive it. The shared build keeps ffmpeg's libraries as separate DLLs.
+  77 MB): the release branch, built with NVENC, AMF, Quick Sync, libplacebo and Vulkan, and
+  nothing under the GPL, so Kura's MIT code may drive it. The shared build keeps ffmpeg's
+  libraries as separate DLLs. Without the GPL's libx265 there's no HEVC 10-bit encoder on the
+  processor, so a PC without one on its graphics card doesn't convert.
 - **Pinned to a month's last build.** BtbN keeps the last build of each month for two years, while
   "latest" changes daily. `downloads.json` names one such build with its size and SHA-256, and
   Kura uses the download only when both match.

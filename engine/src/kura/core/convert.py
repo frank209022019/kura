@@ -4,9 +4,10 @@ and checking the result before it takes the original's place.
 The picture is made by one of three methods (kura/core/standard.py decides which): the AI model
 for SD (ffmpeg decodes raw frames, ONNX Runtime upscales them, ffmpeg encodes), Anime4K's shaders
 through libplacebo for sizes between SD and the standard, or a plain re-encode. Whatever the
-method, the result is HEVC 10-bit from the graphics card's encoder (NVENC) in an MKV that keeps
-the original's sound (lossless sound becomes AAC), subtitles (MP4's text ones become SRT), fonts
-and chapters, tagged as Kura's.
+method, the result is HEVC 10-bit from the graphics card's encoder (NVIDIA's NVENC, AMD's AMF or
+Intel's Quick Sync: whichever this PC has, kura/hardware.py finds) in an MKV that keeps the
+original's sound (lossless sound becomes AAC), subtitles (MP4's text ones become SRT), fonts and
+chapters, tagged as Kura's.
 """
 
 from collections.abc import Sequence
@@ -39,6 +40,35 @@ NVENC = (
     "-profile:v",
     "main10",
 )
+# AMD's and Intel's HEVC 10-bit, set to look as good: constant quality, their slowest presets.
+AMF = (
+    "-c:v",
+    "hevc_amf",
+    "-usage",
+    "transcoding",
+    "-quality",
+    "quality",
+    "-rc",
+    "cqp",
+    "-qp_i",
+    "22",
+    "-qp_p",
+    "24",
+    "-profile:v",
+    "main10",
+)
+QSV = (
+    "-c:v",
+    "hevc_qsv",
+    "-preset",
+    "slower",
+    "-global_quality",
+    "23",
+    "-profile:v",
+    "main10",
+)
+# Each encoder Kura converts with, best first: the first this PC starts is the one it uses.
+ENCODERS: dict[str, tuple[str, ...]] = {"nvenc": NVENC, "amf": AMF, "qsv": QSV}
 DEINTERLACE = "bwdif=mode=send_frame"  # one frame per frame: anime needn't double its rate
 _KBPS_PER_CHANNEL = 96  # AAC in place of lossless sound
 _SAMPLE_FRAMES = 600  # frames idet looks at to tell whether a picture is interlaced
@@ -64,11 +94,16 @@ class Recipe:
     fonts: bool  # the file carries fonts (MKV attachments), which go with it
     output: PurePath  # where the result goes: the original's name as an MKV
     tag: str  # written as the KURA tag
+    encoder: str = "nvenc"  # which of ENCODERS makes the picture
 
 
-def recipe(source: PurePath, media: MediaInfo, decision: Decision, *, tag: str) -> Recipe:
+def recipe(
+    source: PurePath, media: MediaInfo, decision: Decision, *, tag: str, encoder: str = "nvenc"
+) -> Recipe:
     if decision.method not in (Method.REMUX, Method.REENCODE, Method.FAST, Method.BEST):
         raise ValueError(f"A {decision.method} file isn't converted.")
+    if encoder not in ENCODERS:
+        raise ValueError(f"Kura has no encoder called {encoder}.")
     video = media.video
     return Recipe(
         method=decision.method,
@@ -84,6 +119,7 @@ def recipe(source: PurePath, media: MediaInfo, decision: Decision, *, tag: str) 
         fonts=media.fonts > 0,
         output=source.with_suffix(".mkv"),
         tag=tag,
+        encoder=encoder,
     )
 
 
@@ -104,7 +140,7 @@ def one_command(
     """The whole conversion in one ffmpeg command, for every method but the AI model's. FAST
     needs Anime4K's shader; progress goes to standard output, as ffmpeg's key=value lines."""
     devices, filters = _picture(made, shader, depth="p010le")
-    picture = ["-c:v", "copy"] if made.method is Method.REMUX else [*NVENC]
+    picture = ["-c:v", "copy"] if made.method is Method.REMUX else [*ENCODERS[made.encoder]]
     return [
         *ffmpeg,
         *QUIET_INPUT,
@@ -313,7 +349,7 @@ def encoder_command(
         *_maps(0, 1, picture="0:v"),
         "-vf",
         f"{_scale(made)},setsar=1,format=p010le",
-        *NVENC,
+        *ENCODERS[made.encoder],
         *_streams(made),
         "-f",
         "matroska",

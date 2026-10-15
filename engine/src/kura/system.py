@@ -1,15 +1,10 @@
-"""What this PC has to work with (its graphics card), and what the engine asks of Windows."""
+"""What the engine asks of Windows: that the programs it starts end with it, whether a file is in
+use, and whether a folder is on another computer (what the PC itself has: kura/hardware.py)."""
 
 import ctypes
-import functools
-import os
-import subprocess
 import sys
-from collections.abc import Iterable
 from pathlib import Path
 
-_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-_MAKERS = ("nvidia", "geforce", "quadro", "radeon", "amd", "intel arc")
 _KILL_ON_JOB_CLOSE = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
 _DELETE = 0x00010000  # the right to move or delete a file
 _SHARE_READ_WRITE = 0x1 | 0x2  # FILE_SHARE_READ | FILE_SHARE_WRITE
@@ -73,34 +68,6 @@ def end_programs_with_engine() -> bool:
         kernel.CloseHandle(job)
         return False
     return True  # the job stays open till the engine ends: Windows closes it, ending the rest
-
-
-def best_card(names: Iterable[str]) -> str | None:
-    """The card Kura converts with: a dedicated one when there is one, else the first."""
-    cards = [name.strip() for name in names if name.strip()]
-    dedicated = [name for name in cards if any(maker in name.casefold() for maker in _MAKERS)]
-    return (dedicated or cards or [None])[0]
-
-
-@functools.cache
-def graphics_card() -> str | None:
-    """The PC's graphics card as Windows names it, asked once. None when Windows won't say."""
-    if os.name != "nt":
-        return None
-    query = "Get-CimInstance Win32_VideoController | ForEach-Object Name"
-    try:
-        result = subprocess.run(  # noqa: S603 - a fixed command, no shell
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", query],  # noqa: S607
-            stdin=subprocess.DEVNULL,  # the engine's own input is the app's
-            capture_output=True,
-            text=True,
-            timeout=20,
-            creationflags=_NO_WINDOW,
-            check=False,
-        )
-    except OSError, subprocess.TimeoutExpired:
-        return None
-    return best_card(result.stdout.splitlines())
 
 
 def on_network(path: Path) -> bool:

@@ -1,12 +1,19 @@
 import { Link } from "react-router";
+import { ThisPcPanel } from "@/components/this-pc";
 import { TmdbCredit } from "@/components/tmdb-credit";
-import { useEngine, useHealth, useTmdb } from "@/lib/engine";
+import { useEngine, useHealth, useSystem, useTmdb } from "@/lib/engine";
 import { openDownloadsPage } from "@/lib/links";
 import { updateStatus, useReadyUpdate } from "@/lib/updates";
 import { Panel } from "./panel";
 
 const LINK =
   "cursor-pointer text-accent-fg underline-offset-3 hover:text-accent-fg-hover hover:underline";
+
+/** This PC: what Kura can do here and how long it takes, tested again on asking. */
+export function PcPanel() {
+  const system = useSystem();
+  return system.data ? <ThisPcPanel system={system.data} /> : null;
+}
 
 /** About Kura: this copy at a glance (engine, data folder, database, lookups and updates), its
  * licence, and whose work it stands on. */

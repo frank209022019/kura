@@ -1,5 +1,7 @@
-import { Check, Cpu } from "lucide-react";
+import { Check } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
+import { ThisPc } from "@/components/this-pc";
 import { TmdbKey } from "@/components/tmdb-key";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +11,7 @@ import {
   useScanAction,
   useSettings,
   useSystem,
+  useTestPc,
   useTools,
 } from "@/lib/engine";
 import { Footer, Panel } from "./parts";
@@ -23,6 +26,7 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
   // The speech models come the first time subtitles are asked for, not now.
   const needed = tools.data?.filter((tool) => tool.when === "setup");
   const ready = needed?.every((tool) => tool.state === "ready") ?? false;
+  useTestOnce(ready);
 
   function startScan() {
     if (!stored.data) return;
@@ -37,9 +41,9 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
 
   return (
     <Panel
-      title="Tools"
+      title="Tools and this PC"
       labelledBy="tools-title"
-      intro="Kura fetches these once, checks each one against the list it ships with, and keeps them in its data folder."
+      intro="Kura fetches ffmpeg once, checks it against the list it ships with, then looks at what this PC can do with it."
     >
       <ul className="flex flex-col gap-3">
         {needed?.map((tool) => (
@@ -48,19 +52,8 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
           </li>
         ))}
       </ul>
+      {system.data && <ThisPc system={system.data} waiting={!ready} />}
       <TmdbKey />
-      <p className="flex items-center gap-2.5 text-13 text-fg-soft">
-        <Cpu size={16} aria-hidden="true" className="text-fg-muted" />
-        {system.isPending && "Checking the graphics card…"}
-        {system.data &&
-          (system.data.graphicsCard ? (
-            <>
-              Graphics card: <strong>{system.data.graphicsCard}</strong>
-            </>
-          ) : (
-            "Kura couldn't find a graphics card. Scanning works; converting will be slow."
-          ))}
-      </p>
       {(save.isError || scan.isError) && (
         <p role="alert" className="text-13 text-broken-fg">
           The scan didn't start: {(save.error ?? scan.error)?.message}
@@ -78,6 +71,22 @@ export function ToolsStep({ onBack }: { onBack: () => void }) {
       </Footer>
     </Panel>
   );
+}
+
+/**
+ * Tests this PC once ffmpeg is ready, unless its times are measured already: the test times
+ * each part, so what Setup shows is this PC's own.
+ */
+function useTestOnce(ready: boolean) {
+  const system = useSystem();
+  const test = useTestPc();
+  const asked = useRef(false);
+  const due = ready && system.data && !system.data.measured && !system.data.testing;
+  useEffect(() => {
+    if (!due || asked.current) return;
+    asked.current = true;
+    test.mutate({ path: "/system/test" });
+  }, [due, test]);
 }
 
 function ToolRow({ tool }: { tool: Tool }) {

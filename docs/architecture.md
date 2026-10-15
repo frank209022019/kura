@@ -96,6 +96,10 @@ kura/
   changes.py      applying and undoing plans (tidy-ups, a converted file's replacement), journaled
   convert.py      converting one file, checked, then in its original's place
   upscale.py      the AI model on the graphics card, between two ffmpegs
+  hardware.py     what this PC has (its cards, processor and memory) and what's kept about it:
+                  what checking it found, and its own times, measured as it works
+  pc_check.py     checking what this PC can do (its encoder, the AI model, Anime4K) and timing
+                  each, in the background
   queue.py        the queue: files in the owner's order, converted, given English subtitles or
                   another copy's English, one at a time
   speech.py       English subtitles' hearing: the sound read, where someone speaks, Whisper
@@ -111,8 +115,8 @@ kura/
   anilist.py      AniList: which anime a file is
   tmdb.py         TMDB: episode lists, titles and artwork, with the owner's key
   credentials.py  the TMDB key, encrypted for the Windows user, outside the database
-  system.py       the graphics card, ending the programs the engine starts with it, whether
-                  another app has a file open, and whether a folder is on another computer
+  system.py       ending the programs the engine starts with it, whether another app has a
+                  file open, and whether a folder is on another computer
   export.py       the export zip
   data.py         how big each part of the data folder and each drive's quarantine is
   backups.py      the nightly backups of the database, and restoring one as the engine starts
@@ -140,7 +144,7 @@ The pipeline the core will grow into, step by step:
 | Match | parsed names, AniList and TMDB | which anime and episode, with a confidence |
 | Plan | matches, the standard, the naming style | proposed renames, moves, quarantines, conversions |
 | Check | the library, finished conversions | gaps, broken files, verified outputs |
-| Estimate | a plan, measured speeds | GPU time and disk space |
+| Estimate | a plan, this PC's measured speeds | GPU time and disk space |
 
 Scanning (`kura/scan.py`) runs on a background thread: it walks each library folder for videos
 (`kura/library.py`, by the rules in `kura/core/library.py`) and records each with its size and

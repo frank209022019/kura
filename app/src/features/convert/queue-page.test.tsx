@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EngineProvider, type Job, type QueueStatus, type Room } from "@/lib/engine";
-import { fakeEngine, READY } from "@/test/engine";
+import { fakeEngine, READY, SYSTEM } from "@/test/engine";
 import { QueuePage } from "./queue-page";
 
 const shell = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -40,6 +40,7 @@ function job(id: number, more: Partial<Job> = {}): Job {
     kind: "convert",
     language: null,
     modelMissing: false,
+    fastInstead: false,
     ...more,
   };
 }
@@ -286,6 +287,42 @@ describe("QueuePage", () => {
     ).not.toBeInTheDocument();
     within(failed).getByRole("button", { name: "Try again" }).click();
     await waitFor(() => expect(sent(fetch, "POST", "/queue/9/retry")).toHaveLength(1));
+  });
+
+  it("offers Fast when the card ran out of memory for Best", async () => {
+    const fetch = fakeEngine({
+      "/queue": {
+        ...RUNNING,
+        running: null,
+        queued: [],
+        today: [
+          job(9, {
+            state: "failed",
+            kind: "subtitles",
+            label: "Starfall Academy · S01E09",
+            problem: "The graphics card ran out of memory for Best.",
+            fastInstead: true,
+            finishedAt: "2026-10-11T12:00:00+02:00",
+          }),
+        ],
+      },
+      "/system": SYSTEM,
+      "POST /queue/9/retry": null,
+    });
+    renderQueue();
+
+    const failed = await screen.findByRole("alert");
+    await waitFor(() =>
+      expect(failed).toHaveTextContent(
+        "No English subtitles for Starfall Academy · S01E09. The graphics card ran out of memory for Best. Fast needs less, and makes them in about 3 minutes here. The video is as it was.",
+      ),
+    );
+    within(failed).getByRole("button", { name: "Make them with Fast" }).click();
+
+    await waitFor(() => expect(sent(fetch, "POST", "/queue/9/retry")).toHaveLength(1));
+    const [[, init]] = sent(fetch, "POST", "/queue/9/retry") as [[unknown, RequestInit]];
+    expect(JSON.parse(String(init.body))).toEqual({ quality: "fast" });
+    expect(within(failed).getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("pauses everything, by the button or the space bar", async () => {

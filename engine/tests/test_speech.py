@@ -2,6 +2,8 @@
 itself is a download, so the queue's tests stand in for it."""
 
 import json
+import sys
+import types
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,7 +11,16 @@ import numpy as np
 import pytest
 
 from kura.core.speech import SAMPLE_RATE
-from kura.speech import Detector, Listener, SpeechError, Stopped, sound_of
+from kura.speech import (
+    Detector,
+    Listener,
+    SpeechError,
+    Stopped,
+    _session,  # pyright: ignore[reportPrivateUsage]
+    out_of_memory,
+    sound_of,
+)
+from kura.upscale import DIRECTML
 from tests.converting import FAKE_FFMPEG
 
 
@@ -106,3 +117,56 @@ def test_whispers_two_halves_run_in_the_same_place(
     Listener(whisper_folder(tmp_path), detector=detector)
 
     assert halves.loads == loads
+
+
+def test_whisper_runs_on_the_processor_when_the_card_hasnt_the_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    detector, halves = Detector(), Halves({"encoder", "decoder"})
+    monkeypatch.setattr("kura.speech._session", halves)
+
+    Listener(whisper_folder(tmp_path), detector=detector, graphics=False)
+
+    assert halves.loads == [("encoder", False), ("decoder", False)]
+
+
+def test_the_processor_loads_whisper_below_the_rewrites_that_break_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """ONNX Runtime's highest level breaks half-precision layer norms on the processor."""
+    loaded: list[tuple[int, list[object]]] = []
+
+    class Options:
+        graph_optimization_level = 0
+
+    def session(path: str, options: Options, providers: list[object]) -> SimpleNamespace:
+        loaded.append((options.graph_optimization_level, providers))
+        return SimpleNamespace(get_providers=lambda: ["CPUExecutionProvider"])
+
+    onnxruntime = types.ModuleType("onnxruntime")
+    vars(onnxruntime).update(
+        disable_telemetry_events=lambda: None,
+        SessionOptions=Options,
+        GraphOptimizationLevel=SimpleNamespace(ORT_ENABLE_ALL=99, ORT_ENABLE_EXTENDED=2),
+        ExecutionMode=SimpleNamespace(ORT_SEQUENTIAL=0),
+        InferenceSession=session,
+    )
+    monkeypatch.setitem(sys.modules, "onnxruntime", onnxruntime)
+
+    _session(tmp_path / "encoder_model_fp16.onnx", graphics=False)
+    _session(tmp_path / "encoder_model_fp16.onnx", graphics=True)
+
+    assert loaded == [
+        (2, ["CPUExecutionProvider"]),
+        (99, [DIRECTML, "CPUExecutionProvider"]),
+    ]
+
+
+def test_a_card_out_of_memory_is_told_apart():
+    full = RuntimeError(
+        "Exception(3) tid(2b4c) 8007000E Not enough memory resources are available to complete "
+        "this operation."
+    )
+
+    assert out_of_memory(full)
+    assert not out_of_memory(RuntimeError("The GPU device instance has been suspended"))
