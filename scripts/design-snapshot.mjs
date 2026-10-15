@@ -2,9 +2,10 @@
 // so every screen opens in a browser without the canvas.
 //
 //   node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder>
-//                                    --player <folder> --english <folder> --readme <page>
+//                                    --player <folder> --english <folder> --anypc <folder>
+//                                    --readme <page>
 //
-// Any of the five canvases, each as Claude's Artifact tool saves it (a folder holding
+// Any of the six canvases, each as Claude's Artifact tool saves it (a folder holding
 // project/canvas.json), and the README options, a plain page (its HTML file, as a read of it
 // saves it); only the pages of the ones given are written again. See docs/design/README.md.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,6 +20,7 @@ const CANVASES = {
   player: "https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3",
   readme: "https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk",
   english: "https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA",
+  anypc: "https://claude.ai/artifact/BRYamJpre3pLDT4ZZtPhaN",
 };
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "design");
 const today = new Date().toISOString().slice(0, 10);
@@ -26,7 +28,7 @@ const today = new Date().toISOString().slice(0, 10);
 const folders = foldersIn(process.argv.slice(2));
 if (!folders) {
   console.error(
-    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --english <folder> --readme <page>",
+    "Usage: node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --english <folder> --anypc <folder> --readme <page>",
   );
   process.exit(1);
 }
@@ -111,6 +113,32 @@ if (folders.english) {
       toPage(english, file, {
         canvas: CANVASES.english,
         link: (target) => pages[`${target}.dc.html`] ?? "english.html",
+      }),
+    );
+    written += 1;
+  }
+}
+
+// Kura on any PC: what this PC can do, in Setup (on the owner's PC and on a laptop with Intel
+// graphics) and in Settings › About, Convert's times measured on this PC, English subtitles on a
+// smaller card, the small things, and what a PC needs, each a page that links to the others.
+if (folders.anypc) {
+  const anypc = readCanvas(folders.anypc);
+  const pages = {
+    "Main.dc.html": "anypc.html",
+    "Laptop.dc.html": "anypc-laptop.html",
+    "About.dc.html": "anypc-about.html",
+    "Convert.dc.html": "anypc-convert.html",
+    "Subtitles.dc.html": "anypc-subtitles.html",
+    "Small-things.dc.html": "anypc-states.html",
+    "Requirements.dc.html": "anypc-requirements.html",
+  };
+  for (const [file, name] of Object.entries(pages)) {
+    writeFileSync(
+      join(out, name),
+      toPage(anypc, file, {
+        canvas: CANVASES.anypc,
+        link: (target) => pages[`${target}.dc.html`] ?? "anypc.html",
       }),
     );
     written += 1;

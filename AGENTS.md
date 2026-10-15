@@ -40,7 +40,9 @@ copy, and what "done" means.
    AI models and what Kura downloads (`engine/src/kura/downloads.json`, `engine/src/kura/assets/`).
    A model or a downloaded tool moves to its newest release once it measures at least as good,
    and fast enough, on the owner's PC; if it doesn't, the one in use stays and its page in
-   `docs/stack/` says why. A page in `docs/stack/` for every tool and model.
+   `docs/stack/` says why. It never raises what a PC needs to run Kura: a heavier model comes as
+   a choice beside the lighter one (as Best beside Fast), and every part says what it needs on
+   the PC it runs on. A page in `docs/stack/` for every tool and model.
 9. **Docs move with code**, in the same commit. Decisions go in CLAUDE.md.
 10. **No personal details.** No email addresses, no employer or company behind Kura, and no
     personal details beyond the owner's name, anywhere: files, test data, commit messages. The

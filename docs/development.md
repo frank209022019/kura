@@ -118,6 +118,11 @@ When the newest doesn't fit (a bigger Whisper is too slow on a 6 GB card, say), 
 stays, and its stack page says what was tried and why, so the next update doesn't measure it again
 for nothing.
 
+Other people's PCs count too: a newer model never raises what a PC needs (README.md's "What your
+PC needs"). One that wants more memory or a stronger card than the one it replaces comes as a
+choice beside the lighter one, as Best beside Fast, and Kura's check of the PC (Setup's last step,
+Settings › About) learns what the new one needs.
+
 ## Troubleshooting
 
 **"Are you sure you have RC.EXE in your $PATH" when building the shell.** Rust finds the Windows

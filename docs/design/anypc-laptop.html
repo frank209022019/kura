@@ -1,0 +1,91 @@
+<!doctype html>
+<!-- Kura design snapshot of "The same on a laptop with Intel graphics" (https://claude.ai/artifact/BRYamJpre3pLDT4ZZtPhaN), taken 2026-10-15.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The same on a laptop with Intel graphics · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kpop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; padding: 40px 24px 56px">
+<div style="max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+
+<header style="display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; color: #a3a8b3"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#f2b33d"></rect><rect x="6.4" y="6.5" width="2.8" height="11" rx="1.4" fill="#1d1300"></rect><rect x="10.6" y="8.5" width="2.8" height="9" rx="1.4" fill="#1d1300"></rect><rect x="14.6" y="6.2" width="2.8" height="11.2" rx="1.4" fill="#1d1300" transform="rotate(14 16 11.8)"></rect></svg>Kura setup · First run</span>
+<h1 style="margin: 0; font-size: 34px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em">Welcome to Kura</h1>
+<p style="margin: 0; font-size: 15px; color: #a3a8b3">Four quick steps. You can change any of them later in Settings, and nothing in your folders changes until you review it.</p>
+</header>
+
+<section aria-labelledby="tools-title" style="display: flex; flex-direction: column; gap: 20px; padding: 28px; border-radius: 26px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); animation: kpop .45s cubic-bezier(.2,.8,.2,1) both">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 id="tools-title" style="margin: 0; font-size: 22px; font-weight: 800">Tools and this PC</h2>
+<p style="margin: 0; color: #a3a8b3">Kura fetches ffmpeg once, checks it against the list it ships with, then looks at what this PC can do with it.</p>
+</div>
+
+<section aria-labelledby="pc-title" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+<span style="display: flex; flex-direction: column; gap: 4px">
+<h3 id="pc-title" style="margin: 0; font-size: 17px; font-weight: 800">What this PC can do</h3>
+<span style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(255,255,255,.05); font-size: 12px; font-weight: 700; color: #d7dae0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="2"></rect><path d="M6 18v3M10 18v3M14 18v3M18 18v3"></path><circle cx="9" cy="12.5" r="2"></circle></svg>Intel UHD Graphics 620 · shares the PC's memory</span>
+<span style="display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 12px; border-radius: 14px; background: rgba(255,255,255,.05); font-size: 12px; font-weight: 700; color: #d7dae0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"></path></svg>Intel Core i7-8550U · 4 cores · 16 GB</span>
+</span>
+</span>
+<button type="button" style="min-height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Test this PC again</button>
+</div>
+
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-radius: 18px; border: 1px solid rgba(255,255,255,.08); overflow: hidden">
+<li style="display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06)">
+<span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d"></span>
+<span style="font-weight: 800">Convert to your standard</span>
+<span style="font-size: 13px; color: #a3a8b3">HEVC 10-bit on Intel Quick Sync</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0; text-align: right">≈ 14 min an episode</span>
+</li>
+<li style="display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; gap: 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06)">
+<span aria-hidden="true" style="margin-top: 5px; width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; border: 2px solid #f2b33d"></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 800">AI upscale for SD</span><span style="align-self: flex-start; padding: 0 8px; border-radius: 10px; background: rgba(242,179,61,.14); color: #ffd27a; font-size: 11px; font-weight: 800">Slow here</span></span>
+<span style="font-size: 13px; color: #a3a8b3">Real-ESRGAN on the processor's graphics, slowly. SD episodes get the fast upscale unless you choose the AI model on Convert.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0; text-align: right">≈ 9 h an episode</span>
+</li>
+<li style="display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06)">
+<span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d"></span>
+<span style="font-weight: 800">Fast upscale for 720p</span>
+<span style="font-size: 13px; color: #a3a8b3">Anime4K on the processor's graphics</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0; text-align: right">≈ 50 min an episode</span>
+</li>
+<li style="display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; gap: 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.06)">
+<span aria-hidden="true" style="margin-top: 5px; width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; border: 2px solid #f2b33d"></span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 800">English subtitles</span><span style="align-self: flex-start; padding: 0 8px; border-radius: 10px; background: rgba(242,179,61,.14); color: #ffd27a; font-size: 11px; font-weight: 800">Fast only</span></span>
+<span style="font-size: 13px; color: #a3a8b3">Fast on the processor. Best wants a graphics card with 4 GB of memory of its own.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #d7dae0; text-align: right">≈ 40 min an episode</span>
+</li>
+<li style="display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 14px 16px">
+<span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: #f2b33d"></span>
+<span style="font-weight: 800">Play inside Kura</span>
+<span style="font-size: 13px; color: #a3a8b3">Windows' own video encoder</span>
+<span style="font-size: 13px; font-weight: 700; color: #ffd27a; text-align: right">Ready</span>
+</li>
+</ul>
+<p style="margin: 0; font-size: 12px; color: #7c818c">Times measured on this PC just now, for a 24-minute episode. Kura keeps measuring as it works, so they stay true.</p>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.06)">
+<span style="font-size: 13px; color: #a3a8b3">The first scan only looks: nothing is renamed or moved.</span>
+<span style="display: flex; gap: 10px">
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #f4f5f7; font: inherit; font-weight: 700">Back</button>
+<button type="button" style="min-height: 44px; padding: 0 20px; border-radius: 22px; border: 0; background: #f2b33d; color: #1d1300; font: inherit; font-weight: 800">Start the first scan</button>
+</span>
+</div>
+</section>
+</div>
+</div>
+</body>
+</html>

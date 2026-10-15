@@ -24,7 +24,7 @@ full screen and back); English subtitles made on the PC from a video's own sound
 the graphics card, in the queue with the conversions), with each video's languages on its title's
 page and Home; and another copy's English sound and subtitles added to the copy Tidy up keeps.
 Kura 0.1.0, the first release, went out on 2026-10-12; CHANGELOG.md has every release since.
-Everything in [What's next](#whats-next) is built.
+Everything in [What's next](#whats-next) is built but Kura on any PC (12), being built.
 
 ## Ground rules
 
@@ -63,7 +63,9 @@ Everything in [What's next](#whats-next) is built.
   them current wherever possible (the owner, 2026-10-15: "all packages, and AI models are on the
   latest where possible"; see "Updating dependencies" in
   [docs/development.md](docs/development.md)). A model or a downloaded tool moves up once the newer
-  one measures at least as good and fast enough on the owner's PC.
+  one measures at least as good and fast enough on the owner's PC, and never raises what a PC
+  needs (the owner: "if users download this, and try with different spec pcs, they won't be able
+  to use the models"): a heavier one comes as a choice beside the lighter one, as Best beside Fast.
 - **Fix what you find.** A real fault found while working is fixed in the same piece of work, test
   first. Ask only about what is genuinely the owner's call: scope, money, anything irreversible or
   public.
@@ -277,6 +279,17 @@ Everything decided so far. Don't ask again; change only with the owner.
   it in place; then the kept copy as it was and the other go to quarantine together, as one
   change History puts back, kept there even when converted originals are deleted. Copies that
   aren't the same cut stay as they are; the next time, Tidy up says why and has "as it is" chosen.
+- Kura on any PC (the owner, 2026-10-15: "if users download this, and try with different spec
+  pcs, they won't be able to use the models, based on their specs"; "No need for my approval, go
+  ahead make the designs"): Setup's last step (Tools and this PC) and Settings › About say what
+  this PC can do, each part tested there with ffmpeg and ONNX Runtime: converting (the HEVC 10-bit
+  encoder found: NVIDIA's NVENC, AMD's AMF or Intel's Quick Sync), the AI model, Anime4K, English
+  subtitles (Best wants a card with 4 GB of its own memory, Fast 2 GB, else the processor) and the
+  player. Times are measured on this PC (a test of about a minute, then every job), never the
+  owner's card's; before then they say they're a guess. A part the PC can't do says so and what
+  still works; one that's slow there (the AI model over 3 hours an episode) has the lighter way
+  chosen first, the heavier one still a choice. The README and the downloads page say what a PC
+  needs. Drawn on the Kura on Any PC canvas (What's next, 12).
 - A title's videos come a season at a time (the owner, 2026-10-15: "The list of episodes for a
   series is too long again, not by season and a lengthy scroll. Do something nice for movies,
   series, etc"): a pill per season above the list, then Specials, then any files without a
@@ -311,8 +324,9 @@ Everything decided so far. Don't ask again; change only with the owner.
   of truth for screens), the [options record](https://claude.ai/artifact/NWe6abnPRYCn6BGTVK25za),
   [Kura Light Mode Options](https://claude.ai/artifact/7Bdz7CoKjBbV8JrSLXfu4y) (Paper's Home
   and queue, the same in Cinema's dark beside them, and the two lights not chosen),
-  [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3) and
-  [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA) (seven boards).
+  [Kura Player](https://claude.ai/artifact/3MK2zSwv9fS1jzt2rP7Qw3),
+  [Kura English Subtitles](https://claude.ai/artifact/RmbcFdZiDMXYvz69cQ9CYA) (seven boards) and
+  [Kura on Any PC](https://claude.ai/artifact/BRYamJpre3pLDT4ZZtPhaN) (seven boards).
   Snapshots in [docs/design/](docs/design/), each canvas's as it changes (the owner, 2026-10-15:
   "Make sure to add the designs to the docs").
 
@@ -486,6 +500,11 @@ Everything decided so far. Don't ask again; change only with the owner.
     conversions, with the small things (the model first, waiting for the card, nothing said, a
     sound that won't read, English sound written down, taking them away), and English sound and
     subtitles added from another copy the owner keeps, in Tidy up's duplicates: done.
+12. Kura on any PC, to the [Kura on Any PC](https://claude.ai/artifact/BRYamJpre3pLDT4ZZtPhaN)
+    canvas (2026-10-15): what this PC can do in Setup and Settings › About, tested there;
+    converting on AMD's and Intel's encoders as on NVIDIA's; times measured on this PC; the lighter
+    way where the card is small or slow; the small things; and what a PC needs in the README and
+    on the downloads page. Being built.
 
 Licences, all settled (the owner, 2026-10-14). ffmpeg: Kura doesn't ship it; the first run
 downloads an LGPL build (LGPL-2.1-or-later) from the source `engine/src/kura/downloads.json`

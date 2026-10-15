@@ -1,0 +1,89 @@
+<!doctype html>
+<!-- Kura design snapshot of "The small things" (https://claude.ai/artifact/BRYamJpre3pLDT4ZZtPhaN), taken 2026-10-15.
+     Change the canvas, then re-run scripts/design-snapshot.mjs; don't edit this file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The small things · Kura design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&amp;family=Manrope:wght@500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#ffd27a}a:hover{color:#ffe1a6}
+@keyframes kpulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes kpop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; box-sizing: border-box; background: #0b0c0f; color: #f4f5f7; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; padding: 48px 24px 64px">
+<div style="max-width: 1232px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+<header style="display: flex; flex-direction: column; gap: 8px; max-width: 760px">
+<h1 style="margin: 0; font-size: 36px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em">The small things</h1>
+<p style="margin: 0; font-size: 16px; color: #a3a8b3">What Kura says when a PC can't do something, or not as quickly: what it found, what still works, and the next step.</p>
+</header>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px">
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">No encoder for the standard</span>
+<div role="status" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08)">
+<span style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; border: 2px solid #7c818c"></span><span style="font-weight: 800">This PC can't convert to your standard</span></span>
+<span style="font-size: 13px; color: #d7dae0">Its graphics card, an AMD Radeon R7 250, has no encoder for HEVC 10-bit. Everything else in Kura works here: finding and naming every episode, tidying up, the gap analysis, English subtitles and the player.</span>
+<span style="font-size: 12px; color: #a3a8b3">Converting wants an NVIDIA GeForce GTX 10-series card or newer, an AMD Radeon RX 5000 or newer, or an Intel Core from the 7th generation on.</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" style="min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Test this PC again</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 50ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">Testing this PC</span>
+<div role="status" aria-label="Testing this PC" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08)">
+<span style="font-weight: 800">Testing this PC · about a minute</span>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+<li style="display: flex; align-items: center; gap: 10px"><span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 9px; background: #f2b33d; color: #1d1300; display: inline-flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg></span>The encoder · 61 frames a second</li>
+<li aria-current="step" style="display: flex; align-items: center; gap: 10px; color: #ffd27a; font-weight: 700"><span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 9px; box-shadow: inset 0 0 0 2px #f2b33d; animation: kpulse 1.4s ease-in-out infinite"></span>The AI model, on 24 frames</li>
+<li style="display: flex; align-items: center; gap: 10px; color: #a3a8b3"><span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 9px; box-shadow: inset 0 0 0 2px #5b6170"></span>The fast upscale</li>
+</ol>
+<span style="font-size: 12px; color: #a3a8b3">Converting waits till it's done. Nothing in your library is touched.</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 100ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">Out of graphics memory</span>
+<div role="alert" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: rgba(214,96,80,.07); border: 1px solid rgba(214,96,80,.26)">
+<span style="font-size: 13px"><strong style="font-weight: 800">No English subtitles for S01E09.</strong> <span style="color: #d7dae0">The graphics card ran out of memory for Best. Fast needs less, and makes them in about 4 minutes here. The video is as it was.</span></span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><button type="button" style="min-height: 38px; padding: 0 14px; border: 0; border-radius: 19px; background: #f2b33d; color: #1d1300; font: inherit; font-size: 13px; font-weight: 800">Make them with Fast</button><button type="button" style="min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Try again</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 150ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">Before Kura has measured this PC</span>
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-radius: 20px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08)">
+<span style="flex: 1 1 260px; font-size: 13px; color: #d7dae0">These times are a guess, from a GTX 1660 Super, until Kura has measured this PC.</span>
+<button type="button" style="min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Test this PC</button>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 200ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">The encoder didn't start</span>
+<div role="alert" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08)">
+<span style="font-weight: 800">NVIDIA's encoder didn't start</span>
+<span style="font-size: 13px; color: #d7dae0">The card is there, so its driver may be too old for the encoder Kura's ffmpeg asks for. Update the driver from NVIDIA's site, then test this PC again.</span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #a3a8b3">hevc_nvenc: Driver does not support the required nvenc API version</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px"><a href="https://www.nvidia.com/Download/index.aspx" style="min-height: 38px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 19px; background: #f2b33d; color: #1d1300; font-size: 13px; font-weight: 800; text-decoration: none">NVIDIA's drivers</a><button type="button" style="min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #f4f5f7; font: inherit; font-size: 13px; font-weight: 700">Test again</button></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; animation: kpop .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: 250ms">
+<span style="font-size: 12px; font-weight: 800; color: #a3a8b3">No AI model on this PC</span>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; border: 2px dashed rgba(255,255,255,.14)">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span style="font-size: 16px; font-weight: 800; color: #a3a8b3">Best quality</span><span style="padding: 0 8px; border-radius: 10px; box-shadow: inset 0 0 0 1.5px #7c818c; color: #a3a8b3; font-size: 11px; font-weight: 800">Not on this PC</span></span>
+<span style="font-size: 13px; color: #a3a8b3">Its graphics card can't run the AI model: it needs DirectX 12. SD episodes get the fast upscale instead.</span>
+<span style="font-size: 12px; color: #7c818c">Real-ESRGAN anime model</span>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+</body>
+</html>

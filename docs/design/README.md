@@ -20,6 +20,10 @@ private; these snapshots are the shared copy):
   its sound, the Make dialog, the queue and the player with them, English sound from another
   copy, Home by language, and the small things ([english.html](english.html) and the pages after
   it).
+- [Kura on Any PC](https://claude.ai/artifact/BRYamJpre3pLDT4ZZtPhaN): what this PC can do, in
+  Setup (on the owner's PC and on a laptop with Intel graphics) and in Settings › About, Convert's
+  times measured on this PC, English subtitles on a smaller card, the small things, and what a PC
+  needs, for the README and the downloads page ([anypc.html](anypc.html) and the pages after it).
 - [Kura README Options](https://claude.ai/artifact/SJXeVqCrbCZPHk5Y17p7jk): three drafts of the
   repo's README, B (a tour) chosen ([readme.html](readme.html)). Its pictures are the README's
   own, in [../readme/](../readme/).
@@ -54,6 +58,13 @@ private; these snapshots are the shared copy):
 | English sound from another copy | [english-copy.html](english-copy.html) |
 | Home: what has no English | [english-home.html](english-home.html) |
 | English subtitles' small things | [english-states.html](english-states.html) |
+| Setup: what this PC can do | [anypc.html](anypc.html) |
+| The same on a laptop with Intel graphics | [anypc-laptop.html](anypc-laptop.html) |
+| Settings › About: this PC | [anypc-about.html](anypc-about.html) |
+| Convert: times measured on this PC | [anypc-convert.html](anypc-convert.html) |
+| English subtitles on a smaller card | [anypc-subtitles.html](anypc-subtitles.html) |
+| Any PC's small things | [anypc-states.html](anypc-states.html) |
+| What your PC needs: the README and the downloads page | [anypc-requirements.html](anypc-requirements.html) |
 | The README: three drafts, the tour chosen | [readme.html](readme.html) |
 
 The sample library is made up: its titles, episodes and files are invented (Starfall Academy and
@@ -74,7 +85,7 @@ The pages are generated; don't edit them. When a canvas changes, ask Claude to r
 README options are a plain page: give the file a read of it saves):
 
 ```powershell
-node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --english <folder> --readme <page>
+node scripts/design-snapshot.mjs --workflows <folder> --options <folder> --light <folder> --player <folder> --english <folder> --anypc <folder> --readme <page>
 ```
 
 The script expands each board's repeated parts with the board's own sample data and rewrites the
