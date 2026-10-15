@@ -8,6 +8,8 @@ shows these notes when it offers the update.
 
 ## Unreleased
 
+## 0.17.0 - 2026-10-15
+
 ### Added
 - Kura on any PC: Setup's last step, now "Tools and this PC", tests what this PC can do once
   ffmpeg is there (about a minute) and says it part by part, with how long an episode takes:
