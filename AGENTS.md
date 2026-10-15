@@ -34,7 +34,13 @@ copy, and what "done" means.
 6. **Contracts change on both sides at once.** The engine API (`engine/openapi.json` ↔
    `app/src/lib/engine.tsx`) and the shell handshake (`engine.rs` ↔ `test_cli.py`).
 7. **Test first.** New behaviour and every bug fix start with a failing test.
-8. **Latest stable versions** of every tool and library; a page in `docs/stack/` for every tool.
+8. **Latest stable versions** of every package, tool and AI model, wherever possible. Look for a
+   newer release whenever you add or touch one, and run the update routine in
+   [docs/development.md](docs/development.md) every couple of weeks: it covers the packages, the
+   AI models and what Kura downloads (`engine/src/kura/downloads.json`, `engine/src/kura/assets/`).
+   A model or a downloaded tool moves to its newest release once it measures at least as good,
+   and fast enough, on the owner's PC; if it doesn't, the one in use stays and its page in
+   `docs/stack/` says why. A page in `docs/stack/` for every tool and model.
 9. **Docs move with code**, in the same commit. Decisions go in CLAUDE.md.
 10. **No personal details.** No email addresses, no employer or company behind Kura, and no
     personal details beyond the owner's name, anywhere: files, test data, commit messages. The

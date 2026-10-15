@@ -76,8 +76,10 @@ and error states.
 
 ## Updating dependencies
 
-Kura stays on the latest versions. There is no Dependabot (it would open branches), so update on
-`main`, ideally every couple of weeks:
+Kura stays on the latest versions of everything it uses, packages and AI models alike, wherever
+possible (the owner, 2026-10-15). There is no Dependabot (it would open branches), so update on
+`main`, ideally every couple of weeks, and look for a newer release whenever you add or touch
+something:
 
 ```powershell
 uv self update; cd engine; uv lock --upgrade; uv sync    # Python packages
@@ -90,6 +92,31 @@ check, skim the changelogs of anything that jumped a major version, and update t
 [docs/README.md](README.md). Pinned GitHub Actions are updated the same way: look up each action's
 latest release and change the SHA and the version comment. pnpm refuses packages younger than a day
 (a supply-chain safeguard); if the newest release is that fresh, take the one before it.
+
+### AI models and downloads
+
+The AI models and the programs Kura downloads are pinned (a release or commit, a size and a
+SHA-256), so a file never changes under Kura, and so they never update by themselves. At each
+update, look for the newest release of each:
+
+| What | Pinned in | Where releases come from |
+| --- | --- | --- |
+| ffmpeg (an LGPL build) | `engine/src/kura/downloads.json` | the source it names (BtbN's FFmpeg-Builds) |
+| Whisper medium and small (ONNX, half precision) | `engine/src/kura/downloads.json` | onnx-community's exports on Hugging Face; OpenAI's Whisper |
+| pyannote's segmentation model | `engine/src/kura/assets/` | pyannote, and onnx-community's export, on Hugging Face |
+| Real-ESRGAN's anime video model | `engine/src/kura/assets/` | the Real-ESRGAN releases on GitHub |
+| Anime4K's shaders | `engine/src/kura/assets/` | the Anime4K releases on GitHub |
+
+WebView2 is Microsoft's and keeps itself current. A newer model or build is measured before it's
+taken: its speed on the owner's PC (the measured speeds are in `engine/src/kura/core/estimate.py`)
+and its quality the way its stack page measured it (the English a release has, for speech; frames
+compared, for upscaling). Take it when it's at least as good and fits the time the owner accepted;
+then update its pin (version, addresses, sizes, SHA-256), the speeds, its licence in the notices
+(`engine/tools/third_party_notices.py`), its page in [stack/](stack/), the versions table in
+[README.md](README.md), "The AI inside" in the [project's README](../README.md), and the changelog.
+When the newest doesn't fit (a bigger Whisper is too slow on a 6 GB card, say), the one in use
+stays, and its stack page says what was tried and why, so the next update doesn't measure it again
+for nothing.
 
 ## Troubleshooting
 

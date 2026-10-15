@@ -59,8 +59,11 @@ Everything in [What's next](#whats-next) is built.
 - **Every change you'd notice goes in CHANGELOG.md**, in the same commit, under "Unreleased"
   (see [docs/releasing.md](docs/releasing.md)). Versions are semantic, and every release must be
   newer than the last so installed copies see it as an update.
-- **Latest versions.** Use the newest stable release of every tool and library, and keep them
-  current (see "Updating dependencies" in [docs/development.md](docs/development.md)).
+- **Latest versions.** Use the newest stable release of every package, tool and AI model, and keep
+  them current wherever possible (the owner, 2026-10-15: "all packages, and AI models are on the
+  latest where possible"; see "Updating dependencies" in
+  [docs/development.md](docs/development.md)). A model or a downloaded tool moves up once the newer
+  one measures at least as good and fast enough on the owner's PC.
 - **Fix what you find.** A real fault found while working is fixed in the same piece of work, test
   first. Ask only about what is genuinely the owner's call: scope, money, anything irreversible or
   public.

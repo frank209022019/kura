@@ -44,7 +44,9 @@ Start with [../AGENTS.md](../AGENTS.md) and [../CLAUDE.md](../CLAUDE.md).
   handshake test against the bundle (see [docs/stack/pyinstaller.md](../docs/stack/pyinstaller.md)).
 - Add a dependency only for a clear need, at its latest stable version (`uv add`), with a licence
   on the allowed list in `tools/third_party_notices.py`, and give it a page or a section in
-  `docs/stack/`.
+  `docs/stack/`. An AI model, too, starts at its newest release that runs well enough on the
+  owner's PC, and moves up as newer ones measure as well (see "Updating dependencies" in
+  [docs/development.md](../docs/development.md)).
 
 ## Commands
 
